@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axis Import — Dashboard Prospection</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --border: #2a2e3a;
+    --text: #e4e6ed;
+    --text-muted: #8b8fa3;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --green: #00b894;
+    --green-bg: rgba(0,184,148,0.12);
+    --blue: #0984e3;
+    --blue-bg: rgba(9,132,227,0.12);
+    --orange: #f39c12;
+    --orange-bg: rgba(243,156,18,0.12);
+    --red: #e74c3c;
+    --red-bg: rgba(231,76,60,0.12);
+    --purple: #6c5ce7;
+    --purple-bg: rgba(108,92,231,0.12);
+    --cyan: #00cec9;
+    --cyan-bg: rgba(0,206,201,0.12);
+    --pink: #fd79a8;
+    --pink-bg: rgba(253,121,168,0.12);
+    --yellow: #fdcb6e;
+    --yellow-bg: rgba(253,203,110,0.12);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background animated gradient */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 20% 50%, rgba(108,92,231,0.06) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0,184,148,0.04) 0%, transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(9,132,227,0.04) 0%, transparent 50%);
+    z-index: 0;
+    animation: bgShift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgShift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-5%, -3%); }
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 4px 20px rgba(108,92,231,0.3);
+  }
+
+  .header-title h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .header-title p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .status-badge.draft {
+    background: var(--orange-bg);
+    color: var(--orange);
+    border: 1px solid rgba(243,156,18,0.2);
+  }
+
+  .status-badge.active {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(0,184,148,0.2);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .date-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  /* Section titles */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* KPI Cards Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(108,92,231,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .kpi-card.purple::before { background: linear-gradient(90deg, var(--purple), var(--accent-light)); }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--green), #55efc4); }
+  .kpi-card.blue::before { background: linear-gradient(90deg, var(--blue), #74b9ff); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, var(--orange), var(--yellow)); }
+  .kpi-card.cyan::before { background: linear-gradient(90deg, var(--cyan), #81ecec); }
+  .kpi-card.pink::before { background: linear-gradient(90deg, var(--pink), #fab1a0); }
+  .kpi-card.red::before { background: linear-gradient(90deg, var(--red), #ff7675); }
+  .kpi-card.yellow::before { background: linear-gradient(90deg, var(--yellow), #ffeaa7); }
+
+  .kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 14px;
+  }
+
+  .kpi-card.purple .kpi-icon { background: var(--purple-bg); }
+  .kpi-card.green .kpi-icon { background: var(--green-bg); }
+  .kpi-card.blue .kpi-icon { background: var(--blue-bg); }
+  .kpi-card.orange .kpi-icon { background: var(--orange-bg); }
+  .kpi-card.cyan .kpi-icon { background: var(--cyan-bg); }
+  .kpi-card.pink .kpi-icon { background: var(--pink-bg); }
+  .kpi-card.red .kpi-icon { background: var(--red-bg); }
+  .kpi-card.yellow .kpi-icon { background: var(--yellow-bg); }
+
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .kpi-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .kpi-card.purple .kpi-value { color: var(--accent-light); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+  .kpi-card.blue .kpi-value { color: var(--blue); }
+  .kpi-card.orange .kpi-value { color: var(--orange); }
+  .kpi-card.cyan .kpi-value { color: var(--cyan); }
+  .kpi-card.pink .kpi-value { color: var(--pink); }
+  .kpi-card.red .kpi-value { color: var(--red); }
+  .kpi-card.yellow .kpi-value { color: var(--yellow); }
+
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .kpi-sub .change {
+    font-weight: 600;
+  }
+
+  .kpi-sub .change.up { color: var(--green); }
+  .kpi-sub .change.down { color: var(--red); }
+
+  /* Funnel Section */
+  .middle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-title span {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  /* Funnel */
+  .funnel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .funnel-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+  }
+
+  .funnel-bar-container {
+    flex: 1;
+    height: 42px;
+    background: var(--surface2);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .funnel-bar {
+    height: 100%;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    min-width: fit-content;
+  }
+
+  .funnel-bar.purple { background: linear-gradient(90deg, rgba(108,92,231,0.6), rgba(108,92,231,0.2)); color: var(--accent-light); }
+  .funnel-bar.green { background: linear-gradient(90deg, rgba(0,184,148,0.6), rgba(0,184,148,0.2)); color: #55efc4; }
+  .funnel-bar.blue { background: linear-gradient(90deg, rgba(9,132,227,0.6), rgba(9,132,227,0.2)); color: #74b9ff; }
+  .funnel-bar.orange { background: linear-gradient(90deg, rgba(243,156,18,0.6), rgba(243,156,18,0.2)); color: var(--yellow); }
+  .funnel-bar.cyan { background: linear-gradient(90deg, rgba(0,206,201,0.6), rgba(0,206,201,0.2)); color: #81ecec; }
+  .funnel-bar.pink { background: linear-gradient(90deg, rgba(253,121,168,0.6), rgba(253,121,168,0.2)); color: #fab1a0; }
+  .funnel-bar.red { background: linear-gradient(90deg, rgba(231,76,60,0.6), rgba(231,76,60,0.2)); color: #ff7675; }
+
+  .funnel-label {
+    width: 120px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: right;
+  }
+
+  .funnel-value {
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 60px;
+  }
+
+  .funnel-rate {
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 45px;
+    text-align: right;
+  }
+
+  /* Social Media Section */
+  .social-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .social-card {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+
+  .social-card:hover {
+    transform: scale(1.03);
+  }
+
+  .social-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .social-value {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .social-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Progress Ring */
+  .progress-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 20px 0;
+  }
+
+  .ring-container {
+    position: relative;
+    width: 140px;
+    height: 140px;
+  }
+
+  .ring-container svg {
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg {
+    fill: none;
+    stroke: var(--surface2);
+    stroke-width: 10;
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ring-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .ring-label .value {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+
+  .ring-label .label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .ring-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ring-info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ring-info-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  /* Timeline */
+  .timeline-container {
+    margin-top: 32px;
+  }
+
+  .timeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 20px 0;
+    position: relative;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    transform: translateY(-50%);
+  }
+
+  .timeline-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .timeline-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: var(--surface2);
+    border: 3px solid var(--border);
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+  }
+
+  .timeline-step.done .timeline-dot {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 20px rgba(0,184,148,0.3);
+  }
+
+  .timeline-step.current .timeline-dot {
+    background: var(--orange);
+    border-color: var(--orange);
+    box-shadow: 0 0 20px rgba(243,156,18,0.3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .timeline-step.pending .timeline-dot {
+    opacity: 0.4;
+  }
+
+  .timeline-step-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .timeline-step.done .timeline-step-label { color: var(--green); }
+  .timeline-step.current .timeline-step-label { color: var(--orange); font-weight: 600; }
+
+  /* Footer */
+  .footer {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .footer a {
+    color: var(--accent-light);
+    text-decoration: none;
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-in {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
+  .delay-4 { animation-delay: 0.4s; }
+  .delay-5 { animation-delay: 0.5s; }
+  .delay-6 { animation-delay: 0.6s; }
+  .delay-7 { animation-delay: 0.7s; }
+  .delay-8 { animation-delay: 0.8s; }
+
+  /* Number counter animation */
+  .counter { display: inline-block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .middle-grid { grid-template-columns: 1fr; }
+    .container { padding: 16px; }
+  }
+
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .header { flex-direction: column; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header animate-in">
+    <div class="header-left">
+      <div class="logo">AI</div>
+      <div class="header-title">
+        <h1>Axis Import — Prospection</h1>
+        <p>Campagne : Convoyage Véhicules Europe</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge draft" id="campaignStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Warmup en cours</span>
+      </div>
+      <div class="date-badge" id="dateDisplay">Mis à jour : 14 mars 2026</div>
+    </div>
+  </div>
+
+  <!-- KPI Section: Prospection -->
+  <div class="section-title animate-in delay-1">
+    <span>📊 Pipeline de Prospection</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card purple animate-in delay-2">
+      <div class="kpi-icon">🔍</div>
+      <div class="kpi-label">Prospects Scrapés</div>
+      <div class="kpi-value"><span class="counter" data-target="5100">0</span></div>
+      <div class="kpi-sub">Base totale enrichie</div>
+    </div>
+
+    <div class="kpi-card green animate-in delay-3">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Qualifiés</div>
+      <div class="kpi-value"><span class="counter" data-target="5100">0</span></div>
+      <div class="kpi-sub"><span class="change up">100%</span> taux de qualification</div>
+    </div>
+
+    <div class="kpi-card blue animate-in delay-4">
+      <div class="kpi-icon">📧</div>
+      <div class="kpi-label">Emails Trouvés</div>
+      <div class="kpi-value"><span class="counter" data-target="5100">0</span></div>
+      <div class="kpi-sub"><span class="change up">100%</span> taux de couverture</div>
+    </div>
+
+    <div class="kpi-card orange animate-in delay-5">
+      <div class="kpi-icon">🚀</div>
+      <div class="kpi-label">Emails Envoyés</div>
+      <div class="kpi-value"><span class="counter" data-target="0">0</span></div>
+      <div class="kpi-sub">Démarrage après warmup</div>
+    </div>
+  </div>
+
+  <!-- KPI Section: Engagement -->
+  <div class="kpi-grid">
+    <div class="kpi-card cyan animate-in delay-5">
+      <div class="kpi-icon">👀</div>
+      <div class="kpi-label">Ouverts</div>
+      <div class="kpi-value"><span class="counter" data-target="0">0</span></div>
+      <div class="kpi-sub">Taux d'ouverture : --</div>
+    </div>
+
+    <div class="kpi-card pink animate-in delay-6">
+      <div class="kpi-icon">💬</div>
+      <div class="kpi-label">Réponses</div>
+      <div class="kpi-value"><span class="counter" data-target="0">0</span></div>
+      <div class="kpi-sub">Taux de réponse : --</div>
+    </div>
+
+    <div class="kpi-card red animate-in delay-7">
+      <div class="kpi-icon">📅</div>
+      <div class="kpi-label">RDV Obtenus</div>
+      <div class="kpi-value"><span class="counter" data-target="0">0</span></div>
+      <div class="kpi-sub">Objectif : 50+</div>
+    </div>
+
+    <div class="kpi-card yellow animate-in delay-8">
+      <div class="kpi-icon">🤝</div>
+      <div class="kpi-label">Clients Signés</div>
+      <div class="kpi-value"><span class="counter" data-target="0">0</span></div>
+      <div class="kpi-sub">Objectif : 10+</div>
+    </div>
+  </div>
+
+  <!-- Middle Section: Funnel + Social -->
+  <div class="middle-grid">
+    <!-- Funnel -->
+    <div class="card animate-in delay-5">
+      <div class="card-title">
+        Entonnoir de Conversion
+        <span>Pipeline complet</span>
+      </div>
+      <div class="funnel">
+        <div class="funnel-step">
+          <div class="funnel-label">Scrapés</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar purple" style="width: 100%;" id="funnelScraped">5 100</div>
+          </div>
+          <div class="funnel-rate">100%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">Qualifiés</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar green" style="width: 100%;" id="funnelQualified">5 100</div>
+          </div>
+          <div class="funnel-rate">100%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">Emails trouvés</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar blue" style="width: 100%;" id="funnelEmails">5 100</div>
+          </div>
+          <div class="funnel-rate">100%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">Envoyés</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar orange" style="width: 2%;" id="funnelSent">0</div>
+          </div>
+          <div class="funnel-rate" id="rateSent">0%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">Ouverts</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar cyan" style="width: 2%;" id="funnelOpened">0</div>
+          </div>
+          <div class="funnel-rate" id="rateOpened">0%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">Réponses</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar pink" style="width: 2%;" id="funnelReplied">0</div>
+          </div>
+          <div class="funnel-rate" id="rateReplied">0%</div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-label">RDV</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar red" style="width: 2%;" id="funnelRDV">0</div>
+          </div>
+          <div class="funnel-rate" id="rateRDV">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Progression + Social -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <!-- Progression -->
+      <div class="card animate-in delay-6">
+        <div class="card-title">
+          Progression Campagne
+          <span id="progressPercent">Phase 1/4</span>
+        </div>
+        <div class="progress-section">
+          <div class="ring-container">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle class="ring-bg" cx="70" cy="70" r="58"></circle>
+              <circle class="ring-progress" cx="70" cy="70" r="58"
+                      stroke="url(#gradient1)"
+                      stroke-dasharray="364.4"
+                      stroke-dashoffset="273.3"
+                      id="progressRing"></circle>
+              <defs>
+                <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#6c5ce7"/>
+                  <stop offset="100%" stop-color="#00b894"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ring-label">
+              <div class="value" style="color: var(--accent-light);" id="ringValue">25%</div>
+              <div class="label">Complété</div>
+            </div>
+          </div>
+          <div class="ring-info">
+            <div class="ring-info-item">
+              <div class="ring-info-dot" style="background: var(--green);"></div>
+              <span>Scraping : <strong style="color: var(--green);">Terminé</strong></span>
+            </div>
+            <div class="ring-info-item">
+              <div class="ring-info-dot" style="background: var(--orange);"></div>
+              <span>Warmup : <strong style="color: var(--orange);">En cours</strong></span>
+            </div>
+            <div class="ring-info-item">
+              <div class="ring-info-dot" style="background: var(--surface2);"></div>
+              <span>Envois : <strong style="color: var(--text-muted);">En attente</strong></span>
+            </div>
+            <div class="ring-info-item">
+              <div class="ring-info-dot" style="background: var(--surface2);"></div>
+              <span>Follow-up : <strong style="color: var(--text-muted);">En attente</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social Media -->
+      <div class="card animate-in delay-7">
+        <div class="card-title">
+          Réseaux Sociaux
+          <span>Performance organique</span>
+        </div>
+        <div class="social-grid">
+          <div class="social-card">
+            <div class="social-icon">📝</div>
+            <div class="social-value" style="color: var(--accent-light);"><span class="counter" data-target="0">0</span></div>
+            <div class="social-label">Posts publiés</div>
+          </div>
+          <div class="social-card">
+            <div class="social-icon">👁️</div>
+            <div class="social-value" style="color: var(--cyan);"><span class="counter" data-target="0">0</span></div>
+            <div class="social-label">Impressions</div>
+          </div>
+          <div class="social-card">
+            <div class="social-icon">❤️</div>
+            <div class="social-value" style="color: var(--pink);"><span class="counter" data-target="0">0</span></div>
+            <div class="social-label">Engagement</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline-container animate-in delay-7">
+    <div class="section-title">
+      <span>🗓️ Étapes du Projet</span>
+    </div>
+    <div class="timeline">
+      <div class="timeline-step done">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-step-label">Scraping<br>5 100 prospects</div>
+      </div>
+      <div class="timeline-step done">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-step-label">Qualification<br>& enrichissement</div>
+      </div>
+      <div class="timeline-step current">
+        <div class="timeline-dot">⏳</div>
+        <div class="timeline-step-label">Warmup<br>emails</div>
+      </div>
+      <div class="timeline-step pending">
+        <div class="timeline-dot">4</div>
+        <div class="timeline-step-label">Lancement<br>campagne</div>
+      </div>
+      <div class="timeline-step pending">
+        <div class="timeline-dot">5</div>
+        <div class="timeline-step-label">Follow-up<br>& relances</div>
+      </div>
+      <div class="timeline-step pending">
+        <div class="timeline-dot">6</div>
+        <div class="timeline-step-label">Closing<br>RDV & clients</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer animate-in delay-8">
+    <div>Axis Import — Dashboard de Prospection Automatisé</div>
+    <div>Données auto depuis Google Sheet · <span id="lastUpdate">--</span> · <span id="refreshStatus" style="color: var(--green);">●</span> Auto-refresh 5 min</div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.5s;">
+  <div style="text-align:center;">
+    <div style="width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
+    <div style="color:var(--text-muted);font-size:14px;">Chargement des données...</div>
+  </div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<script>
+  // ============================================
+  // CONFIGURATION — Google Sheet CSV publié
+  // ============================================
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSZf_bkBaaqDoPj7RqPOjMSnqIMH3fgT5i1PcKH3y-igdSbiQxLumAV_nkzYPsn5dkxgnmYvWHIYBsr/pub?gid=1252850693&single=true&output=csv';
+  const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  // Mapping colonnes CSV → clés internes
+  // Colonnes: A=Date, B=Scrapés, C=Qualifiés, D=Emails trouvés, E=Emails envoyés,
+  //           F=Ouverts, G=Réponses, H=RDV, I=Clients, J=Posts RS, K=Impressions, L=Engagement
+  const COL_MAP = {
+    scrapes: 1,    // B
+    qualifies: 2,  // C
+    emails_trouves: 3, // D
+    emails_envoyes: 4, // E
+    ouverts: 5,    // F
+    reponses: 6,   // G
+    rdv: 7,        // H
+    clients: 8,    // I
+    posts_rs: 9,   // J
+    impressions: 10, // K
+    engagement: 11   // L
+  };
+
+  // ============================================
+  // PARSE CSV
+  // ============================================
+  function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return null;
+    // Prend la dernière ligne de données (au cas où il y a plusieurs lignes)
+    const lastDataLine = lines[lines.length - 1];
+    // Parse en gérant les virgules dans les guillemets
+    const values = lastDataLine.split(',').map(v => {
+      v = v.replace(/"/g, '').trim();
+      const num = parseFloat(v);
+      return isNaN(num) ? v : num;
+    });
+    return values;
+  }
+
+  // ============================================
+  // ANIMATED COUNTER
+  // ============================================
+  function animateCounter(el, target) {
+    const current = parseInt(el.textContent.replace(/\s/g, '')) || 0;
+    if (current === target) return;
+    const duration = 1500;
+    const start = performance.now();
+    const startVal = current;
+    function update(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const val = Math.floor(startVal + (target - startVal) * eased);
+      el.textContent = val.toLocaleString('fr-FR');
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+
+  // ============================================
+  // UPDATE DASHBOARD
+  // ============================================
+  function updateDashboard(data) {
+    if (!data) return;
+
+    const d = {
+      scrapes: data[COL_MAP.scrapes] || 0,
+      qualifies: data[COL_MAP.qualifies] || 0,
+      emails_trouves: data[COL_MAP.emails_trouves] || 0,
+      emails_envoyes: data[COL_MAP.emails_envoyes] || 0,
+      ouverts: data[COL_MAP.ouverts] || 0,
+      reponses: data[COL_MAP.reponses] || 0,
+      rdv: data[COL_MAP.rdv] || 0,
+      clients: data[COL_MAP.clients] || 0,
+      posts_rs: data[COL_MAP.posts_rs] || 0,
+      impressions: data[COL_MAP.impressions] || 0,
+      engagement: data[COL_MAP.engagement] || 0,
+    };
+
+    // KPI Cards — update data-target + animate
+    const counters = document.querySelectorAll('.counter');
+    const targets = [
+      d.scrapes, d.qualifies, d.emails_trouves, d.emails_envoyes,
+      d.ouverts, d.reponses, d.rdv, d.clients,
+      d.posts_rs, d.impressions, d.engagement
+    ];
+    counters.forEach((el, i) => {
+      if (i < targets.length) {
+        el.dataset.target = targets[i];
+        animateCounter(el, targets[i]);
+      }
+    });
+
+    // KPI subtexts — taux
+    const qualRate = d.scrapes > 0 ? Math.round(d.qualifies / d.scrapes * 100) : 0;
+    const emailCovRate = d.scrapes > 0 ? Math.round(d.emails_trouves / d.scrapes * 100) : 0;
+    const openRate = d.emails_envoyes > 0 ? Math.round(d.ouverts / d.emails_envoyes * 100) : 0;
+    const replyRate = d.emails_envoyes > 0 ? Math.round(d.reponses / d.emails_envoyes * 100) : 0;
+
+    // Update sub-texts for KPI cards
+    const kpiCards = document.querySelectorAll('.kpi-card');
+    if (kpiCards[1]) kpiCards[1].querySelector('.kpi-sub').innerHTML = `<span class="change up">${qualRate}%</span> taux de qualification`;
+    if (kpiCards[2]) kpiCards[2].querySelector('.kpi-sub').innerHTML = `<span class="change up">${emailCovRate}%</span> taux de couverture`;
+    if (kpiCards[3]) kpiCards[3].querySelector('.kpi-sub').innerHTML = d.emails_envoyes > 0 ? `<span class="change up">En cours</span>` : 'Démarrage après warmup';
+    if (kpiCards[4]) kpiCards[4].querySelector('.kpi-sub').innerHTML = `Taux d'ouverture : ${d.emails_envoyes > 0 ? openRate + '%' : '--'}`;
+    if (kpiCards[5]) kpiCards[5].querySelector('.kpi-sub').innerHTML = `Taux de réponse : ${d.emails_envoyes > 0 ? replyRate + '%' : '--'}`;
+
+    // Funnel bars
+    const maxVal = Math.max(d.scrapes, 1);
+    const funnelData = [
+      { id: 'funnelScraped', val: d.scrapes, rate: '100%' },
+      { id: 'funnelQualified', val: d.qualifies, rate: d.scrapes > 0 ? Math.round(d.qualifies/d.scrapes*100)+'%' : '0%' },
+      { id: 'funnelEmails', val: d.emails_trouves, rate: d.scrapes > 0 ? Math.round(d.emails_trouves/d.scrapes*100)+'%' : '0%' },
+      { id: 'funnelSent', val: d.emails_envoyes, rate: d.scrapes > 0 ? Math.round(d.emails_envoyes/d.scrapes*100)+'%' : '0%' },
+      { id: 'funnelOpened', val: d.ouverts, rate: d.emails_envoyes > 0 ? Math.round(d.ouverts/d.emails_envoyes*100)+'%' : '0%' },
+      { id: 'funnelReplied', val: d.reponses, rate: d.emails_envoyes > 0 ? Math.round(d.reponses/d.emails_envoyes*100)+'%' : '0%' },
+      { id: 'funnelRDV', val: d.rdv, rate: d.reponses > 0 ? Math.round(d.rdv/d.reponses*100)+'%' : '0%' },
+    ];
+    funnelData.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el) {
+        const pct = Math.max(2, Math.round(f.val / maxVal * 100));
+        el.style.width = pct + '%';
+        el.textContent = f.val.toLocaleString('fr-FR');
+      }
+      // Update rate next to funnel
+      const rateId = 'rate' + f.id.replace('funnel', '');
+      const rateEl = document.getElementById(rateId);
+      if (rateEl) rateEl.textContent = f.rate;
+    });
+
+    // Progress ring — calculate campaign progress
+    let progress = 25; // Base: scraping done
+    if (d.emails_envoyes > 0) progress = 50;
+    if (d.ouverts > 0) progress = 65;
+    if (d.reponses > 0) progress = 75;
+    if (d.rdv > 0) progress = 85;
+    if (d.clients > 0) progress = 95;
+
+    const ring = document.getElementById('progressRing');
+    const circumference = 2 * Math.PI * 58; // r=58
+    const offset = circumference - (progress / 100 * circumference);
+    if (ring) ring.setAttribute('stroke-dashoffset', offset);
+    const ringVal = document.getElementById('ringValue');
+    if (ringVal) ringVal.textContent = progress + '%';
+
+    // Campaign status badge
+    const statusEl = document.getElementById('statusText');
+    const badgeEl = document.getElementById('campaignStatus');
+    if (d.clients > 0) {
+      statusEl.textContent = 'Closing en cours';
+      badgeEl.className = 'status-badge active';
+    } else if (d.rdv > 0) {
+      statusEl.textContent = 'RDV en cours';
+      badgeEl.className = 'status-badge active';
+    } else if (d.emails_envoyes > 0) {
+      statusEl.textContent = 'Campagne active';
+      badgeEl.className = 'status-badge active';
+    } else {
+      statusEl.textContent = 'Warmup en cours';
+      badgeEl.className = 'status-badge draft';
+    }
+
+    // Timeline steps
+    const steps = document.querySelectorAll('.timeline-step');
+    // Step 0: Scraping (done if scrapes > 0)
+    if (d.scrapes > 0 && steps[0]) { steps[0].className = 'timeline-step done'; steps[0].querySelector('.timeline-dot').textContent = '✓'; }
+    // Step 1: Qualification (done if qualifies > 0)
+    if (d.qualifies > 0 && steps[1]) { steps[1].className = 'timeline-step done'; steps[1].querySelector('.timeline-dot').textContent = '✓'; }
+    // Step 2: Warmup (current if no emails sent, done if sent)
+    if (d.emails_envoyes > 0 && steps[2]) { steps[2].className = 'timeline-step done'; steps[2].querySelector('.timeline-dot').textContent = '✓'; }
+    else if (steps[2]) { steps[2].className = 'timeline-step current'; }
+    // Step 3: Launch (current if emails sent, done if opens)
+    if (d.ouverts > 0 && steps[3]) { steps[3].className = 'timeline-step done'; steps[3].querySelector('.timeline-dot').textContent = '✓'; }
+    else if (d.emails_envoyes > 0 && steps[3]) { steps[3].className = 'timeline-step current'; steps[3].querySelector('.timeline-dot').textContent = '⏳'; }
+    // Step 4: Follow-up (current if replies, done if rdv)
+    if (d.rdv > 0 && steps[4]) { steps[4].className = 'timeline-step done'; steps[4].querySelector('.timeline-dot').textContent = '✓'; }
+    else if (d.reponses > 0 && steps[4]) { steps[4].className = 'timeline-step current'; steps[4].querySelector('.timeline-dot').textContent = '⏳'; }
+    // Step 5: Closing
+    if (d.clients > 0 && steps[5]) { steps[5].className = 'timeline-step done'; steps[5].querySelector('.timeline-dot').textContent = '✓'; }
+    else if (d.rdv > 0 && steps[5]) { steps[5].className = 'timeline-step current'; steps[5].querySelector('.timeline-dot').textContent = '⏳'; }
+
+    // Ring info items
+    const ringInfos = document.querySelectorAll('.ring-info-item');
+    if (ringInfos[0]) ringInfos[0].innerHTML = `<div class="ring-info-dot" style="background:var(--green);"></div><span>Scraping : <strong style="color:var(--green);">Terminé (${d.scrapes.toLocaleString('fr-FR')})</strong></span>`;
+    if (ringInfos[1]) {
+      if (d.emails_envoyes > 0) ringInfos[1].innerHTML = `<div class="ring-info-dot" style="background:var(--green);"></div><span>Warmup : <strong style="color:var(--green);">Terminé</strong></span>`;
+      else ringInfos[1].innerHTML = `<div class="ring-info-dot" style="background:var(--orange);"></div><span>Warmup : <strong style="color:var(--orange);">En cours</strong></span>`;
+    }
+    if (ringInfos[2]) {
+      if (d.emails_envoyes > 0) ringInfos[2].innerHTML = `<div class="ring-info-dot" style="background:var(--green);"></div><span>Envois : <strong style="color:var(--green);">${d.emails_envoyes.toLocaleString('fr-FR')} envoyés</strong></span>`;
+      else ringInfos[2].innerHTML = `<div class="ring-info-dot" style="background:var(--surface2);"></div><span>Envois : <strong style="color:var(--text-muted);">En attente</strong></span>`;
+    }
+    if (ringInfos[3]) {
+      if (d.rdv > 0) ringInfos[3].innerHTML = `<div class="ring-info-dot" style="background:var(--green);"></div><span>Follow-up : <strong style="color:var(--green);">${d.rdv} RDV</strong></span>`;
+      else ringInfos[3].innerHTML = `<div class="ring-info-dot" style="background:var(--surface2);"></div><span>Follow-up : <strong style="color:var(--text-muted);">En attente</strong></span>`;
+    }
+
+    // Update timestamp
+    const now = new Date();
+    const opts = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    document.getElementById('dateDisplay').textContent = 'Mis à jour : ' + now.toLocaleDateString('fr-FR', opts);
+    document.getElementById('lastUpdate').textContent = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ============================================
+  // FETCH DATA FROM GOOGLE SHEET
+  // ============================================
+  async function fetchData() {
+    const statusEl = document.getElementById('refreshStatus');
+    try {
+      statusEl.style.color = 'var(--orange)';
+      statusEl.textContent = '↻';
+
+      const response = await fetch(SHEET_CSV_URL + '&_t=' + Date.now());
+      if (!response.ok) throw new Error('Erreur réseau');
+
+      const text = await response.text();
+      const data = parseCSV(text);
+
+      if (data) {
+        updateDashboard(data);
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '●';
+      }
+    } catch (err) {
+      console.error('Erreur fetch:', err);
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '●';
+    }
+
+    // Remove loading overlay after first fetch
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 500);
+    }
+  }
+
+  // ============================================
+  // INIT — Fetch + auto-refresh
+  // ============================================
+  window.addEventListener('load', () => {
+    fetchData();
+    setInterval(fetchData, REFRESH_INTERVAL);
+  });
+</script>
+
+</body>
+</html>
