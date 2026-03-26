@@ -705,6 +705,41 @@
     </div>
   </div>
 
+  <!-- KPI Section: LinkedIn -->
+  <div class="section-title animate-in delay-5">
+    <span>🔗 Prospection LinkedIn</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card blue animate-in delay-5">
+      <div class="kpi-icon">🔗</div>
+      <div class="kpi-label">Demandes Envoyées</div>
+      <div class="kpi-value"><span class="counter" id="liDemandes" data-target="0">0</span></div>
+      <div class="kpi-sub" id="liDemandesSub">Connexions sans note</div>
+    </div>
+
+    <div class="kpi-card green animate-in delay-6">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Connexions Acceptées</div>
+      <div class="kpi-value"><span class="counter" id="liAcceptees" data-target="0">0</span></div>
+      <div class="kpi-sub" id="liAccepteesSub">Taux d'acceptation : --</div>
+    </div>
+
+    <div class="kpi-card purple animate-in delay-7">
+      <div class="kpi-icon">💬</div>
+      <div class="kpi-label">Messages Suivi Envoyés</div>
+      <div class="kpi-value"><span class="counter" id="liMessages" data-target="0">0</span></div>
+      <div class="kpi-sub" id="liMessagesSub">Après acceptation</div>
+    </div>
+
+    <div class="kpi-card cyan animate-in delay-8">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Taux d'Acceptation</div>
+      <div class="kpi-value"><span class="counter" id="liTaux" data-target="0">0</span><span style="font-size:20px;">%</span></div>
+      <div class="kpi-sub" id="liTauxSub">Objectif : 30%+</div>
+    </div>
+  </div>
+
   <!-- Middle Section: Funnel + Social -->
   <div class="middle-grid">
     <!-- Funnel -->
@@ -913,7 +948,10 @@
     clients: 8,    // I
     posts_rs: 9,   // J
     impressions: 10, // K
-    engagement: 11   // L
+    engagement: 11,  // L
+    li_demandes: 12, // M — Demandes LinkedIn envoyées
+    li_acceptees: 13, // N — Connexions acceptées
+    li_messages: 14   // O — Messages suivi envoyés
   };
 
   // ============================================
@@ -971,6 +1009,9 @@
       posts_rs: data[COL_MAP.posts_rs] || 0,
       impressions: data[COL_MAP.impressions] || 0,
       engagement: data[COL_MAP.engagement] || 0,
+      li_demandes: data[COL_MAP.li_demandes] || 0,
+      li_acceptees: data[COL_MAP.li_acceptees] || 0,
+      li_messages: data[COL_MAP.li_messages] || 0,
     };
 
     // KPI Cards — update data-target + animate
@@ -992,6 +1033,26 @@
     const emailCovRate = d.scrapes > 0 ? Math.round(d.emails_trouves / d.scrapes * 100) : 0;
     const openRate = d.emails_envoyes > 0 ? Math.round(d.ouverts / d.emails_envoyes * 100) : 0;
     const replyRate = d.emails_envoyes > 0 ? Math.round(d.reponses / d.emails_envoyes * 100) : 0;
+
+    // LinkedIn KPI updates
+    const liDemandesEl = document.getElementById('liDemandes');
+    const liAccepteesEl = document.getElementById('liAcceptees');
+    const liMessagesEl = document.getElementById('liMessages');
+    const liTauxEl = document.getElementById('liTaux');
+    if (liDemandesEl) animateCounter(liDemandesEl, d.li_demandes);
+    if (liAccepteesEl) animateCounter(liAccepteesEl, d.li_acceptees);
+    if (liMessagesEl) animateCounter(liMessagesEl, d.li_messages);
+    const liAcceptRate = d.li_demandes > 0 ? Math.round(d.li_acceptees / d.li_demandes * 100) : 0;
+    if (liTauxEl) animateCounter(liTauxEl, liAcceptRate);
+    const liDemandesSub = document.getElementById('liDemandesSub');
+    const liAccepteesSub = document.getElementById('liAccepteesSub');
+    const liMessagesSub = document.getElementById('liMessagesSub');
+    const liTauxSub = document.getElementById('liTauxSub');
+    if (liDemandesSub) liDemandesSub.textContent = d.li_demandes > 0 ? d.li_demandes + ' envoy\u00e9es' : 'Pas encore d\u00e9marr\u00e9';
+    if (liAccepteesSub) liAccepteesSub.textContent = 'Taux : ' + (d.li_demandes > 0 ? liAcceptRate + '%' : '--');
+    if (liMessagesSub) liMessagesSub.textContent = d.li_messages > 0 ? d.li_messages + ' envoy\u00e9s' : 'Apr\u00e8s acceptation';
+    if (liTauxSub) liTauxSub.textContent = liAcceptRate >= 30 ? 'Objectif atteint' : 'Objectif : 30%+';
+
 
     // Update sub-texts for KPI cards
     const kpiCards = document.querySelectorAll('.kpi-card');
