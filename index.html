@@ -362,60 +362,91 @@
 
   .hero-actions { display: flex; gap: 18px; flex-wrap: wrap; }
 
-  /* ======= AURORA BUTTONS (halo gradient violet/cyan/émeraude) ======= */
+  /* ======= BOUTONS — halo conique rotatif (style GlowingShadow) ======= */
+  @property --grad-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
   .btn {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 16px 30px;
-    background: rgba(5, 11, 24, 0.9);
+    gap: 12px;
+    padding: 17px 34px;
+    background: rgba(5, 11, 24, 0.96);
     color: var(--ivory);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 12px;
+    border: 1px solid rgba(241, 245, 249, 0.1);
+    border-radius: 14px;
     font-family: 'Inter', sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
-    letter-spacing: 2px;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
     text-decoration: none;
     cursor: pointer;
     isolation: isolate;
-    transition: background 0.4s var(--ease), transform 0.4s var(--ease), border-color 0.4s;
+    transition: transform 0.4s var(--ease), border-color 0.4s var(--ease);
   }
   .btn::before {
     content: '';
     position: absolute;
-    inset: -2px;
-    border-radius: 14px;
-    background: linear-gradient(90deg, #a855f7, #67e8f9, #34d399);
+    inset: -3px;
+    border-radius: 17px;
     z-index: -1;
-    filter: blur(12px);
-    opacity: 0;
-    transition: opacity 0.4s var(--ease), filter 0.4s var(--ease);
+    background: conic-gradient(
+      from var(--grad-angle),
+      hsl(335, 80%, 65%),
+      hsl(30,  90%, 60%),
+      hsl(50,  90%, 60%),
+      hsl(140, 65%, 55%),
+      hsl(195, 90%, 60%),
+      hsl(245, 75%, 65%),
+      hsl(290, 70%, 65%),
+      hsl(335, 80%, 65%)
+    );
+    filter: blur(14px);
+    opacity: 0.6;
+    animation: rotateGradGlow 7s linear infinite;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: inherit;
+    z-index: -1;
   }
   .btn:hover {
-    background: rgba(5, 11, 24, 0.7);
-    border-color: rgba(148, 163, 184, 0.3);
     transform: translateY(-2px);
+    border-color: rgba(241, 245, 249, 0.2);
   }
-  .btn:hover::before { opacity: 1; filter: blur(18px); }
+  .btn:hover::before { opacity: 0.95; filter: blur(20px); }
 
-  /* Primary = aurora visible au repos */
-  .btn-primary::before { opacity: 0.85; filter: blur(12px); }
-  .btn-primary:hover::before { opacity: 1; filter: blur(20px); }
+  /* Primary = halo visible au repos */
+  .btn-primary::before { opacity: 0.85; }
+  .btn-primary:hover::before { opacity: 1; filter: blur(22px); }
 
-  /* Ghost = halo très subtil */
+  /* Ghost = halo discret qui apparaît au hover */
   .btn-ghost { background: transparent; }
   .btn-ghost::before { opacity: 0; }
-  .btn-ghost:hover::before { opacity: 0.5; }
-  .btn-ghost:hover { background: rgba(5, 11, 24, 0.5); }
+  .btn-ghost:hover::before { opacity: 0.7; }
+  .btn-ghost:hover { background: rgba(5, 11, 24, 0.6); }
 
   .btn .arrow {
     display: inline-block;
     transition: transform 0.4s var(--ease);
   }
   .btn:hover .arrow { transform: translateX(6px); }
+
+  @keyframes rotateGradGlow {
+    to { --grad-angle: 360deg; }
+  }
+  /* Fallback Firefox < 128 (animation no-op, halo statique) */
+  @supports not (background: conic-gradient(from 0deg, red, blue)) {
+    .btn::before { background: linear-gradient(90deg, hsl(335, 80%, 65%), hsl(195, 90%, 60%), hsl(290, 70%, 65%)); }
+  }
 
   /* HERO RIGHT — full logo showcase (identité complète) */
   .hero-visual {
@@ -552,35 +583,32 @@
     margin: 0 auto;
     padding: 0 40px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 30px;
     align-items: center;
   }
   .trust-item {
     display: flex;
     align-items: center;
-    gap: 14px;
+    justify-content: center;
     padding: 0 16px;
     border-right: 1px solid var(--line-soft);
+    text-align: center;
   }
   .trust-item:last-child { border-right: none; }
-  .trust-icon {
-    width: 36px; height: 36px;
-    color: var(--gold-500);
-    flex-shrink: 0;
-  }
   .trust-text strong {
     display: block;
     font-family: 'Cormorant Garamond', serif;
-    font-size: 24px;
+    font-size: 26px;
     color: var(--ivory);
-    line-height: 1;
-    font-weight: 600;
+    line-height: 1.1;
+    font-weight: 500;
+    margin-bottom: 6px;
   }
   .trust-text span {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
-    letter-spacing: 1.5px;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
   }
 
@@ -590,102 +618,60 @@
   .services-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 0;
+    border-top: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
   }
   .service {
     position: relative;
-    padding: 44px 36px 40px;
-    background: linear-gradient(180deg, rgba(17, 36, 79, 0.4), rgba(8, 18, 42, 0.3));
-    border: 1px solid var(--line-soft);
-    overflow: hidden;
-    transition: all 0.6s var(--ease);
-    cursor: default;
+    padding: 56px 40px 54px;
+    border-right: 1px solid var(--line-soft);
+    transition: background 0.6s var(--ease);
   }
-  .service::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold-500), transparent);
-    transform: translateX(-100%);
-    transition: transform 0.8s var(--ease);
-  }
-  .service::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.08), transparent 60%);
-    opacity: 0;
-    transition: opacity 0.5s;
-  }
-  .service:hover {
-    transform: translateY(-6px);
-    border-color: var(--gold-500);
-  }
-  .service:hover::before { transform: translateX(0); }
-  .service:hover::after { opacity: 1; }
+  .service:last-child { border-right: none; }
+  .service:hover { background: rgba(241, 245, 249, 0.015); }
 
-  .service-num {
-    position: absolute;
-    top: 28px; right: 32px;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 56px;
-    font-style: italic;
-    color: rgba(103, 232, 249, 0.15);
-    line-height: 1;
-    transition: color 0.5s;
-  }
-  .service:hover .service-num { color: rgba(103, 232, 249, 0.4); }
-
-  .service-icon {
-    width: 56px; height: 56px;
-    color: var(--gold-500);
+  .service-step {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--muted);
     margin-bottom: 28px;
-    transition: transform 0.5s var(--ease);
   }
-  .service:hover .service-icon { transform: scale(1.08) rotate(-4deg); }
-
   .service h3 {
-    font-size: 28px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
     color: var(--ivory);
-    margin-bottom: 14px;
+    margin-bottom: 18px;
     font-weight: 500;
+    font-style: italic;
   }
   .service p {
     color: var(--ivory-dim);
-    font-size: 14px;
-    line-height: 1.75;
+    font-size: 15px;
+    line-height: 1.8;
     font-weight: 300;
-    margin-bottom: 26px;
   }
-  .service-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 26px;
+
+  .services-footnote {
+    text-align: center;
+    margin-top: 56px;
+    color: var(--ivory-dim);
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.7;
   }
-  .service-tag {
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--gold-400);
-    padding: 5px 10px;
-    border: 1px solid var(--line);
-    background: rgba(103, 232, 249, 0.04);
-  }
-  .service-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--gold-400);
+  .services-footnote strong { color: var(--ivory); font-weight: 400; }
+  .services-footnote a {
+    color: var(--ivory);
     text-decoration: none;
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    font-weight: 500;
+    border-bottom: 1px solid rgba(241, 245, 249, 0.3);
+    transition: border-color 0.3s;
+    padding-bottom: 2px;
   }
-  .service-link .arrow { transition: transform 0.4s var(--ease); }
-  .service:hover .service-link .arrow { transform: translateX(8px); }
+  .services-footnote a:hover { border-color: var(--ivory); }
 
   /* =====================
      PHILOSOPHY (about)
@@ -1260,36 +1246,45 @@
     position: relative;
     width: 100%;
     padding: 20px;
-    background: rgba(5, 11, 24, 0.92);
+    background: rgba(5, 11, 24, 0.96);
     color: var(--ivory);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 12px;
+    border: 1px solid rgba(241, 245, 249, 0.1);
+    border-radius: 14px;
     font-family: 'Inter', sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 3px;
     text-transform: uppercase;
     cursor: pointer;
     isolation: isolate;
-    transition: background 0.4s var(--ease), transform 0.4s var(--ease), border-color 0.4s;
+    transition: transform 0.4s var(--ease), border-color 0.4s;
   }
   .form-submit::before {
     content: '';
     position: absolute;
-    inset: -2px;
-    border-radius: 14px;
-    background: linear-gradient(90deg, #a855f7, #67e8f9, #34d399);
+    inset: -3px;
+    border-radius: 17px;
     z-index: -1;
-    filter: blur(14px);
-    opacity: 0.75;
-    transition: opacity 0.4s var(--ease), filter 0.4s var(--ease);
+    background: conic-gradient(
+      from var(--grad-angle),
+      hsl(335, 80%, 65%),
+      hsl(30,  90%, 60%),
+      hsl(50,  90%, 60%),
+      hsl(140, 65%, 55%),
+      hsl(195, 90%, 60%),
+      hsl(245, 75%, 65%),
+      hsl(290, 70%, 65%),
+      hsl(335, 80%, 65%)
+    );
+    filter: blur(16px);
+    opacity: 0.7;
+    animation: rotateGradGlow 7s linear infinite;
   }
   .form-submit:hover {
-    background: rgba(5, 11, 24, 0.7);
     transform: translateY(-2px);
-    border-color: rgba(148, 163, 184, 0.3);
+    border-color: rgba(241, 245, 249, 0.2);
   }
-  .form-submit:hover::before { opacity: 1; filter: blur(20px); }
+  .form-submit:hover::before { opacity: 0.95; filter: blur(22px); }
 
   .form-success {
     display: none;
@@ -1706,10 +1701,10 @@
     <svg viewBox="0 0 100 100"><use href="#apex-mark"/></svg>
   </a>
   <ul class="nav-pill-links">
-    <li><a href="#services">Services</a></li>
-    <li><a href="#philosophy">Notre art</a></li>
+    <li><a href="#services">Prestations</a></li>
+    <li><a href="#philosophy">Métier</a></li>
     <li><a href="#process">Méthode</a></li>
-    <li><a href="#realisations">Réalisations</a></li>
+    <li><a href="#faq">Questions</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
   <div class="nav-pill-burger" aria-hidden="true">
@@ -1731,24 +1726,23 @@
   </div>
   <div class="hero-inner">
     <div class="hero-content">
-      <span class="eyebrow">Nettoyage d'exception · Depuis 2014</span>
+      <span class="eyebrow">Événementiel · Luxe · Sur-mesure</span>
       <h1>
-        <span class="line"><span>L'<em class="gold">excellence</em></span></span>
-        <span class="line"><span>du nettoyage</span></span>
-        <span class="line"><span>haut de gamme.</span></span>
+        <span class="line"><span>L'art du <em class="gold">propre</em>,</span></span>
+        <span class="line"><span>au service du luxe.</span></span>
       </h1>
       <p class="hero-lede">
-        APEX orchestre l'entretien des lieux d'exception : résidences de prestige,
-        bureaux exécutifs, hôtellerie 5★, après-chantier. Une exigence d'orfèvre,
-        des équipes formées six semaines, un résultat irréprochable.
+        Défilés, showrooms, activations, galas, événements presse. APEX orchestre
+        la propreté des lieux d'exception pour les maisons et agences les plus exigeantes —
+        avant, pendant, après. Discrétion absolue, équipes formées en interne.
       </p>
       <div class="hero-actions">
         <a href="#contact" class="btn btn-primary">
-          Réserver une visite
+          Demander un devis
           <span class="arrow">→</span>
         </a>
         <a href="#services" class="btn btn-ghost">
-          Découvrir nos services
+          Nos prestations
         </a>
       </div>
     </div>
@@ -1773,164 +1767,25 @@
 <div class="trust">
   <div class="trust-inner">
     <div class="trust-item">
-      <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-        <path d="M12 2 L4 6 V12 C4 17 7 21 12 22 C17 21 20 17 20 12 V6 Z"/>
-        <path d="M9 12 L11 14 L15 10"/>
-      </svg>
       <div class="trust-text">
         <strong>10+ ans</strong>
         <span>D'expertise</span>
       </div>
     </div>
     <div class="trust-item">
-      <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-        <circle cx="12" cy="8" r="4"/>
-        <path d="M4 22 C4 17 8 14 12 14 C16 14 20 17 20 22"/>
-      </svg>
       <div class="trust-text">
-        <strong>250+</strong>
-        <span>Clients fidèles</span>
+        <strong>Maisons de luxe</strong>
+        <span>Mode · Joaillerie · Beauté</span>
       </div>
     </div>
     <div class="trust-item">
-      <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-        <path d="M12 2 L15 9 L22 10 L17 15 L18 22 L12 19 L6 22 L7 15 L2 10 L9 9 Z"/>
-      </svg>
       <div class="trust-text">
-        <strong>4.9 / 5</strong>
-        <span>Note moyenne</span>
-      </div>
-    </div>
-    <div class="trust-item">
-      <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-        <rect x="3" y="6" width="18" height="14" rx="2"/>
-        <path d="M3 10 H21"/>
-        <path d="M8 16 H10 M14 16 H16"/>
-      </svg>
-      <div class="trust-text">
-        <strong>100%</strong>
-        <span>Assuré &amp; certifié</span>
+        <strong>Discrétion totale</strong>
+        <span>NDA · Équipes dédiées</span>
       </div>
     </div>
   </div>
 </div>
-
-<!-- ========= SERVICES ========= -->
-<section id="services">
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">Nos prestations</span>
-      <h2>Une gamme de services, <em>une seule exigence</em></h2>
-      <p>Chaque mission est pensée comme une signature. Nous adaptons protocoles, produits écologiques et équipes selon la nature de votre lieu.</p>
-    </div>
-
-    <div class="services-grid">
-      <article class="service reveal reveal-d1">
-        <div class="service-num">01</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <rect x="6" y="10" width="36" height="30" rx="2"/>
-          <path d="M6 18 H42"/>
-          <path d="M14 26 H22 M14 32 H30 M26 26 H34"/>
-          <circle cx="11" cy="14" r="1" fill="currentColor"/>
-          <circle cx="15" cy="14" r="1" fill="currentColor"/>
-        </svg>
-        <h3>Bureaux &amp; entreprises</h3>
-        <p>Entretien quotidien ou hebdomadaire de vos espaces de travail, salles de réunion, parties communes. Discrétion et régularité au service de votre image.</p>
-        <div class="service-tags">
-          <span class="service-tag">Quotidien</span>
-          <span class="service-tag">Sols durs</span>
-          <span class="service-tag">Vitrerie</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-
-      <article class="service reveal reveal-d2">
-        <div class="service-num">02</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <path d="M24 6 L42 20 V40 H6 V20 Z"/>
-          <path d="M18 40 V26 H30 V40"/>
-          <path d="M24 6 V14"/>
-        </svg>
-        <h3>Résidences de prestige</h3>
-        <p>Pour vos villas, appartements haussmanniens, biens d'exception. Une équipe dédiée, des produits respectueux des matériaux nobles : marbre, bois précieux, textiles.</p>
-        <div class="service-tags">
-          <span class="service-tag">Marbres</span>
-          <span class="service-tag">Argenterie</span>
-          <span class="service-tag">Textiles</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-
-      <article class="service reveal reveal-d3">
-        <div class="service-num">03</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <path d="M8 36 L20 12 L28 22 L36 14 L42 36 Z"/>
-          <path d="M8 36 H42"/>
-          <circle cx="32" cy="10" r="2"/>
-        </svg>
-        <h3>Après-chantier</h3>
-        <p>Remise en état complète après travaux : décapage, dépoussiérage en profondeur, vitrerie, traitement des sols. Votre bien livré clé en main, prêt à vivre.</p>
-        <div class="service-tags">
-          <span class="service-tag">Décapage</span>
-          <span class="service-tag">Vitrerie</span>
-          <span class="service-tag">Finition</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-
-      <article class="service reveal reveal-d1">
-        <div class="service-num">04</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <rect x="6" y="6" width="36" height="36" rx="2"/>
-          <path d="M6 6 L42 42 M42 6 L6 42"/>
-        </svg>
-        <h3>Vitrerie &amp; façades</h3>
-        <p>Nettoyage de vitres, baies vitrées, vérandas, façades en hauteur. Matériel professionnel certifié, équipes habilitées travaux en hauteur.</p>
-        <div class="service-tags">
-          <span class="service-tag">Hauteur</span>
-          <span class="service-tag">Verrière</span>
-          <span class="service-tag">Façade</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-
-      <article class="service reveal reveal-d2">
-        <div class="service-num">05</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <path d="M10 38 V18 Q10 14 14 14 H34 Q38 14 38 18 V38"/>
-          <path d="M6 38 H42"/>
-          <path d="M14 14 V8 H34 V14"/>
-          <circle cx="24" cy="26" r="3"/>
-        </svg>
-        <h3>Hôtellerie &amp; restauration</h3>
-        <p>Chambres, parties communes, cuisines professionnelles. Nous respectons les standards de l'hôtellerie de luxe et les normes HACCP les plus strictes.</p>
-        <div class="service-tags">
-          <span class="service-tag">Turn-over</span>
-          <span class="service-tag">HACCP</span>
-          <span class="service-tag">Linge</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-
-      <article class="service reveal reveal-d3">
-        <div class="service-num">06</div>
-        <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
-          <circle cx="24" cy="24" r="16"/>
-          <path d="M24 8 V14 M24 34 V40 M8 24 H14 M34 24 H40"/>
-          <path d="M24 18 Q28 22 24 30 Q20 22 24 18 Z"/>
-        </svg>
-        <h3>Désinfection &amp; protocoles</h3>
-        <p>Protocoles de désinfection certifiés, traitement anti-acariens, anti-bactérien, anti-viral. Pour vos espaces médicaux, cabinets, salles de sport.</p>
-        <div class="service-tags">
-          <span class="service-tag">Médical</span>
-          <span class="service-tag">Antiviral</span>
-          <span class="service-tag">Écologique</span>
-        </div>
-        <a href="#contact" class="service-link">Demander un devis <span class="arrow">→</span></a>
-      </article>
-    </div>
-  </div>
-</section>
 
 <!-- ========= PHILOSOPHY ========= -->
 <section id="philosophy" class="philosophy">
@@ -1940,7 +1795,7 @@
         <div class="philo-visual-inner bg-marble">
           <div class="philo-quote">
             <span class="mark">“</span>
-            <p>L'excellence se loge dans les détails. Chaque reflet, chaque surface, chaque parfum compte.</p>
+            <p>Le luxe, ce n'est pas ce qu'on voit. C'est ce qu'on ne voit pas — et qui rend tout le reste possible.</p>
             <span>— Direction APEX</span>
           </div>
         </div>
@@ -1948,39 +1803,67 @@
       </div>
 
       <div class="philo-content reveal reveal-d2">
-        <span class="eyebrow">Notre philosophie</span>
-        <h2>Le nettoyage <em>comme une signature</em></h2>
+        <span class="eyebrow">Notre métier</span>
+        <h2>Au service des <em>maisons de luxe</em></h2>
         <p>
-          Chez APEX, nous croyons qu'un lieu propre n'est pas seulement un lieu désinfecté.
-          C'est un lieu où l'on respire mieux, où l'on travaille mieux, où l'on vit mieux.
-          C'est une atmosphère, un soin, un détail invisible qui transforme un espace en expérience.
+          Nous intervenons pour les maisons de mode, de joaillerie, de beauté, ainsi que pour
+          les agences événementielles qui les accompagnent. Défilés, lancements produit, dîners
+          privés, expositions, showrooms permanents — chaque mission exige la même rigueur.
         </p>
         <p>
-          Nos équipes sont formées en interne pendant six semaines avant la première mission.
-          Elles connaissent les matériaux nobles, respectent les codes des lieux de prestige,
-          et appliquent des protocoles rigoureux avec des produits éco-responsables labellisés.
+          Nos équipes sont formées en interne, signataires d'accords de confidentialité,
+          habituées aux contraintes de production : timings impossibles, lieux sensibles,
+          matériaux précieux. Vous ne nous verrez pas. Vous verrez seulement le résultat.
         </p>
 
         <div class="philo-pillars">
           <div class="pillar">
             <strong>Discrétion</strong>
-            <span>Une présence invisible, un résultat visible.</span>
+            <span>NDA systématiques, équipes dédiées, uniformes neutres.</span>
           </div>
           <div class="pillar">
-            <strong>Rigueur</strong>
-            <span>Check-list de 47 points, audit qualité mensuel.</span>
-          </div>
-          <div class="pillar">
-            <strong>Éco-responsabilité</strong>
-            <span>Produits labellisés, matériel basse consommation.</span>
-          </div>
-          <div class="pillar">
-            <strong>Sur-mesure</strong>
-            <span>Un protocole conçu pour chaque lieu.</span>
+            <strong>Rapidité</strong>
+            <span>Mobilisation 48h, équipes nuit, finitions sous délais courts.</span>
           </div>
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ========= SERVICES — orchestrés autour du cycle événementiel ========= -->
+<section id="services">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Nos prestations</span>
+      <h2>Le cycle complet de <em>l'événement</em></h2>
+      <p>Trois temps, une même exigence : que votre événement existe sans qu'on devine jamais ce qu'il a fallu pour qu'il soit impeccable.</p>
+    </div>
+
+    <div class="services-grid">
+      <article class="service reveal reveal-d1">
+        <span class="service-step">Étape 01</span>
+        <h3>Avant l'événement</h3>
+        <p>Préparation complète du lieu : dépoussiérage en profondeur, traitement des sols, vitrerie, finitions. Nous arrivons en amont pour livrer un espace immaculé aux équipes scénographie.</p>
+      </article>
+
+      <article class="service reveal reveal-d2">
+        <span class="service-step">Étape 02</span>
+        <h3>Pendant l'événement</h3>
+        <p>Équipe dédiée en uniforme noir, présente sans être visible. Sanitaires, bars, espaces de circulation maintenus en continu. Réactivité immédiate sur incident — discrétion absolue avec les invités.</p>
+      </article>
+
+      <article class="service reveal reveal-d3">
+        <span class="service-step">Étape 03</span>
+        <h3>Après l'événement</h3>
+        <p>Remise en état complète post-événement, dans les délais courts imposés par les lieux de prestige. Tri, décapage, restitution dans l'état d'origine — souvent dans la nuit qui suit.</p>
+      </article>
+    </div>
+
+    <p class="services-footnote reveal reveal-d3">
+      Nous accompagnons également les <strong>showrooms, bureaux et espaces permanents</strong>
+      des marques en entretien récurrent. <a href="#contact">En parler</a>.
+    </p>
   </div>
 </section>
 
@@ -2018,101 +1901,6 @@
   </div>
 </section>
 
-<!-- ========= GALLERY / REALISATIONS ========= -->
-<section id="realisations" class="gallery">
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">Nos univers</span>
-      <h2>Là où la <em>propreté rencontre l'art de vivre</em></h2>
-      <p>Quelques univers que nous entretenons avec passion, depuis les marbres de Carrare jusqu'aux verrières contemporaines.</p>
-    </div>
-
-    <div class="gallery-grid">
-      <div class="gtile g1 reveal">
-        <div class="gtile-bg bg-marble"></div>
-        <div class="gtile-caption">
-          <span class="ey">Résidence</span>
-          <h4>Hôtel particulier — Paris VIIIe</h4>
-        </div>
-      </div>
-      <div class="gtile g2 reveal reveal-d1">
-        <div class="gtile-bg bg-glass"></div>
-        <div class="gtile-caption">
-          <span class="ey">Bureau</span>
-          <h4>Tour de verre — La Défense</h4>
-        </div>
-      </div>
-      <div class="gtile g3 reveal reveal-d2">
-        <div class="gtile-bg bg-velvet"></div>
-        <div class="gtile-caption">
-          <span class="ey">Hôtellerie</span>
-          <h4>Boutique-hôtel 5★</h4>
-        </div>
-      </div>
-      <div class="gtile g4 reveal reveal-d1">
-        <div class="gtile-bg bg-wood"></div>
-        <div class="gtile-caption">
-          <span class="ey">Restauration</span>
-          <h4>Table étoilée — Lyon</h4>
-        </div>
-      </div>
-      <div class="gtile g5 reveal reveal-d2">
-        <div class="gtile-bg bg-stone"></div>
-        <div class="gtile-caption">
-          <span class="ey">Après-chantier</span>
-          <h4>Villa contemporaine</h4>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========= TESTIMONIALS ========= -->
-<section id="testimonials">
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">Ils nous font confiance</span>
-      <h2>L'avis de ceux qui <em>nous ouvrent leurs portes</em></h2>
-      <p>Plus de 250 clients privés et professionnels nous renouvellent leur confiance chaque année.</p>
-    </div>
-
-    <div class="testimonials-grid">
-      <div class="testimonial reveal reveal-d1">
-        <div class="testimonial-stars">★★★★★</div>
-        <p>« Une rigueur impressionnante. Nos bureaux n'ont jamais été aussi impeccables, et nos collaborateurs le ressentent au quotidien. APEX a transformé notre rapport au lieu. »</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">CM</div>
-          <div class="testimonial-name">
-            <strong>Claire Marchand</strong>
-            <span>Directrice Générale — Groupe Vexis</span>
-          </div>
-        </div>
-      </div>
-      <div class="testimonial reveal reveal-d2">
-        <div class="testimonial-stars">★★★★★</div>
-        <p>« J'ai testé trois prestataires avant. APEX est d'une autre dimension. Discrets, précis, attentifs aux détails. Mon hôtel particulier est entre des mains expertes. »</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">HD</div>
-          <div class="testimonial-name">
-            <strong>Henri de Saint-Cyr</strong>
-            <span>Client privé — Paris VIIe</span>
-          </div>
-        </div>
-      </div>
-      <div class="testimonial reveal reveal-d3">
-        <div class="testimonial-stars">★★★★★</div>
-        <p>« Pour notre boutique-hôtel, l'apparence est tout. APEX comprend cette exigence et la dépasse. Une équipe stable, formée, qui devient un partenaire stratégique. »</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">SL</div>
-          <div class="testimonial-name">
-            <strong>Sophie Lavergne</strong>
-            <span>Directrice — Hôtel La Mésange ★★★★★</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- ========= FAQ ========= -->
 <section id="faq">
@@ -2125,47 +1913,47 @@
     <div class="faq-list">
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Quels types de lieux entretenez-vous ?</span>
+          <span>Quels types d'événements prenez-vous en charge ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          Nous intervenons sur six univers principaux : bureaux et entreprises, résidences privées de prestige, après-chantier, hôtellerie et restauration, espaces médicaux, ainsi que vitrerie et façades. Chaque mission fait l'objet d'une étude préalable.
+          Défilés, lancements produit, dîners privés, galas, expositions, événements presse, activations de marque, conventions, fashion weeks. Nous intervenons sur tous les formats — quelques heures comme plusieurs semaines.
         </div></div>
       </div>
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Comment se déroule la première intervention ?</span>
+          <span>Sous quel délai pouvez-vous être mobilisés ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          Tout commence par une visite gratuite sur site dans les 48h. Nous identifions vos besoins, vos contraintes, vos matériaux. Sous 72h, vous recevez un devis détaillé et un protocole sur-mesure. La première intervention démarre dans la semaine qui suit votre accord.
+          Nos équipes peuvent être mobilisées sous 48h pour une intervention ponctuelle, et sous 24h en cas d'urgence avérée. Pour les événements planifiés, nous recommandons une réservation 2 à 3 semaines en amont afin de constituer l'équipe dédiée.
         </div></div>
       </div>
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Vos produits sont-ils éco-responsables ?</span>
+          <span>Signez-vous des accords de confidentialité ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          Oui, 100% de nos produits sont labellisés Ecocert ou Ecolabel européen. Nous utilisons également du matériel basse consommation, et privilégions la microfibre lavable. Sur demande, nous proposons un protocole entièrement zéro-plastique.
+          Systématiquement. L'ensemble de nos collaborateurs signent un NDA en interne et un second au cas par cas avec le client. Nous travaillons couramment sous embargo presse et n'exhibons jamais nos références sans autorisation explicite.
         </div></div>
       </div>
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Êtes-vous assurés ?</span>
+          <span>Pouvez-vous intervenir de nuit ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          APEX est intégralement assurée en responsabilité civile professionnelle, dommages aux biens et risques exceptionnels. Toutes nos équipes sont déclarées, formées et habilitées. Les attestations sont transmises systématiquement avant le démarrage.
+          Oui. La majorité des remises en état post-événement se font de nuit, pour libérer les lieux avant la réouverture publique. Nos équipes sont habituées aux contraintes horaires de la production événementielle.
         </div></div>
       </div>
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Quels sont vos délais et zones d'intervention ?</span>
+          <span>Quelle est votre zone d'intervention ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          Nous intervenons sur toute l'Île-de-France ainsi que Lyon et son agglomération. Les missions ponctuelles peuvent être planifiées sous 48h, les contrats récurrents démarrent sous 7 jours après signature.
+          Île-de-France principalement (Paris et Petite Couronne), Lyon et son agglomération. Pour les événements majeurs, nous nous déplaçons sur toute la France et à l'étranger avec une équipe complète constituée pour la mission.
         </div></div>
       </div>
     </div>
@@ -2325,7 +2113,7 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <svg class="logo-svg" viewBox="0 0 200 200"><use href="#apex-logo"/></svg>
-        <p>APEX Propreté &amp; Services — L'excellence du nettoyage haut de gamme, pour les lieux et les personnes qui ne se contentent pas du « propre ».</p>
+        <p>APEX Propreté &amp; Services — Spécialiste du nettoyage événementiel pour les maisons de luxe. Mode, joaillerie, beauté, agences créatives.</p>
         <div class="footer-social">
           <a href="#" aria-label="Instagram">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -2349,24 +2137,22 @@
       </div>
 
       <div class="footer-col">
-        <h5>Services</h5>
+        <h5>Prestations</h5>
         <ul>
-          <li><a href="#services">Bureaux</a></li>
-          <li><a href="#services">Résidences</a></li>
-          <li><a href="#services">Après-chantier</a></li>
-          <li><a href="#services">Vitrerie</a></li>
-          <li><a href="#services">Hôtellerie</a></li>
+          <li><a href="#services">Avant l'événement</a></li>
+          <li><a href="#services">Pendant l'événement</a></li>
+          <li><a href="#services">Remise en état</a></li>
+          <li><a href="#services">Espaces permanents</a></li>
         </ul>
       </div>
 
       <div class="footer-col">
-        <h5>Entreprise</h5>
+        <h5>Maison</h5>
         <ul>
-          <li><a href="#philosophy">Notre histoire</a></li>
+          <li><a href="#philosophy">Notre métier</a></li>
           <li><a href="#process">Méthode</a></li>
-          <li><a href="#realisations">Réalisations</a></li>
-          <li><a href="#testimonials">Témoignages</a></li>
-          <li><a href="#">Recrutement</a></li>
+          <li><a href="#faq">Questions fréquentes</a></li>
+          <li><a href="#contact">Nous écrire</a></li>
         </ul>
       </div>
 
