@@ -186,7 +186,7 @@
     display: flex;
     align-items: center;
     overflow: hidden;
-    padding: 140px 0 100px;
+    padding: 120px 0 80px;
   }
 
   .hero-bg {
@@ -200,7 +200,7 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 70% 40%, rgba(103, 232, 249, 0.18), transparent 50%),
+      radial-gradient(circle at 70% 40%, rgba(241, 245, 249, 0.18), transparent 50%),
       radial-gradient(circle at 30% 80%, rgba(24, 48, 95, 0.6), transparent 60%);
   }
   .hero-bg::after {
@@ -210,59 +210,25 @@
     background: linear-gradient(180deg, transparent 60%, var(--navy-950));
   }
 
-  /* ===== AURORA effect (navy + gold) ===== */
-  .aurora-wrap {
-    position: absolute;
+  /* ===== Canvas Wave — fond animé en vagues sin/cos sur tout le site ===== */
+  #siteWave {
+    position: fixed;
     inset: 0;
-    overflow: hidden;
+    z-index: 0;
     pointer-events: none;
+    opacity: 0.55;
+  }
+  /* Voile pour assurer la lisibilité du texte par dessus le canvas */
+  #siteWaveVeil {
+    position: fixed;
+    inset: 0;
     z-index: 1;
-    mask-image: radial-gradient(ellipse 90% 60% at 70% 20%, #000 25%, transparent 75%);
-    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 70% 20%, #000 25%, transparent 75%);
-  }
-  .aurora {
-    position: absolute;
-    inset: -40px;
-    opacity: 0.16;
-    filter: blur(50px) saturate(40%);
-    will-change: transform, background-position;
-    background-image:
-      repeating-linear-gradient(
-        100deg,
-        rgba(5, 11, 24, 0) 0%,
-        rgba(5, 11, 24, 0.92) 7%,
-        transparent 10%,
-        transparent 12%,
-        rgba(5, 11, 24, 0.92) 16%
-      ),
-      repeating-linear-gradient(
-        100deg,
-        rgba(203, 213, 225, 0.6) 10%,
-        rgba(148, 163, 184, 0.5) 15%,
-        rgba(24, 48, 95, 0.7) 20%,
-        rgba(203, 213, 225, 0.5) 25%,
-        rgba(8, 18, 42, 0.9) 30%
-      );
-    background-size: 320%, 220%;
-    background-position: 50% 50%, 50% 50%;
-    animation: auroraFlow 90s linear infinite;
-  }
-  .aurora::after { display: none; }
-  @keyframes auroraFlow {
-    0%   { background-position: 50% 50%, 50% 50%; }
-    100% { background-position: 350% 50%, 350% 50%; }
-  }
-
-  /* Soft veil over aurora so the navy stays dominant */
-  .aurora-veil {
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 60% 50% at 25% 80%, rgba(5,11,24,0.85), transparent 70%),
-      linear-gradient(180deg, rgba(5,11,24,0.4) 0%, rgba(5,11,24,0.1) 40%, rgba(5,11,24,0.92) 100%);
     pointer-events: none;
-    z-index: 2;
+    background:
+      radial-gradient(ellipse 90% 50% at 50% 0%, transparent 40%, rgba(5, 11, 24, 0.4) 100%),
+      radial-gradient(ellipse 100% 60% at 50% 100%, rgba(5, 11, 24, 0.6), transparent 70%);
   }
+  body > *:not(#siteWave):not(#siteWaveVeil):not(.loader) { position: relative; z-index: 2; }
 
   /* Slow drift on the hero logo (idle motion of excellence) */
   .hero-logo svg { animation: logoFloat 8s ease-in-out infinite; }
@@ -304,7 +270,7 @@
     background: var(--aurora-2);
     border-radius: 50%;
     opacity: 0.55;
-    box-shadow: 0 0 6px rgba(103, 232, 249, 0.7);
+    box-shadow: 0 0 6px rgba(241, 245, 249, 0.7);
     animation: float linear infinite;
   }
   @keyframes float {
@@ -317,16 +283,32 @@
   .hero-inner {
     position: relative;
     z-index: 3;
-    max-width: 1320px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 0 40px;
-    display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 40px;
+  }
+
+  .hero-content {
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
   }
 
-  .hero-content { max-width: 600px; }
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 
   .hero h1 {
     font-size: clamp(48px, 7vw, 92px);
@@ -352,32 +334,26 @@
   }
 
   .hero-lede {
-    font-size: 17px;
+    font-size: 16px;
     color: var(--ivory-dim);
     line-height: 1.75;
-    max-width: 540px;
-    margin-bottom: 44px;
+    max-width: 580px;
+    margin: 0 auto 36px;
     font-weight: 300;
   }
 
-  .hero-actions { display: flex; gap: 18px; flex-wrap: wrap; }
+  .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
 
-  /* ======= BOUTONS — halo conique rotatif (style GlowingShadow) ======= */
-  @property --grad-angle {
-    syntax: '<angle>';
-    initial-value: 0deg;
-    inherits: false;
-  }
-
+  /* ======= BOUTONS — contour or très discret, halo minimal ======= */
   .btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 12px;
     padding: 17px 34px;
-    background: rgba(5, 11, 24, 0.96);
+    background: rgba(5, 11, 24, 0.85);
     color: var(--ivory);
-    border: 1px solid rgba(241, 245, 249, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: 14px;
     font-family: 'Inter', sans-serif;
     font-size: 11px;
@@ -387,52 +363,40 @@
     text-decoration: none;
     cursor: pointer;
     isolation: isolate;
-    transition: transform 0.4s var(--ease), border-color 0.4s var(--ease);
+    transition: transform 0.4s var(--ease), border-color 0.4s var(--ease), background 0.4s;
   }
   .btn::before {
     content: '';
     position: absolute;
-    inset: -3px;
-    border-radius: 17px;
-    z-index: -1;
-    background: conic-gradient(
-      from var(--grad-angle),
-      hsl(335, 80%, 65%),
-      hsl(30,  90%, 60%),
-      hsl(50,  90%, 60%),
-      hsl(140, 65%, 55%),
-      hsl(195, 90%, 60%),
-      hsl(245, 75%, 65%),
-      hsl(290, 70%, 65%),
-      hsl(335, 80%, 65%)
-    );
-    filter: blur(14px);
-    opacity: 0.6;
-    animation: rotateGradGlow 7s linear infinite;
-  }
-  .btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
+    inset: -1px;
     border-radius: 14px;
-    background: inherit;
     z-index: -1;
+    background: radial-gradient(
+      ellipse 80% 80% at center,
+      rgba(212, 175, 55, 0.18) 0%,
+      transparent 70%
+    );
+    filter: blur(8px);
+    opacity: 0.4;
+    transition: opacity 0.5s var(--ease);
   }
   .btn:hover {
     transform: translateY(-2px);
-    border-color: rgba(241, 245, 249, 0.2);
+    border-color: rgba(212, 175, 55, 0.55);
+    background: rgba(5, 11, 24, 0.7);
   }
-  .btn:hover::before { opacity: 0.95; filter: blur(20px); }
+  .btn:hover::before { opacity: 0.85; }
 
-  /* Primary = halo visible au repos */
-  .btn-primary::before { opacity: 0.85; }
-  .btn-primary:hover::before { opacity: 1; filter: blur(22px); }
+  /* Primary = halo subtilement visible */
+  .btn-primary { border-color: rgba(212, 175, 55, 0.45); }
+  .btn-primary::before { opacity: 0.6; }
+  .btn-primary:hover::before { opacity: 1; }
 
-  /* Ghost = halo discret qui apparaît au hover */
-  .btn-ghost { background: transparent; }
+  /* Ghost = aucun halo, juste un bord ivoire qui devient or */
+  .btn-ghost { background: transparent; border-color: rgba(241, 245, 249, 0.12); }
   .btn-ghost::before { opacity: 0; }
-  .btn-ghost:hover::before { opacity: 0.7; }
-  .btn-ghost:hover { background: rgba(5, 11, 24, 0.6); }
+  .btn-ghost:hover { border-color: rgba(212, 175, 55, 0.4); }
+  .btn-ghost:hover::before { opacity: 0.4; }
 
   .btn .arrow {
     display: inline-block;
@@ -440,20 +404,12 @@
   }
   .btn:hover .arrow { transform: translateX(6px); }
 
-  @keyframes rotateGradGlow {
-    to { --grad-angle: 360deg; }
-  }
-  /* Fallback Firefox < 128 (animation no-op, halo statique) */
-  @supports not (background: conic-gradient(from 0deg, red, blue)) {
-    .btn::before { background: linear-gradient(90deg, hsl(335, 80%, 65%), hsl(195, 90%, 60%), hsl(290, 70%, 65%)); }
-  }
-
-  /* HERO RIGHT — full logo showcase (identité complète) */
+  /* Hero — logo carré comme pièce maîtresse centrale */
   .hero-visual {
     position: relative;
     width: 100%;
-    aspect-ratio: 540 / 770;
-    max-width: 480px;
+    aspect-ratio: 1;
+    max-width: 640px;
     margin: 0 auto;
   }
   .hero-visual .glow {
@@ -624,11 +580,13 @@
   }
   .service {
     position: relative;
-    padding: 56px 40px 54px;
+    padding: 48px 36px 44px;
     border-right: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
     transition: background 0.6s var(--ease);
   }
-  .service:last-child { border-right: none; }
+  .service:nth-child(3n) { border-right: none; }
+  .service:nth-last-child(-n+3) { border-bottom: none; }
   .service:hover { background: rgba(241, 245, 249, 0.015); }
 
   .service-step {
@@ -694,7 +652,7 @@
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(135deg, rgba(103, 232, 249, 0.1), transparent),
+      linear-gradient(135deg, rgba(241, 245, 249, 0.1), transparent),
       linear-gradient(45deg, var(--navy-700), var(--navy-800));
     border: 1px solid var(--line);
   }
@@ -703,7 +661,7 @@
     position: absolute;
     inset: 12%;
     background:
-      repeating-linear-gradient(45deg, transparent 0 18px, rgba(103, 232, 249, 0.04) 18px 19px);
+      repeating-linear-gradient(45deg, transparent 0 18px, rgba(241, 245, 249, 0.04) 18px 19px);
   }
   .philo-frame {
     position: absolute;
@@ -831,14 +789,14 @@
     position: absolute;
     inset: -8px;
     border-radius: 50%;
-    border: 1px dashed rgba(103, 232, 249, 0.25);
+    border: 1px dashed rgba(241, 245, 249, 0.25);
     animation: spin 30s linear infinite;
   }
   .step:hover .step-circle {
     background: var(--gold-500);
     color: var(--navy-950);
     transform: scale(1.06);
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4);
+    box-shadow: 0 0 40px rgba(241, 245, 249, 0.4);
   }
   .step h4 {
     font-size: 22px;
@@ -908,6 +866,20 @@
   .gtile.g3 { grid-column: span 3; }
   .gtile.g4 { grid-column: span 4; }
   .gtile.g5 { grid-column: span 3; }
+
+  /* Coins arrondis et adoucis pour ne plus avoir de carré nu */
+  .pillar { border-radius: 0 16px 16px 0; }
+  .contact-item { border-radius: 16px; }
+  .form-card { border-radius: 24px; }
+  .field input, .field select, .field textarea { border-radius: 10px; }
+  .service { border-radius: 0; }
+  .services-grid > .service:first-child { border-top-left-radius: 20px; }
+  .services-grid > .service:nth-child(3) { border-top-right-radius: 20px; }
+  .services-grid > .service:nth-last-child(3) { border-bottom-left-radius: 20px; }
+  .services-grid > .service:last-child { border-bottom-right-radius: 20px; }
+  .philo-visual-inner, .philo-frame { border-radius: 20px; }
+  .trust { border-radius: 20px; max-width: 1240px; margin: 0 auto; }
+  .footer-social a { border-radius: 999px; }
 
   /* Tuiles d'ambiance — variations monochromes navy/ivoire pour rester minimal */
   .bg-marble {
@@ -1079,7 +1051,7 @@
   .contact {
     position: relative;
     background:
-      radial-gradient(ellipse at 50% 0%, rgba(103, 232, 249, 0.1), transparent 60%),
+      radial-gradient(ellipse at 50% 0%, rgba(241, 245, 249, 0.1), transparent 60%),
       var(--navy-950);
     overflow: hidden;
   }
@@ -1226,7 +1198,7 @@
   .field textarea:focus {
     border-color: var(--gold-500);
     background: rgba(5, 11, 24, 0.85);
-    box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.1);
+    box-shadow: 0 0 0 3px rgba(241, 245, 249, 0.1);
   }
 
   .checkbox-row {
@@ -1248,7 +1220,7 @@
     padding: 20px;
     background: rgba(5, 11, 24, 0.96);
     color: var(--ivory);
-    border: 1px solid rgba(241, 245, 249, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: 14px;
     font-family: 'Inter', sans-serif;
     font-size: 11px;
@@ -1262,29 +1234,24 @@
   .form-submit::before {
     content: '';
     position: absolute;
-    inset: -3px;
-    border-radius: 17px;
+    inset: -1px;
+    border-radius: 14px;
     z-index: -1;
-    background: conic-gradient(
-      from var(--grad-angle),
-      hsl(335, 80%, 65%),
-      hsl(30,  90%, 60%),
-      hsl(50,  90%, 60%),
-      hsl(140, 65%, 55%),
-      hsl(195, 90%, 60%),
-      hsl(245, 75%, 65%),
-      hsl(290, 70%, 65%),
-      hsl(335, 80%, 65%)
+    background: radial-gradient(
+      ellipse 80% 80% at center,
+      rgba(212, 175, 55, 0.18) 0%,
+      transparent 70%
     );
-    filter: blur(16px);
-    opacity: 0.7;
-    animation: rotateGradGlow 7s linear infinite;
+    filter: blur(10px);
+    opacity: 0.5;
+    transition: opacity 0.5s;
   }
   .form-submit:hover {
     transform: translateY(-2px);
-    border-color: rgba(241, 245, 249, 0.2);
+    border-color: rgba(212, 175, 55, 0.6);
+    background: rgba(5, 11, 24, 0.7);
   }
-  .form-submit:hover::before { opacity: 0.95; filter: blur(22px); }
+  .form-submit:hover::before { opacity: 0.95; }
 
   .form-success {
     display: none;
@@ -1336,6 +1303,7 @@
     margin-bottom: 60px;
   }
   .footer-brand .logo-svg { width: 56px; height: 56px; margin-bottom: 22px; }
+  .footer-brand .footer-logo-svg { width: 180px; height: 180px; margin-bottom: 22px; }
   .footer-brand p {
     color: var(--ivory-dim);
     font-size: 14px;
@@ -1414,7 +1382,8 @@
      RESPONSIVE
      ===================== */
   @media (max-width: 1100px) {
-    .hero-inner { grid-template-columns: 1fr; gap: 60px; }
+    .hero-inner { gap: 50px; }
+    .hero-visual { max-width: 560px; }
     .hero-visual { max-width: 380px; margin: 0 auto; }
     .philo-grid { grid-template-columns: 1fr; gap: 60px; }
     .contact-grid { grid-template-columns: 1fr; gap: 60px; }
@@ -1517,10 +1486,14 @@
 
 <!-- ========= LOADER ========= -->
 <div class="loader" id="loader">
-  <svg class="loader-logo" viewBox="0 0 200 200">
-    <use href="#apex-logo"/>
+  <svg class="loader-logo" viewBox="0 0 100 100">
+    <use href="#apex-mark"/>
   </svg>
 </div>
+
+<!-- ========= CANVAS WAVE (fond animé sur tout le site) ========= -->
+<canvas id="siteWave"></canvas>
+<div id="siteWaveVeil"></div>
 
 <!-- ========= REUSABLE LOGO (SVG) ========= -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1577,82 +1550,122 @@
       <path d="M 0 -10 Q 0.5 -2 0 0 Q -0.5 -2 0 -10 Z" fill="#fff" opacity="0.85"/>
     </symbol>
 
-    <symbol id="apex-logo" viewBox="0 0 200 200">
-      <!-- Médaillon : cercle bleu nuit + double anneau or fin -->
-      <circle cx="100" cy="100" r="98" fill="url(#bgCircleGrad)"/>
-      <circle cx="100" cy="100" r="96.5" fill="none" stroke="#d4af37" stroke-width="1.2"/>
-      <circle cx="100" cy="100" r="93.5" fill="none" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
+    <linearGradient id="apexAurora" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a87f1f"/>
+      <stop offset="22%" stop-color="#f0d68a"/>
+      <stop offset="50%" stop-color="#d4af37"/>
+      <stop offset="78%" stop-color="#f0d68a"/>
+      <stop offset="100%" stop-color="#a87f1f"/>
+    </linearGradient>
 
-      <!-- Blason (gold outline + intérieur navy plus clair) -->
-      <path d="M 100 36 L 148 54 L 148 108 Q 148 142 100 162 Q 52 142 52 108 L 52 54 Z"
-            fill="url(#shieldGrad)"/>
-      <path d="M 100 36 L 148 54 L 148 108 Q 148 142 100 162 Q 52 142 52 108 L 52 54 Z"
-            fill="none" stroke="#d4af37" stroke-width="2.4" stroke-linejoin="round"/>
-      <!-- Liseré intérieur très fin -->
-      <path d="M 100 44 L 142 60 L 142 107 Q 142 137 100 154 Q 58 137 58 107 L 58 60 Z"
-            fill="none" stroke="#d4af37" stroke-width="0.6" opacity="0.5"/>
+    <!-- Clip path pour le reflet APEX inversé dans le diamant -->
+    <clipPath id="diamondClip">
+      <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"/>
+    </clipPath>
 
-      <!-- Vagues stylisées (4 lignes superposées, du clair vers le sombre) -->
-      <g stroke-linecap="round" fill="none">
-        <path d="M 60 104 Q 80 96 100 104 Q 120 112 140 104"
-              stroke="#cfe1fb" stroke-width="3" opacity="0.95"/>
-        <path d="M 60 118 Q 80 110 100 118 Q 120 126 140 118"
-              stroke="#88aae3" stroke-width="3" opacity="0.95"/>
-        <path d="M 60 132 Q 80 124 100 132 Q 120 140 140 132"
-              stroke="#4d7ac4" stroke-width="3" opacity="0.95"/>
-        <path d="M 60 145 Q 80 137 100 145 Q 120 153 140 145"
-              stroke="#2a5099" stroke-width="3" opacity="0.95"/>
+    <!-- LOGO APEX — fidèle à l'image fournie -->
+    <symbol id="apex-logo" viewBox="0 0 1000 1000" overflow="visible">
+
+      <!-- Équerres aux 4 coins (cadre discret L-shapes) -->
+      <g stroke="#d4af37" stroke-width="2" fill="none" stroke-linecap="square" opacity="0.42">
+        <path d="M 50 50 L 50 105 M 50 50 L 105 50"/>
+        <path d="M 950 50 L 950 105 M 950 50 L 895 50"/>
+        <path d="M 50 950 L 50 895 M 50 950 L 105 950"/>
+        <path d="M 950 950 L 950 895 M 950 950 L 895 950"/>
       </g>
 
-      <!-- Diamant (silver/white avec facettes) -->
-      <g transform="translate(100, 78)">
-        <!-- Couronne -->
-        <path d="M -12 -2 L -7 -14 L 7 -14 L 12 -2 Z" fill="#f4f8ff"/>
-        <path d="M -7 -14 L 0 -8 L 7 -14 Z" fill="#ffffff"/>
-        <path d="M -12 -2 L -7 -14 L 0 -8 Z" fill="#e0eaf7" opacity="0.9"/>
-        <path d="M 12 -2 L 7 -14 L 0 -8 Z" fill="#c8d6ec" opacity="0.9"/>
-        <!-- Pavillon (pointes vers le bas) -->
-        <path d="M -12 -2 L 0 14 L -5 -2 Z" fill="#a8bedb"/>
-        <path d="M -5 -2 L 0 14 L 0 -2 Z" fill="#dde7f3"/>
-        <path d="M 0 -2 L 0 14 L 5 -2 Z" fill="#c2cfe2"/>
-        <path d="M 5 -2 L 0 14 L 12 -2 Z" fill="#7d96b6"/>
-        <!-- Contour -->
-        <path d="M -12 -2 L -7 -14 L 7 -14 L 12 -2 L 0 14 Z"
-              fill="none" stroke="#d4af37" stroke-width="0.6" stroke-linejoin="round"/>
-        <line x1="-12" y1="-2" x2="12" y2="-2" stroke="#d4af37" stroke-width="0.4" opacity="0.6"/>
-        <!-- Éclat brillant -->
-        <path d="M -4 -10 L -3 -7 L 0 -8 L -3 -7.5 L -4 -4 Z" fill="#ffffff"/>
+      <!-- MAISON FONDÉE À PARIS · MMXXII -->
+      <text x="500" y="262" text-anchor="middle"
+            font-family="Inter, Arial, sans-serif"
+            font-size="20" letter-spacing="11" font-weight="500"
+            fill="#d4af37" opacity="0.95">MAISON FONDÉE À PARIS  ·  MMXXII</text>
+
+      <!-- Ornement décoratif (filets + diamant bullet) -->
+      <g transform="translate(500, 305)" opacity="0.7">
+        <line x1="-72" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-width="0.9"/>
+        <line x1="14" y1="0" x2="72" y2="0" stroke="#d4af37" stroke-width="0.9"/>
+        <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
       </g>
 
-      <!-- Anneau or signature (saturne, incliné) — devant ET derrière le blason -->
-      <g transform="rotate(-14 100 108)">
-        <!-- Arrière (sous le blason) -->
-        <path d="M 100 86 Q 165 98 165 108 Q 165 116 100 130"
-              fill="none" stroke="#8a6918" stroke-width="2.6" opacity="0.55"/>
-        <!-- Devant -->
-        <path d="M 100 86 Q 35 98 35 108 Q 35 116 100 130 Q 165 116 165 108 Q 165 98 100 86"
-              fill="none" stroke="url(#ringGrad)" stroke-width="3.4" stroke-linecap="round"/>
-        <!-- Reflet spéculaire sur le bord gauche de l'anneau -->
-        <path d="M 50 100 Q 75 92 100 92"
-              fill="none" stroke="#fff6d8" stroke-width="0.8" opacity="0.65" stroke-linecap="round"/>
+      <!-- GRAND DIAMANT (taille brillant, derrière les lettres APEX) -->
+      <g opacity="0.92">
+        <!-- Contour principal du diamant (pentagonal : table + culet) -->
+        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
+              fill="rgba(212, 175, 55, 0.035)"
+              stroke="#d4af37" stroke-width="1.6"
+              stroke-linejoin="round"/>
+
+        <!-- Girdle (ligne horizontale la plus large) -->
+        <line x1="235" y1="615" x2="765" y2="615"
+              stroke="#d4af37" stroke-width="0.7" opacity="0.55"/>
+
+        <!-- Facettes couronne (entre table et girdle) -->
+        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
+        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
+        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.35"/>
+        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.35"/>
+        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.3"/>
+        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.3"/>
+
+        <!-- Facettes pavillon (entre girdle et culet) -->
+        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.32"/>
+        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.32"/>
+        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.25"/>
+        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.25"/>
+        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.35" opacity="0.2"/>
+
+        <!-- REFLET APEX INVERSÉ — clippé à l'intérieur du diamant -->
+        <g clip-path="url(#diamondClip)">
+          <text x="500" y="555"
+                text-anchor="middle"
+                transform="matrix(1 0 0 -1 0 1110)"
+                font-family="Cormorant Garamond, Georgia, serif"
+                font-size="215" font-weight="500"
+                letter-spacing="18"
+                fill="#d4af37" opacity="0.22">APEX</text>
+        </g>
       </g>
+
+      <!-- APEX wordmark — par-dessus le diamant (le bas des lettres entre dans le diamant) -->
+      <text x="500" y="555" text-anchor="middle"
+            font-family="Cormorant Garamond, Georgia, serif"
+            font-size="215" font-weight="500"
+            letter-spacing="18"
+            fill="#d4af37">APEX</text>
+
+      <!-- Signature : PROPRETÉ ◆ SERVICES ◆ PARIS -->
+      <text x="500" y="908" text-anchor="middle"
+            font-family="Inter, Arial, sans-serif"
+            font-size="22" letter-spacing="14" font-weight="500"
+            fill="#d4af37" opacity="0.95">PROPRETÉ  ◆  SERVICES  ◆  PARIS</text>
+
+      <!-- Tagline italique -->
+      <text x="500" y="958" text-anchor="middle"
+            font-family="Cormorant Garamond, Georgia, serif"
+            font-size="28" font-style="italic" font-weight="400"
+            fill="#d4af37" opacity="0.85">Quand la propreté devient un art.</text>
     </symbol>
 
-    <!-- Compact mono-logo for nav/footer (cleaner at small sizes) -->
+    <!-- Mark compact pour nav (juste le diamant + initiale A en or) -->
     <symbol id="apex-mark" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="48" fill="url(#bgCircleGrad)" stroke="url(#ringGrad)" stroke-width="1"/>
-      <path d="M 50 22 L 74 32 L 74 58 Q 74 76 50 86 Q 26 76 26 58 L 26 32 Z"
-            fill="url(#shieldGrad)" stroke="url(#ringGrad)" stroke-width="1.4" stroke-linejoin="round"/>
-      <path d="M 30 60 Q 40 54 50 58 Q 60 62 70 58 L 70 72 Q 60 78 50 76 Q 40 74 30 76 Z"
-            fill="url(#waveGrad)" opacity="0.9"/>
-      <g transform="translate(50, 44)">
-        <path d="M -6 -2 L -4 -8 L 4 -8 L 6 -2 L 0 8 Z" fill="url(#diamondFaceted)" stroke="#8a6918" stroke-width="0.4"/>
-        <path d="M -4 -8 L 0 -5 L 4 -8" stroke="#fff" stroke-width="0.4" fill="none"/>
+      <g stroke="#d4af37" stroke-width="0.6" fill="none" opacity="0.35" stroke-linecap="square">
+        <path d="M 8 12 L 8 22 M 8 12 L 18 12"/>
+        <path d="M 92 12 L 92 22 M 92 12 L 82 12"/>
+        <path d="M 8 88 L 8 78 M 8 88 L 18 88"/>
+        <path d="M 92 88 L 92 78 M 92 88 L 82 88"/>
       </g>
-      <g transform="rotate(-12 50 56)">
-        <path d="M 50 40 Q 82 50 82 56 Q 82 62 50 72 Q 18 62 18 56 Q 18 50 50 40"
-              fill="none" stroke="url(#ringGrad)" stroke-width="1.8" stroke-linecap="round"/>
+      <!-- Diamant -->
+      <g transform="translate(50, 62)">
+        <path d="M -22 -10 L -17 -14 L 17 -14 L 22 -10 L 0 20 Z"
+              fill="rgba(212, 175, 55, 0.06)"
+              stroke="#d4af37" stroke-width="1" stroke-linejoin="round" opacity="0.85"/>
+        <line x1="-22" y1="-10" x2="22" y2="-10" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
       </g>
+      <!-- A -->
+      <text x="50" y="50" text-anchor="middle"
+            font-family="Cormorant Garamond, Georgia, serif"
+            font-size="32" font-weight="500"
+            fill="#d4af37">A</text>
     </symbol>
 
     <!-- FULL LOGO — médaillon + APEX + sous-titre + signature (identité complète) -->
@@ -1717,24 +1730,25 @@
 
 <!-- ========= HERO ========= -->
 <header class="hero" id="home">
-  <div class="hero-bg">
-    <div class="aurora-wrap">
-      <div class="aurora"></div>
-    </div>
-    <div class="aurora-veil"></div>
-    <div class="particles" id="particles"></div>
-  </div>
+  <div class="hero-bg"></div>
   <div class="hero-inner">
+    <h1 class="visually-hidden">APEX Propreté &amp; Services — Nettoyage haut de gamme, multiservice. Bureaux, résidences, événementiel luxe, après-chantier.</h1>
+
+    <div class="hero-visual">
+      <div class="glow"></div>
+      <div class="hero-logo">
+        <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+          <use href="#apex-logo"/>
+        </svg>
+      </div>
+    </div>
+
     <div class="hero-content">
-      <span class="eyebrow">Événementiel · Luxe · Sur-mesure</span>
-      <h1>
-        <span class="line"><span>L'art du <em class="gold">propre</em>,</span></span>
-        <span class="line"><span>au service du luxe.</span></span>
-      </h1>
       <p class="hero-lede">
-        Défilés, showrooms, activations, galas, événements presse. APEX orchestre
-        la propreté des lieux d'exception pour les maisons et agences les plus exigeantes —
-        avant, pendant, après. Discrétion absolue, équipes formées en interne.
+        Entreprise multiservice de nettoyage haut de gamme à Paris.
+        Bureaux, résidences de prestige, événementiel pour maisons de luxe,
+        après-chantier, hôtellerie, vitrerie, désinfection.
+        Mobilisation 48h — équipes formées en interne.
       </p>
       <div class="hero-actions">
         <a href="#contact" class="btn btn-primary">
@@ -1744,15 +1758,6 @@
         <a href="#services" class="btn btn-ghost">
           Nos prestations
         </a>
-      </div>
-    </div>
-
-    <div class="hero-visual">
-      <div class="glow"></div>
-      <div class="hero-logo">
-        <svg viewBox="0 0 540 770" preserveAspectRatio="xMidYMid meet">
-          <use href="#apex-logo-full"/>
-        </svg>
       </div>
     </div>
   </div>
@@ -1804,16 +1809,16 @@
 
       <div class="philo-content reveal reveal-d2">
         <span class="eyebrow">Notre métier</span>
-        <h2>Au service des <em>maisons de luxe</em></h2>
+        <h2>Une exigence d'orfèvre, <em>tous métiers confondus</em></h2>
         <p>
-          Nous intervenons pour les maisons de mode, de joaillerie, de beauté, ainsi que pour
-          les agences événementielles qui les accompagnent. Défilés, lancements produit, dîners
-          privés, expositions, showrooms permanents — chaque mission exige la même rigueur.
+          Du bureau exécutif à la résidence privée, du défilé pour une maison de mode
+          au chantier livré clé en main, nous abordons chaque mission avec la même méthode :
+          un audit sur site, un protocole sur-mesure, une équipe dédiée et formée.
         </p>
         <p>
-          Nos équipes sont formées en interne, signataires d'accords de confidentialité,
-          habituées aux contraintes de production : timings impossibles, lieux sensibles,
-          matériaux précieux. Vous ne nous verrez pas. Vous verrez seulement le résultat.
+          Nos équipes sont formées en interne pendant six semaines avant la première mission.
+          Elles connaissent les matériaux nobles, signent un accord de confidentialité,
+          et appliquent des protocoles rigoureux avec des produits éco-responsables labellisés.
         </p>
 
         <div class="philo-pillars">
@@ -1822,8 +1827,16 @@
             <span>NDA systématiques, équipes dédiées, uniformes neutres.</span>
           </div>
           <div class="pillar">
+            <strong>Rigueur</strong>
+            <span>Check-list de 47 points, audit qualité mensuel.</span>
+          </div>
+          <div class="pillar">
             <strong>Rapidité</strong>
             <span>Mobilisation 48h, équipes nuit, finitions sous délais courts.</span>
+          </div>
+          <div class="pillar">
+            <strong>Éco-responsable</strong>
+            <span>Produits labellisés Ecocert, matériel basse consommation.</span>
           </div>
         </div>
       </div>
@@ -1831,39 +1844,52 @@
   </div>
 </section>
 
-<!-- ========= SERVICES — orchestrés autour du cycle événementiel ========= -->
+<!-- ========= SERVICES — entreprise multiservice ========= -->
 <section id="services">
   <div class="container">
     <div class="section-head reveal">
       <span class="eyebrow">Nos prestations</span>
-      <h2>Le cycle complet de <em>l'événement</em></h2>
-      <p>Trois temps, une même exigence : que votre événement existe sans qu'on devine jamais ce qu'il a fallu pour qu'il soit impeccable.</p>
+      <h2>Une gamme complète, <em>une seule exigence</em></h2>
+      <p>De l'événement de luxe au nettoyage quotidien, nous adaptons protocoles, produits et équipes au caractère de chaque lieu.</p>
     </div>
 
-    <div class="services-grid">
+    <div class="services-grid services-grid-3">
       <article class="service reveal reveal-d1">
-        <span class="service-step">Étape 01</span>
-        <h3>Avant l'événement</h3>
-        <p>Préparation complète du lieu : dépoussiérage en profondeur, traitement des sols, vitrerie, finitions. Nous arrivons en amont pour livrer un espace immaculé aux équipes scénographie.</p>
+        <span class="service-step">01</span>
+        <h3>Bureaux &amp; entreprises</h3>
+        <p>Entretien quotidien ou hebdomadaire de vos espaces de travail, salles de réunion, parties communes. Discrétion et régularité au service de votre image.</p>
       </article>
 
       <article class="service reveal reveal-d2">
-        <span class="service-step">Étape 02</span>
-        <h3>Pendant l'événement</h3>
-        <p>Équipe dédiée en uniforme noir, présente sans être visible. Sanitaires, bars, espaces de circulation maintenus en continu. Réactivité immédiate sur incident — discrétion absolue avec les invités.</p>
+        <span class="service-step">02</span>
+        <h3>Résidences de prestige</h3>
+        <p>Villas, hôtels particuliers, appartements haussmanniens. Équipe dédiée, produits respectueux des matériaux nobles : marbre, bois précieux, textiles.</p>
       </article>
 
       <article class="service reveal reveal-d3">
-        <span class="service-step">Étape 03</span>
-        <h3>Après l'événement</h3>
-        <p>Remise en état complète post-événement, dans les délais courts imposés par les lieux de prestige. Tri, décapage, restitution dans l'état d'origine — souvent dans la nuit qui suit.</p>
+        <span class="service-step">03</span>
+        <h3>Événementiel luxe</h3>
+        <p>Défilés, showrooms, galas, événements presse. Trois temps : préparation, présence pendant l'événement, remise en état. NDA systématiques.</p>
+      </article>
+
+      <article class="service reveal reveal-d1">
+        <span class="service-step">04</span>
+        <h3>Après-chantier</h3>
+        <p>Remise en état complète après travaux : décapage, dépoussiérage profond, vitrerie, traitement des sols. Votre bien livré clé en main, prêt à vivre.</p>
+      </article>
+
+      <article class="service reveal reveal-d2">
+        <span class="service-step">05</span>
+        <h3>Hôtellerie &amp; restauration</h3>
+        <p>Chambres, parties communes, cuisines professionnelles. Nous respectons les standards de l'hôtellerie de luxe et les normes HACCP les plus strictes.</p>
+      </article>
+
+      <article class="service reveal reveal-d3">
+        <span class="service-step">06</span>
+        <h3>Vitrerie &amp; désinfection</h3>
+        <p>Vitres, baies, vérandas, façades en hauteur. Protocoles de désinfection certifiés (anti-acariens, anti-bactérien, anti-viral) pour espaces sensibles.</p>
       </article>
     </div>
-
-    <p class="services-footnote reveal reveal-d3">
-      Nous accompagnons également les <strong>showrooms, bureaux et espaces permanents</strong>
-      des marques en entretien récurrent. <a href="#contact">En parler</a>.
-    </p>
   </div>
 </section>
 
@@ -1913,11 +1939,11 @@
     <div class="faq-list">
       <div class="faq-item reveal">
         <button class="faq-q">
-          <span>Quels types d'événements prenez-vous en charge ?</span>
+          <span>Quels types de lieux et d'événements prenez-vous en charge ?</span>
           <span class="faq-toggle">+</span>
         </button>
         <div class="faq-a"><div class="faq-a-inner">
-          Défilés, lancements produit, dîners privés, galas, expositions, événements presse, activations de marque, conventions, fashion weeks. Nous intervenons sur tous les formats — quelques heures comme plusieurs semaines.
+          Bureaux et entreprises, résidences privées de prestige, après-chantier, hôtellerie et restauration, vitrerie et façades, espaces médicaux. Côté événementiel : défilés, galas, expositions, événements presse, activations de marque. Quelques heures comme plusieurs mois.
         </div></div>
       </div>
       <div class="faq-item reveal">
@@ -2112,7 +2138,7 @@
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <svg class="logo-svg" viewBox="0 0 200 200"><use href="#apex-logo"/></svg>
+        <svg class="logo-svg footer-logo-svg" viewBox="0 0 1000 1000"><use href="#apex-logo"/></svg>
         <p>APEX Propreté &amp; Services — Spécialiste du nettoyage événementiel pour les maisons de luxe. Mode, joaillerie, beauté, agences créatives.</p>
         <div class="footer-social">
           <a href="#" aria-label="Instagram">
@@ -2139,10 +2165,12 @@
       <div class="footer-col">
         <h5>Prestations</h5>
         <ul>
-          <li><a href="#services">Avant l'événement</a></li>
-          <li><a href="#services">Pendant l'événement</a></li>
-          <li><a href="#services">Remise en état</a></li>
-          <li><a href="#services">Espaces permanents</a></li>
+          <li><a href="#services">Bureaux &amp; entreprises</a></li>
+          <li><a href="#services">Résidences de prestige</a></li>
+          <li><a href="#services">Événementiel luxe</a></li>
+          <li><a href="#services">Après-chantier</a></li>
+          <li><a href="#services">Hôtellerie</a></li>
+          <li><a href="#services">Vitrerie &amp; désinfection</a></li>
         </ul>
       </div>
 
@@ -2234,7 +2262,82 @@
     }));
   })();
 
-  // Particules supprimées (minimalisme)
+  // ====== Canvas Wave — fond animé en vagues sin/cos (basé sur HeroWave) ======
+  (function () {
+    const canvas = document.getElementById('siteWave');
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const SCALE = 4; // resolution divider — plus grand = plus performant
+    let width = 0, height = 0, imageData, data;
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      width = Math.max(1, Math.floor(canvas.width / SCALE));
+      height = Math.max(1, Math.floor(canvas.height / SCALE));
+      imageData = ctx.createImageData(width, height);
+      data = imageData.data;
+    }
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+
+    // Tables sin/cos précalculées pour performance
+    const TABLE_SIZE = 1024;
+    const SIN_TABLE = new Float32Array(TABLE_SIZE);
+    const COS_TABLE = new Float32Array(TABLE_SIZE);
+    const TWO_PI = Math.PI * 2;
+    for (let i = 0; i < TABLE_SIZE; i++) {
+      const angle = (i / TABLE_SIZE) * TWO_PI;
+      SIN_TABLE[i] = Math.sin(angle);
+      COS_TABLE[i] = Math.cos(angle);
+    }
+    const fastSin = (x) => SIN_TABLE[(((x % TWO_PI + TWO_PI) % TWO_PI) / TWO_PI * TABLE_SIZE | 0) & 1023];
+    const fastCos = (x) => COS_TABLE[(((x % TWO_PI + TWO_PI) % TWO_PI) / TWO_PI * TABLE_SIZE | 0) & 1023];
+
+    const t0 = performance.now();
+    // Throttle à ~30 fps pour économiser CPU/batterie
+    const FRAME_MS = 33;
+    let last = 0;
+
+    function render(now) {
+      if (now - last < FRAME_MS) { requestAnimationFrame(render); return; }
+      last = now;
+      const time = (now - t0) * 0.001;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const ux = (2 * x - width) / height;
+          const uy = (2 * y - height) / height;
+          let a = 0, d = 0;
+          for (let i = 0; i < 4; i++) {
+            a += fastCos(i - d + time * 0.5 - a * ux);
+            d += fastSin(i * uy + a);
+          }
+          const wave = (fastSin(a) + fastCos(d)) * 0.5;
+          // Palette monochrome navy : on garde uniquement la structure de vague,
+          // les teintes restent dans les bleu nuit profonds pour ne pas paraître flashy.
+          const intensity = 0.25 + 0.35 * wave;
+          const base = 0.05 + 0.12 * fastCos(ux + uy + time * 0.3);
+          const v = Math.max(0, Math.min(1, base)) * intensity;
+          // Légère dominance bleue (navy)
+          const r = v * 0.4;
+          const g = v * 0.6;
+          const b = v * 1.0;
+          const idx = (y * width + x) * 4;
+          data[idx]   = r * 255;
+          data[idx+1] = g * 255;
+          data[idx+2] = b * 255;
+          data[idx+3] = 255;
+        }
+      }
+      // Affichage : on dessine le buffer dans un canvas off-screen puis on upscale
+      ctx.putImageData(imageData, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(canvas, 0, 0, width, height, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  })();
 
   // ====== Reveal on scroll ======
   const io = new IntersectionObserver(entries => {
