@@ -268,10 +268,117 @@
     background: linear-gradient(180deg, transparent 60%, var(--navy-950));
   }
 
+  /* ===== AURORA effect (navy + gold) ===== */
+  .aurora-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+    mask-image: radial-gradient(ellipse 90% 60% at 70% 20%, #000 25%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 70% 20%, #000 25%, transparent 75%);
+  }
+  .aurora {
+    position: absolute;
+    inset: -40px;
+    opacity: 0.55;
+    filter: blur(28px) saturate(120%);
+    will-change: transform, background-position;
+    background-image:
+      repeating-linear-gradient(
+        100deg,
+        rgba(5, 11, 24, 0) 0%,
+        rgba(5, 11, 24, 0.92) 7%,
+        transparent 10%,
+        transparent 12%,
+        rgba(5, 11, 24, 0.92) 16%
+      ),
+      repeating-linear-gradient(
+        100deg,
+        #d4af37 10%,
+        #f0d68a 15%,
+        #1c3878 20%,
+        #e6c46a 25%,
+        #11244f 30%
+      );
+    background-size: 320%, 220%;
+    background-position: 50% 50%, 50% 50%;
+    animation: auroraFlow 60s linear infinite;
+  }
+  .aurora::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(
+        100deg,
+        rgba(5, 11, 24, 0) 0%,
+        rgba(5, 11, 24, 0.92) 7%,
+        transparent 10%,
+        transparent 12%,
+        rgba(5, 11, 24, 0.92) 16%
+      ),
+      repeating-linear-gradient(
+        100deg,
+        #d4af37 10%,
+        #f0d68a 15%,
+        #1c3878 20%,
+        #e6c46a 25%,
+        #11244f 30%
+      );
+    background-size: 220%, 110%;
+    background-attachment: fixed;
+    mix-blend-mode: difference;
+    animation: auroraFlow 30s linear infinite reverse;
+  }
+  @keyframes auroraFlow {
+    0%   { background-position: 50% 50%, 50% 50%; }
+    100% { background-position: 350% 50%, 350% 50%; }
+  }
+
+  /* Soft veil over aurora so the navy stays dominant */
+  .aurora-veil {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 25% 80%, rgba(5,11,24,0.85), transparent 70%),
+      linear-gradient(180deg, rgba(5,11,24,0.4) 0%, rgba(5,11,24,0.1) 40%, rgba(5,11,24,0.92) 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Slow drift on the hero logo (idle motion of excellence) */
+  .hero-logo svg { animation: logoFloat 8s ease-in-out infinite; }
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(0.6deg); }
+  }
+
+  /* Sparkle bursts on the logo */
+  .logo-sparkle {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: radial-gradient(circle, #f6e2a2 0%, #d4af37 30%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: sparkleBurst 4.5s ease-in-out infinite;
+  }
+  .logo-sparkle.s1 { top: 18%; left: 22%; animation-delay: 0s; }
+  .logo-sparkle.s2 { top: 12%; right: 18%; animation-delay: 1.4s; width: 12px; height: 12px; }
+  .logo-sparkle.s3 { bottom: 26%; right: 12%; animation-delay: 2.6s; }
+  .logo-sparkle.s4 { bottom: 18%; left: 16%; animation-delay: 3.4s; width: 10px; height: 10px; }
+  @keyframes sparkleBurst {
+    0%, 100% { opacity: 0; transform: scale(0.4); }
+    20%      { opacity: 1;   transform: scale(1.2); }
+    40%      { opacity: 0.6; transform: scale(0.9); }
+    60%      { opacity: 0;   transform: scale(0.4); }
+  }
+
   .particles {
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: 2;
   }
   .particle {
     position: absolute;
@@ -1518,46 +1625,131 @@
       <stop offset="100%" stop-color="#d4af37"/>
     </radialGradient>
 
+    <radialGradient id="bgCircleGrad" cx="50%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#0e1d40"/>
+      <stop offset="60%" stop-color="#08122a"/>
+      <stop offset="100%" stop-color="#050b18"/>
+    </radialGradient>
+    <linearGradient id="shieldBevel" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#f0d68a" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#8a6918" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a6918"/>
+      <stop offset="20%" stop-color="#f0d68a"/>
+      <stop offset="50%" stop-color="#d4af37"/>
+      <stop offset="80%" stop-color="#f6e2a2"/>
+      <stop offset="100%" stop-color="#8a6918"/>
+    </linearGradient>
+    <radialGradient id="diamondFaceted" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="30%" stop-color="#fff6d8"/>
+      <stop offset="70%" stop-color="#f0d68a"/>
+      <stop offset="100%" stop-color="#b8902a"/>
+    </radialGradient>
+
+    <!-- Sparkle 4-point star -->
+    <symbol id="sparkle" viewBox="-10 -10 20 20">
+      <path d="M 0 -10 Q 1 -2 10 0 Q 1 2 0 10 Q -1 2 -10 0 Q -1 -2 0 -10 Z" fill="#f6e2a2"/>
+      <path d="M 0 -10 Q 0.5 -2 0 0 Q -0.5 -2 0 -10 Z" fill="#fff" opacity="0.85"/>
+    </symbol>
+
     <symbol id="apex-logo" viewBox="0 0 200 200">
-      <!-- Outer circle dark navy -->
-      <circle cx="100" cy="100" r="98" fill="#050b18"/>
-      <circle cx="100" cy="100" r="96" fill="none" stroke="url(#goldGrad)" stroke-width="0.5" opacity="0.4"/>
+      <!-- Background medallion -->
+      <circle cx="100" cy="100" r="98" fill="url(#bgCircleGrad)"/>
+      <circle cx="100" cy="100" r="96" fill="none" stroke="url(#ringGrad)" stroke-width="0.6" opacity="0.55"/>
+      <circle cx="100" cy="100" r="92" fill="none" stroke="#d4af37" stroke-width="0.25" opacity="0.3"/>
 
-      <!-- Shield -->
-      <path d="M 100 38 L 145 55 L 145 110 Q 145 140 100 158 Q 55 140 55 110 L 55 55 Z"
-            fill="url(#shieldGrad)" stroke="url(#goldGrad)" stroke-width="2"/>
-
-      <!-- Inner shield highlight -->
-      <path d="M 100 44 L 140 59 L 140 108 Q 140 135 100 152 Q 60 135 60 108 L 60 59 Z"
-            fill="none" stroke="url(#goldGradLight)" stroke-width="0.6" opacity="0.5"/>
-
-      <!-- Waves inside shield -->
-      <g>
-        <path d="M 65 110 Q 80 100 95 108 T 135 110 L 135 130 Q 120 138 100 138 Q 80 138 65 130 Z"
-              fill="url(#waveGrad)" opacity="0.95"/>
-        <path d="M 65 110 Q 80 100 95 108 T 135 110"
-              fill="none" stroke="#a8c2ee" stroke-width="0.6" opacity="0.6"/>
-        <path d="M 68 118 Q 85 110 100 116 T 132 118"
-              fill="none" stroke="#7da4e0" stroke-width="0.6" opacity="0.7"/>
+      <!-- Floating sparkles (clean & brilliant) -->
+      <g opacity="0.95">
+        <use href="#sparkle" x="34" y="48" width="14" height="14"/>
+        <use href="#sparkle" x="158" y="42" width="18" height="18"/>
+        <use href="#sparkle" x="165" y="110" width="12" height="12"/>
+        <use href="#sparkle" x="30" y="135" width="16" height="16"/>
+        <use href="#sparkle" x="150" y="155" width="10" height="10"/>
       </g>
 
-      <!-- Diamond on top -->
-      <g transform="translate(100, 70)">
-        <path d="M 0 -14 L 11 -3 L 0 14 L -11 -3 Z" fill="url(#diamondGrad)" stroke="#d4af37" stroke-width="0.6"/>
-        <path d="M -11 -3 L 11 -3" stroke="#b8902a" stroke-width="0.5" opacity="0.6"/>
-        <path d="M 0 -14 L -5 -3 L 0 14" fill="none" stroke="#fff" stroke-width="0.4" opacity="0.7"/>
-        <path d="M 0 -14 L 5 -3 L 0 14" fill="none" stroke="#fff" stroke-width="0.3" opacity="0.4"/>
-        <!-- Sparkle -->
-        <circle cx="-3" cy="-7" r="1.2" fill="#fff" opacity="0.9"/>
+      <!-- Shield body — refined heraldic shape -->
+      <path d="M 100 36 L 148 54 L 148 108 Q 148 142 100 162 Q 52 142 52 108 L 52 54 Z"
+            fill="url(#shieldGrad)"/>
+      <!-- Gold outer edge with bevel -->
+      <path d="M 100 36 L 148 54 L 148 108 Q 148 142 100 162 Q 52 142 52 108 L 52 54 Z"
+            fill="none" stroke="url(#ringGrad)" stroke-width="2.6" stroke-linejoin="round"/>
+      <!-- Inner gold pinstripe -->
+      <path d="M 100 44 L 142 60 L 142 107 Q 142 137 100 154 Q 58 137 58 107 L 58 60 Z"
+            fill="none" stroke="url(#shieldBevel)" stroke-width="0.7" opacity="0.7"/>
+
+      <!-- Inner subtle highlight (top of shield, suggesting polished surface) -->
+      <path d="M 100 44 L 142 60 L 142 90 Q 100 102 58 90 L 58 60 Z"
+            fill="url(#shieldBevel)" opacity="0.04"/>
+
+      <!-- Single elegant wave (water / cleaning motion) -->
+      <path d="M 58 118 Q 78 106 100 116 Q 122 126 142 116 L 142 142 Q 122 152 100 146 Q 78 140 58 145 Z"
+            fill="url(#waveGrad)" opacity="0.92"/>
+      <!-- Crest of wave — light reflection -->
+      <path d="M 58 118 Q 78 106 100 116 Q 122 126 142 116"
+            fill="none" stroke="#c8dcf5" stroke-width="0.9" opacity="0.65"/>
+      <path d="M 64 126 Q 82 117 100 124 Q 118 131 138 124"
+            fill="none" stroke="#7da4e0" stroke-width="0.5" opacity="0.55"/>
+
+      <!-- Diamond (excellence + clean sparkle) -->
+      <g transform="translate(100, 80)">
+        <!-- Crown facet (top) -->
+        <path d="M -13 -3 L -8 -16 L 8 -16 L 13 -3 Z" fill="#ffffff" opacity="0.95"/>
+        <!-- Pavilion facets (bottom) -->
+        <path d="M -13 -3 L 0 17 L -7 -3 Z" fill="url(#diamondFaceted)"/>
+        <path d="M 13 -3 L 0 17 L 7 -3 Z" fill="#d4af37"/>
+        <path d="M -7 -3 L 0 17 L 0 -3 Z" fill="#f0d68a"/>
+        <path d="M 7 -3 L 0 17 L 0 -3 Z" fill="#b8902a"/>
+        <!-- Top center facet -->
+        <path d="M -8 -16 L 0 -10 L 8 -16 Z" fill="#fff6d8"/>
+        <path d="M -8 -16 L 0 -10 L -13 -3 Z" fill="#f0d68a" opacity="0.7"/>
+        <path d="M 8 -16 L 0 -10 L 13 -3 Z" fill="#b8902a" opacity="0.7"/>
+        <!-- Outline -->
+        <path d="M -13 -3 L -8 -16 L 8 -16 L 13 -3 L 0 17 Z"
+              fill="none" stroke="#8a6918" stroke-width="0.7" stroke-linejoin="round"/>
+        <!-- Girdle line -->
+        <line x1="-13" y1="-3" x2="13" y2="-3" stroke="#8a6918" stroke-width="0.4" opacity="0.6"/>
+        <!-- Diamond sparkle highlight -->
+        <path d="M -4 -12 L -3.5 -8 L 0 -10 L -3.5 -8.5 L -4 -5 L -4.5 -8.5 L -8 -10 L -4.5 -8 Z"
+              fill="#ffffff" opacity="0.95"/>
       </g>
 
-      <!-- Gold orbit ring around shield (tilted ellipse) -->
-      <ellipse cx="100" cy="105" rx="62" ry="20"
-               fill="none" stroke="url(#goldGrad)" stroke-width="3"
-               transform="rotate(-12 100 105)"/>
-      <ellipse cx="100" cy="105" rx="62" ry="20"
-               fill="none" stroke="#f6e2a2" stroke-width="0.8" opacity="0.7"
-               transform="rotate(-12 100 105)"/>
+      <!-- Refined gold orbit ring (the signature element) -->
+      <g transform="rotate(-14 100 108)">
+        <!-- Back of the ring (subtle, behind shield) -->
+        <path d="M 100 87 Q 165 100 165 108 Q 165 116 100 129"
+              fill="none" stroke="#8a6918" stroke-width="3" opacity="0.55"/>
+        <!-- Front of the ring (over shield) -->
+        <path d="M 100 87 Q 35 100 35 108 Q 35 116 100 129 Q 165 116 165 108"
+              fill="none" stroke="url(#ringGrad)" stroke-width="3.6" stroke-linecap="round"/>
+        <!-- Specular highlight on ring -->
+        <path d="M 50 102 Q 75 95 100 95"
+              fill="none" stroke="#fff6d8" stroke-width="0.9" opacity="0.7" stroke-linecap="round"/>
+      </g>
+
+      <!-- Brand mark inside shield (subtle "A") — a discreet typographic detail -->
+      <g transform="translate(100, 72)" opacity="0.0">
+        <text x="0" y="0" text-anchor="middle" font-family="Cormorant Garamond, serif"
+              font-size="14" font-weight="600" fill="#d4af37">A</text>
+      </g>
+    </symbol>
+
+    <!-- Compact mono-logo for nav/footer (cleaner at small sizes) -->
+    <symbol id="apex-mark" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="48" fill="url(#bgCircleGrad)" stroke="url(#ringGrad)" stroke-width="1"/>
+      <path d="M 50 22 L 74 32 L 74 58 Q 74 76 50 86 Q 26 76 26 58 L 26 32 Z"
+            fill="url(#shieldGrad)" stroke="url(#ringGrad)" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M 30 60 Q 40 54 50 58 Q 60 62 70 58 L 70 72 Q 60 78 50 76 Q 40 74 30 76 Z"
+            fill="url(#waveGrad)" opacity="0.9"/>
+      <g transform="translate(50, 44)">
+        <path d="M -6 -2 L -4 -8 L 4 -8 L 6 -2 L 0 8 Z" fill="url(#diamondFaceted)" stroke="#8a6918" stroke-width="0.4"/>
+        <path d="M -4 -8 L 0 -5 L 4 -8" stroke="#fff" stroke-width="0.4" fill="none"/>
+      </g>
+      <g transform="rotate(-12 50 56)">
+        <path d="M 50 40 Q 82 50 82 56 Q 82 62 50 72 Q 18 62 18 56 Q 18 50 50 40"
+              fill="none" stroke="url(#ringGrad)" stroke-width="1.8" stroke-linecap="round"/>
+      </g>
     </symbol>
   </defs>
 </svg>
@@ -1601,6 +1793,10 @@
 <!-- ========= HERO ========= -->
 <header class="hero" id="home">
   <div class="hero-bg">
+    <div class="aurora-wrap">
+      <div class="aurora"></div>
+    </div>
+    <div class="aurora-veil"></div>
     <div class="particles" id="particles"></div>
   </div>
   <div class="hero-inner">
@@ -1632,6 +1828,10 @@
       <div class="ring-orbit ring-orbit-2"></div>
       <div class="hero-logo">
         <svg viewBox="0 0 200 200"><use href="#apex-logo"/></svg>
+        <span class="logo-sparkle s1"></span>
+        <span class="logo-sparkle s2"></span>
+        <span class="logo-sparkle s3"></span>
+        <span class="logo-sparkle s4"></span>
       </div>
     </div>
   </div>
