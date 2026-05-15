@@ -111,23 +111,7 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
   .nav-pill.scrolled { background: rgba(5, 11, 24, 0.88); }
-  .nav-pill.collapsed {
-    width: 54px;
-    padding: 6px;
-    cursor: pointer;
-    border-color: rgba(212, 175, 55, 0.55);
-    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
-    animation: navPillPulse 2.4s ease-in-out infinite;
-  }
-  .nav-pill.collapsed:hover {
-    border-color: rgba(212, 175, 55, 0.95);
-    transform: translateX(-50%) scale(1.05);
-    animation-play-state: paused;
-  }
-  @keyframes navPillPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.45), 0 8px 32px rgba(0, 0, 0, 0.4); }
-    50%      { box-shadow: 0 0 0 8px rgba(212, 175, 55, 0), 0 8px 32px rgba(0, 0, 0, 0.4); }
-  }
+  /* (Collapse retiré — la nav reste toujours déployée) */
   .nav-pill-mark {
     flex-shrink: 0;
     display: inline-flex;
@@ -156,7 +140,6 @@
     0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
     50%      { transform: scale(1.15) rotate(45deg); opacity: 1; }
   }
-  .nav-pill.collapsed .nav-pill-mark { opacity: 0; transform: translateX(-12px); pointer-events: none; }
   .nav-pill-mark:hover { color: #f0d68a; }
 
   .nav-pill-links {
@@ -165,11 +148,6 @@
     gap: 2px;
     padding: 0 8px 0 6px;
     transition: opacity 0.3s, transform 0.4s;
-  }
-  .nav-pill.collapsed .nav-pill-links {
-    opacity: 0;
-    transform: translateX(-10px);
-    pointer-events: none;
   }
   .nav-pill-links a {
     display: inline-flex;
@@ -187,24 +165,7 @@
     color: var(--ivory);
     background: rgba(241, 245, 249, 0.06);
   }
-  .nav-pill-burger {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #d4af37;
-    opacity: 0;
-    transform: scale(0.8);
-    transition: opacity 0.3s var(--ease) 0.15s, transform 0.3s var(--ease) 0.15s;
-    pointer-events: none;
-    z-index: 3;
-  }
-  .nav-pill.collapsed .nav-pill-burger {
-    opacity: 1;
-    transform: scale(1);
-  }
-  .nav-pill-burger svg { width: 26px; height: 26px; }
+  .nav-pill-burger { display: none; }
 
   /* =====================
      HERO
@@ -745,9 +706,9 @@
   }
   .philo-visual {
     position: relative;
-    aspect-ratio: 5/4;
+    aspect-ratio: 4/5;
     overflow: hidden;
-    max-width: 420px;
+    max-width: 380px;
     margin: 0 auto;
   }
   .philo-visual-inner {
@@ -1539,24 +1500,15 @@
     .trust-item:nth-child(2) { border-right: none; }
   }
   @media (max-width: 760px) {
-    /* Nav mobile : toujours expandée, sans collapse */
+    /* Nav mobile : toujours déployée et compacte */
     .nav-pill {
       max-width: calc(100vw - 16px);
       height: 50px;
       padding: 5px;
     }
-    .nav-pill.collapsed {
-      width: auto !important;
-      padding: 5px !important;
-      animation: none !important;
-    }
-    .nav-pill.collapsed .nav-pill-mark { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
-    .nav-pill.collapsed .nav-pill-links { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
-    .nav-pill.collapsed .nav-pill-burger { opacity: 0 !important; }
-
     .nav-pill-mark {
       font-size: 13px;
-      padding: 0 8px 0 8px;
+      padding: 0 6px 0 8px;
       letter-spacing: 3px;
       gap: 5px;
     }
@@ -1981,12 +1933,6 @@
     <li><a href="#faq">Questions</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
-  <div class="nav-pill-burger" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-      <line x1="4" y1="8" x2="20" y2="8"/>
-      <line x1="4" y1="14" x2="20" y2="14"/>
-    </svg>
-  </div>
 </nav>
 
 <!-- ========= HERO ========= -->
@@ -2487,61 +2433,16 @@
   // ====== Year ======
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  // ====== Pill nav : toujours visible et accessible (jamais bloquée) ======
+  // ====== Pill nav : TOUJOURS visible, jamais de collapse ======
   (function () {
     const nav = document.getElementById('navPill');
-    let lastY = window.scrollY;
-    let collapsed = false;
-    const COLLAPSE_AFTER = 400;
-    const isMobile = () => window.innerWidth < 760;
-
-    function setCollapsed(state) {
-      if (collapsed === state) return;
-      collapsed = state;
-      nav.classList.toggle('collapsed', state);
-    }
-
+    // S'assurer que le state collapsed n'existe jamais
+    nav.classList.remove('collapsed');
     function onScroll() {
-      const y = window.scrollY;
-      nav.classList.toggle('scrolled', y > 40);
-
-      // SUR MOBILE : jamais de collapse — la nav reste toujours accessible
-      if (isMobile()) {
-        if (collapsed) setCollapsed(false);
-        lastY = y;
-        return;
-      }
-      // Desktop : replie seulement après scroll bas substantiel
-      if (!collapsed && y > lastY + 4 && y > COLLAPSE_AFTER) {
-        setCollapsed(true);
-      }
-      // Déplie au moindre scroll vers le haut OU si on remonte près du top
-      else if (collapsed && (y < lastY - 2 || y < 120)) {
-        setCollapsed(false);
-      }
-      lastY = y;
+      nav.classList.toggle('scrolled', window.scrollY > 40);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
-
-    // Tap fiable : déplie quand replié (desktop)
-    nav.addEventListener('click', (e) => {
-      if (collapsed) {
-        e.preventDefault();
-        e.stopPropagation();
-        setCollapsed(false);
-      }
-    });
-
-    // Sur lien : laisse la navigation normale + dénoue le collapse
-    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setCollapsed(false);
-    }));
-
-    // Si la fenêtre est redimensionnée vers mobile, on force le déploiement
-    window.addEventListener('resize', () => {
-      if (isMobile()) setCollapsed(false);
-    });
+    onScroll();
   })();
 
   // ====== Canvas Wave — fond animé en vagues sin/cos (basé sur HeroWave) ======
