@@ -745,8 +745,10 @@
   }
   .philo-visual {
     position: relative;
-    aspect-ratio: 4/5;
+    aspect-ratio: 5/4;
     overflow: hidden;
+    max-width: 420px;
+    margin: 0 auto;
   }
   .philo-visual-inner {
     position: absolute;
@@ -781,15 +783,16 @@
   }
   .philo-quote .mark {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 120px;
-    color: var(--gold-500);
+    font-size: 80px;
+    color: #d4af37;
     line-height: 0.5;
     display: block;
-    margin-bottom: 30px;
+    margin-bottom: 18px;
+    opacity: 0.85;
   }
   .philo-quote p {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 26px;
+    font-size: 21px;
     font-style: italic;
     font-weight: 400;
     line-height: 1.4;
@@ -797,12 +800,12 @@
   }
   .philo-quote span {
     display: block;
-    margin-top: 30px;
+    margin-top: 20px;
     font-family: 'Inter', sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: var(--gold-400);
+    color: #d4af37;
   }
 
   .philo-content h2 {
@@ -1536,9 +1539,30 @@
     .trust-item:nth-child(2) { border-right: none; }
   }
   @media (max-width: 760px) {
-    .nav-pill { max-width: calc(100vw - 16px); }
-    .nav-pill-links { gap: 0; padding: 0 4px; }
-    .nav-pill-links a { padding: 8px 10px; font-size: 11px; letter-spacing: 0; }
+    /* Nav mobile : toujours expandée, sans collapse */
+    .nav-pill {
+      max-width: calc(100vw - 16px);
+      height: 50px;
+      padding: 5px;
+    }
+    .nav-pill.collapsed {
+      width: auto !important;
+      padding: 5px !important;
+      animation: none !important;
+    }
+    .nav-pill.collapsed .nav-pill-mark { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+    .nav-pill.collapsed .nav-pill-links { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+    .nav-pill.collapsed .nav-pill-burger { opacity: 0 !important; }
+
+    .nav-pill-mark {
+      font-size: 13px;
+      padding: 0 8px 0 8px;
+      letter-spacing: 3px;
+      gap: 5px;
+    }
+    .nav-pill-mark .losange { width: 16px; height: 16px; }
+    .nav-pill-links { gap: 0; padding: 0 2px; }
+    .nav-pill-links a { padding: 8px 7px; font-size: 10px; letter-spacing: 0; }
 
     section { padding: 80px 0; }
     .container { padding: 0 22px; }
@@ -1583,17 +1607,35 @@
     .faq-q { font-size: 19px; padding: 22px 4px; }
   }
 
-  @media (max-width: 420px) {
-    .nav-pill-mark { width: 36px; height: 36px; }
-    .nav-pill { height: 48px; }
-    .nav-pill-links a { padding: 7px 7px; font-size: 10px; }
-    .hero h1 { font-size: clamp(34px, 12vw, 44px); }
+  @media (max-width: 480px) {
+    /* Téléphones : nav reste fluide, contenu condensé */
+    .nav-pill { height: 46px; max-width: calc(100vw - 12px); }
+    .nav-pill-mark { font-size: 11px; letter-spacing: 2px; padding: 0 6px; gap: 4px; }
+    .nav-pill-mark .losange { width: 14px; height: 14px; }
+    .nav-pill-links a { padding: 7px 5px; font-size: 9px; }
+
+    .hero { padding: 100px 0 50px; }
+    .hero-title { font-size: clamp(28px, 9vw, 38px); }
+    .hero-logo-compact { max-width: 260px; }
+    .hero-lede { font-size: 14px; }
+
     .container { padding: 0 18px; }
-    .form-card { padding: 28px 18px; }
+    .form-card { padding: 26px 18px; }
     .trust-inner { grid-template-columns: 1fr; }
     .trust-item:nth-child(odd) { border-right: none; padding-right: 0; }
-    .trust-item { padding-bottom: 18px; border-bottom: 1px solid var(--line-soft); }
+    .trust-item { padding-bottom: 16px; border-bottom: 1px solid var(--line-soft); }
     .trust-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .section-head h2 { font-size: clamp(28px, 8vw, 36px); }
+    .section-head p { font-size: 14px; }
+    .philo-visual { max-width: 300px; }
+    .philo-quote p { font-size: 18px; }
+    .philo-quote .mark { font-size: 60px; }
+    .step-circle { width: 60px; height: 60px; font-size: 22px; }
+
+    .faq-q { font-size: 17px; padding: 18px 4px; }
+    .contact-item { padding: 12px 14px; }
+    .contact-item-value { font-size: 15px; }
   }
 
   /* Page loader */
@@ -1731,6 +1773,14 @@
       <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"/>
     </clipPath>
 
+    <!-- Filtre flou pour adoucir les contours du diamant (effet aurora) -->
+    <filter id="diamondAuraBlur" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <filter id="diamondSoftBlur" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+
     <!-- Mask : diamant blanc (visible) + facettes en noir (transparent = on voit le fond) -->
     <mask id="diamondFacetCut">
       <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z" fill="white"/>
@@ -1763,6 +1813,16 @@
         <line x1="-72" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-width="0.9"/>
         <line x1="14" y1="0" x2="72" y2="0" stroke="#d4af37" stroke-width="0.9"/>
         <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
+      </g>
+
+      <!-- HALO AURORA flouté autour du diamant (effet aurore qui déborde, contours adoucis) -->
+      <g filter="url(#diamondAuraBlur)" opacity="0.7">
+        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
+              fill="url(#auroraDiamond)"/>
+        <ellipse cx="500" cy="700" rx="320" ry="220" fill="url(#auroraGlow)" opacity="0.8">
+          <animate attributeName="cx" values="380;620;420;540;380" dur="8s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="640;780;680;740;640" dur="9s" repeatCount="indefinite"/>
+        </ellipse>
       </g>
 
       <!-- GRAND DIAMANT — facettes en DÉCOUPE (mask) : on voit le fond à travers les coupes -->
@@ -1841,11 +1901,12 @@
             font-size="22" letter-spacing="14" font-weight="500"
             fill="#d4af37" opacity="0.95">PROPRETÉ  ◆  SERVICES  ◆  PARIS</text>
 
-      <!-- Tagline italique — agrandie -->
-      <text x="500" y="968" text-anchor="middle"
+      <!-- Tagline italique — bien visible -->
+      <text x="500" y="970" text-anchor="middle"
             font-family="Cormorant Garamond, Georgia, serif"
-            font-size="42" font-style="italic" font-weight="400"
-            fill="#d4af37" opacity="0.92">Quand la propreté devient un art.</text>
+            font-size="54" font-style="italic" font-weight="500"
+            fill="#f0d68a" opacity="1"
+            style="filter: drop-shadow(0 0 8px rgba(212,175,55,0.4));">Quand la propreté devient un art.</text>
     </symbol>
 
     <!-- Mark compact pour usages micro — juste le diamant losange -->
@@ -2011,7 +2072,7 @@
           un audit sur site, un protocole sur-mesure, une équipe dédiée et formée.
         </p>
         <p>
-          Nos équipes sont formées en interne pendant six semaines avant la première mission.
+          Nos équipes reçoivent une formation rigoureuse en interne avant la première mission.
           Elles connaissent les matériaux nobles, signent un accord de confidentialité,
           et appliquent des protocoles rigoureux avec des produits éco-responsables labellisés.
         </p>
@@ -2426,12 +2487,13 @@
   // ====== Year ======
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  // ====== Pill nav: rétraction au scroll bas / expansion au scroll haut (universel) ======
+  // ====== Pill nav : toujours visible et accessible (jamais bloquée) ======
   (function () {
     const nav = document.getElementById('navPill');
     let lastY = window.scrollY;
     let collapsed = false;
-    const COLLAPSE_AFTER = 200;
+    const COLLAPSE_AFTER = 400;
+    const isMobile = () => window.innerWidth < 760;
 
     function setCollapsed(state) {
       if (collapsed === state) return;
@@ -2442,19 +2504,26 @@
     function onScroll() {
       const y = window.scrollY;
       nav.classList.toggle('scrolled', y > 40);
-      // Replie : on a scrollé bas ET on est au-delà du seuil
-      if (!collapsed && y > lastY + 5 && y > COLLAPSE_AFTER) {
+
+      // SUR MOBILE : jamais de collapse — la nav reste toujours accessible
+      if (isMobile()) {
+        if (collapsed) setCollapsed(false);
+        lastY = y;
+        return;
+      }
+      // Desktop : replie seulement après scroll bas substantiel
+      if (!collapsed && y > lastY + 4 && y > COLLAPSE_AFTER) {
         setCollapsed(true);
       }
-      // Déplie : dès qu'on scrolle ne serait-ce qu'un peu vers le haut, ou en haut de page
-      else if (collapsed && (y < lastY - 5 || y < COLLAPSE_AFTER * 0.5)) {
+      // Déplie au moindre scroll vers le haut OU si on remonte près du top
+      else if (collapsed && (y < lastY - 2 || y < 120)) {
         setCollapsed(false);
       }
       lastY = y;
     }
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    // Tap : déplie immédiatement quand replié (desktop ET mobile)
+    // Tap fiable : déplie quand replié (desktop)
     nav.addEventListener('click', (e) => {
       if (collapsed) {
         e.preventDefault();
@@ -2463,10 +2532,16 @@
       }
     });
 
-    // Sur lien : laisse la navigation se faire normalement
+    // Sur lien : laisse la navigation normale + dénoue le collapse
     nav.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
       e.stopPropagation();
+      setCollapsed(false);
     }));
+
+    // Si la fenêtre est redimensionnée vers mobile, on force le déploiement
+    window.addEventListener('resize', () => {
+      if (isMobile()) setCollapsed(false);
+    });
   })();
 
   // ====== Canvas Wave — fond animé en vagues sin/cos (basé sur HeroWave) ======
