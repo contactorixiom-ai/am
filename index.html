@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APEX Propreté &amp; Services — Quand la propreté devient un art</title>
-<meta name="description" content="APEX Propreté & Services — Entreprise de nettoyage haut de gamme. Bureaux, résidences de prestige, après-chantier, vitrerie. Une exigence d'orfèvre, un résultat irréprochable.">
+<meta name="description" content="APEX Propreté & Services — Entreprise de nettoyage multiservice à Paris. Bureaux, résidences, événementiel, après-chantier, hôtellerie, vitrerie, industriel. Du quotidien à l'exceptionnel.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -133,11 +133,16 @@
     transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
   }
   .nav-pill-mark .losange {
-    font-size: 8px;
+    font-size: 16px;
     line-height: 1;
-    opacity: 0.85;
-    transform: translateY(-1px);
+    opacity: 0.9;
+    transform: translateY(0);
     color: #d4af37;
+    animation: losangePulse 4s ease-in-out infinite;
+  }
+  @keyframes losangePulse {
+    0%, 100% { opacity: 0.7; transform: scale(1) rotate(0deg); }
+    50%      { opacity: 1;   transform: scale(1.12) rotate(45deg); }
   }
   .nav-pill.collapsed .nav-pill-mark { opacity: 0; transform: translateX(-12px); pointer-events: none; }
   .nav-pill-mark:hover { color: #f0d68a; }
@@ -355,16 +360,15 @@
 
   .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
 
-  /* ======= BOUTONS — contour or très discret, halo minimal ======= */
+  /* ======= BOUTONS — Shine Border or animé, contour discret ======= */
   .btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 12px;
     padding: 17px 34px;
-    background: rgba(5, 11, 24, 0.85);
+    background: rgba(5, 11, 24, 0.88);
     color: var(--ivory);
-    border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: 14px;
     font-family: 'Inter', sans-serif;
     font-size: 11px;
@@ -374,45 +378,72 @@
     text-decoration: none;
     cursor: pointer;
     isolation: isolate;
-    transition: transform 0.4s var(--ease), border-color 0.4s var(--ease), background 0.4s;
+    transition: transform 0.4s var(--ease), background 0.4s;
+    overflow: hidden;
   }
+  /* Bordure or fixe (statique) très discrète */
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* Shine border animé — radial gradient or qui voyage le long de la bordure */
   .btn::before {
     content: '';
     position: absolute;
-    inset: -1px;
+    inset: 0;
     border-radius: 14px;
-    z-index: -1;
+    padding: 1.5px;
     background: radial-gradient(
-      ellipse 80% 80% at center,
-      rgba(212, 175, 55, 0.18) 0%,
-      transparent 70%
+      circle at 50% 50%,
+      transparent, transparent,
+      rgba(212, 175, 55, 0.9),
+      rgba(240, 214, 138, 1),
+      rgba(212, 175, 55, 0.9),
+      transparent, transparent
     );
-    filter: blur(8px);
-    opacity: 0.4;
-    transition: opacity 0.5s var(--ease);
+    background-size: 300% 300%;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+    animation: btnShine 8s linear infinite;
+    z-index: 1;
+  }
+  @keyframes btnShine {
+    0%   { background-position: 0% 0%; }
+    25%  { background-position: 100% 0%; }
+    50%  { background-position: 100% 100%; }
+    75%  { background-position: 0% 100%; }
+    100% { background-position: 0% 0%; }
   }
   .btn:hover {
     transform: translateY(-2px);
-    border-color: rgba(212, 175, 55, 0.55);
     background: rgba(5, 11, 24, 0.7);
   }
-  .btn:hover::before { opacity: 0.85; }
+  .btn:hover::after { border-color: rgba(212, 175, 55, 0.5); }
 
-  /* Primary = halo subtilement visible */
-  .btn-primary { border-color: rgba(212, 175, 55, 0.45); }
-  .btn-primary::before { opacity: 0.6; }
-  .btn-primary:hover::before { opacity: 1; }
-
-  /* Ghost = aucun halo, juste un bord ivoire qui devient or */
-  .btn-ghost { background: transparent; border-color: rgba(241, 245, 249, 0.12); }
-  .btn-ghost::before { opacity: 0; }
-  .btn-ghost:hover { border-color: rgba(212, 175, 55, 0.4); }
-  .btn-ghost:hover::before { opacity: 0.4; }
+  /* Ghost = pas de shine animé, juste un bord ivoire qui devient or */
+  .btn-ghost { background: transparent; }
+  .btn-ghost::before { opacity: 0.55; animation-duration: 12s; }
+  .btn-ghost::after { border-color: rgba(241, 245, 249, 0.12); }
+  .btn-ghost:hover { background: rgba(5, 11, 24, 0.45); }
+  .btn-ghost:hover::after { border-color: rgba(212, 175, 55, 0.4); }
+  .btn-ghost:hover::before { opacity: 0.85; }
 
   .btn .arrow {
     display: inline-block;
     transition: transform 0.4s var(--ease);
+    position: relative;
+    z-index: 3;
   }
+  .btn > * { position: relative; z-index: 3; }
   .btn:hover .arrow { transform: translateX(6px); }
 
   /* Hero — logo compact + H1 typographique dominant */
@@ -627,20 +658,22 @@
      ===================== */
   .services-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0;
     border-top: 1px solid var(--line-soft);
     border-bottom: 1px solid var(--line-soft);
   }
   .service {
     position: relative;
-    padding: 48px 36px 44px;
+    padding: 44px 30px 40px;
     border-right: 1px solid var(--line-soft);
     border-bottom: 1px solid var(--line-soft);
     transition: background 0.6s var(--ease);
   }
-  .service:nth-child(3n) { border-right: none; }
-  .service:nth-last-child(-n+3) { border-bottom: none; }
+  .service:nth-child(4n) { border-right: none; }
+  .service:nth-last-child(-n+4) { border-bottom: none; }
+  .service h3 { font-size: 26px; }
+  .service p { font-size: 14px; }
   .service:hover { background: rgba(241, 245, 249, 0.015); }
 
   .service-step {
@@ -771,11 +804,19 @@
     margin-bottom: 22px;
     font-weight: 300;
   }
+  .philo-values-intro {
+    margin-top: 38px;
+    margin-bottom: 18px;
+    font-size: 12px;
+    color: #d4af37;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
   .philo-pillars {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 26px;
-    margin-top: 44px;
+    gap: 18px;
   }
   .pillar {
     padding: 22px 24px;
@@ -822,35 +863,57 @@
     z-index: 1;
   }
   .step-circle {
-    width: 76px; height: 76px;
+    width: 84px; height: 84px;
     border-radius: 50%;
     margin: 0 auto 28px;
-    background: var(--navy-900);
-    border: 1px solid var(--gold-500);
+    background: rgba(8, 18, 42, 0.85);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Cormorant Garamond', serif;
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 500;
-    font-style: italic;
-    color: var(--gold-400);
+    letter-spacing: 1px;
+    color: #d4af37;
     position: relative;
-    transition: all 0.5s var(--ease);
+    isolation: isolate;
+    transition: transform 0.5s var(--ease);
   }
+  .step-circle > * { position: relative; z-index: 3; }
   .step-circle::before {
     content: '';
     position: absolute;
-    inset: -8px;
+    inset: -6px;
     border-radius: 50%;
-    border: 1px dashed rgba(241, 245, 249, 0.25);
-    animation: spin 30s linear infinite;
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    pointer-events: none;
+  }
+  .step-circle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 1.5px;
+    background: radial-gradient(
+      circle at 50% 50%,
+      transparent, transparent,
+      rgba(212, 175, 55, 0.9),
+      rgba(240, 214, 138, 1),
+      rgba(212, 175, 55, 0.9),
+      transparent, transparent
+    );
+    background-size: 300% 300%;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: btnShine 10s linear infinite;
+    pointer-events: none;
   }
   .step:hover .step-circle {
-    background: var(--gold-500);
-    color: var(--navy-950);
     transform: scale(1.06);
-    box-shadow: 0 0 40px rgba(241, 245, 249, 0.4);
+    color: #f0d68a;
   }
   .step h4 {
     font-size: 22px;
@@ -1288,24 +1351,31 @@
   .form-submit::before {
     content: '';
     position: absolute;
-    inset: -1px;
+    inset: 0;
     border-radius: 14px;
-    z-index: -1;
+    padding: 1.5px;
     background: radial-gradient(
-      ellipse 80% 80% at center,
-      rgba(212, 175, 55, 0.18) 0%,
-      transparent 70%
+      circle at 50% 50%,
+      transparent, transparent,
+      rgba(212, 175, 55, 0.9),
+      rgba(240, 214, 138, 1),
+      rgba(212, 175, 55, 0.9),
+      transparent, transparent
     );
-    filter: blur(10px);
-    opacity: 0.5;
-    transition: opacity 0.5s;
+    background-size: 300% 300%;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: btnShine 8s linear infinite;
+    pointer-events: none;
   }
   .form-submit:hover {
     transform: translateY(-2px);
-    border-color: rgba(212, 175, 55, 0.6);
-    background: rgba(5, 11, 24, 0.7);
+    border-color: rgba(212, 175, 55, 0.55);
+    background: rgba(5, 11, 24, 0.65);
   }
-  .form-submit:hover::before { opacity: 0.95; }
 
   .form-success {
     display: none;
@@ -1652,37 +1722,34 @@
     <!-- LOGO APEX — wordmark + diamant aurore boréale (sans équerres) -->
     <symbol id="apex-logo" viewBox="0 0 1000 1000" overflow="visible">
 
-      <!-- MAISON FONDÉE À PARIS · MMXXII -->
-      <text x="500" y="262" text-anchor="middle"
+      <!-- MMXXII (date de fondation, sobre) -->
+      <text x="500" y="290" text-anchor="middle"
             font-family="Inter, Arial, sans-serif"
-            font-size="20" letter-spacing="11" font-weight="500"
-            fill="#d4af37" opacity="0.95">MAISON FONDÉE À PARIS  ·  MMXXII</text>
+            font-size="20" letter-spacing="14" font-weight="500"
+            fill="#d4af37" opacity="0.92">MMXXII</text>
 
       <!-- Ornement décoratif (filets + diamant bullet) -->
-      <g transform="translate(500, 305)" opacity="0.7">
+      <g transform="translate(500, 325)" opacity="0.7">
         <line x1="-72" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-width="0.9"/>
         <line x1="14" y1="0" x2="72" y2="0" stroke="#d4af37" stroke-width="0.9"/>
         <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
       </g>
 
-      <!-- GRAND DIAMANT en aurore boréale animée -->
+      <!-- GRAND DIAMANT — aurore très transparente, reflet APEX inversé visible, facettes épaisses -->
       <g>
-        <!-- Fond aurora animé (clippé au diamant) -->
+        <!-- Fond aurora très subtil (clippé au diamant) -->
         <g clip-path="url(#diamondClip)">
-          <rect x="200" y="540" width="600" height="360" fill="url(#auroraDiamond)" opacity="0.65"/>
-          <!-- Halo principal — bouge plus vite et plus largement -->
-          <ellipse cx="500" cy="700" rx="280" ry="200" fill="url(#auroraGlow)">
+          <rect x="200" y="540" width="600" height="360" fill="url(#auroraDiamond)" opacity="0.28"/>
+          <ellipse cx="500" cy="700" rx="280" ry="200" fill="url(#auroraGlow)" opacity="0.55">
             <animate attributeName="cx" values="340;640;380;560;340" dur="7s" repeatCount="indefinite"/>
             <animate attributeName="cy" values="620;750;660;730;620" dur="8s" repeatCount="indefinite"/>
             <animate attributeName="rx" values="200;340;240;320;200" dur="6.5s" repeatCount="indefinite"/>
           </ellipse>
-          <!-- Second halo aurore (mouvement contraire) -->
-          <ellipse cx="500" cy="700" rx="180" ry="150" fill="url(#auroraGlow)" opacity="0.7">
+          <ellipse cx="500" cy="700" rx="180" ry="150" fill="url(#auroraGlow)" opacity="0.4">
             <animate attributeName="cx" values="620;360;560;400;620" dur="9s" repeatCount="indefinite"/>
             <animate attributeName="cy" values="720;640;780;660;720" dur="10s" repeatCount="indefinite"/>
           </ellipse>
-          <!-- Voiles d'aurore qui ondulent -->
-          <path fill="rgba(80, 140, 255, 0.22)">
+          <path fill="rgba(80, 140, 255, 0.12)">
             <animate attributeName="d"
                      values="M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z;
                              M 200 600 Q 380 700 500 600 Q 620 500 800 660 L 800 740 Q 640 760 500 760 Q 360 760 200 720 Z;
@@ -1690,10 +1757,10 @@
                              M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z"
                      dur="8s" repeatCount="indefinite"/>
             <animate attributeName="opacity"
-                     values="0.22;0.5;0.26;0.42;0.22"
+                     values="0.12;0.28;0.14;0.24;0.12"
                      dur="4s" repeatCount="indefinite"/>
           </path>
-          <path fill="rgba(140, 90, 220, 0.18)">
+          <path fill="rgba(140, 90, 220, 0.1)">
             <animate attributeName="d"
                      values="M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z;
                              M 200 700 Q 360 620 500 720 Q 640 800 800 660 L 800 820 Q 640 800 500 760 Q 360 780 200 820 Z;
@@ -1701,10 +1768,20 @@
                              M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z"
                      dur="9s" repeatCount="indefinite"/>
             <animate attributeName="opacity"
-                     values="0.18;0.38;0.22;0.34;0.18"
+                     values="0.1;0.22;0.12;0.2;0.1"
                      dur="5s" repeatCount="indefinite"/>
           </path>
-          <!-- Étoiles scintillantes -->
+
+          <!-- REFLET APEX INVERSÉ — discernable dans le diamant -->
+          <text x="500" y="555"
+                text-anchor="middle"
+                transform="matrix(1 0 0 -1 0 1110)"
+                font-family="Cormorant Garamond, Georgia, serif"
+                font-size="215" font-weight="500"
+                letter-spacing="18"
+                fill="#d4af37" opacity="0.32">APEX</text>
+
+          <!-- Étoiles scintillantes par-dessus le reflet -->
           <circle cx="380" cy="700" r="1.5" fill="#ffffff" opacity="0.8">
             <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.5s" repeatCount="indefinite"/>
           </circle>
@@ -1722,30 +1799,30 @@
           </circle>
         </g>
 
-        <!-- Contour du diamant — gold en pointillé épuré -->
+        <!-- Contour principal du diamant — or épaissi -->
         <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
               fill="none"
-              stroke="#d4af37" stroke-width="1.6"
-              stroke-linejoin="round" opacity="0.9"/>
+              stroke="#d4af37" stroke-width="2.6"
+              stroke-linejoin="round" opacity="1"/>
 
-        <!-- Girdle -->
+        <!-- Girdle (table horizontale) — la plus marquée -->
         <line x1="235" y1="615" x2="765" y2="615"
-              stroke="#d4af37" stroke-width="0.7" opacity="0.6"/>
+              stroke="#d4af37" stroke-width="1.6" opacity="0.95"/>
 
-        <!-- Facettes couronne -->
-        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
-        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
-        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.45"/>
-        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.45"/>
-        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.4"/>
-        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.4"/>
+        <!-- Facettes couronne (épaissies, bien visibles) -->
+        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="1.3" opacity="0.85"/>
+        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="1.3" opacity="0.85"/>
+        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="1.1" opacity="0.8"/>
+        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="1.1" opacity="0.8"/>
+        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="1" opacity="0.75"/>
+        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="1" opacity="0.75"/>
 
-        <!-- Facettes pavillon -->
-        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.4"/>
-        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.4"/>
-        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.32"/>
-        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.32"/>
-        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.35" opacity="0.28"/>
+        <!-- Facettes pavillon (épaissies, bien visibles) -->
+        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.5" opacity="0.85"/>
+        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.5" opacity="0.85"/>
+        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.1" opacity="0.7"/>
+        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.1" opacity="0.7"/>
+        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1" opacity="0.65"/>
       </g>
 
       <!-- APEX wordmark — par-dessus le diamant -->
@@ -1853,12 +1930,13 @@
 
     <div class="hero-content">
       <h1 class="hero-title">
-        <span class="hero-title-line">Le nettoyage haut de gamme,</span>
+        <span class="hero-title-line">Une entreprise de nettoyage,</span>
         <span class="hero-title-line"><em>à votre image.</em></span>
       </h1>
       <p class="hero-lede">
-        Maison parisienne de nettoyage multiservice. Bureaux, résidences de prestige,
-        événementiel pour maisons de luxe, après-chantier, hôtellerie, vitrerie.
+        Maison parisienne de nettoyage multiservice. Bureaux, résidences, événementiel,
+        après-chantier, hôtellerie, vitrerie, désinfection, industriel.
+        Du quotidien à l'exceptionnel, avec la même rigueur.
         <span class="hero-lede-em">Mobilisation 48h. Équipes formées en interne.</span>
       </p>
       <div class="hero-actions">
@@ -1932,22 +2010,23 @@
           et appliquent des protocoles rigoureux avec des produits éco-responsables labellisés.
         </p>
 
+        <p class="philo-values-intro">Quatre valeurs guident chacune de nos missions :</p>
         <div class="philo-pillars">
           <div class="pillar">
-            <strong>Discrétion</strong>
-            <span>NDA systématiques, équipes dédiées, uniformes neutres.</span>
+            <strong>Excellence</strong>
+            <span>Check-list de 47 points, audit qualité mensuel, formation continue.</span>
           </div>
           <div class="pillar">
-            <strong>Rigueur</strong>
-            <span>Check-list de 47 points, audit qualité mensuel.</span>
+            <strong>Respect</strong>
+            <span>Des lieux, des matériaux, des équipes — et de la planète.</span>
           </div>
           <div class="pillar">
-            <strong>Rapidité</strong>
-            <span>Mobilisation 48h, équipes nuit, finitions sous délais courts.</span>
+            <strong>Fiabilité</strong>
+            <span>Mobilisation 48h, équipes nuit, interlocuteur unique joignable 7j/7.</span>
           </div>
           <div class="pillar">
-            <strong>Éco-responsable</strong>
-            <span>Produits labellisés Ecocert, matériel basse consommation.</span>
+            <strong>Inclusion</strong>
+            <span>Équipes formées en interne, parcours d'insertion, mixité affirmée.</span>
           </div>
         </div>
       </div>
@@ -1997,8 +2076,20 @@
 
       <article class="service reveal reveal-d3">
         <span class="service-step">06</span>
-        <h3>Vitrerie &amp; désinfection</h3>
-        <p>Vitres, baies, vérandas, façades en hauteur. Protocoles de désinfection certifiés (anti-acariens, anti-bactérien, anti-viral) pour espaces sensibles.</p>
+        <h3>Vitrerie &amp; façades</h3>
+        <p>Vitres, baies, vérandas, façades en hauteur. Matériel professionnel certifié, équipes habilitées travaux en hauteur.</p>
+      </article>
+
+      <article class="service reveal reveal-d1">
+        <span class="service-step">07</span>
+        <h3>Nettoyage industriel</h3>
+        <p>Sites industriels, entrepôts logistiques, plateformes techniques. Machines auto-laveuses, nettoyage haute pression, gestion des déchets et conformité ICPE.</p>
+      </article>
+
+      <article class="service reveal reveal-d2">
+        <span class="service-step">08</span>
+        <h3>Désinfection &amp; protocoles</h3>
+        <p>Désinfection certifiée (anti-acariens, anti-bactérien, anti-viral) pour espaces médicaux, cabinets, salles de sport, écoles.</p>
       </article>
     </div>
   </div>
@@ -2015,22 +2106,22 @@
 
     <div class="process-track">
       <div class="step reveal reveal-d1">
-        <div class="step-circle">i</div>
+        <div class="step-circle">I</div>
         <h4>Audit sur site</h4>
         <p>Un expert se déplace pour comprendre vos lieux, vos contraintes et vos attentes.</p>
       </div>
       <div class="step reveal reveal-d2">
-        <div class="step-circle">ii</div>
+        <div class="step-circle">II</div>
         <h4>Protocole sur-mesure</h4>
         <p>Nous concevons un plan d'intervention détaillé : fréquence, équipe, produits, points de contrôle.</p>
       </div>
       <div class="step reveal reveal-d3">
-        <div class="step-circle">iii</div>
+        <div class="step-circle">III</div>
         <h4>Intervention</h4>
         <p>Une équipe formée, en uniforme, ponctuelle. Discrétion absolue, traçabilité numérique.</p>
       </div>
       <div class="step reveal reveal-d4">
-        <div class="step-circle">iv</div>
+        <div class="step-circle">IV</div>
         <h4>Suivi qualité</h4>
         <p>Audit mensuel, retours client, ajustements continus. Un interlocuteur unique, joignable 7j/7.</p>
       </div>
@@ -2250,7 +2341,7 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <svg class="logo-svg footer-logo-svg" viewBox="0 0 1000 1000"><use href="#apex-logo"/></svg>
-        <p>APEX Propreté &amp; Services — Spécialiste du nettoyage événementiel pour les maisons de luxe. Mode, joaillerie, beauté, agences créatives.</p>
+        <p>APEX Propreté &amp; Services — Entreprise parisienne de nettoyage multiservice. Du bureau au chantier, de la résidence à l'événement, avec la même exigence.</p>
         <div class="footer-social">
           <a href="#" aria-label="Instagram">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -2278,10 +2369,12 @@
         <ul>
           <li><a href="#services">Bureaux &amp; entreprises</a></li>
           <li><a href="#services">Résidences de prestige</a></li>
-          <li><a href="#services">Événementiel luxe</a></li>
+          <li><a href="#services">Événementiel</a></li>
           <li><a href="#services">Après-chantier</a></li>
           <li><a href="#services">Hôtellerie</a></li>
-          <li><a href="#services">Vitrerie &amp; désinfection</a></li>
+          <li><a href="#services">Vitrerie &amp; façades</a></li>
+          <li><a href="#services">Nettoyage industriel</a></li>
+          <li><a href="#services">Désinfection</a></li>
         </ul>
       </div>
 
