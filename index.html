@@ -100,22 +100,25 @@
     height: 54px;
     padding: 6px;
     border-radius: 999px;
-    background: rgba(8, 18, 42, 0.65);
-    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(8, 18, 42, 0.7);
+    border: 1px solid rgba(212, 175, 55, 0.2);
     backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
     overflow: hidden;
     white-space: nowrap;
-    transition: width 0.55s var(--ease), padding 0.55s var(--ease), background 0.4s;
+    transition: width 0.55s var(--ease), padding 0.55s var(--ease), background 0.4s, border-color 0.4s, box-shadow 0.4s;
     width: auto;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
-  .nav-pill.scrolled { background: rgba(5, 11, 24, 0.85); }
+  .nav-pill.scrolled { background: rgba(5, 11, 24, 0.88); }
   .nav-pill.collapsed {
     width: 54px;
     padding: 6px;
     cursor: pointer;
+    border-color: rgba(212, 175, 55, 0.5);
+    box-shadow: 0 4px 24px rgba(212, 175, 55, 0.15), 0 8px 32px rgba(0, 0, 0, 0.4);
   }
+  .nav-pill.collapsed:hover { border-color: rgba(212, 175, 55, 0.8); }
   .nav-pill-mark {
     flex-shrink: 0;
     display: inline-flex;
@@ -132,17 +135,17 @@
     text-transform: uppercase;
     transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
   }
+  .nav-pill-mark .apex-word { display: inline-block; }
   .nav-pill-mark .losange {
-    font-size: 16px;
-    line-height: 1;
-    opacity: 0.9;
-    transform: translateY(0);
-    color: #d4af37;
-    animation: losangePulse 4s ease-in-out infinite;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    animation: losangePulse 5s ease-in-out infinite;
+    transform-origin: center;
   }
   @keyframes losangePulse {
-    0%, 100% { opacity: 0.7; transform: scale(1) rotate(0deg); }
-    50%      { opacity: 1;   transform: scale(1.12) rotate(45deg); }
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
+    50%      { transform: scale(1.15) rotate(45deg); opacity: 1; }
   }
   .nav-pill.collapsed .nav-pill-mark { opacity: 0; transform: translateX(-12px); pointer-events: none; }
   .nav-pill-mark:hover { color: #f0d68a; }
@@ -181,17 +184,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--ivory);
+    color: #d4af37;
     opacity: 0;
     transform: scale(0.8);
     transition: opacity 0.3s var(--ease) 0.15s, transform 0.3s var(--ease) 0.15s;
     pointer-events: none;
+    z-index: 3;
   }
   .nav-pill.collapsed .nav-pill-burger {
     opacity: 1;
     transform: scale(1);
   }
-  .nav-pill-burger svg { width: 22px; height: 22px; }
+  .nav-pill-burger svg { width: 26px; height: 26px; }
 
   /* =====================
      HERO
@@ -449,7 +453,7 @@
   /* Hero — logo compact + H1 typographique dominant */
   .hero-logo-compact {
     width: 100%;
-    max-width: 320px;
+    max-width: 420px;
     aspect-ratio: 1;
     margin: 0 auto;
     position: relative;
@@ -1719,6 +1723,24 @@
       <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"/>
     </clipPath>
 
+    <!-- Mask : diamant blanc (visible) + facettes en noir (transparent = on voit le fond) -->
+    <mask id="diamondFacetCut">
+      <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z" fill="white"/>
+      <!-- Les facettes deviennent des "découpes" qui laissent voir le fond -->
+      <line x1="235" y1="615" x2="765" y2="615" stroke="black" stroke-width="3.5"/>
+      <line x1="310" y1="575" x2="380" y2="615" stroke="black" stroke-width="2.5"/>
+      <line x1="690" y1="575" x2="620" y2="615" stroke="black" stroke-width="2.5"/>
+      <line x1="430" y1="575" x2="380" y2="615" stroke="black" stroke-width="2"/>
+      <line x1="570" y1="575" x2="620" y2="615" stroke="black" stroke-width="2"/>
+      <line x1="430" y1="575" x2="500" y2="615" stroke="black" stroke-width="1.8"/>
+      <line x1="570" y1="575" x2="500" y2="615" stroke="black" stroke-width="1.8"/>
+      <line x1="235" y1="615" x2="500" y2="870" stroke="black" stroke-width="3"/>
+      <line x1="765" y1="615" x2="500" y2="870" stroke="black" stroke-width="3"/>
+      <line x1="380" y1="615" x2="500" y2="870" stroke="black" stroke-width="2.2"/>
+      <line x1="620" y1="615" x2="500" y2="870" stroke="black" stroke-width="2.2"/>
+      <line x1="500" y1="615" x2="500" y2="870" stroke="black" stroke-width="2"/>
+    </mask>
+
     <!-- LOGO APEX — wordmark + diamant aurore boréale (sans équerres) -->
     <symbol id="apex-logo" viewBox="0 0 1000 1000" overflow="visible">
 
@@ -1735,95 +1757,68 @@
         <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
       </g>
 
-      <!-- GRAND DIAMANT — aurore très transparente, reflet APEX inversé visible, facettes épaisses -->
-      <g>
-        <!-- Fond aurora très subtil (clippé au diamant) -->
-        <g clip-path="url(#diamondClip)">
-          <rect x="200" y="540" width="600" height="360" fill="url(#auroraDiamond)" opacity="0.28"/>
-          <ellipse cx="500" cy="700" rx="280" ry="200" fill="url(#auroraGlow)" opacity="0.55">
-            <animate attributeName="cx" values="340;640;380;560;340" dur="7s" repeatCount="indefinite"/>
-            <animate attributeName="cy" values="620;750;660;730;620" dur="8s" repeatCount="indefinite"/>
-            <animate attributeName="rx" values="200;340;240;320;200" dur="6.5s" repeatCount="indefinite"/>
-          </ellipse>
-          <ellipse cx="500" cy="700" rx="180" ry="150" fill="url(#auroraGlow)" opacity="0.4">
-            <animate attributeName="cx" values="620;360;560;400;620" dur="9s" repeatCount="indefinite"/>
-            <animate attributeName="cy" values="720;640;780;660;720" dur="10s" repeatCount="indefinite"/>
-          </ellipse>
-          <path fill="rgba(80, 140, 255, 0.12)">
-            <animate attributeName="d"
-                     values="M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z;
-                             M 200 600 Q 380 700 500 600 Q 620 500 800 660 L 800 740 Q 640 760 500 760 Q 360 760 200 720 Z;
-                             M 200 660 Q 360 600 500 680 Q 660 760 800 620 L 800 760 Q 640 720 500 720 Q 360 720 200 780 Z;
-                             M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z"
-                     dur="8s" repeatCount="indefinite"/>
-            <animate attributeName="opacity"
-                     values="0.12;0.28;0.14;0.24;0.12"
-                     dur="4s" repeatCount="indefinite"/>
-          </path>
-          <path fill="rgba(140, 90, 220, 0.1)">
-            <animate attributeName="d"
-                     values="M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z;
-                             M 200 700 Q 360 620 500 720 Q 640 800 800 660 L 800 820 Q 640 800 500 760 Q 360 780 200 820 Z;
-                             M 200 640 Q 360 760 500 680 Q 640 640 800 740 L 800 780 Q 640 820 500 800 Q 360 760 200 800 Z;
-                             M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z"
-                     dur="9s" repeatCount="indefinite"/>
-            <animate attributeName="opacity"
-                     values="0.1;0.22;0.12;0.2;0.1"
-                     dur="5s" repeatCount="indefinite"/>
-          </path>
+      <!-- GRAND DIAMANT — facettes en DÉCOUPE (mask) : on voit le fond à travers les coupes -->
+      <g mask="url(#diamondFacetCut)">
+        <rect x="200" y="540" width="600" height="360" fill="url(#auroraDiamond)" opacity="0.5"/>
+        <ellipse cx="500" cy="700" rx="280" ry="200" fill="url(#auroraGlow)" opacity="0.7">
+          <animate attributeName="cx" values="340;640;380;560;340" dur="7s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="620;750;660;730;620" dur="8s" repeatCount="indefinite"/>
+          <animate attributeName="rx" values="200;340;240;320;200" dur="6.5s" repeatCount="indefinite"/>
+        </ellipse>
+        <ellipse cx="500" cy="700" rx="180" ry="150" fill="url(#auroraGlow)" opacity="0.55">
+          <animate attributeName="cx" values="620;360;560;400;620" dur="9s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="720;640;780;660;720" dur="10s" repeatCount="indefinite"/>
+        </ellipse>
+        <path fill="rgba(80, 140, 255, 0.2)">
+          <animate attributeName="d"
+                   values="M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z;
+                           M 200 600 Q 380 700 500 600 Q 620 500 800 660 L 800 740 Q 640 760 500 760 Q 360 760 200 720 Z;
+                           M 200 660 Q 360 600 500 680 Q 660 760 800 620 L 800 760 Q 640 720 500 720 Q 360 720 200 780 Z;
+                           M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z"
+                   dur="8s" repeatCount="indefinite"/>
+          <animate attributeName="opacity"
+                   values="0.2;0.4;0.22;0.36;0.2"
+                   dur="4s" repeatCount="indefinite"/>
+        </path>
+        <path fill="rgba(140, 90, 220, 0.16)">
+          <animate attributeName="d"
+                   values="M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z;
+                           M 200 700 Q 360 620 500 720 Q 640 800 800 660 L 800 820 Q 640 800 500 760 Q 360 780 200 820 Z;
+                           M 200 640 Q 360 760 500 680 Q 640 640 800 740 L 800 780 Q 640 820 500 800 Q 360 760 200 800 Z;
+                           M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z"
+                   dur="9s" repeatCount="indefinite"/>
+          <animate attributeName="opacity"
+                   values="0.16;0.32;0.18;0.28;0.16"
+                   dur="5s" repeatCount="indefinite"/>
+        </path>
 
-          <!-- REFLET APEX INVERSÉ — discernable dans le diamant -->
-          <text x="500" y="555"
-                text-anchor="middle"
-                transform="matrix(1 0 0 -1 0 1110)"
-                font-family="Cormorant Garamond, Georgia, serif"
-                font-size="215" font-weight="500"
-                letter-spacing="18"
-                fill="#d4af37" opacity="0.32">APEX</text>
+        <!-- REFLET APEX INVERSÉ — discernable dans le diamant -->
+        <text x="500" y="555"
+              text-anchor="middle"
+              transform="matrix(1 0 0 -1 0 1110)"
+              font-family="Cormorant Garamond, Georgia, serif"
+              font-size="215" font-weight="500"
+              letter-spacing="18"
+              fill="#d4af37" opacity="0.4">APEX</text>
 
-          <!-- Étoiles scintillantes par-dessus le reflet -->
-          <circle cx="380" cy="700" r="1.5" fill="#ffffff" opacity="0.8">
-            <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="620" cy="680" r="1.2" fill="#ffffff" opacity="0.7">
-            <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3.2s" repeatCount="indefinite" begin="0.8s"/>
-          </circle>
-          <circle cx="500" cy="780" r="1.4" fill="#ffffff" opacity="0.6">
-            <animate attributeName="opacity" values="0.15;0.85;0.15" dur="2.8s" repeatCount="indefinite" begin="1.4s"/>
-          </circle>
-          <circle cx="440" cy="780" r="1" fill="#ffffff" opacity="0.7">
-            <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.6s" repeatCount="indefinite" begin="0.4s"/>
-          </circle>
-          <circle cx="560" cy="730" r="1.1" fill="#ffffff" opacity="0.65">
-            <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.0s" repeatCount="indefinite" begin="1.8s"/>
-          </circle>
-        </g>
-
-        <!-- Contour principal du diamant — or épaissi -->
-        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
-              fill="none"
-              stroke="#d4af37" stroke-width="2.6"
-              stroke-linejoin="round" opacity="1"/>
-
-        <!-- Girdle (table horizontale) — la plus marquée -->
-        <line x1="235" y1="615" x2="765" y2="615"
-              stroke="#d4af37" stroke-width="1.6" opacity="0.95"/>
-
-        <!-- Facettes couronne (épaissies, bien visibles) -->
-        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="1.3" opacity="0.85"/>
-        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="1.3" opacity="0.85"/>
-        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="1.1" opacity="0.8"/>
-        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="1.1" opacity="0.8"/>
-        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="1" opacity="0.75"/>
-        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="1" opacity="0.75"/>
-
-        <!-- Facettes pavillon (épaissies, bien visibles) -->
-        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.5" opacity="0.85"/>
-        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.5" opacity="0.85"/>
-        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.1" opacity="0.7"/>
-        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1.1" opacity="0.7"/>
-        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="1" opacity="0.65"/>
+        <!-- Étoiles scintillantes -->
+        <circle cx="380" cy="700" r="1.5" fill="#ffffff" opacity="0.8">
+          <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="620" cy="680" r="1.2" fill="#ffffff" opacity="0.7">
+          <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3.2s" repeatCount="indefinite" begin="0.8s"/>
+        </circle>
+        <circle cx="500" cy="780" r="1.4" fill="#ffffff" opacity="0.6">
+          <animate attributeName="opacity" values="0.15;0.85;0.15" dur="2.8s" repeatCount="indefinite" begin="1.4s"/>
+        </circle>
+        <circle cx="440" cy="780" r="1" fill="#ffffff" opacity="0.7">
+          <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.6s" repeatCount="indefinite" begin="0.4s"/>
+        </circle>
+        <circle cx="560" cy="730" r="1.1" fill="#ffffff" opacity="0.65">
+          <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.0s" repeatCount="indefinite" begin="1.8s"/>
+        </circle>
       </g>
+      <!-- Plus de contour or autour du diamant — la forme se devine via l'aurora et les découpes -->
 
       <!-- APEX wordmark — par-dessus le diamant -->
       <text x="500" y="555" text-anchor="middle"
@@ -1838,11 +1833,11 @@
             font-size="22" letter-spacing="14" font-weight="500"
             fill="#d4af37" opacity="0.95">PROPRETÉ  ◆  SERVICES  ◆  PARIS</text>
 
-      <!-- Tagline italique -->
-      <text x="500" y="958" text-anchor="middle"
+      <!-- Tagline italique — agrandie -->
+      <text x="500" y="968" text-anchor="middle"
             font-family="Cormorant Garamond, Georgia, serif"
-            font-size="28" font-style="italic" font-weight="400"
-            fill="#d4af37" opacity="0.85">Quand la propreté devient un art.</text>
+            font-size="42" font-style="italic" font-weight="400"
+            fill="#d4af37" opacity="0.92">Quand la propreté devient un art.</text>
     </symbol>
 
     <!-- Mark compact pour usages micro — juste le diamant losange -->
@@ -1900,8 +1895,15 @@
 <!-- ========= NAVIGATION (capsule centrale, se rétracte au scroll) ========= -->
 <nav class="nav-pill" id="navPill" aria-label="Navigation principale">
   <a href="#home" class="nav-pill-mark" aria-label="Accueil APEX">
-    <span>APEX</span>
-    <span class="losange" aria-hidden="true">◆</span>
+    <span class="apex-word">APEX</span>
+    <svg class="losange" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M 12 1.5 L 22 12 L 12 22.5 L 2 12 Z"
+            fill="rgba(212, 175, 55, 0.18)"
+            stroke="#d4af37" stroke-width="1.4" stroke-linejoin="round"/>
+      <line x1="2" y1="12" x2="22" y2="12" stroke="#d4af37" stroke-width="0.6" opacity="0.7"/>
+      <line x1="7" y1="6.5" x2="12" y2="12" stroke="#d4af37" stroke-width="0.5" opacity="0.55"/>
+      <line x1="17" y1="6.5" x2="12" y2="12" stroke="#d4af37" stroke-width="0.5" opacity="0.55"/>
+    </svg>
   </a>
   <ul class="nav-pill-links">
     <li><a href="#services">Prestations</a></li>
@@ -1951,10 +1953,6 @@
     </div>
   </div>
 
-  <div class="hero-scroll">
-    <span>Découvrir</span>
-    <div class="hero-scroll-line"></div>
-  </div>
 </header>
 
 <!-- ========= TRUST STRIP ========= -->
@@ -1968,8 +1966,8 @@
     </div>
     <div class="trust-item">
       <div class="trust-text">
-        <strong>Maisons de luxe</strong>
-        <span>Mode · Joaillerie · Beauté</span>
+        <strong>Événementiel</strong>
+        <span>Production · Agences · Marques · Depuis 2022</span>
       </div>
     </div>
     <div class="trust-item">
@@ -1989,7 +1987,7 @@
         <div class="philo-visual-inner bg-marble">
           <div class="philo-quote">
             <span class="mark">“</span>
-            <p>Le luxe, ce n'est pas ce qu'on voit. C'est ce qu'on ne voit pas — et qui rend tout le reste possible.</p>
+            <p>Un lieu propre, ce n'est pas ce qu'on voit. C'est ce qu'on ne voit pas — et qui rend tout le reste possible.</p>
             <span>— Direction APEX</span>
           </div>
         </div>
@@ -2040,7 +2038,7 @@
     <div class="section-head reveal">
       <span class="eyebrow">Nos prestations</span>
       <h2>Une gamme complète, <em>une seule exigence</em></h2>
-      <p>De l'événement de luxe au nettoyage quotidien, nous adaptons protocoles, produits et équipes au caractère de chaque lieu.</p>
+      <p>De l'événement professionnel au nettoyage quotidien, nous adaptons protocoles, produits et équipes au caractère de chaque lieu.</p>
     </div>
 
     <div class="services-grid services-grid-3">
@@ -2058,8 +2056,8 @@
 
       <article class="service reveal reveal-d3">
         <span class="service-step">03</span>
-        <h3>Événementiel luxe</h3>
-        <p>Défilés, showrooms, galas, événements presse. Trois temps : préparation, présence pendant l'événement, remise en état. NDA systématiques.</p>
+        <h3>Événementiel</h3>
+        <p>Défilés, salons, showrooms, galas, événements presse. Trois temps : préparation, présence pendant l'événement, remise en état. NDA systématiques depuis 2022.</p>
       </article>
 
       <article class="service reveal reveal-d1">
@@ -2071,7 +2069,7 @@
       <article class="service reveal reveal-d2">
         <span class="service-step">05</span>
         <h3>Hôtellerie &amp; restauration</h3>
-        <p>Chambres, parties communes, cuisines professionnelles. Nous respectons les standards de l'hôtellerie de luxe et les normes HACCP les plus strictes.</p>
+        <p>Chambres, parties communes, cuisines professionnelles. Standards exigeants de l'hôtellerie et normes HACCP les plus strictes.</p>
       </article>
 
       <article class="service reveal reveal-d3">
