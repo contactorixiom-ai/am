@@ -118,18 +118,29 @@
   }
   .nav-pill-mark {
     flex-shrink: 0;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 7px;
+    height: 42px;
+    padding: 0 16px 0 14px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 5px;
+    color: #d4af37;
     text-decoration: none;
-    transition: transform 0.5s var(--ease), opacity 0.4s var(--ease);
+    text-transform: uppercase;
+    transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
   }
-  .nav-pill-mark svg { width: 100%; height: 100%; }
-  .nav-pill.collapsed .nav-pill-mark { opacity: 0; transform: rotate(-180deg) scale(0.7); pointer-events: none; }
-  .nav-pill-mark:hover { transform: rotate(8deg) scale(1.05); }
+  .nav-pill-mark .losange {
+    font-size: 8px;
+    line-height: 1;
+    opacity: 0.85;
+    transform: translateY(-1px);
+    color: #d4af37;
+  }
+  .nav-pill.collapsed .nav-pill-mark { opacity: 0; transform: translateX(-12px); pointer-events: none; }
+  .nav-pill-mark:hover { color: #f0d68a; }
 
   .nav-pill-links {
     display: flex;
@@ -404,13 +415,56 @@
   }
   .btn:hover .arrow { transform: translateX(6px); }
 
-  /* Hero — logo carré comme pièce maîtresse centrale */
-  .hero-visual {
-    position: relative;
+  /* Hero — logo compact + H1 typographique dominant */
+  .hero-logo-compact {
     width: 100%;
+    max-width: 320px;
     aspect-ratio: 1;
-    max-width: 640px;
     margin: 0 auto;
+    position: relative;
+    filter: drop-shadow(0 24px 60px rgba(0,0,0,0.5));
+    animation: heroLogoFloat 9s ease-in-out infinite;
+  }
+  .hero-logo-compact svg { width: 100%; height: 100%; }
+  @keyframes heroLogoFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
+  }
+
+  .hero-title {
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--ivory);
+    margin: 0 0 28px;
+  }
+  .hero-title-line {
+    display: block;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: heroTitleUp 1s var(--ease-slow) forwards;
+  }
+  .hero-title-line:nth-child(1) { animation-delay: 0.2s; }
+  .hero-title-line:nth-child(2) { animation-delay: 0.4s; }
+  .hero-title em {
+    font-style: italic;
+    color: #d4af37;
+    font-weight: 400;
+  }
+  @keyframes heroTitleUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-lede-em {
+    display: block;
+    margin-top: 14px;
+    color: var(--ivory);
+    font-weight: 400;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
   }
   .hero-visual .glow {
     position: absolute;
@@ -1558,21 +1612,45 @@
       <stop offset="100%" stop-color="#a87f1f"/>
     </linearGradient>
 
-    <!-- Clip path pour le reflet APEX inversé dans le diamant -->
+    <!-- Aurora boréale animée à l'intérieur du diamant -->
+    <linearGradient id="auroraDiamond" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a3a7a">
+        <animate attributeName="stop-color"
+                 values="#1a3a7a;#2c5fa8;#5a4ba8;#3a7ec8;#1a3a7a"
+                 dur="9s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="35%" stop-color="#3a6fb8">
+        <animate attributeName="stop-color"
+                 values="#3a6fb8;#5a8edc;#7a6fc8;#4a8ed4;#3a6fb8"
+                 dur="9s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="65%" stop-color="#5a4ba8">
+        <animate attributeName="stop-color"
+                 values="#5a4ba8;#3a7ec8;#1a3a7a;#5a8edc;#5a4ba8"
+                 dur="9s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" stop-color="#0c1e50">
+        <animate attributeName="stop-color"
+                 values="#0c1e50;#1a3a7a;#3a2e75;#0c1e50"
+                 dur="9s" repeatCount="indefinite"/>
+      </stop>
+    </linearGradient>
+    <radialGradient id="auroraGlow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="rgba(140, 200, 255, 0.4)">
+        <animate attributeName="stop-color"
+                 values="rgba(140,200,255,0.45);rgba(180,160,255,0.35);rgba(120,220,230,0.4);rgba(140,200,255,0.45)"
+                 dur="7s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" stop-color="rgba(60, 90, 200, 0)"/>
+    </radialGradient>
+
+    <!-- Clip path pour aurora et reflet à l'intérieur du diamant -->
     <clipPath id="diamondClip">
       <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"/>
     </clipPath>
 
-    <!-- LOGO APEX — fidèle à l'image fournie -->
+    <!-- LOGO APEX — wordmark + diamant aurore boréale (sans équerres) -->
     <symbol id="apex-logo" viewBox="0 0 1000 1000" overflow="visible">
-
-      <!-- Équerres aux 4 coins (cadre discret L-shapes) -->
-      <g stroke="#d4af37" stroke-width="2" fill="none" stroke-linecap="square" opacity="0.42">
-        <path d="M 50 50 L 50 105 M 50 50 L 105 50"/>
-        <path d="M 950 50 L 950 105 M 950 50 L 895 50"/>
-        <path d="M 50 950 L 50 895 M 50 950 L 105 950"/>
-        <path d="M 950 950 L 950 895 M 950 950 L 895 950"/>
-      </g>
 
       <!-- MAISON FONDÉE À PARIS · MMXXII -->
       <text x="500" y="262" text-anchor="middle"
@@ -1587,46 +1665,90 @@
         <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
       </g>
 
-      <!-- GRAND DIAMANT (taille brillant, derrière les lettres APEX) -->
-      <g opacity="0.92">
-        <!-- Contour principal du diamant (pentagonal : table + culet) -->
-        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
-              fill="rgba(212, 175, 55, 0.035)"
-              stroke="#d4af37" stroke-width="1.6"
-              stroke-linejoin="round"/>
-
-        <!-- Girdle (ligne horizontale la plus large) -->
-        <line x1="235" y1="615" x2="765" y2="615"
-              stroke="#d4af37" stroke-width="0.7" opacity="0.55"/>
-
-        <!-- Facettes couronne (entre table et girdle) -->
-        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
-        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
-        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.35"/>
-        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.35"/>
-        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.3"/>
-        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.3"/>
-
-        <!-- Facettes pavillon (entre girdle et culet) -->
-        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.32"/>
-        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.32"/>
-        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.25"/>
-        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.25"/>
-        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.35" opacity="0.2"/>
-
-        <!-- REFLET APEX INVERSÉ — clippé à l'intérieur du diamant -->
+      <!-- GRAND DIAMANT en aurore boréale animée -->
+      <g>
+        <!-- Fond aurora animé (clippé au diamant) -->
         <g clip-path="url(#diamondClip)">
-          <text x="500" y="555"
-                text-anchor="middle"
-                transform="matrix(1 0 0 -1 0 1110)"
-                font-family="Cormorant Garamond, Georgia, serif"
-                font-size="215" font-weight="500"
-                letter-spacing="18"
-                fill="#d4af37" opacity="0.22">APEX</text>
+          <rect x="200" y="540" width="600" height="360" fill="url(#auroraDiamond)" opacity="0.65"/>
+          <!-- Halo principal — bouge plus vite et plus largement -->
+          <ellipse cx="500" cy="700" rx="280" ry="200" fill="url(#auroraGlow)">
+            <animate attributeName="cx" values="340;640;380;560;340" dur="7s" repeatCount="indefinite"/>
+            <animate attributeName="cy" values="620;750;660;730;620" dur="8s" repeatCount="indefinite"/>
+            <animate attributeName="rx" values="200;340;240;320;200" dur="6.5s" repeatCount="indefinite"/>
+          </ellipse>
+          <!-- Second halo aurore (mouvement contraire) -->
+          <ellipse cx="500" cy="700" rx="180" ry="150" fill="url(#auroraGlow)" opacity="0.7">
+            <animate attributeName="cx" values="620;360;560;400;620" dur="9s" repeatCount="indefinite"/>
+            <animate attributeName="cy" values="720;640;780;660;720" dur="10s" repeatCount="indefinite"/>
+          </ellipse>
+          <!-- Voiles d'aurore qui ondulent -->
+          <path fill="rgba(80, 140, 255, 0.22)">
+            <animate attributeName="d"
+                     values="M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z;
+                             M 200 600 Q 380 700 500 600 Q 620 500 800 660 L 800 740 Q 640 760 500 760 Q 360 760 200 720 Z;
+                             M 200 660 Q 360 600 500 680 Q 660 760 800 620 L 800 760 Q 640 720 500 720 Q 360 720 200 780 Z;
+                             M 200 620 Q 350 580 500 630 Q 650 680 800 600 L 800 720 Q 650 770 500 720 Q 350 690 200 740 Z"
+                     dur="8s" repeatCount="indefinite"/>
+            <animate attributeName="opacity"
+                     values="0.22;0.5;0.26;0.42;0.22"
+                     dur="4s" repeatCount="indefinite"/>
+          </path>
+          <path fill="rgba(140, 90, 220, 0.18)">
+            <animate attributeName="d"
+                     values="M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z;
+                             M 200 700 Q 360 620 500 720 Q 640 800 800 660 L 800 820 Q 640 800 500 760 Q 360 780 200 820 Z;
+                             M 200 640 Q 360 760 500 680 Q 640 640 800 740 L 800 780 Q 640 820 500 800 Q 360 760 200 800 Z;
+                             M 200 660 Q 360 700 500 660 Q 640 620 800 700 L 800 800 Q 640 770 500 800 Q 360 830 200 770 Z"
+                     dur="9s" repeatCount="indefinite"/>
+            <animate attributeName="opacity"
+                     values="0.18;0.38;0.22;0.34;0.18"
+                     dur="5s" repeatCount="indefinite"/>
+          </path>
+          <!-- Étoiles scintillantes -->
+          <circle cx="380" cy="700" r="1.5" fill="#ffffff" opacity="0.8">
+            <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.5s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="620" cy="680" r="1.2" fill="#ffffff" opacity="0.7">
+            <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3.2s" repeatCount="indefinite" begin="0.8s"/>
+          </circle>
+          <circle cx="500" cy="780" r="1.4" fill="#ffffff" opacity="0.6">
+            <animate attributeName="opacity" values="0.15;0.85;0.15" dur="2.8s" repeatCount="indefinite" begin="1.4s"/>
+          </circle>
+          <circle cx="440" cy="780" r="1" fill="#ffffff" opacity="0.7">
+            <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.6s" repeatCount="indefinite" begin="0.4s"/>
+          </circle>
+          <circle cx="560" cy="730" r="1.1" fill="#ffffff" opacity="0.65">
+            <animate attributeName="opacity" values="0.1;0.7;0.1" dur="3.0s" repeatCount="indefinite" begin="1.8s"/>
+          </circle>
         </g>
+
+        <!-- Contour du diamant — gold en pointillé épuré -->
+        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
+              fill="none"
+              stroke="#d4af37" stroke-width="1.6"
+              stroke-linejoin="round" opacity="0.9"/>
+
+        <!-- Girdle -->
+        <line x1="235" y1="615" x2="765" y2="615"
+              stroke="#d4af37" stroke-width="0.7" opacity="0.6"/>
+
+        <!-- Facettes couronne -->
+        <line x1="310" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
+        <line x1="690" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
+        <line x1="430" y1="575" x2="380" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.45"/>
+        <line x1="570" y1="575" x2="620" y2="615" stroke="#d4af37" stroke-width="0.4" opacity="0.45"/>
+        <line x1="430" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.4"/>
+        <line x1="570" y1="575" x2="500" y2="615" stroke="#d4af37" stroke-width="0.35" opacity="0.4"/>
+
+        <!-- Facettes pavillon -->
+        <line x1="235" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.4"/>
+        <line x1="765" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.5" opacity="0.4"/>
+        <line x1="380" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.32"/>
+        <line x1="620" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.4" opacity="0.32"/>
+        <line x1="500" y1="615" x2="500" y2="870" stroke="#d4af37" stroke-width="0.35" opacity="0.28"/>
       </g>
 
-      <!-- APEX wordmark — par-dessus le diamant (le bas des lettres entre dans le diamant) -->
+      <!-- APEX wordmark — par-dessus le diamant -->
       <text x="500" y="555" text-anchor="middle"
             font-family="Cormorant Garamond, Georgia, serif"
             font-size="215" font-weight="500"
@@ -1646,26 +1768,16 @@
             fill="#d4af37" opacity="0.85">Quand la propreté devient un art.</text>
     </symbol>
 
-    <!-- Mark compact pour nav (juste le diamant + initiale A en or) -->
+    <!-- Mark compact pour usages micro — juste le diamant losange -->
     <symbol id="apex-mark" viewBox="0 0 100 100">
-      <g stroke="#d4af37" stroke-width="0.6" fill="none" opacity="0.35" stroke-linecap="square">
-        <path d="M 8 12 L 8 22 M 8 12 L 18 12"/>
-        <path d="M 92 12 L 92 22 M 92 12 L 82 12"/>
-        <path d="M 8 88 L 8 78 M 8 88 L 18 88"/>
-        <path d="M 92 88 L 92 78 M 92 88 L 82 88"/>
+      <g transform="translate(50, 50)">
+        <path d="M -26 -8 L -20 -16 L 20 -16 L 26 -8 L 0 32 Z"
+              fill="rgba(212, 175, 55, 0.08)"
+              stroke="#d4af37" stroke-width="1.4" stroke-linejoin="round"/>
+        <line x1="-26" y1="-8" x2="26" y2="-8" stroke="#d4af37" stroke-width="0.6" opacity="0.6"/>
+        <line x1="-13" y1="-8" x2="0" y2="32" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
+        <line x1="13" y1="-8" x2="0" y2="32" stroke="#d4af37" stroke-width="0.4" opacity="0.4"/>
       </g>
-      <!-- Diamant -->
-      <g transform="translate(50, 62)">
-        <path d="M -22 -10 L -17 -14 L 17 -14 L 22 -10 L 0 20 Z"
-              fill="rgba(212, 175, 55, 0.06)"
-              stroke="#d4af37" stroke-width="1" stroke-linejoin="round" opacity="0.85"/>
-        <line x1="-22" y1="-10" x2="22" y2="-10" stroke="#d4af37" stroke-width="0.4" opacity="0.5"/>
-      </g>
-      <!-- A -->
-      <text x="50" y="50" text-anchor="middle"
-            font-family="Cormorant Garamond, Georgia, serif"
-            font-size="32" font-weight="500"
-            fill="#d4af37">A</text>
     </symbol>
 
     <!-- FULL LOGO — médaillon + APEX + sous-titre + signature (identité complète) -->
@@ -1711,7 +1823,8 @@
 <!-- ========= NAVIGATION (capsule centrale, se rétracte au scroll) ========= -->
 <nav class="nav-pill" id="navPill" aria-label="Navigation principale">
   <a href="#home" class="nav-pill-mark" aria-label="Accueil APEX">
-    <svg viewBox="0 0 100 100"><use href="#apex-mark"/></svg>
+    <span>APEX</span>
+    <span class="losange" aria-hidden="true">◆</span>
   </a>
   <ul class="nav-pill-links">
     <li><a href="#services">Prestations</a></li>
@@ -1732,23 +1845,21 @@
 <header class="hero" id="home">
   <div class="hero-bg"></div>
   <div class="hero-inner">
-    <h1 class="visually-hidden">APEX Propreté &amp; Services — Nettoyage haut de gamme, multiservice. Bureaux, résidences, événementiel luxe, après-chantier.</h1>
-
-    <div class="hero-visual">
-      <div class="glow"></div>
-      <div class="hero-logo">
-        <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
-          <use href="#apex-logo"/>
-        </svg>
-      </div>
+    <div class="hero-logo-compact">
+      <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+        <use href="#apex-logo"/>
+      </svg>
     </div>
 
     <div class="hero-content">
+      <h1 class="hero-title">
+        <span class="hero-title-line">Le nettoyage haut de gamme,</span>
+        <span class="hero-title-line"><em>à votre image.</em></span>
+      </h1>
       <p class="hero-lede">
-        Entreprise multiservice de nettoyage haut de gamme à Paris.
-        Bureaux, résidences de prestige, événementiel pour maisons de luxe,
-        après-chantier, hôtellerie, vitrerie, désinfection.
-        Mobilisation 48h — équipes formées en interne.
+        Maison parisienne de nettoyage multiservice. Bureaux, résidences de prestige,
+        événementiel pour maisons de luxe, après-chantier, hôtellerie, vitrerie.
+        <span class="hero-lede-em">Mobilisation 48h. Équipes formées en interne.</span>
       </p>
       <div class="hero-actions">
         <a href="#contact" class="btn btn-primary">
@@ -2295,8 +2406,8 @@
     const fastCos = (x) => COS_TABLE[(((x % TWO_PI + TWO_PI) % TWO_PI) / TWO_PI * TABLE_SIZE | 0) & 1023];
 
     const t0 = performance.now();
-    // Throttle à ~30 fps pour économiser CPU/batterie
-    const FRAME_MS = 33;
+    // ~60fps pour un mouvement bien vivant
+    const FRAME_MS = 16;
     let last = 0;
 
     function render(now) {
@@ -2309,24 +2420,25 @@
           const ux = (2 * x - width) / height;
           const uy = (2 * y - height) / height;
           let a = 0, d = 0;
-          for (let i = 0; i < 4; i++) {
-            a += fastCos(i - d + time * 0.5 - a * ux);
-            d += fastSin(i * uy + a);
+          // Plus d'itérations + multiplicateurs plus forts = vagues bien plus mouvementées
+          for (let i = 0; i < 5; i++) {
+            a += fastCos(i - d + time * 0.85 - a * ux);
+            d += fastSin(i * uy + a + time * 0.35);
           }
-          const wave = (fastSin(a) + fastCos(d)) * 0.5;
-          // Palette monochrome navy : on garde uniquement la structure de vague,
-          // les teintes restent dans les bleu nuit profonds pour ne pas paraître flashy.
-          const intensity = 0.25 + 0.35 * wave;
-          const base = 0.05 + 0.12 * fastCos(ux + uy + time * 0.3);
+          const wave = (fastSin(a + time * 0.5) + fastCos(d - time * 0.3)) * 0.5;
+          const swirl = fastSin(a * 1.6 + d * 0.8 + time * 0.4) * 0.25;
+          // Palette navy/aurore — variation rapide dans les bleus profonds + reflet aurore
+          const intensity = 0.28 + 0.45 * wave;
+          const base = 0.08 + 0.16 * fastCos(ux + uy + time * 0.45) + 0.05 * swirl;
+          const aurora = 0.08 * fastSin(d * 2 + time * 0.25);
           const v = Math.max(0, Math.min(1, base)) * intensity;
-          // Légère dominance bleue (navy)
-          const r = v * 0.4;
-          const g = v * 0.6;
-          const b = v * 1.0;
+          const r = v * (0.35 + 0.15 * fastCos(time * 0.18));
+          const g = v * (0.55 + 0.18 * fastSin(time * 0.22));
+          const b = v * 1.05 + aurora * 0.08;
           const idx = (y * width + x) * 4;
-          data[idx]   = r * 255;
-          data[idx+1] = g * 255;
-          data[idx+2] = b * 255;
+          data[idx]   = Math.max(0, Math.min(255, r * 255));
+          data[idx+1] = Math.max(0, Math.min(255, g * 255));
+          data[idx+2] = Math.max(0, Math.min(255, b * 255));
           data[idx+3] = 255;
         }
       }
