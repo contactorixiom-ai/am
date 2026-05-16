@@ -94,7 +94,7 @@
     top: 22px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 100;
+    z-index: 9999;
     display: flex;
     align-items: center;
     height: 54px;
@@ -218,7 +218,7 @@
       radial-gradient(ellipse 90% 50% at 50% 0%, transparent 40%, rgba(5, 11, 24, 0.4) 100%),
       radial-gradient(ellipse 100% 60% at 50% 100%, rgba(5, 11, 24, 0.6), transparent 70%);
   }
-  body > *:not(#siteWave):not(#siteWaveVeil):not(.loader) { position: relative; z-index: 2; }
+  body > *:not(#siteWave):not(#siteWaveVeil):not(.loader):not(.nav-pill) { position: relative; z-index: 2; }
 
   /* Slow drift on the hero logo (idle motion of excellence) */
   .hero-logo svg { animation: logoFloat 8s ease-in-out infinite; }
@@ -420,14 +420,13 @@
   .btn > * { position: relative; z-index: 3; }
   .btn:hover .arrow { transform: translateX(6px); }
 
-  /* Hero — logo compact + H1 typographique dominant */
+  /* Hero — logo compact, pas de halo rond derrière */
   .hero-logo-compact {
     width: 100%;
     max-width: 340px;
     aspect-ratio: 1;
     margin: 0 auto -10px;
     position: relative;
-    filter: drop-shadow(0 18px 50px rgba(0,0,0,0.5));
     animation: heroLogoFloat 9s ease-in-out infinite;
   }
   .hero-logo-compact svg { width: 100%; height: 100%; }
@@ -707,33 +706,38 @@
   .philo-visual {
     position: relative;
     aspect-ratio: 4/5;
-    overflow: hidden;
     max-width: 380px;
     margin: 0 auto;
   }
   .philo-visual-inner {
     position: absolute;
     inset: 0;
+    border-radius: 20px;
     background:
-      linear-gradient(135deg, rgba(241, 245, 249, 0.1), transparent),
-      linear-gradient(45deg, var(--navy-700), var(--navy-800));
-    border: 1px solid var(--line);
+      radial-gradient(ellipse 70% 60% at 50% 35%, rgba(212, 175, 55, 0.06), transparent 70%),
+      linear-gradient(160deg, rgba(17, 36, 79, 0.85), rgba(8, 18, 42, 0.92));
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    box-shadow:
+      0 30px 60px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(241, 245, 249, 0.06);
   }
   .philo-visual-inner::before {
     content: '';
     position: absolute;
-    inset: 12%;
-    background:
-      repeating-linear-gradient(45deg, transparent 0 18px, rgba(241, 245, 249, 0.04) 18px 19px);
+    inset: 14%;
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: 8px;
+    pointer-events: none;
   }
   .philo-frame {
     position: absolute;
-    inset: -20px;
-    border: 1px solid var(--gold-500);
+    inset: 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
     pointer-events: none;
-    transition: transform 0.6s var(--ease);
+    transition: inset 0.6s var(--ease);
   }
-  .philo-visual:hover .philo-frame { transform: translate(8px, 8px); }
+  .philo-visual:hover .philo-frame { inset: 6px; }
   .philo-quote {
     position: absolute;
     top: 50%; left: 50%;
@@ -1500,94 +1504,152 @@
     .trust-item:nth-child(2) { border-right: none; }
   }
   @media (max-width: 760px) {
-    /* Nav mobile : toujours déployée et compacte */
+    /* Nav mobile — toujours déployée et compacte */
     .nav-pill {
-      max-width: calc(100vw - 16px);
-      height: 50px;
-      padding: 5px;
+      max-width: calc(100vw - 12px);
+      height: 46px;
+      padding: 4px;
+      top: 12px;
     }
     .nav-pill-mark {
-      font-size: 13px;
-      padding: 0 6px 0 8px;
-      letter-spacing: 3px;
-      gap: 5px;
+      font-size: 12px;
+      padding: 0 6px 0 10px;
+      letter-spacing: 2px;
+      gap: 4px;
     }
-    .nav-pill-mark .losange { width: 16px; height: 16px; }
+    .nav-pill-mark .losange { width: 14px; height: 14px; }
     .nav-pill-links { gap: 0; padding: 0 2px; }
-    .nav-pill-links a { padding: 8px 7px; font-size: 10px; letter-spacing: 0; }
+    .nav-pill-links a { padding: 6px 6px; font-size: 9.5px; letter-spacing: 0; font-weight: 600; }
 
-    section { padding: 80px 0; }
-    .container { padding: 0 22px; }
-    .hero { padding: 130px 0 60px; min-height: auto; }
-    .hero-inner { gap: 50px; }
-    .hero h1 { font-size: clamp(40px, 11vw, 56px); margin: 22px 0 24px; }
-    .hero-lede { font-size: 15px; margin-bottom: 32px; }
-    .hero-actions { flex-direction: column; align-items: stretch; }
-    .hero-actions .btn { justify-content: center; width: 100%; }
-    .hero-visual { max-width: 320px; }
-    .hero-scroll { display: none; }
+    /* Sections drastiquement condensées pour scroll rapide */
+    section { padding: 48px 0; }
+    .container { padding: 0 18px; }
 
-    .section-head { margin-bottom: 56px; }
-    .section-head h2 { font-size: clamp(32px, 8vw, 44px); }
-    .section-head p { font-size: 15px; }
+    /* Hero compact */
+    .hero { padding: 70px 0 30px; min-height: auto; }
+    .hero-inner { gap: 16px; padding: 0 18px; }
+    .hero-logo-compact { max-width: 230px; }
+    .hero-title { font-size: clamp(28px, 8vw, 36px); margin: 0 0 12px; }
+    .hero-lede { font-size: 13.5px; line-height: 1.55; margin: 0 auto 18px; max-width: 100%; }
+    .hero-lede-em { font-size: 11px; letter-spacing: 1.5px; margin-top: 10px; }
+    .hero-actions { gap: 10px; }
+    .btn { padding: 13px 22px; font-size: 10px; letter-spacing: 1.5px; }
 
-    .services-grid { grid-template-columns: 1fr; gap: 18px; }
-    .service { padding: 36px 26px 32px; }
-    .philo-pillars { grid-template-columns: 1fr; gap: 18px; }
-    .philo-visual { aspect-ratio: 4/4.4; }
-    .philo-quote p { font-size: 21px; }
-    .philo-quote .mark { font-size: 90px; }
+    /* Trust strip ultra compact */
+    .trust { padding: 18px 0; }
+    .trust-inner { grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 14px; }
+    .trust-item { padding: 0 6px; border-right: 1px solid var(--line-soft); }
+    .trust-item:last-child { border-right: none; }
+    .trust-text strong { font-size: 17px; margin-bottom: 3px; }
+    .trust-text span { font-size: 8.5px; letter-spacing: 1.5px; }
 
+    /* Section heads ramassés */
+    .section-head { margin-bottom: 28px; }
+    .section-head h2 { font-size: clamp(26px, 7vw, 32px); margin: 12px 0 10px; }
+    .section-head p { font-size: 13px; line-height: 1.55; }
+    .eyebrow { font-size: 9.5px; letter-spacing: 2.5px; }
+
+    /* Philosophy en colonne, citation compacte */
+    .philo-grid { grid-template-columns: 1fr; gap: 28px; }
+    .philo-visual { aspect-ratio: 5/4; max-width: 320px; }
+    .philo-quote p { font-size: 16px; line-height: 1.45; }
+    .philo-quote .mark { font-size: 50px; margin-bottom: 8px; }
+    .philo-quote span { margin-top: 14px; font-size: 9px; }
+    .philo-content > p { font-size: 14px; line-height: 1.6; margin-bottom: 14px; }
+    .philo-pillars { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pillar { padding: 14px 12px; }
+    .pillar strong { font-size: 16px; margin-bottom: 3px; }
+    .pillar span { font-size: 11px; line-height: 1.45; }
+    .philo-values-intro { margin-top: 22px; margin-bottom: 12px; font-size: 10px; letter-spacing: 2px; }
+
+    /* Services en colonne */
+    .services-grid { grid-template-columns: 1fr; }
+    .service { padding: 22px 18px; border-right: none; }
+    .service:last-child { border-bottom: none; }
+    .service h3 { font-size: 19px; margin-bottom: 8px; }
+    .service p { font-size: 13px; line-height: 1.55; }
+    .service-step { font-size: 9px; margin-bottom: 14px; }
+
+    /* Process : 2 colonnes au lieu de 4 sur mobile */
+    .process-track { grid-template-columns: repeat(2, 1fr); gap: 22px 18px; margin-top: 20px; }
+    .process-track::before { display: none; }
+    .step-circle { width: 56px; height: 56px; font-size: 20px; margin-bottom: 14px; }
+    .step h4 { font-size: 16px; margin-bottom: 6px; }
+    .step p { font-size: 12px; line-height: 1.5; padding: 0 4px; }
+
+    /* FAQ très resserrée */
+    .faq-q { font-size: 16px; padding: 16px 4px; }
+    .faq-a-inner { padding: 0 4px 18px; font-size: 13px; line-height: 1.55; }
+
+    /* Contact en colonne */
+    .contact-grid { grid-template-columns: 1fr; gap: 28px; }
+    .contact-info > p { font-size: 14px; margin-bottom: 22px; }
+    .contact-list { gap: 12px; }
+    .contact-item { padding: 12px 14px; gap: 12px; }
+    .contact-item-icon { width: 36px; height: 36px; }
+    .contact-item-label { font-size: 9.5px; letter-spacing: 1.5px; }
+    .contact-item-value { font-size: 14px; }
+
+    /* Formulaire */
     .form-row { grid-template-columns: 1fr; gap: 0; }
-    .form-card { padding: 32px 22px; }
-    .form-card h3 { font-size: 26px; }
+    .form-card { padding: 24px 18px; }
+    .form-card h3 { font-size: 22px; margin-bottom: 4px; }
+    .form-sub { font-size: 12px; margin-bottom: 22px; }
+    .field { margin-bottom: 14px; }
+    .field label { font-size: 9px; letter-spacing: 1.5px; margin-bottom: 6px; }
+    .field input, .field select, .field textarea { padding: 11px 14px; font-size: 13.5px; }
+    .checkbox-row { font-size: 11.5px; margin-bottom: 18px; }
+    .form-submit { padding: 16px; font-size: 10.5px; letter-spacing: 2px; }
 
-    .footer-grid { grid-template-columns: 1fr; gap: 36px; }
-    .footer-bottom { flex-direction: column; gap: 14px; text-align: center; }
-    .footer-bottom div + div a { margin: 0 10px; }
-
-    .gallery-grid { grid-template-columns: 1fr; grid-auto-rows: 220px; gap: 12px; }
-    .gtile.g1, .gtile.g2, .gtile.g3, .gtile.g4, .gtile.g5 { grid-column: span 1; grid-row: span 1; }
-
-    .trust-inner { grid-template-columns: repeat(2, 1fr); gap: 28px 16px; padding: 0 22px; }
-    .trust-item { padding: 0; border-right: none; }
-    .trust-item:nth-child(odd) { border-right: 1px solid var(--line-soft); padding-right: 16px; }
-
-    .contact-item { padding: 14px 16px; }
-    .contact-item-value { font-size: 17px; }
-
-    .faq-q { font-size: 19px; padding: 22px 4px; }
+    /* Footer compact */
+    footer { padding: 36px 0 18px; }
+    .footer-grid { grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+    .footer-brand p { font-size: 13px; line-height: 1.55; margin-bottom: 14px; }
+    .footer-brand .footer-logo-svg { width: 100px; height: 100px; margin-bottom: 12px; }
+    .footer-col h5 { font-size: 10px; margin-bottom: 12px; }
+    .footer-col ul { gap: 8px; }
+    .footer-col a, .footer-col li { font-size: 13px; }
+    .footer-bottom { flex-direction: column; gap: 10px; text-align: center; font-size: 11px; }
+    .footer-bottom div + div a { margin: 0 8px; }
   }
 
-  @media (max-width: 480px) {
-    /* Téléphones : nav reste fluide, contenu condensé */
-    .nav-pill { height: 46px; max-width: calc(100vw - 12px); }
-    .nav-pill-mark { font-size: 11px; letter-spacing: 2px; padding: 0 6px; gap: 4px; }
-    .nav-pill-mark .losange { width: 14px; height: 14px; }
-    .nav-pill-links a { padding: 7px 5px; font-size: 9px; }
+  @media (max-width: 420px) {
+    /* Smartphones — ultra-compact */
+    section { padding: 36px 0; }
+    .container { padding: 0 14px; }
+    .nav-pill { height: 42px; max-width: calc(100vw - 8px); }
+    .nav-pill-mark { font-size: 11px; padding: 0 5px 0 8px; gap: 3px; letter-spacing: 1.5px; }
+    .nav-pill-mark .losange { width: 12px; height: 12px; }
+    .nav-pill-links a { padding: 6px 4px; font-size: 9px; }
 
-    .hero { padding: 100px 0 50px; }
-    .hero-title { font-size: clamp(28px, 9vw, 38px); }
-    .hero-logo-compact { max-width: 260px; }
-    .hero-lede { font-size: 14px; }
+    .hero { padding: 60px 0 24px; }
+    .hero-inner { gap: 12px; padding: 0 14px; }
+    .hero-logo-compact { max-width: 200px; margin-bottom: -6px; }
+    .hero-title { font-size: clamp(24px, 8vw, 30px); }
+    .hero-lede { font-size: 13px; margin-bottom: 14px; }
+    .hero-actions { gap: 8px; }
+    .btn { padding: 12px 18px; font-size: 9.5px; letter-spacing: 1.2px; }
 
-    .container { padding: 0 18px; }
-    .form-card { padding: 26px 18px; }
-    .trust-inner { grid-template-columns: 1fr; }
-    .trust-item:nth-child(odd) { border-right: none; padding-right: 0; }
-    .trust-item { padding-bottom: 16px; border-bottom: 1px solid var(--line-soft); }
-    .trust-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .trust { padding: 14px 0; }
+    .trust-text strong { font-size: 15px; }
+    .trust-text span { font-size: 7.5px; letter-spacing: 1.2px; }
 
-    .section-head h2 { font-size: clamp(28px, 8vw, 36px); }
-    .section-head p { font-size: 14px; }
-    .philo-visual { max-width: 300px; }
-    .philo-quote p { font-size: 18px; }
-    .philo-quote .mark { font-size: 60px; }
-    .step-circle { width: 60px; height: 60px; font-size: 22px; }
+    .section-head { margin-bottom: 22px; }
+    .section-head h2 { font-size: clamp(22px, 7vw, 28px); }
 
-    .faq-q { font-size: 17px; padding: 18px 4px; }
-    .contact-item { padding: 12px 14px; }
-    .contact-item-value { font-size: 15px; }
+    .philo-visual { max-width: 260px; }
+    .philo-quote p { font-size: 14.5px; }
+    .philo-quote .mark { font-size: 42px; }
+    .philo-pillars { grid-template-columns: 1fr; }
+
+    .step-circle { width: 50px; height: 50px; font-size: 18px; }
+    .step h4 { font-size: 15px; }
+    .step p { font-size: 11.5px; }
+
+    .form-card { padding: 20px 14px; }
+    .form-card h3 { font-size: 20px; }
+
+    .footer-brand .footer-logo-svg { width: 80px; height: 80px; }
   }
 
   /* Page loader */
@@ -1725,12 +1787,12 @@
       <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"/>
     </clipPath>
 
-    <!-- Filtre flou pour adoucir les contours du diamant (effet aurora) -->
-    <filter id="diamondAuraBlur" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur stdDeviation="3"/>
+    <!-- Filtres flou — contours du diamant adoucis pour effet aurore boréale -->
+    <filter id="diamondAuraBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="7"/>
     </filter>
-    <filter id="diamondSoftBlur" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur stdDeviation="1.5"/>
+    <filter id="diamondSoftBlur" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="2.5"/>
     </filter>
 
     <!-- Mask : diamant blanc (visible) + facettes en noir (transparent = on voit le fond) -->
