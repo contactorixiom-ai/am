@@ -703,69 +703,63 @@
     gap: 70px;
     align-items: center;
   }
-  .philo-visual {
+  /* Bulle citation designer — contour or + flèche */
+  .philo-bubble {
     position: relative;
-    aspect-ratio: 4/5;
-    max-width: 380px;
+    max-width: 420px;
     margin: 0 auto;
-  }
-  .philo-visual-inner {
-    position: absolute;
-    inset: 0;
-    border-radius: 20px;
-    background:
-      radial-gradient(ellipse 70% 60% at 50% 35%, rgba(212, 175, 55, 0.06), transparent 70%),
-      linear-gradient(160deg, rgba(17, 36, 79, 0.85), rgba(8, 18, 42, 0.92));
-    border: 1px solid rgba(212, 175, 55, 0.3);
-    box-shadow:
-      0 30px 60px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(241, 245, 249, 0.06);
-  }
-  .philo-visual-inner::before {
-    content: '';
-    position: absolute;
-    inset: 14%;
-    border: 1px solid rgba(212, 175, 55, 0.15);
-    border-radius: 8px;
-    pointer-events: none;
-  }
-  .philo-frame {
-    position: absolute;
-    inset: 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(212, 175, 55, 0.4);
-    pointer-events: none;
-    transition: inset 0.6s var(--ease);
-  }
-  .philo-visual:hover .philo-frame { inset: 6px; }
-  .philo-quote {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    padding: 44px 38px 38px;
     text-align: center;
-    max-width: 80%;
+    background: linear-gradient(160deg, rgba(17, 36, 79, 0.85), rgba(8, 18, 42, 0.92));
+    border: 1.5px solid rgba(212, 175, 55, 0.55);
+    border-radius: 22px;
+    box-shadow:
+      0 30px 60px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(241, 245, 249, 0.06);
     color: var(--ivory);
   }
-  .philo-quote .mark {
+  /* Liseré or intérieur fin */
+  .philo-bubble::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border: 1px solid rgba(212, 175, 55, 0.22);
+    border-radius: 16px;
+    pointer-events: none;
+  }
+  /* Flèche pointant vers le bas (la bulle "parle" depuis le haut) */
+  .philo-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    width: 22px; height: 22px;
+    background: linear-gradient(160deg, rgba(17, 36, 79, 0.85), rgba(8, 18, 42, 0.92));
+    border-right: 1.5px solid rgba(212, 175, 55, 0.55);
+    border-bottom: 1.5px solid rgba(212, 175, 55, 0.55);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .philo-bubble-mark {
+    display: block;
     font-family: 'Cormorant Garamond', serif;
     font-size: 80px;
     color: #d4af37;
-    line-height: 0.5;
-    display: block;
+    line-height: 0.4;
     margin-bottom: 18px;
-    opacity: 0.85;
+    opacity: 0.9;
   }
-  .philo-quote p {
+  .philo-bubble p {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 21px;
+    font-size: 22px;
     font-style: italic;
     font-weight: 400;
-    line-height: 1.4;
+    line-height: 1.45;
     color: var(--ivory);
+    margin: 0;
   }
-  .philo-quote span {
+  .philo-bubble-author {
     display: block;
-    margin-top: 20px;
+    margin-top: 22px;
     font-family: 'Inter', sans-serif;
     font-size: 10px;
     letter-spacing: 3px;
@@ -975,7 +969,7 @@
   .services-grid > .service:nth-child(3) { border-top-right-radius: 20px; }
   .services-grid > .service:nth-last-child(3) { border-bottom-left-radius: 20px; }
   .services-grid > .service:last-child { border-bottom-right-radius: 20px; }
-  .philo-visual-inner, .philo-frame { border-radius: 20px; }
+  /* (philo-visual-inner / philo-frame supprimés — citation refondue en bulle designer) */
   .trust { border-radius: 20px; max-width: 1240px; margin: 0 auto; }
   .footer-social a { border-radius: 999px; }
 
@@ -1551,10 +1545,10 @@
 
     /* Philosophy en colonne, citation compacte */
     .philo-grid { grid-template-columns: 1fr; gap: 28px; }
-    .philo-visual { aspect-ratio: 5/4; max-width: 320px; }
-    .philo-quote p { font-size: 16px; line-height: 1.45; }
-    .philo-quote .mark { font-size: 50px; margin-bottom: 8px; }
-    .philo-quote span { margin-top: 14px; font-size: 9px; }
+    .philo-bubble { max-width: 100%; padding: 32px 22px 28px; }
+    .philo-bubble p { font-size: 16.5px; line-height: 1.5; }
+    .philo-bubble-mark { font-size: 56px; margin-bottom: 10px; }
+    .philo-bubble-author { margin-top: 16px; font-size: 9px; }
     .philo-content > p { font-size: 14px; line-height: 1.6; margin-bottom: 14px; }
     .philo-pillars { grid-template-columns: 1fr 1fr; gap: 10px; }
     .pillar { padding: 14px 12px; }
@@ -1637,9 +1631,9 @@
     .section-head { margin-bottom: 22px; }
     .section-head h2 { font-size: clamp(22px, 7vw, 28px); }
 
-    .philo-visual { max-width: 260px; }
-    .philo-quote p { font-size: 14.5px; }
-    .philo-quote .mark { font-size: 42px; }
+    .philo-bubble { padding: 28px 18px 24px; }
+    .philo-bubble p { font-size: 15px; line-height: 1.5; }
+    .philo-bubble-mark { font-size: 44px; margin-bottom: 8px; }
     .philo-pillars { grid-template-columns: 1fr; }
 
     .step-circle { width: 50px; height: 50px; font-size: 18px; }
@@ -1829,15 +1823,7 @@
         <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#d4af37"/>
       </g>
 
-      <!-- HALO AURORA flouté autour du diamant (effet aurore qui déborde, contours adoucis) -->
-      <g filter="url(#diamondAuraBlur)" opacity="0.7">
-        <path d="M 310 575 L 690 575 L 765 615 L 500 870 L 235 615 Z"
-              fill="url(#auroraDiamond)"/>
-        <ellipse cx="500" cy="700" rx="320" ry="220" fill="url(#auroraGlow)" opacity="0.8">
-          <animate attributeName="cx" values="380;620;420;540;380" dur="8s" repeatCount="indefinite"/>
-          <animate attributeName="cy" values="640;780;680;740;640" dur="9s" repeatCount="indefinite"/>
-        </ellipse>
-      </g>
+      <!-- (Halo autour du diamant retiré sur demande) -->
 
       <!-- GRAND DIAMANT — facettes en DÉCOUPE (mask) : on voit le fond à travers les coupes -->
       <g mask="url(#diamondFacetCut)">
@@ -2060,15 +2046,10 @@
 <section id="philosophy" class="philosophy">
   <div class="container">
     <div class="philo-grid">
-      <div class="philo-visual reveal">
-        <div class="philo-visual-inner bg-marble">
-          <div class="philo-quote">
-            <span class="mark">“</span>
-            <p>Un lieu propre, ce n'est pas ce qu'on voit. C'est ce qu'on ne voit pas — et qui rend tout le reste possible.</p>
-            <span>— Direction APEX</span>
-          </div>
-        </div>
-        <div class="philo-frame"></div>
+      <div class="philo-bubble reveal">
+        <span class="philo-bubble-mark" aria-hidden="true">“</span>
+        <p>Un lieu propre, ce n'est pas ce qu'on voit. C'est ce qu'on ne voit pas — et qui rend tout le reste possible.</p>
+        <span class="philo-bubble-author">— Direction APEX</span>
       </div>
 
       <div class="philo-content reveal reveal-d2">
