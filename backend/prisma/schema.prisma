@@ -1,0 +1,803 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, uuidOssp(map: "uuid-ossp"), pgTrgm(map: "pg_trgm")]
+}
+
+// ============================================================================
+//  AUTH & USERS
+// ============================================================================
+
+enum UserRole {
+  CLIENT
+  DRIVER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AccountType {
+  INDIVIDUAL
+  PROFESSIONAL
+}
+
+model User {
+  id           String      @id @default(uuid()) @db.Uuid
+  email        String      @unique
+  phone        String?     @unique
+  passwordHash String
+  role         UserRole    @default(CLIENT)
+  status       UserStatus  @default(PENDING)
+  accountType  AccountType @default(INDIVIDUAL)
+
+  firstName String
+  lastName  String
+  avatarUrl String?
+
+  // Pro / company
+  companyName    String?
+  companyVatId   String?
+  companySiret   String?
+  companyAddress String?
+
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  driverProfile     DriverProfile?
+  kycDocuments      KycDocument[]
+  ownedVehicles     Vehicle[]              @relation("VehicleOwner")
+  clientMissions    Mission[]              @relation("MissionClient")
+  driverMissions    Mission[]              @relation("MissionDriver")
+  inspections       Inspection[]
+  messagesSent      Message[]              @relation("MessageSender")
+  conversations     ConversationParticipant[]
+  callsInitiated    Call[]                 @relation("CallInitiator")
+  documents         Document[]             @relation("DocumentOwner")
+  notifications     Notification[]
+  pushTokens        PushToken[]
+  refreshTokens     RefreshToken[]
+  reviewsGiven      Review[]               @relation("ReviewAuthor")
+  reviewsReceived   Review[]               @relation("ReviewTarget")
+  parcelsSent       Parcel[]               @relation("ParcelSender")
+  newsArticles      NewsArticle[]          @relation("NewsAuthor")
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role, status])
+}
+
+model DriverProfile {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  licenseNumber       String
+  licenseExpiresAt    DateTime
+  licenseCategories   String[]
+  yearsOfExperience   Int      @default(0)
+  bio                 String?
+  averageRating       Float    @default(0)
+  ratingCount         Int      @default(0)
+  completedMissions   Int      @default(0)
+  isAvailable         Boolean  @default(true)
+  serviceCountries    String[]
+  baseCity            String?
+  baseLatitude        Float?
+  baseLongitude       Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum KycDocumentType {
+  IDENTITY_CARD
+  PASSPORT
+  DRIVER_LICENSE
+  PROOF_OF_ADDRESS
+  COMPANY_REGISTRATION
+  VAT_CERTIFICATE
+  INSURANCE
+  OTHER
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model KycDocument {
+  id       String          @id @default(uuid()) @db.Uuid
+  userId   String          @db.Uuid
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     KycDocumentType
+  status   KycStatus       @default(PENDING)
+  fileUrl  String
+  fileName String
+  mimeType String
+  fileSize Int
+  notes    String?
+  reviewedAt DateTime?
+  reviewedBy String?       @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============================================================================
+//  VEHICLES
+// ============================================================================
+
+enum VehicleType {
+  CAR
+  SUV
+  VAN
+  TRUCK
+  MOTORCYCLE
+  OTHER
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  LPG
+  OTHER
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+}
+
+model Vehicle {
+  id      String      @id @default(uuid()) @db.Uuid
+  ownerId String      @db.Uuid
+  owner   User        @relation("VehicleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  type    VehicleType @default(CAR)
+
+  make         String
+  model        String
+  year         Int
+  licensePlate String
+  vin          String?
+  color        String?
+  fuelType     FuelType         @default(PETROL)
+  transmission TransmissionType @default(MANUAL)
+  mileage      Int?
+  seats        Int?
+
+  registrationCountry String?
+  insuranceProvider   String?
+  insuranceExpiresAt  DateTime?
+
+  photos    VehiclePhoto[]
+  missions  Mission[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deletedAt DateTime?
+
+  @@unique([licensePlate, registrationCountry])
+  @@index([ownerId])
+}
+
+model VehiclePhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  vehicleId String   @db.Uuid
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId])
+}
+
+// ============================================================================
+//  MISSIONS (CONVOYAGE)
+// ============================================================================
+
+enum MissionStatus {
+  DRAFT
+  PUBLISHED
+  ACCEPTED
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum MissionPriority {
+  STANDARD
+  EXPRESS
+  URGENT
+}
+
+model Mission {
+  id       String          @id @default(uuid()) @db.Uuid
+  clientId String          @db.Uuid
+  client   User            @relation("MissionClient", fields: [clientId], references: [id])
+  driverId String?         @db.Uuid
+  driver   User?           @relation("MissionDriver", fields: [driverId], references: [id])
+  vehicleId String         @db.Uuid
+  vehicle  Vehicle         @relation(fields: [vehicleId], references: [id])
+
+  reference String          @unique
+  status    MissionStatus   @default(DRAFT)
+  priority  MissionPriority @default(STANDARD)
+
+  pickupAddress    String
+  pickupCity       String
+  pickupCountry    String
+  pickupPostalCode String?
+  pickupLatitude   Float
+  pickupLongitude  Float
+  pickupAt         DateTime
+  pickupNotes      String?
+
+  deliveryAddress    String
+  deliveryCity       String
+  deliveryCountry    String
+  deliveryPostalCode String?
+  deliveryLatitude   Float
+  deliveryLongitude  Float
+  deliveryAt         DateTime?
+  deliveryNotes      String?
+
+  distanceKm Float?
+  durationMinutes Int?
+  priceCents      Int?
+  currency        String @default("EUR")
+  driverPayoutCents Int?
+  platformFeeCents  Int?
+
+  acceptedAt   DateTime?
+  startedAt    DateTime?
+  deliveredAt  DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inspections   Inspection[]
+  locations     MissionLocation[]
+  documents     Document[]
+  conversation  Conversation?
+  reviews       Review[]
+  statusHistory MissionStatusHistory[]
+
+  @@index([clientId, status])
+  @@index([driverId, status])
+  @@index([status, pickupAt])
+  @@index([pickupCity, deliveryCity])
+}
+
+model MissionStatusHistory {
+  id        String        @id @default(uuid()) @db.Uuid
+  missionId String        @db.Uuid
+  mission   Mission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  status    MissionStatus
+  changedBy String?       @db.Uuid
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@index([missionId])
+}
+
+// ============================================================================
+//  GPS TRACKING
+// ============================================================================
+
+model MissionLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  missionId String   @db.Uuid
+  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  speedKmh  Float?
+  heading   Float?
+  altitude  Float?
+  recordedAt DateTime @default(now())
+
+  @@index([missionId, recordedAt])
+}
+
+// ============================================================================
+//  INSPECTIONS (ETAT DES LIEUX)
+// ============================================================================
+
+enum InspectionType {
+  PRE_DEPARTURE
+  POST_DELIVERY
+  INTERIM
+}
+
+enum InspectionStatus {
+  DRAFT
+  SUBMITTED
+  SIGNED
+  DISPUTED
+}
+
+model Inspection {
+  id         String           @id @default(uuid()) @db.Uuid
+  missionId  String           @db.Uuid
+  mission    Mission          @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  inspectorId String          @db.Uuid
+  inspector  User             @relation(fields: [inspectorId], references: [id])
+
+  type     InspectionType
+  status   InspectionStatus @default(DRAFT)
+
+  mileage      Int?
+  fuelLevel    Int?
+  exteriorNotes String?
+  interiorNotes String?
+  damageNotes   String?
+  generalNotes  String?
+
+  clientSignatureUrl String?
+  driverSignatureUrl String?
+  clientSignedAt     DateTime?
+  driverSignedAt     DateTime?
+
+  submittedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  photos InspectionPhoto[]
+
+  @@index([missionId, type])
+}
+
+enum InspectionPhotoTag {
+  FRONT
+  REAR
+  LEFT_SIDE
+  RIGHT_SIDE
+  INTERIOR
+  DASHBOARD
+  ENGINE
+  TRUNK
+  DAMAGE
+  ODOMETER
+  DOCUMENT
+  OTHER
+}
+
+model InspectionPhoto {
+  id           String             @id @default(uuid()) @db.Uuid
+  inspectionId String             @db.Uuid
+  inspection   Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  url          String
+  thumbnailUrl String?
+  tag          InspectionPhotoTag @default(OTHER)
+  caption      String?
+  latitude     Float?
+  longitude    Float?
+  takenAt      DateTime           @default(now())
+
+  @@index([inspectionId])
+}
+
+// ============================================================================
+//  DOCUMENTS (ADMINISTRATIFS / CONTRATS)
+// ============================================================================
+
+enum DocumentCategory {
+  CONTRACT
+  INVOICE
+  CMR
+  CUSTOMS
+  INSURANCE
+  ID
+  TRANSPORT_ORDER
+  DELIVERY_NOTE
+  OTHER
+}
+
+enum DocumentVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+model Document {
+  id          String             @id @default(uuid()) @db.Uuid
+  ownerId     String             @db.Uuid
+  owner       User               @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  missionId   String?            @db.Uuid
+  mission     Mission?           @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  parcelId    String?            @db.Uuid
+  parcel      Parcel?            @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+
+  category    DocumentCategory
+  visibility  DocumentVisibility @default(PRIVATE)
+  title       String
+  description String?
+  fileUrl     String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  pageCount   Int?
+  signedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, category])
+  @@index([missionId])
+  @@index([parcelId])
+}
+
+// ============================================================================
+//  MESSAGING (CHAT + CALLS)
+// ============================================================================
+
+enum ConversationType {
+  DIRECT
+  MISSION
+  PARCEL
+  SUPPORT
+}
+
+model Conversation {
+  id        String           @id @default(uuid()) @db.Uuid
+  type      ConversationType @default(MISSION)
+  missionId String?          @unique @db.Uuid
+  mission   Mission?         @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  parcelId  String?          @unique @db.Uuid
+  parcel    Parcel?          @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+  calls        Call[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  isMuted        Boolean      @default(false)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  LOCATION
+  SYSTEM
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String       @db.Uuid
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  type           MessageType  @default(TEXT)
+  body           String?
+  attachmentUrl  String?
+  attachmentMime String?
+  latitude       Float?
+  longitude      Float?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+enum CallStatus {
+  RINGING
+  ANSWERED
+  ENDED
+  MISSED
+  DECLINED
+  FAILED
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+model Call {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  initiatorId    String       @db.Uuid
+  initiator      User         @relation("CallInitiator", fields: [initiatorId], references: [id])
+  type           CallType     @default(AUDIO)
+  status         CallStatus   @default(RINGING)
+  startedAt      DateTime     @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int?
+
+  @@index([conversationId])
+}
+
+// ============================================================================
+//  REVIEWS
+// ============================================================================
+
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  missionId String   @db.Uuid
+  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  authorId  String   @db.Uuid
+  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetId  String   @db.Uuid
+  target    User     @relation("ReviewTarget", fields: [targetId], references: [id])
+
+  rating  Int
+  comment String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([missionId, authorId])
+  @@index([targetId])
+}
+
+// ============================================================================
+//  PARCELS (DIASPORA — ENVOI EUROPE -> AFRIQUE)
+// ============================================================================
+
+enum ParcelStatus {
+  DRAFT
+  AWAITING_DROP_OFF
+  RECEIVED
+  IN_TRANSIT
+  CUSTOMS
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  LOST
+}
+
+enum ParcelCategory {
+  PERSONAL_EFFECTS
+  ELECTRONICS
+  CLOTHING
+  FOOD
+  COMMERCIAL_GOODS
+  DOCUMENTS
+  VEHICLE_PARTS
+  OTHER
+}
+
+model Parcel {
+  id       String       @id @default(uuid()) @db.Uuid
+  senderId String       @db.Uuid
+  sender   User         @relation("ParcelSender", fields: [senderId], references: [id])
+
+  reference String       @unique
+  status    ParcelStatus @default(DRAFT)
+  category  ParcelCategory @default(PERSONAL_EFFECTS)
+
+  weightKg          Float
+  declaredValueCents Int?
+  currency          String  @default("EUR")
+  description       String?
+
+  recipientFirstName String
+  recipientLastName  String
+  recipientPhone     String
+  recipientEmail     String?
+
+  originCountry      String
+  originCity         String
+  originAddress      String?
+
+  destinationCountry String
+  destinationCity    String
+  destinationAddress String
+
+  estimatedDelivery  DateTime?
+  deliveredAt        DateTime?
+
+  priceCents Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items       ParcelItem[]
+  trackingEvents ParcelTrackingEvent[]
+  documents     Document[]
+  conversation  Conversation?
+
+  @@index([senderId, status])
+  @@index([originCountry, destinationCountry])
+}
+
+model ParcelItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  parcelId    String  @db.Uuid
+  parcel      Parcel  @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int     @default(1)
+  weightKg    Float?
+  valueCents  Int?
+  hsCode      String?
+
+  @@index([parcelId])
+}
+
+model ParcelTrackingEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  parcelId  String       @db.Uuid
+  parcel    Parcel       @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  status    ParcelStatus
+  location  String?
+  notes     String?
+  occurredAt DateTime    @default(now())
+
+  @@index([parcelId, occurredAt])
+}
+
+// ============================================================================
+//  NEWS / ACTUALITÉS
+// ============================================================================
+
+enum NewsStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model NewsCategory {
+  id        String        @id @default(uuid()) @db.Uuid
+  slug      String        @unique
+  name      String
+  articles  NewsArticle[]
+  createdAt DateTime      @default(now())
+}
+
+model NewsArticle {
+  id         String       @id @default(uuid()) @db.Uuid
+  slug       String       @unique
+  title      String
+  excerpt    String?
+  body       String
+  coverUrl   String?
+  status     NewsStatus   @default(DRAFT)
+  authorId   String       @db.Uuid
+  author     User         @relation("NewsAuthor", fields: [authorId], references: [id])
+  categoryId String?      @db.Uuid
+  category   NewsCategory? @relation(fields: [categoryId], references: [id])
+  tags       String[]
+  viewCount  Int          @default(0)
+  publishedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+// ============================================================================
+//  NOTIFICATIONS
+// ============================================================================
+
+enum NotificationType {
+  MISSION_CREATED
+  MISSION_ACCEPTED
+  MISSION_STARTED
+  MISSION_DELIVERED
+  MISSION_CANCELLED
+  INSPECTION_REQUESTED
+  INSPECTION_SIGNED
+  NEW_MESSAGE
+  CALL_INCOMING
+  CALL_MISSED
+  KYC_APPROVED
+  KYC_REJECTED
+  PARCEL_STATUS_UPDATE
+  PAYMENT_RECEIVED
+  REVIEW_RECEIVED
+  SYSTEM
+}
+
+model Notification {
+  id      String           @id @default(uuid()) @db.Uuid
+  userId  String           @db.Uuid
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    NotificationType
+  title   String
+  body    String
+  payload Json?
+  readAt  DateTime?
+  createdAt DateTime       @default(now())
+
+  @@index([userId, readAt])
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+model PushToken {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String       @unique
+  platform  PushPlatform
+  deviceId  String?
+  lastUsedAt DateTime    @default(now())
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+// ============================================================================
+//  AUDIT
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}
