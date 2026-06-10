@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { MissionsModule } from './modules/missions/missions.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
 import { GpsModule } from './modules/gps/gps.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -56,6 +57,7 @@ import { HealthModule } from './modules/health/health.module';
     UsersModule,
     VehiclesModule,
     MissionsModule,
+    QuotesModule,
     GpsModule,
     InspectionsModule,
     DocumentsModule,

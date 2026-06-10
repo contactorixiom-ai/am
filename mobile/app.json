@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Axis Import",
+    "slug": "axis-import",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "axisimport",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B2545"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.axisimport.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B2545"
+      },
+      "package": "com.axisimport.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:3000/api/v1"
+    }
+  }
+}

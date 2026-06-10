@@ -44,6 +44,7 @@ async function bootstrap() {
     .addTag('users')
     .addTag('vehicles')
     .addTag('missions')
+    .addTag('quotes')
     .addTag('gps')
     .addTag('inspections')
     .addTag('documents')
