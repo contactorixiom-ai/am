@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 
-const API_URL = (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL
+  ?? (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl
   ?? 'http://localhost:3000/api/v1';
 
 const ACCESS_TOKEN_KEY = 'axis.accessToken';

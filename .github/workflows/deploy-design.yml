@@ -1,4 +1,4 @@
-name: Deploy design prototype to GitHub Pages
+name: Deploy design prototype + mobile web preview to GitHub Pages
 
 on:
   push:
@@ -20,10 +20,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile deps
+        working-directory: mobile
+        run: npm ci
+
+      - name: Build mobile web bundle
+        working-directory: mobile
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1' }}
+        run: npx expo export --platform web
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p public
+          cp -R design/* public/
+          mkdir -p public/app
+          cp -R mobile/dist/* public/app/
+
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./design
+          publish_dir: ./public
           publish_branch: gh-pages
-          commit_message: "Deploy design prototype from ${{ github.sha }}"
+          commit_message: "Deploy design + mobile web from ${{ github.sha }}"
