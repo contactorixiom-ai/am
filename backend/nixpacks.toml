@@ -1,0 +1,18 @@
+# Configuration Nixpacks pour Railway.
+# Nixpacks détecte Node automatiquement ; on précise juste la version et
+# on s'assure que Prisma génère son client avant le build.
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = [
+  "npx prisma generate",
+  "npm run build"
+]
+
+[start]
+cmd = "npx prisma migrate deploy && node dist/main"
