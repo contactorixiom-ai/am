@@ -1,6 +1,8 @@
 import { api } from './client';
 
 export type QuoteService = 'CONVOY_CAR' | 'CONVOY_MOTO' | 'PARCEL' | 'MERCHANDISE';
+export type TransportMode = 'ROAD' | 'AIR' | 'SEA';
+export type PickupMode = 'HUB_DROP_OFF' | 'RELAY_DROP_OFF' | 'HOME_PICKUP';
 export type QuoteOptionKind =
   | 'EXPRESS'
   | 'PREMIUM_INSURANCE'
@@ -9,8 +11,16 @@ export type QuoteOptionKind =
   | 'DOOR_TO_DOOR'
   | 'CUSTOMS_HANDLING';
 
+export interface QuoteHint {
+  kind: 'SAVE_WITH_SEA' | 'FAST_WITH_AIR' | 'CHEAPER_AT_RELAY' | 'INSURANCE_RECOMMENDED' | 'CONSOLIDATE';
+  label: string;
+  detail: string;
+}
+
 export interface CreateQuoteInput {
   service: QuoteService;
+  transportMode?: TransportMode;
+  pickupMode?: PickupMode;
   fromCity: string;
   fromCountry: string;
   fromLatitude?: number;
@@ -36,6 +46,8 @@ export interface QuoteResponse {
   id: string;
   reference: string;
   service: QuoteService;
+  transportMode: TransportMode;
+  pickupMode: PickupMode;
   fromCity: string;
   fromCountry: string;
   fromLatitude: number | null;
@@ -48,6 +60,7 @@ export interface QuoteResponse {
   weightKg: number | null;
   basePriceCents: number;
   variablePriceCents: number;
+  pickupFeeCents: number;
   addonsPriceCents: number;
   subtotalCents: number;
   totalCents: number;
@@ -55,6 +68,7 @@ export interface QuoteResponse {
   uncertaintyPct: number | null;
   disclaimer: string | null;
   options: QuoteOption[];
+  hints?: QuoteHint[];
 }
 
 export interface City {

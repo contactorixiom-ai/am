@@ -19,7 +19,7 @@ export function Pill({ children, tone = 'default', style }: PillProps) {
       style={[
         {
           backgroundColor: bg,
-          borderColor: border,
+          borderColor: border ?? undefined,
           borderWidth: border ? 1 : 0,
           borderRadius: RADII.pill,
           paddingHorizontal: 10,

@@ -54,29 +54,29 @@ model User {
   phoneVerifiedAt DateTime?
   lastLoginAt     DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  driverProfile     DriverProfile?
-  kycDocuments      KycDocument[]
-  ownedVehicles     Vehicle[]              @relation("VehicleOwner")
-  clientMissions    Mission[]              @relation("MissionClient")
-  driverMissions    Mission[]              @relation("MissionDriver")
-  inspections       Inspection[]
-  messagesSent      Message[]              @relation("MessageSender")
-  conversations     ConversationParticipant[]
-  callsInitiated    Call[]                 @relation("CallInitiator")
-  documents         Document[]             @relation("DocumentOwner")
-  notifications     Notification[]
-  pushTokens        PushToken[]
-  refreshTokens     RefreshToken[]
-  reviewsGiven      Review[]               @relation("ReviewAuthor")
-  reviewsReceived   Review[]               @relation("ReviewTarget")
-  parcelsSent       Parcel[]               @relation("ParcelSender")
-  newsArticles      NewsArticle[]          @relation("NewsAuthor")
-  auditLogs         AuditLog[]
-  quotes            Quote[]                @relation("QuoteCustomer")
+  driverProfile   DriverProfile?
+  kycDocuments    KycDocument[]
+  ownedVehicles   Vehicle[]                 @relation("VehicleOwner")
+  clientMissions  Mission[]                 @relation("MissionClient")
+  driverMissions  Mission[]                 @relation("MissionDriver")
+  inspections     Inspection[]
+  messagesSent    Message[]                 @relation("MessageSender")
+  conversations   ConversationParticipant[]
+  callsInitiated  Call[]                    @relation("CallInitiator")
+  documents       Document[]                @relation("DocumentOwner")
+  notifications   Notification[]
+  pushTokens      PushToken[]
+  refreshTokens   RefreshToken[]
+  reviewsGiven    Review[]                  @relation("ReviewAuthor")
+  reviewsReceived Review[]                  @relation("ReviewTarget")
+  parcelsSent     Parcel[]                  @relation("ParcelSender")
+  newsArticles    NewsArticle[]             @relation("NewsAuthor")
+  auditLogs       AuditLog[]
+  quotes          Quote[]                   @relation("QuoteCustomer")
 
   @@index([email])
   @@index([phone])
@@ -88,19 +88,19 @@ model DriverProfile {
   userId String @unique @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  licenseNumber       String
-  licenseExpiresAt    DateTime
-  licenseCategories   String[]
-  yearsOfExperience   Int      @default(0)
-  bio                 String?
-  averageRating       Float    @default(0)
-  ratingCount         Int      @default(0)
-  completedMissions   Int      @default(0)
-  isAvailable         Boolean  @default(true)
-  serviceCountries    String[]
-  baseCity            String?
-  baseLatitude        Float?
-  baseLongitude       Float?
+  licenseNumber     String
+  licenseExpiresAt  DateTime
+  licenseCategories String[]
+  yearsOfExperience Int      @default(0)
+  bio               String?
+  averageRating     Float    @default(0)
+  ratingCount       Int      @default(0)
+  completedMissions Int      @default(0)
+  isAvailable       Boolean  @default(true)
+  serviceCountries  String[]
+  baseCity          String?
+  baseLatitude      Float?
+  baseLongitude     Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -124,18 +124,18 @@ enum KycStatus {
 }
 
 model KycDocument {
-  id       String          @id @default(uuid()) @db.Uuid
-  userId   String          @db.Uuid
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type     KycDocumentType
-  status   KycStatus       @default(PENDING)
-  fileUrl  String
-  fileName String
-  mimeType String
-  fileSize Int
-  notes    String?
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @db.Uuid
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       KycDocumentType
+  status     KycStatus       @default(PENDING)
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  notes      String?
   reviewedAt DateTime?
-  reviewedBy String?       @db.Uuid
+  reviewedBy String?         @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,15 +144,15 @@ model KycDocument {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   userAgent String?
   ipAddress String?
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
@@ -249,13 +249,13 @@ enum MissionPriority {
 }
 
 model Mission {
-  id       String          @id @default(uuid()) @db.Uuid
-  clientId String          @db.Uuid
-  client   User            @relation("MissionClient", fields: [clientId], references: [id])
-  driverId String?         @db.Uuid
-  driver   User?           @relation("MissionDriver", fields: [driverId], references: [id])
-  vehicleId String         @db.Uuid
-  vehicle  Vehicle         @relation(fields: [vehicleId], references: [id])
+  id        String  @id @default(uuid()) @db.Uuid
+  clientId  String  @db.Uuid
+  client    User    @relation("MissionClient", fields: [clientId], references: [id])
+  driverId  String? @db.Uuid
+  driver    User?   @relation("MissionDriver", fields: [driverId], references: [id])
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
 
   reference String          @unique
   status    MissionStatus   @default(DRAFT)
@@ -279,18 +279,18 @@ model Mission {
   deliveryAt         DateTime?
   deliveryNotes      String?
 
-  distanceKm Float?
-  durationMinutes Int?
-  priceCents      Int?
-  currency        String @default("EUR")
+  distanceKm        Float?
+  durationMinutes   Int?
+  priceCents        Int?
+  currency          String @default("EUR")
   driverPayoutCents Int?
   platformFeeCents  Int?
 
-  acceptedAt   DateTime?
-  startedAt    DateTime?
-  deliveredAt  DateTime?
-  completedAt  DateTime?
-  cancelledAt  DateTime?
+  acceptedAt         DateTime?
+  startedAt          DateTime?
+  deliveredAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
   cancellationReason String?
 
   createdAt DateTime @default(now())
@@ -326,15 +326,15 @@ model MissionStatusHistory {
 // ============================================================================
 
 model MissionLocation {
-  id        String   @id @default(uuid()) @db.Uuid
-  missionId String   @db.Uuid
-  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  latitude  Float
-  longitude Float
-  accuracy  Float?
-  speedKmh  Float?
-  heading   Float?
-  altitude  Float?
+  id         String   @id @default(uuid()) @db.Uuid
+  missionId  String   @db.Uuid
+  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  speedKmh   Float?
+  heading    Float?
+  altitude   Float?
   recordedAt DateTime @default(now())
 
   @@index([missionId, recordedAt])
@@ -358,17 +358,17 @@ enum InspectionStatus {
 }
 
 model Inspection {
-  id         String           @id @default(uuid()) @db.Uuid
-  missionId  String           @db.Uuid
-  mission    Mission          @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  inspectorId String          @db.Uuid
-  inspector  User             @relation(fields: [inspectorId], references: [id])
+  id          String  @id @default(uuid()) @db.Uuid
+  missionId   String  @db.Uuid
+  mission     Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  inspectorId String  @db.Uuid
+  inspector   User    @relation(fields: [inspectorId], references: [id])
 
-  type     InspectionType
-  status   InspectionStatus @default(DRAFT)
+  type   InspectionType
+  status InspectionStatus @default(DRAFT)
 
-  mileage      Int?
-  fuelLevel    Int?
+  mileage       Int?
+  fuelLevel     Int?
   exteriorNotes String?
   interiorNotes String?
   damageNotes   String?
@@ -380,8 +380,8 @@ model Inspection {
   driverSignedAt     DateTime?
 
   submittedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   photos InspectionPhoto[]
 
@@ -441,13 +441,13 @@ enum DocumentVisibility {
 }
 
 model Document {
-  id          String             @id @default(uuid()) @db.Uuid
-  ownerId     String             @db.Uuid
-  owner       User               @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  missionId   String?            @db.Uuid
-  mission     Mission?           @relation(fields: [missionId], references: [id], onDelete: SetNull)
-  parcelId    String?            @db.Uuid
-  parcel      Parcel?            @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+  id        String   @id @default(uuid()) @db.Uuid
+  ownerId   String   @db.Uuid
+  owner     User     @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  missionId String?  @db.Uuid
+  mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  parcelId  String?  @db.Uuid
+  parcel    Parcel?  @relation(fields: [parcelId], references: [id], onDelete: SetNull)
 
   category    DocumentCategory
   visibility  DocumentVisibility @default(PRIVATE)
@@ -575,13 +575,13 @@ model Call {
 // ============================================================================
 
 model Review {
-  id        String   @id @default(uuid()) @db.Uuid
-  missionId String   @db.Uuid
-  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  authorId  String   @db.Uuid
-  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id])
-  targetId  String   @db.Uuid
-  target    User     @relation("ReviewTarget", fields: [targetId], references: [id])
+  id        String  @id @default(uuid()) @db.Uuid
+  missionId String  @db.Uuid
+  mission   Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  authorId  String  @db.Uuid
+  author    User    @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetId  String  @db.Uuid
+  target    User    @relation("ReviewTarget", fields: [targetId], references: [id])
 
   rating  Int
   comment String?
@@ -599,6 +599,7 @@ model Review {
 enum ParcelStatus {
   DRAFT
   AWAITING_DROP_OFF
+  AWAITING_PICKUP
   RECEIVED
   IN_TRANSIT
   CUSTOMS
@@ -619,48 +620,95 @@ enum ParcelCategory {
   OTHER
 }
 
+enum PickupMode {
+  HUB_DROP_OFF
+  RELAY_DROP_OFF
+  HOME_PICKUP
+}
+
+enum RelayCarrier {
+  MONDIAL_RELAY
+  LA_POSTE
+  CHRONOPOST
+  DPD
+  UPS_ACCESS_POINT
+  AXIS_HUB
+}
+
 model Parcel {
-  id       String       @id @default(uuid()) @db.Uuid
-  senderId String       @db.Uuid
-  sender   User         @relation("ParcelSender", fields: [senderId], references: [id])
+  id       String @id @default(uuid()) @db.Uuid
+  senderId String @db.Uuid
+  sender   User   @relation("ParcelSender", fields: [senderId], references: [id])
 
-  reference String       @unique
-  status    ParcelStatus @default(DRAFT)
-  category  ParcelCategory @default(PERSONAL_EFFECTS)
+  reference     String         @unique
+  status        ParcelStatus   @default(DRAFT)
+  category      ParcelCategory @default(PERSONAL_EFFECTS)
+  transportMode TransportMode  @default(AIR)
+  pickupMode    PickupMode     @default(HUB_DROP_OFF)
 
-  weightKg          Float
+  weightKg           Float
   declaredValueCents Int?
-  currency          String  @default("EUR")
-  description       String?
+  currency           String  @default("EUR")
+  description        String?
 
   recipientFirstName String
   recipientLastName  String
   recipientPhone     String
   recipientEmail     String?
 
-  originCountry      String
-  originCity         String
-  originAddress      String?
+  originCountry String
+  originCity    String
+  originAddress String?
 
   destinationCountry String
   destinationCity    String
   destinationAddress String
 
-  estimatedDelivery  DateTime?
-  deliveredAt        DateTime?
+  // First-mile : pickup point ou domicile
+  relayPointId  String?     @db.Uuid
+  relayPoint    RelayPoint? @relation(fields: [relayPointId], references: [id])
+  pickupAddress String?
+  pickupAt      DateTime?
 
-  priceCents Int?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+
+  priceCents     Int?
+  pickupFeeCents Int  @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items       ParcelItem[]
+  items          ParcelItem[]
   trackingEvents ParcelTrackingEvent[]
-  documents     Document[]
-  conversation  Conversation?
+  documents      Document[]
+  conversation   Conversation?
 
   @@index([senderId, status])
   @@index([originCountry, destinationCountry])
+  @@index([relayPointId])
+}
+
+model RelayPoint {
+  id           String       @id @default(uuid()) @db.Uuid
+  carrier      RelayCarrier
+  externalId   String?      @unique
+  name         String
+  address      String
+  postalCode   String?
+  city         String
+  country      String
+  latitude     Float
+  longitude    Float
+  openingHours String?
+  isActive     Boolean      @default(true)
+  parcels      Parcel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country, city])
+  @@index([carrier, isActive])
 }
 
 model ParcelItem {
@@ -677,13 +725,13 @@ model ParcelItem {
 }
 
 model ParcelTrackingEvent {
-  id        String       @id @default(uuid()) @db.Uuid
-  parcelId  String       @db.Uuid
-  parcel    Parcel       @relation(fields: [parcelId], references: [id], onDelete: Cascade)
-  status    ParcelStatus
-  location  String?
-  notes     String?
-  occurredAt DateTime    @default(now())
+  id         String       @id @default(uuid()) @db.Uuid
+  parcelId   String       @db.Uuid
+  parcel     Parcel       @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  status     ParcelStatus
+  location   String?
+  notes      String?
+  occurredAt DateTime     @default(now())
 
   @@index([parcelId, occurredAt])
 }
@@ -707,22 +755,22 @@ model NewsCategory {
 }
 
 model NewsArticle {
-  id         String       @id @default(uuid()) @db.Uuid
-  slug       String       @unique
-  title      String
-  excerpt    String?
-  body       String
-  coverUrl   String?
-  status     NewsStatus   @default(DRAFT)
-  authorId   String       @db.Uuid
-  author     User         @relation("NewsAuthor", fields: [authorId], references: [id])
-  categoryId String?      @db.Uuid
-  category   NewsCategory? @relation(fields: [categoryId], references: [id])
-  tags       String[]
-  viewCount  Int          @default(0)
+  id          String        @id @default(uuid()) @db.Uuid
+  slug        String        @unique
+  title       String
+  excerpt     String?
+  body        String
+  coverUrl    String?
+  status      NewsStatus    @default(DRAFT)
+  authorId    String        @db.Uuid
+  author      User          @relation("NewsAuthor", fields: [authorId], references: [id])
+  categoryId  String?       @db.Uuid
+  category    NewsCategory? @relation(fields: [categoryId], references: [id])
+  tags        String[]
+  viewCount   Int           @default(0)
   publishedAt DateTime?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([status, publishedAt])
 }
@@ -751,15 +799,15 @@ enum NotificationType {
 }
 
 model Notification {
-  id      String           @id @default(uuid()) @db.Uuid
-  userId  String           @db.Uuid
-  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type    NotificationType
-  title   String
-  body    String
-  payload Json?
-  readAt  DateTime?
-  createdAt DateTime       @default(now())
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
 
   @@index([userId, readAt])
 }
@@ -771,14 +819,14 @@ enum PushPlatform {
 }
 
 model PushToken {
-  id        String       @id @default(uuid()) @db.Uuid
-  userId    String       @db.Uuid
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String       @unique
-  platform  PushPlatform
-  deviceId  String?
-  lastUsedAt DateTime    @default(now())
-  createdAt DateTime     @default(now())
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String       @unique
+  platform   PushPlatform
+  deviceId   String?
+  lastUsedAt DateTime     @default(now())
+  createdAt  DateTime     @default(now())
 
   @@index([userId])
 }
@@ -808,22 +856,23 @@ enum QuoteStatus {
 }
 
 model Quote {
-  id         String       @id @default(uuid()) @db.Uuid
-  reference  String       @unique
-  customerId String?      @db.Uuid
-  customer   User?        @relation("QuoteCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  id         String  @id @default(uuid()) @db.Uuid
+  reference  String  @unique
+  customerId String? @db.Uuid
+  customer   User?   @relation("QuoteCustomer", fields: [customerId], references: [id], onDelete: SetNull)
 
   service       QuoteService
   transportMode TransportMode @default(ROAD)
+  pickupMode    PickupMode    @default(HUB_DROP_OFF)
   status        QuoteStatus   @default(DRAFT)
 
   // Trajet / origine - destination
-  fromCity    String
-  fromCountry String
+  fromCity      String
+  fromCountry   String
   fromLatitude  Float?
   fromLongitude Float?
-  toCity      String
-  toCountry   String
+  toCity        String
+  toCountry     String
   toLatitude    Float?
   toLongitude   Float?
 
@@ -836,23 +885,24 @@ model Quote {
   // Pricing (en cents)
   basePriceCents     Int
   variablePriceCents Int
-  addonsPriceCents   Int          @default(0)
+  pickupFeeCents     Int    @default(0)
+  addonsPriceCents   Int    @default(0)
   subtotalCents      Int
-  taxRate            Float        @default(0)
-  taxCents           Int          @default(0)
+  taxRate            Float  @default(0)
+  taxCents           Int    @default(0)
   totalCents         Int
-  currency           String       @default("EUR")
+  currency           String @default("EUR")
 
   // Marges d'incertitude (ex: ±8% pour Afrique)
   uncertaintyPct Float?
   disclaimer     String?
 
   // Options retenues (express, premium...)
-  options    QuoteOption[]
+  options QuoteOption[]
 
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([customerId, status])
   @@index([service, status])

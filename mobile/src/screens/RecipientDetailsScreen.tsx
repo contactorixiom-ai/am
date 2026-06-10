@@ -6,8 +6,10 @@ import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, 
 import { createParcel } from '../api/parcels';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
+import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
 
@@ -16,6 +18,7 @@ export function RecipientDetailsScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'RecipientDetails'>>();
   const { quote } = route.params;
+  const { draft: parcelDraft, reset: resetDraft } = useParcelDraft();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -32,6 +35,11 @@ export function RecipientDetailsScreen() {
     setLoading(true);
     try {
       const parcel = await createParcel({
+        transportMode: quote.transportMode === 'SEA' ? 'SEA' : 'AIR',
+        pickupMode: parcelDraft.pickupMode ?? 'HUB_DROP_OFF',
+        relayPointId: parcelDraft.relayPointId,
+        pickupAddress: parcelDraft.pickupAddress,
+        pickupAt: parcelDraft.pickupAt,
         weightKg: quote.weightKg ?? 1,
         originCountry: quote.fromCountry,
         originCity: quote.fromCity,
@@ -43,6 +51,7 @@ export function RecipientDetailsScreen() {
         recipientPhone: phone.trim(),
         recipientEmail: email.trim() || undefined,
       });
+      resetDraft();
       nav.replace('BookingConfirmation', { kind: 'parcel', reference: parcel.reference, id: parcel.id });
     } catch (e) {
       const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';

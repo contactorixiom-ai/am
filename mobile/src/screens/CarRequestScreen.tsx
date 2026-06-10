@@ -110,7 +110,7 @@ export function CarRequestScreen() {
                       </View>
                       <Pill tone={active ? 'navy' : 'ghost'}>{active ? 'Ajoutée' : 'Ajouter'}</Pill>
                     </View>
-                    <Pressable onPress={() => toggleOption(o.kind)} style={{ position: 'absolute', inset: 0, borderRadius: RADII.lg }} />
+                    <Pressable onPress={() => toggleOption(o.kind)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: RADII.lg }} />
                   </Surface>
                 );
               })}

@@ -1,8 +1,11 @@
 import { api } from './client';
 
 export type ParcelStatus =
-  | 'DRAFT' | 'AWAITING_DROP_OFF' | 'RECEIVED' | 'IN_TRANSIT'
+  | 'DRAFT' | 'AWAITING_DROP_OFF' | 'AWAITING_PICKUP' | 'RECEIVED' | 'IN_TRANSIT'
   | 'CUSTOMS' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'LOST';
+
+export type PickupMode = 'HUB_DROP_OFF' | 'RELAY_DROP_OFF' | 'HOME_PICKUP';
+export type ParcelTransportMode = 'AIR' | 'SEA';
 
 export type ParcelCategory =
   | 'PERSONAL_EFFECTS' | 'ELECTRONICS' | 'CLOTHING' | 'FOOD'
@@ -29,6 +32,11 @@ export interface ParcelSummary {
 
 export interface CreateParcelInput {
   category?: ParcelCategory;
+  transportMode?: ParcelTransportMode;
+  pickupMode?: PickupMode;
+  relayPointId?: string;
+  pickupAddress?: string;
+  pickupAt?: string;
   weightKg: number;
   description?: string;
   recipientFirstName: string;

@@ -49,7 +49,8 @@ export const AXIS_DARK = {
   selectInk: '#06182E',
 };
 
-export type AxisTheme = typeof AXIS_LIGHT;
+// Le type relâche `name` en string union pour accepter light ET dark.
+export type AxisTheme = Omit<typeof AXIS_LIGHT, 'name'> & { name: 'light' | 'dark' };
 
 export const RADII = {
   sm: 8,

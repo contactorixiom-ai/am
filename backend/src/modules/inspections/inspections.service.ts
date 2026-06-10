@@ -92,7 +92,8 @@ export class InspectionsService {
 
   async sign(id: string, user: AuthenticatedUser, dto: SignInspectionDto) {
     const insp = await this.findOne(id, user);
-    if (![InspectionStatus.SUBMITTED, InspectionStatus.SIGNED].includes(insp.status)) {
+    const allowed: InspectionStatus[] = [InspectionStatus.SUBMITTED, InspectionStatus.SIGNED];
+    if (!allowed.includes(insp.status)) {
       throw new BadRequestException('Inspection must be submitted before signing');
     }
     const data: Record<string, unknown> = {};

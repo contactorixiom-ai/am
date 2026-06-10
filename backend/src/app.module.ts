@@ -9,6 +9,7 @@ import { UsersModule } from './modules/users/users.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { MissionsModule } from './modules/missions/missions.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { RelayPointsModule } from './modules/relay-points/relay-points.module';
 import { GpsModule } from './modules/gps/gps.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -58,6 +59,7 @@ import { HealthModule } from './modules/health/health.module';
     VehiclesModule,
     MissionsModule,
     QuotesModule,
+    RelayPointsModule,
     GpsModule,
     InspectionsModule,
     DocumentsModule,

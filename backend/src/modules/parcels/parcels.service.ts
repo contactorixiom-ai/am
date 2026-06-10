@@ -1,5 +1,5 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ParcelStatus, Prisma, UserRole } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ParcelStatus, PickupMode, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateParcelDto } from './dto/create-parcel.dto';
@@ -9,12 +9,34 @@ import { AddParcelEventDto } from './dto/parcel-event.dto';
 export class ParcelsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(senderId: string, dto: CreateParcelDto) {
+  async create(senderId: string, dto: CreateParcelDto) {
+    const pickupMode = dto.pickupMode ?? PickupMode.HUB_DROP_OFF;
+
+    // Validation cohérence first-mile
+    if (pickupMode === PickupMode.RELAY_DROP_OFF && !dto.relayPointId) {
+      throw new BadRequestException('relayPointId requis pour un dépôt en point relais');
+    }
+    if (pickupMode === PickupMode.HOME_PICKUP && !dto.pickupAddress) {
+      throw new BadRequestException('pickupAddress requis pour un enlèvement à domicile');
+    }
+    if (dto.relayPointId) {
+      const relay = await this.prisma.relayPoint.findUnique({ where: { id: dto.relayPointId } });
+      if (!relay) throw new BadRequestException('Point relais introuvable');
+    }
+
+    // Statut initial selon le mode
+    const initialStatus = pickupMode === PickupMode.HOME_PICKUP
+      ? ParcelStatus.AWAITING_PICKUP
+      : ParcelStatus.AWAITING_DROP_OFF;
+
     return this.prisma.parcel.create({
       data: {
         senderId,
         reference: this.generateReference(),
+        status: initialStatus,
         category: dto.category,
+        transportMode: dto.transportMode,
+        pickupMode,
         weightKg: dto.weightKg,
         declaredValueCents: dto.declaredValueCents,
         description: dto.description,
@@ -28,6 +50,19 @@ export class ParcelsService {
         destinationCountry: dto.destinationCountry.toUpperCase(),
         destinationCity: dto.destinationCity,
         destinationAddress: dto.destinationAddress,
+        relayPointId: dto.relayPointId,
+        pickupAddress: dto.pickupAddress,
+        pickupAt: dto.pickupAt ? new Date(dto.pickupAt) : null,
+        trackingEvents: {
+          create: {
+            status: initialStatus,
+            notes: pickupMode === PickupMode.HOME_PICKUP
+              ? 'En attente d\'enlèvement à domicile'
+              : pickupMode === PickupMode.RELAY_DROP_OFF
+                ? 'En attente de dépôt au point relais'
+                : 'En attente de dépôt au hub Axis',
+          },
+        },
         items: dto.items
           ? {
               create: dto.items.map((i) => ({
@@ -40,7 +75,7 @@ export class ParcelsService {
             }
           : undefined,
       },
-      include: { items: true },
+      include: { items: true, relayPoint: true, trackingEvents: true },
     });
   }
 

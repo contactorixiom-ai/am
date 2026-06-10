@@ -1,4 +1,4 @@
-import { QuoteOptionKind, QuoteService } from '@prisma/client';
+import { PickupMode, QuoteOptionKind, QuoteService } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────
 // TARIFS AXIS IMPORT (HT, en cents pour éviter les arrondis flottants)
@@ -43,6 +43,28 @@ export const PRICING = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────
+// FIRST-MILE / PICKUP — récupération du colis
+// ─────────────────────────────────────────────────────────────────────
+// Coût additionnel selon le mode choisi par le client.
+// HUB_DROP_OFF : gratuit (client apporte au hub Axis)
+// RELAY_DROP_OFF : prix d'un point relais (Mondial Relay / La Poste / etc.)
+// HOME_PICKUP : enlèvement à domicile par notre transporteur partenaire
+export const PICKUP_PRICING: Record<PickupMode, { baseCents: number; perKgCents: number; minCents: number; label: string }> = {
+  HUB_DROP_OFF: {
+    baseCents: 0, perKgCents: 0, minCents: 0,
+    label: 'Dépôt au hub Axis',
+  },
+  RELAY_DROP_OFF: {
+    baseCents: 400, perKgCents: 25, minCents: 500,
+    label: 'Dépôt en point relais',
+  },
+  HOME_PICKUP: {
+    baseCents: 1500, perKgCents: 60, minCents: 2000,
+    label: 'Enlèvement à domicile',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────
 // ADD-ONS / OPTIONS
 // ─────────────────────────────────────────────────────────────────────
 export const OPTIONS_CATALOG: Record<QuoteOptionKind, { label: string; flatCents: number; pctOfSubtotal: number }> = {
@@ -60,6 +82,7 @@ export const OPTIONS_CATALOG: Record<QuoteOptionKind, { label: string; flatCents
 export interface QuoteComputationInput {
   service: QuoteService;
   transportMode?: TransportMode;
+  pickupMode?: PickupMode;
   distanceKm?: number;
   weightKg?: number;
   volumeM3?: number;
@@ -75,8 +98,10 @@ export interface ComputedOption {
 
 export interface ComputedQuote {
   transportMode: TransportMode;
+  pickupMode: PickupMode;
   basePriceCents: number;
   variablePriceCents: number;
+  pickupFeeCents: number;
   addonsPriceCents: number;
   subtotalCents: number;
   taxRate: number;
@@ -86,6 +111,14 @@ export interface ComputedQuote {
   uncertaintyPct: number | null;
   disclaimer: string | null;
   options: ComputedOption[];
+  // Smart hints — value-add pour aider le client à choisir
+  hints: QuoteHint[];
+}
+
+export interface QuoteHint {
+  kind: 'SAVE_WITH_SEA' | 'FAST_WITH_AIR' | 'CHEAPER_AT_RELAY' | 'INSURANCE_RECOMMENDED' | 'CONSOLIDATE';
+  label: string;
+  detail: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -143,7 +176,17 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
     throw new Error('Service non supporté');
   }
 
-  const rawSubtotal = basePriceCents + variablePriceCents;
+  // First-mile pickup (uniquement pour colis / marchandise)
+  let pickupFeeCents = 0;
+  let pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
+  if (input.service === 'PARCEL' || input.service === 'MERCHANDISE') {
+    const pickupRules = PICKUP_PRICING[pickupMode];
+    const kg = input.weightKg ?? 0;
+    const computed = pickupRules.baseCents + Math.round(kg * pickupRules.perKgCents);
+    pickupFeeCents = Math.max(pickupRules.minCents, computed);
+  }
+
+  const rawSubtotal = basePriceCents + variablePriceCents + pickupFeeCents;
 
   // Add-ons
   const computedOptions: ComputedOption[] = input.options.map((kind) => {
@@ -165,10 +208,15 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
     ? `Devis estimé ±${uncertaintyPct} % — frais de douane et fluctuations de fret possibles.`
     : null;
 
+  // Smart hints — moteur de recommandation
+  const hints = computeHints({ ...input, transportMode, pickupMode, weightKg: input.weightKg ?? 0, totalCents, hasInsurance: input.options.includes('PREMIUM_INSURANCE') });
+
   return {
     transportMode,
+    pickupMode,
     basePriceCents,
     variablePriceCents,
+    pickupFeeCents,
     addonsPriceCents,
     subtotalCents,
     taxRate,
@@ -178,5 +226,63 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
     uncertaintyPct,
     disclaimer,
     options: computedOptions,
+    hints,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SMART HINTS — recommandations intelligentes pour la conversion
+// ─────────────────────────────────────────────────────────────────────
+interface HintInput {
+  service: QuoteService;
+  transportMode: TransportMode;
+  pickupMode: PickupMode;
+  weightKg: number;
+  totalCents: number;
+  hasInsurance: boolean;
+}
+
+function computeHints(input: HintInput): QuoteHint[] {
+  const hints: QuoteHint[] = [];
+
+  // Colis aérien lourd → suggère maritime
+  if (input.service === 'PARCEL' && input.transportMode === 'AIR' && input.weightKg >= 20) {
+    const seaWeight = input.weightKg * PRICING.PARCEL.sea.perKgCents;
+    const airWeight = input.weightKg * PRICING.PARCEL.air.perKgCents;
+    const savePct = Math.round((1 - seaWeight / airWeight) * 100);
+    hints.push({
+      kind: 'SAVE_WITH_SEA',
+      label: `Économise ~${savePct} % en maritime`,
+      detail: `Pour ${input.weightKg} kg, le maritime coûte environ ${savePct} % de moins. Délai : 30-45 jours.`,
+    });
+  }
+
+  // Colis maritime urgent → préviens du délai
+  if (input.service === 'PARCEL' && input.transportMode === 'SEA' && input.weightKg < 5) {
+    hints.push({
+      kind: 'FAST_WITH_AIR',
+      label: 'Pour ce petit colis, l\'aérien est conseillé',
+      detail: 'En dessous de 5 kg, la différence de prix avec l\'aérien est minime et tu reçois en 5-10 jours.',
+    });
+  }
+
+  // Mode pickup HOME → suggère relais pour économiser
+  if (input.pickupMode === 'HOME_PICKUP' && input.weightKg < 15) {
+    hints.push({
+      kind: 'CHEAPER_AT_RELAY',
+      label: 'Dépose au point relais et économise',
+      detail: 'L\'enlèvement à domicile coûte 10-15 € de plus. Pour un colis < 15 kg, un point relais est largement suffisant.',
+    });
+  }
+
+  // Pas d'assurance et valeur potentiellement élevée
+  if (!input.hasInsurance && input.totalCents > 15000) {
+    hints.push({
+      kind: 'INSURANCE_RECOMMENDED',
+      label: 'Assurance Premium recommandée',
+      detail: 'Pour 35 € seulement, tu couvres ton colis jusqu\'à 500 000 €. Recommandé au-delà de 150 € de valeur.',
+    });
+  }
+
+  return hints;
 }

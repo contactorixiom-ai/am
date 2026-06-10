@@ -11,6 +11,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { ParcelDraftProvider } from './src/state/ParcelDraftContext';
 import { SessionProvider } from './src/state/SessionContext';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 
@@ -35,8 +36,10 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <SessionProvider>
-            <StatusBar style="auto" />
-            <RootNavigator />
+            <ParcelDraftProvider>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </ParcelDraftProvider>
           </SessionProvider>
         </ThemeProvider>
       </SafeAreaProvider>

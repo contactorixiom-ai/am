@@ -196,7 +196,8 @@ export class MissionsService {
     if (mission.clientId !== userId && mission.driverId !== userId) {
       throw new ForbiddenException();
     }
-    if ([MissionStatus.COMPLETED, MissionStatus.CANCELLED].includes(mission.status)) {
+    const finalStatuses: MissionStatus[] = [MissionStatus.COMPLETED, MissionStatus.CANCELLED];
+    if (finalStatuses.includes(mission.status)) {
       throw new BadRequestException(`Cannot cancel from status ${mission.status}`);
     }
     return this.prisma.mission.update({

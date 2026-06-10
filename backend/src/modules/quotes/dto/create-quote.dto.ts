@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { QuoteOptionKind, QuoteService, TransportMode } from '@prisma/client';
+import { PickupMode, QuoteOptionKind, QuoteService, TransportMode } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -24,6 +24,11 @@ export class CreateQuoteDto {
   @IsOptional()
   @IsEnum(TransportMode)
   transportMode?: TransportMode;
+
+  @ApiPropertyOptional({ enum: PickupMode, description: 'Pour les colis : HUB_DROP_OFF (gratuit), RELAY_DROP_OFF, HOME_PICKUP.' })
+  @IsOptional()
+  @IsEnum(PickupMode)
+  pickupMode?: PickupMode;
 
   @ApiProperty()
   @IsString() @MaxLength(80)

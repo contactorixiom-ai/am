@@ -1,4 +1,12 @@
-import { QuoteResponse } from '../api/quotes';
+import { City, PickupMode, QuoteResponse } from '../api/quotes';
+
+export interface ParcelDraft {
+  from: City;
+  to: City;
+  weightKg: number;
+  category: string;
+  transportMode: 'AIR' | 'SEA';
+}
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -8,6 +16,9 @@ export type RootStackParamList = {
   ServicePicker: undefined;
   CarRequest: undefined;
   ParcelRequest: undefined;
+  PickupMode: { draft: ParcelDraft };
+  RelayPointPicker: { draft: ParcelDraft };
+  HomePickupAddress: { draft: ParcelDraft };
   QuoteReview: { quote: QuoteResponse };
   RecipientDetails: { quote: QuoteResponse };
   BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };

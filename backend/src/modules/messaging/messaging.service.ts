@@ -100,7 +100,8 @@ export class MessagingService {
 
     const data: Record<string, unknown> = { status };
     if (status === CallStatus.ANSWERED) data.answeredAt = new Date();
-    if ([CallStatus.ENDED, CallStatus.DECLINED, CallStatus.MISSED, CallStatus.FAILED].includes(status)) {
+    const terminalStatuses: CallStatus[] = [CallStatus.ENDED, CallStatus.DECLINED, CallStatus.MISSED, CallStatus.FAILED];
+    if (terminalStatuses.includes(status)) {
       data.endedAt = new Date();
       if (call.answeredAt) {
         data.durationSec = Math.floor((Date.now() - call.answeredAt.getTime()) / 1000);

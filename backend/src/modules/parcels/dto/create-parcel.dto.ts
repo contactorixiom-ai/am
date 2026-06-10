@@ -1,15 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ParcelCategory } from '@prisma/client';
+import { ParcelCategory, PickupMode, TransportMode } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsDateString,
   IsEmail,
   IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -42,6 +44,26 @@ export class CreateParcelDto {
   @ApiPropertyOptional({ enum: ParcelCategory })
   @IsOptional() @IsEnum(ParcelCategory)
   category?: ParcelCategory;
+
+  @ApiPropertyOptional({ enum: TransportMode, default: 'AIR' })
+  @IsOptional() @IsEnum(TransportMode)
+  transportMode?: TransportMode;
+
+  @ApiPropertyOptional({ enum: PickupMode, default: 'HUB_DROP_OFF' })
+  @IsOptional() @IsEnum(PickupMode)
+  pickupMode?: PickupMode;
+
+  @ApiPropertyOptional({ description: 'ID du point relais si pickupMode = RELAY_DROP_OFF' })
+  @IsOptional() @IsUUID()
+  relayPointId?: string;
+
+  @ApiPropertyOptional({ description: 'Adresse de retrait si pickupMode = HOME_PICKUP' })
+  @IsOptional() @IsString() @MaxLength(200)
+  pickupAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsDateString()
+  pickupAt?: string;
 
   @ApiProperty()
   @Type(() => Number) @IsNumber() @Min(0)

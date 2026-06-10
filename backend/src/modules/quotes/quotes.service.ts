@@ -33,6 +33,7 @@ export class QuotesService {
       computed = computeQuote({
         service: dto.service,
         transportMode: dto.transportMode,
+        pickupMode: dto.pickupMode,
         distanceKm,
         weightKg: dto.weightKg,
         volumeM3: dto.volumeM3,
@@ -45,12 +46,13 @@ export class QuotesService {
 
     const expiresAt = new Date(Date.now() + QUOTE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
 
-    return this.prisma.quote.create({
+    const created = await this.prisma.quote.create({
       data: {
         reference: this.generateReference(),
         customerId: user?.id,
         service: dto.service,
         transportMode: computed.transportMode,
+        pickupMode: computed.pickupMode,
         status: user ? QuoteStatus.SAVED : QuoteStatus.DRAFT,
         fromCity: dto.fromCity,
         fromCountry: dto.fromCountry.toUpperCase(),
@@ -66,6 +68,7 @@ export class QuotesService {
         units: dto.units,
         basePriceCents: computed.basePriceCents,
         variablePriceCents: computed.variablePriceCents,
+        pickupFeeCents: computed.pickupFeeCents,
         addonsPriceCents: computed.addonsPriceCents,
         subtotalCents: computed.subtotalCents,
         taxRate: computed.taxRate,
@@ -86,6 +89,9 @@ export class QuotesService {
       },
       include: { options: true },
     });
+
+    // Attache les smart hints à la réponse (non stockés en DB)
+    return { ...created, hints: computed.hints };
   }
 
   async listMine(userId: string, skip: number, take: number) {

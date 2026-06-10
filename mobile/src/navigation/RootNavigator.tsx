@@ -6,14 +6,17 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { BookingConfirmationScreen } from '../screens/BookingConfirmationScreen';
 import { CarRequestScreen } from '../screens/CarRequestScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
+import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
+import { PickupModeScreen } from '../screens/PickupModeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { QuoteReviewScreen } from '../screens/QuoteReviewScreen';
 import { RecipientDetailsScreen } from '../screens/RecipientDetailsScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { RelayPointPickerScreen } from '../screens/RelayPointPickerScreen';
 import { ServicePickerScreen } from '../screens/ServicePickerScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
@@ -114,6 +117,9 @@ export function RootNavigator() {
             <RootStack.Screen name="ServicePicker" component={ServicePickerScreen} options={{ title: 'Nouvelle demande' }} />
             <RootStack.Screen name="CarRequest" component={CarRequestScreen} options={{ title: 'Convoyage voiture' }} />
             <RootStack.Screen name="ParcelRequest" component={ParcelRequestScreen} options={{ title: 'Envoi colis' }} />
+            <RootStack.Screen name="PickupMode" component={PickupModeScreen} options={{ title: 'Récupération' }} />
+            <RootStack.Screen name="RelayPointPicker" component={RelayPointPickerScreen} options={{ title: 'Point relais' }} />
+            <RootStack.Screen name="HomePickupAddress" component={HomePickupAddressScreen} options={{ title: 'Adresse d\'enlèvement' }} />
             <RootStack.Screen name="QuoteReview" component={QuoteReviewScreen} options={{ title: 'Devis' }} />
             <RootStack.Screen name="RecipientDetails" component={RecipientDetailsScreen} options={{ title: 'Destinataire' }} />
             <RootStack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} options={{ headerShown: false, gestureEnabled: false }} />

@@ -1,9 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { City, createQuote } from '../api/quotes';
+import { City } from '../api/quotes';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Field } from '../components/Field';
@@ -35,9 +34,8 @@ export function ParcelRequestScreen() {
   const [weight, setWeight] = useState('');
   const [category, setCategory] = useState<Category>('PERSONAL_EFFECTS');
   const [mode, setMode] = useState<Mode>('AIR');
-  const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
+  const submit = () => {
     if (!from || !to) {
       Alert.alert('Trajet incomplet', 'Choisis une ville de départ et d\'arrivée.');
       return;
@@ -47,28 +45,15 @@ export function ParcelRequestScreen() {
       Alert.alert('Poids invalide', 'Indique un poids supérieur à 0.');
       return;
     }
-    setLoading(true);
-    try {
-      const quote = await createQuote({
-        service: 'PARCEL',
-        transportMode: mode,
-        fromCity: from.city,
-        fromCountry: from.country,
-        fromLatitude: from.latitude,
-        fromLongitude: from.longitude,
-        toCity: to.city,
-        toCountry: to.country,
-        toLatitude: to.latitude,
-        toLongitude: to.longitude,
+    nav.navigate('PickupMode', {
+      draft: {
+        from,
+        to,
         weightKg: kg,
-      });
-      nav.navigate('QuoteReview', { quote });
-    } catch (e) {
-      const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';
-      Alert.alert('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
-    } finally {
-      setLoading(false);
-    }
+        category,
+        transportMode: mode,
+      },
+    });
   };
 
   return (
@@ -186,8 +171,8 @@ export function ParcelRequestScreen() {
             </View>
           </Surface>
 
-          <Button kind="primary" size="lg" fullWidth onPress={submit} loading={loading}>
-            Calculer le devis
+          <Button kind="primary" size="lg" fullWidth onPress={submit}>
+            Étape suivante : récupération
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
