@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { QuoteStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { lookupCity } from '../../common/geocoding';
+import { haversineKm, roadKmFromHaversine } from '../../common/haversine';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
 
@@ -12,11 +14,26 @@ export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateQuoteDto, user?: AuthenticatedUser) {
+    // Auto-géocodage des villes si lat/lng absents
+    const fromGeo = (dto.fromLatitude != null && dto.fromLongitude != null)
+      ? { latitude: dto.fromLatitude, longitude: dto.fromLongitude }
+      : lookupCity(dto.fromCity);
+    const toGeo = (dto.toLatitude != null && dto.toLongitude != null)
+      ? { latitude: dto.toLatitude, longitude: dto.toLongitude }
+      : lookupCity(dto.toCity);
+
+    // Auto-calcul distance routière si non fournie
+    let distanceKm = dto.distanceKm;
+    if (distanceKm == null && fromGeo && toGeo) {
+      distanceKm = roadKmFromHaversine(haversineKm(fromGeo, toGeo));
+    }
+
     let computed;
     try {
       computed = computeQuote({
         service: dto.service,
-        distanceKm: dto.distanceKm,
+        transportMode: dto.transportMode,
+        distanceKm,
         weightKg: dto.weightKg,
         volumeM3: dto.volumeM3,
         units: dto.units,
@@ -33,16 +50,17 @@ export class QuotesService {
         reference: this.generateReference(),
         customerId: user?.id,
         service: dto.service,
+        transportMode: computed.transportMode,
         status: user ? QuoteStatus.SAVED : QuoteStatus.DRAFT,
         fromCity: dto.fromCity,
         fromCountry: dto.fromCountry.toUpperCase(),
-        fromLatitude: dto.fromLatitude,
-        fromLongitude: dto.fromLongitude,
+        fromLatitude: fromGeo?.latitude ?? dto.fromLatitude,
+        fromLongitude: fromGeo?.longitude ?? dto.fromLongitude,
         toCity: dto.toCity,
         toCountry: dto.toCountry.toUpperCase(),
-        toLatitude: dto.toLatitude,
-        toLongitude: dto.toLongitude,
-        distanceKm: dto.distanceKm,
+        toLatitude: toGeo?.latitude ?? dto.toLatitude,
+        toLongitude: toGeo?.longitude ?? dto.toLongitude,
+        distanceKm,
         weightKg: dto.weightKg,
         volumeM3: dto.volumeM3,
         units: dto.units,

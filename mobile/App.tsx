@@ -1,34 +1,18 @@
-import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold } from '@expo-google-fonts/manrope';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  useFonts,
+} from '@expo-google-fonts/manrope';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { QuoteScreen } from './src/screens/QuoteScreen';
-import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
-
-type Route = 'onboarding' | 'home' | 'quote';
-
-function Root() {
-  const { theme } = useTheme();
-  const [route, setRoute] = useState<Route>('onboarding');
-
-  switch (route) {
-    case 'home':
-      return <HomeScreen onNewRequest={() => setRoute('quote')} />;
-    case 'quote':
-      return <QuoteScreen onBack={() => setRoute('home')} />;
-    case 'onboarding':
-    default:
-      return (
-        <OnboardingScreen
-          onClient={() => setRoute('home')}
-          onDriver={() => setRoute('home')}
-        />
-      );
-  }
-}
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { SessionProvider } from './src/state/SessionContext';
+import { ThemeProvider } from './src/theme/ThemeProvider';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -47,11 +31,15 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <StatusBar style="auto" />
-        <Root />
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </SessionProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

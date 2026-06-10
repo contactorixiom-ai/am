@@ -794,6 +794,12 @@ enum QuoteService {
   MERCHANDISE
 }
 
+enum TransportMode {
+  ROAD
+  AIR
+  SEA
+}
+
 enum QuoteStatus {
   DRAFT
   SAVED
@@ -807,8 +813,9 @@ model Quote {
   customerId String?      @db.Uuid
   customer   User?        @relation("QuoteCustomer", fields: [customerId], references: [id], onDelete: SetNull)
 
-  service    QuoteService
-  status     QuoteStatus  @default(DRAFT)
+  service       QuoteService
+  transportMode TransportMode @default(ROAD)
+  status        QuoteStatus   @default(DRAFT)
 
   // Trajet / origine - destination
   fromCity    String

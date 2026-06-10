@@ -1,22 +1,22 @@
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { SafeAreaView, Text, View } from 'react-native';
-import { Button } from '../components/Button';
 import { AxisLogo } from '../components/AxisLogo';
+import { Button } from '../components/Button';
+import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
 
-interface Props {
-  onClient: () => void;
-  onDriver: () => void;
-}
-
-export function OnboardingScreen({ onClient, onDriver }: Props) {
+export function OnboardingScreen() {
   const { theme } = useTheme();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={{ flex: 1, padding: SPACING.xxl, justifyContent: 'space-between' }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.xxl }}>
-          <AxisLogo size={88} />
+          <AxisLogo size={92} />
           <View style={{ alignItems: 'center', gap: SPACING.md }}>
             <Text
               style={{
@@ -38,17 +38,17 @@ export function OnboardingScreen({ onClient, onDriver }: Props) {
                 paddingHorizontal: SPACING.lg,
               }}
             >
-              Convoyage de véhicules en Europe et envoi de marchandises vers l'Afrique subsaharienne.
+              Convoyage de véhicules en Europe et envoi de colis vers l'Afrique subsaharienne francophone.
             </Text>
           </View>
         </View>
 
         <View style={{ gap: SPACING.md }}>
-          <Button kind="primary" size="lg" fullWidth onPress={onClient}>
-            Je veux transporter
+          <Button kind="primary" size="lg" fullWidth onPress={() => nav.navigate('Register')}>
+            Créer un compte
           </Button>
-          <Button kind="gold" size="lg" fullWidth onPress={onDriver}>
-            Je suis convoyeur
+          <Button kind="outline" size="lg" fullWidth onPress={() => nav.navigate('Login')}>
+            J'ai déjà un compte
           </Button>
           <Text
             style={{

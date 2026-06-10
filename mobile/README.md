@@ -4,99 +4,80 @@ App React Native + Expo (iOS + Android + Web) pour la plateforme Axis Import.
 
 ## Stack
 
-- **Expo 51** + **React Native 0.74**
-- **TypeScript** strict
+- **Expo 51** + **React Native 0.74** + **TypeScript** strict
+- **React Navigation** 6 (native stack + bottom tabs)
+- **react-native-maps** (Mapbox/Apple/Google selon la plateforme)
 - **Manrope** (Google Fonts) — police du design system
 - **Axios** + interceptor refresh token automatique
 - **AsyncStorage** pour la session
 
-## Démarrer en 3 minutes (depuis ton PC)
+## MVP — Flux complets
+
+### Convoyage voiture Europe
+Onboarding → Inscription/Login → Accueil → Service Picker → Form trajet+véhicule+options → Devis (avec carte) → Réservation
+
+### Envoi colis Afrique
+Onboarding → Inscription/Login → Accueil → Service Picker → Form trajet+poids+catégorie+mode aérien/maritime → Devis (avec carte) → Coordonnées destinataire → Réservation → Suivi temps réel
+
+## Tarifs intégrés
+- **Convoyage Europe** : 0,66 €/km HT, min 50 € HT
+- **Colis aérien** : dès 8,50 €/kg HT (5-10 jours)
+- **Colis maritime** : dès 4,50 €/kg HT (30-45 jours)
+- **Options** : Express +22%, Assurance Premium 35€, Porte-à-porte +15%, Enlèvement weekend 40€
+- **TVA** : 20%
+
+## Lancer l'app (depuis ton PC)
 
 ```bash
-# 1. Aller dans le dossier mobile
 cd mobile
-
-# 2. Installer les dépendances
 npm install
-
-# 3. Lancer Expo
 npm start
 ```
 
-Un QR code s'affiche dans le terminal.
+→ Scanner le QR code avec **Expo Go** sur ton téléphone (App Store / Play Store).
 
-### Sur ton téléphone
-
-1. Installer **Expo Go** depuis l'App Store (iOS) ou Play Store (Android)
-2. Ouvrir Expo Go, scanner le QR code
-3. L'app se charge automatiquement → tu vois l'écran d'onboarding Axis
-
-### Sans téléphone (web preview)
-
+Pour tester depuis un téléphone qui n'est pas sur le même Wi-Fi :
 ```bash
-npm run web
+npm run start:tunnel
 ```
 
-→ ouvre `http://localhost:8081` dans Chrome, tu vois l'app dans le navigateur (utile pour itérer vite).
+## Branchement backend
 
-## Écrans actuels (v0.1)
+Par défaut : `http://localhost:3000/api/v1`. À modifier dans `app.json` → `extra.apiUrl` quand le backend sera déployé.
+
+## Écrans implémentés (v0.1)
 
 | Écran | Statut |
 |---|---|
 | Onboarding | ✅ |
-| Accueil | ✅ basique |
-| Devis convoyage | ✅ branché sur `POST /quotes` du backend |
-| Nouvelle demande (4 cartes) | ⏳ à faire |
-| Suivi temps réel | ⏳ à faire |
-| Documents | ⏳ à faire |
-| Messagerie | ⏳ à faire |
-| Actualités | ⏳ à faire |
-| Drawer menu | ⏳ à faire |
-| État des lieux chauffeur (8 angles) | ⏳ à faire |
-| Contrat + signature | ⏳ à faire |
-
-## Brancher sur le backend
-
-Par défaut l'app pointe sur `http://localhost:3000/api/v1` (cf. `app.json` → `extra.apiUrl`).
-
-Pour tester en local depuis ton téléphone :
-- Soit utiliser un **tunnel** : `npx expo start --tunnel`
-- Soit mettre l'URL de ton backend déployé (ex: Railway) dans `app.json`
+| Inscription | ✅ |
+| Connexion | ✅ |
+| Accueil (tabs) | ✅ |
+| Mes envois (tabs) | ✅ |
+| Documents (tabs) | ⏳ placeholder |
+| Profil (tabs) | ✅ |
+| Choix du service | ✅ |
+| Demande convoyage voiture | ✅ |
+| Demande envoi colis | ✅ |
+| Devis (avec carte interactive) | ✅ |
+| Coordonnées destinataire (colis) | ✅ |
+| Confirmation de réservation | ✅ |
+| Suivi temps réel | ✅ |
+| Drawer menu principal | ⏳ |
+| État des lieux chauffeur | ⏳ |
+| Contrat + signature | ⏳ |
+| Actualités | ⏳ |
 
 ## Structure
 
 ```
 mobile/
-├── App.tsx                    # entry point
-├── app.json                   # config Expo
-├── package.json
-├── tsconfig.json
+├── App.tsx
 ├── src/
-│   ├── theme/
-│   │   ├── tokens.ts          # design tokens (port de design/tokens.jsx)
-│   │   └── ThemeProvider.tsx  # light / dark / auto
-│   ├── components/
-│   │   ├── Surface.tsx
-│   │   ├── Pill.tsx
-│   │   ├── Button.tsx
-│   │   └── AxisLogo.tsx
-│   ├── api/
-│   │   ├── client.ts          # axios + refresh token auto
-│   │   └── quotes.ts
-│   └── screens/
-│       ├── OnboardingScreen.tsx
-│       ├── HomeScreen.tsx
-│       └── QuoteScreen.tsx
-└── assets/                    # icon.png, splash.png à ajouter
+│   ├── api/                # client HTTP + endpoints par module
+│   ├── components/         # primitives UI du design system
+│   ├── navigation/         # stack racine + bottom tabs
+│   ├── screens/            # écrans
+│   ├── state/              # contextes (Session, Theme)
+│   └── theme/              # tokens design (light + dark)
 ```
-
-## TODO immédiat
-
-- [ ] Ajouter les assets `icon.png`, `splash.png`, `adaptive-icon.png` depuis le logo Axis
-- [ ] Compléter les composants : `Avatar`, `TabBar`, `Field`, `SectionHead`, `StatusBadge`, `RouteMap`
-- [ ] Ajouter `react-navigation` (stack + bottom tabs) pour la vraie navigation
-- [ ] Porter les 10 écrans Client et 3 écrans Driver depuis `/design/`
-- [ ] Brancher tous les modules API (auth, missions, gps, messaging, etc.)
-- [ ] Carte temps réel avec `react-native-maps`
-- [ ] Caméra état des lieux avec `expo-camera`
-- [ ] Signature électronique avec `react-native-signature-canvas`
