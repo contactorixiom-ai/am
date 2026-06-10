@@ -18,6 +18,7 @@ import { RecipientDetailsScreen } from '../screens/RecipientDetailsScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { RelayPointPickerScreen } from '../screens/RelayPointPickerScreen';
 import { ServicePickerScreen } from '../screens/ServicePickerScreen';
+import { TrackByReferenceScreen } from '../screens/TrackByReferenceScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
 import { useSession } from '../state/SessionContext';
@@ -130,6 +131,8 @@ export function RootNavigator() {
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
             <RootStack.Screen name="Login" component={LoginScreen} options={{ title: 'Connexion' }} />
             <RootStack.Screen name="Register" component={RegisterScreen} options={{ title: 'Inscription' }} />
+            <RootStack.Screen name="TrackByReference" component={TrackByReferenceScreen} options={{ title: 'Suivi colis' }} />
+            <RootStack.Screen name="Tracking" component={TrackingScreen} options={{ title: 'Suivi' }} />
           </>
         )}
       </RootStack.Navigator>

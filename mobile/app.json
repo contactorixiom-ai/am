@@ -2,6 +2,7 @@
   "expo": {
     "name": "Axis Import",
     "slug": "axis-import",
+    "owner": "am27z",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "axisimport",

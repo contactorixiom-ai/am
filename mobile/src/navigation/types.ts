@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   Register: undefined;
+  TrackByReference: undefined;
   AppTabs: undefined;
   ServicePicker: undefined;
   CarRequest: undefined;

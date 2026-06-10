@@ -50,6 +50,9 @@ export function OnboardingScreen() {
           <Button kind="outline" size="lg" fullWidth onPress={() => nav.navigate('Login')}>
             J'ai déjà un compte
           </Button>
+          <Button kind="ghost" onPress={() => nav.navigate('TrackByReference')}>
+            Suivre un colis sans compte
+          </Button>
           <Text
             style={{
               color: theme.muted,
