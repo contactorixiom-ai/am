@@ -3,7 +3,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, SafeAreaView, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { AxisMark } from '../components/AxisLogo';
+import { AnimatedAxisLogo } from '../components/AnimatedAxisLogo';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { RootStackParamList } from '../navigation/types';
@@ -38,7 +38,7 @@ export function OnboardingScreen() {
 
         {/* Content */}
         <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 100 }}>
-          <AxisMark size={56} />
+          <AnimatedAxisLogo size={64} />
           <Text
             style={{
               fontFamily: TYPO.weights.bold,

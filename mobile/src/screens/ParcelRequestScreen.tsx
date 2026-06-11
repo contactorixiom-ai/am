@@ -3,9 +3,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { City } from '../api/quotes';
+import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Field } from '../components/Field';
+import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -58,14 +60,15 @@ export function ParcelRequestScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <AppBar title="Envoi colis" subtitle="Étape 2 sur 2 · détails" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: SPACING.lg, gap: SPACING.lg }}>
           <View>
-            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.label, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-              Envoi colis
-            </Text>
-            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, marginTop: 4, letterSpacing: -0.3 }}>
+            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: 22, letterSpacing: -0.3 }}>
               Vers l'Afrique subsaharienne
+            </Text>
+            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 13.5, marginTop: 6 }}>
+              On organise la collecte, le transport et la livraison à domicile.
             </Text>
           </View>
 
