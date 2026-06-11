@@ -1,8 +1,9 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { listParcels, ParcelSummary } from '../api/parcels';
+import { DotLoader } from '../components/DotLoader';
 import { StatusBadge } from '../components/StatusBadge';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -47,7 +48,7 @@ export function TripsScreen() {
 
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={theme.navy} />
+            <DotLoader size={8} />
           </View>
         ) : parcels.length === 0 ? (
           <Surface>

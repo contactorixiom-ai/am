@@ -2,9 +2,10 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { CARRIER_LABEL, RelayPoint, searchRelayPoints } from '../api/relayPoints';
 import { Button } from '../components/Button';
+import { DotLoader } from '../components/DotLoader';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -83,7 +84,7 @@ export function RelayPointPickerScreen() {
 
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={theme.navy} />
+            <DotLoader size={8} />
           </View>
         ) : points.length === 0 ? (
           <Surface>

@@ -1,10 +1,11 @@
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isAxiosError } from 'axios';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ParcelSummary, trackParcel } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
+import { DotLoader } from '../components/DotLoader';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
@@ -52,7 +53,7 @@ export function TrackingScreen() {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.navy} />
+        <DotLoader size={8} />
       </SafeAreaView>
     );
   }

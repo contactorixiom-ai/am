@@ -2,8 +2,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { CustomTabBar } from '../components/CustomTabBar';
+import { DotLoader } from '../components/DotLoader';
 import { BookingConfirmationScreen } from '../screens/BookingConfirmationScreen';
 import { CarRequestScreen } from '../screens/CarRequestScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
@@ -58,7 +59,7 @@ export function RootNavigator() {
   if (initializing) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.navy} />
+        <DotLoader size={8} />
       </View>
     );
   }

@@ -6,11 +6,12 @@ import {
   useFonts,
 } from '@expo-google-fonts/manrope';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DotLoader } from './src/components/DotLoader';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { SplashScreen } from './src/screens/SplashScreen';
 import { ParcelDraftProvider } from './src/state/ParcelDraftContext';
 import { SessionProvider } from './src/state/SessionContext';
 import { ThemeProvider } from './src/theme/ThemeProvider';
@@ -22,14 +23,14 @@ export default function App() {
     Manrope_600SemiBold,
     Manrope_700Bold,
   });
-  const [showSplash, setShowSplash] = useState(true);
 
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    // Splash visible au moins 2s pour l'effet de marque
-    const t = setTimeout(() => setShowSplash(false), 2200);
-    return () => clearTimeout(t);
-  }, [fontsLoaded]);
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F1E8' }}>
+        <DotLoader size={8} color="#0B2545" />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -37,12 +38,8 @@ export default function App() {
         <ThemeProvider>
           <SessionProvider>
             <ParcelDraftProvider>
-              <StatusBar style={showSplash ? 'light' : 'auto'} />
-              {!fontsLoaded || showSplash ? (
-                <SplashScreen />
-              ) : (
-                <RootNavigator />
-              )}
+              <StatusBar style="auto" />
+              <RootNavigator />
             </ParcelDraftProvider>
           </SessionProvider>
         </ThemeProvider>
