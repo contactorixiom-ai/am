@@ -23,7 +23,11 @@
       "package": "com.axisimport.app"
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "single"
+    },
+    "experiments": {
+      "baseUrl": "/am/app"
     },
     "plugins": [
       "expo-font"
