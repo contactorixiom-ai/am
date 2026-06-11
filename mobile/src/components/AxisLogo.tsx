@@ -1,51 +1,38 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 
 interface AxisLogoProps {
   size?: number;
-  showWordmark?: boolean;
+  withWordmark?: boolean;
+  wordmarkColor?: string;
 }
 
-// Placeholder vectoriel — sera remplacé par le PNG/SVG officiel via `assets/`.
-export function AxisLogo({ size = 48, showWordmark = false }: AxisLogoProps) {
+export function AxisLogo({ size = 28, withWordmark = false, wordmarkColor }: AxisLogoProps) {
   const { theme } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 4,
-          backgroundColor: theme.navy,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Image
+        source={require('../../assets/axis-mark.png')}
+        style={{ width: size, height: size, resizeMode: 'contain' }}
+      />
+      {withWordmark ? (
         <Text
           style={{
-            color: theme.gold,
-            fontFamily: TYPO.weights.bold,
-            fontSize: size * 0.42,
-            letterSpacing: -1,
+            fontFamily: TYPO.weights.semibold,
+            fontSize: size * 0.95,
+            letterSpacing: size * 0.16 / 10,
+            color: wordmarkColor ?? theme.gold,
+            paddingTop: 2,
           }}
         >
-          A
-        </Text>
-      </View>
-      {showWordmark ? (
-        <Text
-          style={{
-            color: theme.ink,
-            fontFamily: TYPO.weights.bold,
-            fontSize: size * 0.46,
-            letterSpacing: -0.5,
-          }}
-        >
-          Axis Import
+          AXIS
         </Text>
       ) : null}
     </View>
   );
 }
+
+// Re-export pour compat
+export const AxisMark = AxisLogo;

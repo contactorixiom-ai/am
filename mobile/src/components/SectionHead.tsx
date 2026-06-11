@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 
@@ -7,26 +7,38 @@ interface Props {
   title: string;
   action?: string;
   onAction?: () => void;
+  style?: ViewStyle;
 }
 
-export function SectionHead({ title, action, onAction }: Props) {
+export function SectionHead({ title, action, onAction, style }: Props) {
   const { theme } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+    <View
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          paddingHorizontal: 4,
+          marginBottom: 10,
+        },
+        style,
+      ]}
+    >
       <Text
         style={{
+          fontSize: 12.5,
           color: theme.muted,
-          fontFamily: TYPO.weights.semibold,
-          fontSize: TYPO.sizes.label,
-          letterSpacing: 1.2,
+          letterSpacing: 0.75,
           textTransform: 'uppercase',
+          fontFamily: TYPO.weights.semibold,
         }}
       >
         {title}
       </Text>
       {action ? (
         <Pressable onPress={onAction}>
-          <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>
+          <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>
             {action}
           </Text>
         </Pressable>
