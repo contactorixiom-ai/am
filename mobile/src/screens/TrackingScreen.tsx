@@ -1,15 +1,26 @@
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isAxiosError } from 'axios';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ParcelSummary, trackParcel } from '../api/parcels';
+import { AppBar } from '../components/AppBar';
+import { Avatar } from '../components/Avatar';
+import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
-import { RouteMap } from '../components/RouteMap';
-import { StatusBadge } from '../components/StatusBadge';
+import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
-import { SPACING, TYPO } from '../theme/tokens';
+import { RADII, SPACING, TYPO } from '../theme/tokens';
+
+// Étapes par défaut si pas de tracking events (mission convoyage)
+const DEFAULT_STEPS = [
+  { label: 'Demande validée',            sub: 'Confirmation des informations',         done: true,  current: false },
+  { label: 'État des lieux signé',       sub: 'Par le chauffeur — état impeccable',     done: true,  current: false },
+  { label: 'En route',                    sub: '47 km restants · arrivée 14h32',         done: false, current: true  },
+  { label: "État des lieux d'arrivée",    sub: 'Prévu 14h32',                            done: false, current: false },
+  { label: 'Livré',                       sub: '—',                                       done: false, current: false },
+];
 
 export function TrackingScreen() {
   const { theme } = useTheme();
@@ -38,11 +49,6 @@ export function TrackingScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    load();
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -51,110 +57,205 @@ export function TrackingScreen() {
     );
   }
 
+  const fromLabel = parcel ? parcel.originCity : 'Paris';
+  const toLabel = parcel ? parcel.destinationCity : 'Bruxelles';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <AppBar
+        title="Suivi en temps réel"
+        subtitle={`${reference}${parcel ? ` · ${parcel.weightKg} kg` : ''}`}
+        trailing={
+          <Pressable
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: pressed ? theme.line : theme.bgSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            })}
+          >
+            <Icons.more size={18} color={theme.ink} stroke={1.8} />
+          </Pressable>
+        }
+      />
+
       <ScrollView
-        contentContainerStyle={{ padding: SPACING.lg, gap: SPACING.lg }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.navy} />}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={theme.navy}
+          />
+        }
       >
-        <View>
-          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.label, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-            Suivi · {reference}
+        {/* Map */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
+        </View>
+
+        {/* Status strip */}
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingTop: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <Pill tone={parcel?.status === 'IN_TRANSIT' ? 'navy' : 'gold'}>
+            ● {parcel ? labelStatus(parcel.status) : 'En route'}
+          </Pill>
+          {parcel?.weightKg ? <Pill tone="default">{parcel.weightKg} kg</Pill> : <Pill tone="default">312 km</Pill>}
+          <View style={{ flex: 1 }} />
+          <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+            MAJ il y a 12 s
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-              {kind === 'mission' ? 'Mission convoyage' : 'Envoi colis'}
-            </Text>
-            {parcel ? <StatusBadge status={parcel.status} /> : null}
-          </View>
         </View>
 
         {error ? (
-          <Surface>
-            <Text style={{ color: theme.bad, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body }}>
-              {error}
-            </Text>
-          </Surface>
+          <View style={{ paddingHorizontal: 20, marginTop: 12 }}>
+            <Surface padded>
+              <Text style={{ color: theme.bad, fontSize: 13, fontFamily: TYPO.weights.medium }}>{error}</Text>
+            </Surface>
+          </View>
         ) : null}
 
-        {parcel ? (
-          <>
-            <Surface>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View>
-                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase' }}>
-                    Départ
-                  </Text>
-                  <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.title, marginTop: 4 }}>
-                    {parcel.originCity} · {parcel.originCountry}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase' }}>
-                    Arrivée
-                  </Text>
-                  <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.title, marginTop: 4 }}>
-                    {parcel.destinationCity} · {parcel.destinationCountry}
+        {/* Sheet with driver + timeline */}
+        <View style={{ padding: 16 }}>
+          <Surface padded style={{ padding: 16 }}>
+            {/* Driver row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Avatar name={parcel ? 'A B' : 'Karim Diallo'} size={48} tone="gold" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                  {parcel ? 'Transporteur Axis' : 'Karim Diallo'}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                  <Icons.star size={12} color={theme.gold} stroke={2} />
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    4.9 · 142 convoyages · Chauffeur Axis
                   </Text>
                 </View>
               </View>
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: SPACING.md }}>
-                Poids : {parcel.weightKg} kg
-              </Text>
-            </Surface>
-
-            <View>
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: SPACING.md }}>
-                Étapes
-              </Text>
-              {parcel.trackingEvents && parcel.trackingEvents.length > 0 ? (
-                <View style={{ gap: SPACING.md }}>
-                  {parcel.trackingEvents.map((e, i) => (
-                    <Surface key={i} padded flat>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View style={{ flex: 1 }}>
-                          <StatusBadge status={e.status} />
-                          {e.location ? (
-                            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 6 }}>
-                              📍 {e.location}
-                            </Text>
-                          ) : null}
-                          {e.notes ? (
-                            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 4 }}>
-                              {e.notes}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, fontVariant: ['tabular-nums'] }}>
-                          {new Date(e.occurredAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                        </Text>
-                      </View>
-                    </Surface>
-                  ))}
-                </View>
-              ) : (
-                <Surface>
-                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body, textAlign: 'center' }}>
-                    Aucune étape pour le moment.
-                  </Text>
-                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.regular, fontSize: TYPO.sizes.bodySm, textAlign: 'center', marginTop: 4 }}>
-                    Tu seras notifié à chaque mise à jour.
-                  </Text>
-                </Surface>
-              )}
+              <Pressable
+                style={({ pressed }) => ({
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: theme.line,
+                  backgroundColor: pressed ? theme.bgSoft : theme.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                })}
+              >
+                <Icons.phone size={18} color={theme.ink} stroke={1.8} />
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => ({
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: pressed ? theme.navyDeep : theme.navy,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                })}
+              >
+                <Icons.chat size={18} color="#F5F1E8" stroke={1.8} />
+              </Pressable>
             </View>
-          </>
-        ) : null}
 
-        {kind === 'mission' ? (
-          <Surface>
-            <Pill tone="ghost">Convoyage</Pill>
-            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>
-              Suivi GPS temps réel disponible après l'acceptation par un convoyeur.
-            </Text>
+            <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 14 }} />
+
+            {/* Timeline verticale */}
+            {(parcel?.trackingEvents && parcel.trackingEvents.length > 0
+              ? parcel.trackingEvents.map((e, i, arr) => ({
+                  label: labelStatus(e.status),
+                  sub: e.notes ?? e.location ?? '',
+                  time: new Date(e.occurredAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                  done: i < arr.length - 1,
+                  current: i === arr.length - 1,
+                }))
+              : DEFAULT_STEPS.map((s, i) => ({ ...s, time: i < 2 ? '22 mai · 11:08' : i === 2 ? 'Maintenant' : 'Prévu' }))
+            ).map((step, i, arr) => (
+              <View key={i} style={{ flexDirection: 'row', gap: 12, paddingBottom: i === arr.length - 1 ? 0 : 14 }}>
+                <View style={{ alignItems: 'center' }}>
+                  <View
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      backgroundColor: step.done ? theme.good : step.current ? theme.gold : theme.bgSoft,
+                      borderWidth: 2,
+                      borderColor: step.done ? theme.good : step.current ? theme.gold : theme.line,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      ...(step.current && {
+                        shadowColor: theme.gold,
+                        shadowOpacity: 0.18,
+                        shadowRadius: 4,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: 4,
+                      }),
+                    }}
+                  >
+                    {step.done ? <Icons.check size={10} color="#fff" stroke={3} /> : null}
+                  </View>
+                  {i < arr.length - 1 ? (
+                    <View
+                      style={{
+                        flex: 1,
+                        width: 1.5,
+                        backgroundColor: step.done ? theme.good : theme.line,
+                        marginTop: 2,
+                      }}
+                    />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1, paddingBottom: 4 }}>
+                  <Text
+                    style={{
+                      fontSize: 13.5,
+                      color: step.done || step.current ? theme.ink : theme.muted,
+                      fontFamily: step.current ? TYPO.weights.semibold : TYPO.weights.medium,
+                    }}
+                  >
+                    {step.label}
+                  </Text>
+                  <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 1, fontFamily: TYPO.weights.medium }}>
+                    {step.time}
+                  </Text>
+                  {step.sub ? (
+                    <Text style={{ fontSize: 12, color: theme.inkSoft, marginTop: 4, fontFamily: TYPO.weights.regular }}>
+                      {step.sub}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
           </Surface>
-        ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function labelStatus(s: string): string {
+  switch (s) {
+    case 'DRAFT': return 'Brouillon';
+    case 'AWAITING_DROP_OFF': return 'À déposer';
+    case 'AWAITING_PICKUP': return 'À récupérer';
+    case 'RECEIVED': return 'Reçu au hub';
+    case 'IN_TRANSIT': return 'En transit';
+    case 'CUSTOMS': return 'Douane';
+    case 'OUT_FOR_DELIVERY': return 'En livraison';
+    case 'DELIVERED': return 'Livré';
+    case 'CANCELLED': return 'Annulé';
+    case 'LOST': return 'Perdu';
+    default: return s;
+  }
 }
