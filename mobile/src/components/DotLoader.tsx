@@ -1,17 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
+import { ThemeContext } from '../theme/ThemeProvider';
 
 interface Props {
   size?: number;
   color?: string;
 }
 
-// 3 points dorés qui pulsent en cascade. Discret, fait pour les états de
-// chargement (auth, fetch).
+// 3 points dorés qui pulsent en cascade.
+// Tolère l'absence de ThemeProvider (utilisé au boot avant les contexts).
 export function DotLoader({ size = 7, color }: Props) {
-  const { theme } = useTheme();
-  const dotColor = color ?? theme.gold;
+  const themeCtx = useContext(ThemeContext);
+  const dotColor = color ?? themeCtx?.theme.gold ?? '#C9A55C';
   const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
 
   useEffect(() => {
