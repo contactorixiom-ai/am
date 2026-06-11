@@ -1,14 +1,14 @@
 import React from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { AxisLogo } from '../components/AxisLogo';
-import { Button } from '../components/Button';
-import { Surface } from '../components/Surface';
+import { Alert, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+import { Avatar } from '../components/Avatar';
+import { Icons } from '../components/Icons';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, SPACING, TYPO } from '../theme/tokens';
+import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
 
 export function ProfileScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark, setMode } = useTheme();
   const { user, logout } = useSession();
 
   const handleLogout = () => {
@@ -18,108 +18,282 @@ export function ProfileScreen() {
     ]);
   };
 
+  const fullName = user ? `${user.firstName} ${user.lastName}` : 'Invité';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={{ padding: SPACING.lg, gap: SPACING.lg }}>
-        <View>
-          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.label, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-            Mon compte
-          </Text>
-        </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        {/* Header navy avec profil + stats — repris du drawer menu maquette */}
+        <View
+          style={{
+            paddingTop: SAFE_AREA_TOP - 8,
+            paddingBottom: 22,
+            paddingHorizontal: 22,
+            backgroundColor: theme.navy,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          {/* Decorative gold ring */}
+          <View pointerEvents="none" style={{ position: 'absolute', top: -40, right: -60, width: 220, height: 220, opacity: 0.14 }}>
+            <Svg width={220} height={220} viewBox="0 0 200 200">
+              <Circle cx="100" cy="100" r="90" stroke={theme.gold} strokeWidth={1} fill="none" />
+              <Circle cx="100" cy="100" r="60" stroke={theme.gold} strokeWidth={1} fill="none" />
+            </Svg>
+          </View>
 
-        <Surface>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: theme.navy,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: theme.gold, fontFamily: TYPO.weights.bold, fontSize: 24 }}>
-                {user ? `${user.firstName[0]}${user.lastName[0]}` : 'AI'}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Avatar name={fullName} size={52} tone="gold" />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 16, color: '#F5F1E8', fontFamily: TYPO.weights.semibold, letterSpacing: -0.2 }}>
+                {fullName}
               </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.title }}>
-                {user ? `${user.firstName} ${user.lastName}` : 'Invité'}
-              </Text>
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-                {user?.email}
+              <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.62)', marginTop: 2, fontFamily: TYPO.weights.medium }}>
+                {user?.email ?? ''}
               </Text>
             </View>
           </View>
-        </Surface>
 
-        <Section title="Compte">
-          <Row label="Informations personnelles" />
-          <Row label="Documents d'identité (KYC)" />
-          <Row label="Méthodes de paiement" />
-        </Section>
+          {/* Stats strip */}
+          <View
+            style={{
+              marginTop: 18,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <View>
+              <Text style={{ fontSize: 18, color: theme.goldHi, fontFamily: TYPO.weights.bold }}>0</Text>
+              <Text style={{ fontSize: 10, color: 'rgba(245,241,232,0.55)', letterSpacing: 0.4, marginTop: 1, fontFamily: TYPO.weights.medium }}>
+                Missions
+              </Text>
+            </View>
+            <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.12)' }} />
+            <View>
+              <Text style={{ fontSize: 18, color: theme.goldHi, fontFamily: TYPO.weights.bold }}>0 €</Text>
+              <Text style={{ fontSize: 10, color: 'rgba(245,241,232,0.55)', letterSpacing: 0.4, marginTop: 1, fontFamily: TYPO.weights.medium }}>
+                Total dépensé
+              </Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <View
+              style={{
+                paddingVertical: 4,
+                paddingHorizontal: 9,
+                borderRadius: 999,
+                backgroundColor: theme.gold + '2E',
+              }}
+            >
+              <Text style={{ fontSize: 10.5, color: theme.goldHi, letterSpacing: 0.6, fontFamily: TYPO.weights.semibold }}>
+                CLIENT
+              </Text>
+            </View>
+          </View>
+        </View>
 
-        <Section title="Préférences">
-          <Row label="Notifications" />
-          <Row label="Langue" hint="Français" />
-        </Section>
+        {/* Sections */}
+        <View style={{ paddingHorizontal: 8, paddingTop: 14 }}>
+          <MenuSection label="Compte">
+            <MenuRow iconKey="user" label="Mon profil" />
+            <MenuRow iconKey="pin" label="Mes adresses" trailing="0" />
+            <MenuRow iconKey="card" label="Modes de paiement" trailing="0" />
+          </MenuSection>
 
-        <Section title="Axis Import">
-          <Row label="Centre d'aide" />
-          <Row label="Conditions d'utilisation" />
-          <Row label="Politique de confidentialité" />
-        </Section>
+          <MenuSection label="Activité">
+            <MenuRow iconKey="truck" label="Mes missions" />
+            <MenuRow iconKey="doc" label="Documents & factures" />
+            <MenuRow iconKey="news" label="Actualités transport" />
+          </MenuSection>
 
-        <Button kind="outline" onPress={handleLogout}>
-          Se déconnecter
-        </Button>
+          <MenuSection label="Axis">
+            <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" />
+            <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" />
+            <MenuRow iconKey="shield" label="Centre d'aide" />
+          </MenuSection>
 
-        <View style={{ alignItems: 'center', marginTop: SPACING.lg }}>
-          <AxisLogo size={32} />
-          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.caption, marginTop: 8 }}>
-            Axis Import · v0.1.0 MVP
-          </Text>
+          <MenuSection label="Préférences">
+            <MenuRow iconKey="bell" label="Notifications" />
+            <MenuRow iconKey="globe" label="Langue" trailing="Français" />
+            <MenuRowToggle
+              label="Mode sombre"
+              value={isDark}
+              onChange={(v) => setMode(v ? 'dark' : 'light')}
+            />
+          </MenuSection>
+
+          {/* Logout */}
+          <View style={{ paddingHorizontal: 12, marginTop: 6 }}>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => ({
+                paddingVertical: 13,
+                borderRadius: RADII.md,
+                borderWidth: 1,
+                borderColor: theme.bad + '4D',
+                backgroundColor: pressed ? theme.bad + '14' : 'transparent',
+                alignItems: 'center',
+              })}
+            >
+              <Text style={{ color: theme.bad, fontSize: 14, fontFamily: TYPO.weights.semibold }}>
+                Se déconnecter
+              </Text>
+            </Pressable>
+            <Text
+              style={{
+                textAlign: 'center',
+                fontSize: 11,
+                color: theme.faint,
+                marginTop: 14,
+                fontFamily: TYPO.weights.medium,
+              }}
+            >
+              Axis Import · v0.1.0
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function MenuSection({ label, children }: { label: string; children: React.ReactNode }) {
   const { theme } = useTheme();
   return (
-    <View>
-      <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: SPACING.md }}>
-        {title}
+    <View style={{ marginBottom: 18 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          color: theme.muted,
+          letterSpacing: 0.9,
+          textTransform: 'uppercase',
+          fontFamily: TYPO.weights.semibold,
+          paddingHorizontal: 16,
+          marginBottom: 6,
+        }}
+      >
+        {label}
       </Text>
-      <Surface padded={false}>{children}</Surface>
+      <View>{children}</View>
     </View>
   );
 }
 
-function Row({ label, hint }: { label: string; hint?: string }) {
+function MenuRow({
+  iconKey,
+  label,
+  sub,
+  trailing,
+  badge,
+  onPress,
+}: {
+  iconKey: keyof typeof Icons;
+  label: string;
+  sub?: string;
+  trailing?: string;
+  badge?: string;
+  onPress?: () => void;
+}) {
   const { theme } = useTheme();
+  const IconComp = Icons[iconKey];
   return (
     <Pressable
+      onPress={onPress}
       style={({ pressed }) => ({
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.md,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.line,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: pressed ? theme.bgSoft : 'transparent',
+        gap: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderRadius: RADII.md,
+        backgroundColor: pressed ? theme.bgSoft : 'transparent',
       })}
     >
-      <Text style={{ color: theme.ink, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body }}>{label}</Text>
-      {hint ? (
-        <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>{hint}</Text>
-      ) : (
-        <Text style={{ color: theme.faint, fontSize: TYPO.sizes.body }}>›</Text>
-      )}
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: theme.bgSoft,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <IconComp size={18} color={theme.navy} stroke={1.6} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium }}>{label}</Text>
+        {sub ? (
+          <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 1, fontFamily: TYPO.weights.medium }}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      {badge ? (
+        <View
+          style={{
+            paddingVertical: 3,
+            paddingHorizontal: 8,
+            borderRadius: 999,
+            backgroundColor: theme.gold + '24',
+          }}
+        >
+          <Text style={{ fontSize: 10.5, color: theme.goldDeep, fontFamily: TYPO.weights.semibold }}>{badge}</Text>
+        </View>
+      ) : null}
+      {trailing ? (
+        <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{trailing}</Text>
+      ) : null}
+      <Icons.chev size={16} color={theme.faint} stroke={1.6} />
     </Pressable>
+  );
+}
+
+function MenuRowToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: theme.bgSoft,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icons.bolt size={18} color={theme.navy} stroke={1.6} />
+      </View>
+      <Text style={{ flex: 1, fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium }}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: theme.line, true: theme.gold }}
+        thumbColor="#FFFFFF"
+      />
+    </View>
   );
 }

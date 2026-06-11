@@ -6,24 +6,25 @@ interface Props {
   size?: number;
 }
 
-// 6 minuscules paillettes dorées qui scintillent autour du logo.
-// Effet très discret : juste un peu de profondeur, pas de halo, pas de zoom.
-const SPARKLES = [
-  { x: -8,  y: -10, delay: 0,    duration: 2200, dotSize: 2 },
-  { x: 12,  y: -16, delay: 600,  duration: 2400, dotSize: 1.5 },
-  { x: -16, y: 18,  delay: 1100, duration: 2000, dotSize: 2 },
-  { x: 18,  y: 14,  delay: 300,  duration: 2600, dotSize: 1.5 },
-  { x: -2,  y: -20, delay: 1500, duration: 2300, dotSize: 1.5 },
-  { x: 6,   y: 22,  delay: 900,  duration: 2500, dotSize: 1.5 },
+// Paillettes dorées positionnées UNIQUEMENT sur le contour circulaire du
+// logo (le cercle doré). Elles scintillent en douceur, jamais à l'intérieur.
+// Angles en degrés sur le périmètre, 0° = haut, sens horaire.
+const SPARKLE_ANGLES = [
+  { angle: 18,  delay: 0,    duration: 2400, dotSize: 1.8 },
+  { angle: 75,  delay: 800,  duration: 2100, dotSize: 1.4 },
+  { angle: 135, delay: 400,  duration: 2600, dotSize: 1.6 },
+  { angle: 200, delay: 1200, duration: 2200, dotSize: 1.4 },
+  { angle: 255, delay: 200,  duration: 2500, dotSize: 1.8 },
+  { angle: 310, delay: 1500, duration: 2300, dotSize: 1.5 },
 ];
 
 export function AxisLogoSparkle({ size = 56 }: Props) {
   const { theme } = useTheme();
-  const anims = useRef(SPARKLES.map(() => new Animated.Value(0))).current;
+  const anims = useRef(SPARKLE_ANGLES.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     const loops = anims.map((v, i) => {
-      const cfg = SPARKLES[i];
+      const cfg = SPARKLE_ANGLES[i];
       return Animated.loop(
         Animated.sequence([
           Animated.delay(cfg.delay),
@@ -46,36 +47,49 @@ export function AxisLogoSparkle({ size = 56 }: Props) {
     return () => loops.forEach((l) => l.stop());
   }, [anims]);
 
+  // Rayon du contour du logo : le cercle doré occupe quasi toute l'image,
+  // son trait est à ~94% du demi-côté.
+  const radius = (size / 2) * 0.94;
+  const center = size / 2;
+
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Paillettes positionnées autour du logo */}
-      {SPARKLES.map((s, i) => {
+      {/* Logo fixe */}
+      <Image
+        source={require('../../assets/axis-mark.png')}
+        style={{ width: size, height: size, resizeMode: 'contain' }}
+      />
+      {/* Paillettes sur le contour circulaire */}
+      {SPARKLE_ANGLES.map((s, i) => {
         const v = anims[i];
+        const rad = ((s.angle - 90) * Math.PI) / 180; // 0° = haut
+        const x = center + radius * Math.cos(rad);
+        const y = center + radius * Math.sin(rad);
         return (
           <Animated.View
             key={i}
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: size / 2 + s.x - s.dotSize,
-              top: size / 2 + s.y - s.dotSize,
+              left: x - s.dotSize,
+              top: y - s.dotSize,
               width: s.dotSize * 2,
               height: s.dotSize * 2,
               borderRadius: s.dotSize,
-              backgroundColor: theme.gold,
-              opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.85] }),
+              backgroundColor: theme.goldHi,
+              opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.9] }),
               transform: [
-                { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) },
+                { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
               ],
+              // Petit halo très léger autour de chaque paillette
+              shadowColor: theme.gold,
+              shadowOpacity: 0.8,
+              shadowRadius: 2,
+              shadowOffset: { width: 0, height: 0 },
             }}
           />
         );
       })}
-      {/* Logo fixe, pas d'animation */}
-      <Image
-        source={require('../../assets/axis-mark.png')}
-        style={{ width: size, height: size, resizeMode: 'contain' }}
-      />
     </View>
   );
 }
