@@ -43,6 +43,9 @@ jobs:
           cp -R design/* public/
           mkdir -p public/app
           cp -R mobile/dist/* public/app/
+          # Force a content change on every build so peaceiris always pushes
+          # and GitHub's pages-build-deployment workflow is triggered.
+          echo "Build ${{ github.sha }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/.build-stamp
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
@@ -50,4 +53,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           publish_branch: gh-pages
+          force_orphan: true
           commit_message: "Deploy design + mobile web from ${{ github.sha }}"
