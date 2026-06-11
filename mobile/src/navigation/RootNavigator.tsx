@@ -11,6 +11,7 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { NewsScreen } from '../screens/NewsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
 import { PickupModeScreen } from '../screens/PickupModeScreen';
@@ -89,6 +90,7 @@ export function RootNavigator() {
             <RootStack.Screen name="RecipientDetails" component={RecipientDetailsScreen} />
             <RootStack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} options={{ gestureEnabled: false }} />
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
+            <RootStack.Screen name="News" component={NewsScreen} />
           </>
         ) : (
           <>

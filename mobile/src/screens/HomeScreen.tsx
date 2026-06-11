@@ -314,7 +314,7 @@ export function HomeScreen() {
           <SectionHead
             title="Actualités transport"
             action="Voir tout"
-            onAction={() => {}}
+            onAction={() => nav.navigate('News')}
           />
           <Surface padded>
             <Pill tone="gold">Réglementation</Pill>
