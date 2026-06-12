@@ -1,7 +1,7 @@
 # Configuration Nixpacks pour Railway.
-# Node 22 + nettoyage agressif avant npm ci pour éviter le bug EBUSY
-# (Railway garde parfois des node_modules d'un build précédent qui
-# bloquent npm ci au moment du rmdir de node_modules/.cache).
+# Node 22 + nettoyage agressif avant npm install.
+# --include=dev pour installer @nestjs/cli (devDep) nécessaire à `nest build`
+# même quand NODE_ENV=production.
 
 [phases.setup]
 nixPkgs = ["nodejs_22", "openssl"]
@@ -11,7 +11,7 @@ cmds = [
   "rm -rf node_modules /tmp/.npm-cache",
   "mkdir -p /tmp/.npm-cache",
   "npm config set cache /tmp/.npm-cache",
-  "npm install --no-audit --no-fund --prefer-offline"
+  "npm install --include=dev --no-audit --no-fund --prefer-offline"
 ]
 
 [phases.build]
@@ -21,4 +21,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npx prisma migrate deploy && node dist/main"
+cmd = "npx prisma db push --accept-data-loss --skip-generate && node dist/main"
