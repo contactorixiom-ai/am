@@ -1,12 +1,16 @@
 # Configuration Nixpacks pour Railway.
-# Nixpacks détecte Node automatiquement ; on précise juste la version et
-# on s'assure que Prisma génère son client avant le build.
+# Note : Node 22 évite à la fois le warning EBADENGINE (eslint-visitor-keys
+# veut >= 20.19) et le bug EBUSY sur rmdir node_modules/.cache observé
+# sur Node 20.18.
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "openssl"]
+nixPkgs = ["nodejs_22", "openssl"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = [
+  "npm config set cache /tmp/.npm-cache",
+  "npm ci --no-audit --no-fund --prefer-offline"
+]
 
 [phases.build]
 cmds = [
