@@ -57,9 +57,11 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  await app.listen(port);
+  // Écouter sur 0.0.0.0 (pas localhost) pour que le conteneur Docker
+  // Railway puisse joindre l'app depuis l'extérieur.
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`🚀 Axis Import API ready on http://localhost:${port}/${apiPrefix}`);
+  console.log(`🚀 Axis Import API ready on port ${port}, prefix /${apiPrefix}`);
   // eslint-disable-next-line no-console
   console.log(`📘 Swagger docs: http://localhost:${port}/${apiPrefix}/docs`);
 }
