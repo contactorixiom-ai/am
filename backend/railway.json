@@ -1,8 +1,7 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "rm -rf node_modules /tmp/.npm-cache && mkdir -p /tmp/.npm-cache && npm config set cache /tmp/.npm-cache && npm install --no-audit --no-fund --prefer-offline && npx prisma generate && npm run build"
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "startCommand": "npx prisma migrate deploy && node dist/main",
