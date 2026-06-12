@@ -1,15 +1,17 @@
 # Configuration Nixpacks pour Railway.
-# Note : Node 22 évite à la fois le warning EBADENGINE (eslint-visitor-keys
-# veut >= 20.19) et le bug EBUSY sur rmdir node_modules/.cache observé
-# sur Node 20.18.
+# Node 22 + nettoyage agressif avant npm ci pour éviter le bug EBUSY
+# (Railway garde parfois des node_modules d'un build précédent qui
+# bloquent npm ci au moment du rmdir de node_modules/.cache).
 
 [phases.setup]
 nixPkgs = ["nodejs_22", "openssl"]
 
 [phases.install]
 cmds = [
+  "rm -rf node_modules /tmp/.npm-cache",
+  "mkdir -p /tmp/.npm-cache",
   "npm config set cache /tmp/.npm-cache",
-  "npm ci --no-audit --no-fund --prefer-offline"
+  "npm install --no-audit --no-fund --prefer-offline"
 ]
 
 [phases.build]
