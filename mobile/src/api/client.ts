@@ -13,7 +13,11 @@ const REFRESH_TOKEN_KEY = 'axis.refreshToken';
 export const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 15000,
-  withCredentials: false, // explicite : pas de cookies, Authorization header only
+  withCredentials: false,
+  // IMPORTANT : utilise fetch() au lieu de XMLHttpRequest.
+  // Sur Safari iOS, XHR est souvent bloqué par l'Intelligent Tracking
+  // Protection pour les requêtes cross-origin. fetch() passe sans souci.
+  adapter: 'fetch',
 });
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
@@ -51,7 +55,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) return null;
   try {
-    const r = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+    const r = await axios.post(`${API_URL}/auth/refresh`, { refreshToken }, { adapter: 'fetch' });
     const access = r.data.accessToken as string;
     const newRefresh = r.data.refreshToken as string;
     await AsyncStorage.setItem(ACCESS_TOKEN_KEY, access);
@@ -88,27 +92,32 @@ export interface HealthResult {
   message: string;
 }
 
-// Teste la connexion au backend. Renvoie un diagnostic lisible plutôt
-// que de jeter, pour pouvoir l'afficher à l'utilisateur.
+// Teste la connexion au backend via fetch() natif (plus fiable qu'axios
+// sur Safari iOS qui bloque XHR par ITP).
 export async function checkHealth(): Promise<HealthResult> {
+  const url = `${API_URL}/health`;
   try {
-    const r = await axios.get(`${API_URL}/health`, { timeout: 12000 });
-    const dbOk = (r.data as { db?: string })?.db === 'ok';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const r = await fetch(url, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!r.ok) {
+      return { ok: false, status: r.status, message: `Serveur a répondu ${r.status}` };
+    }
+    const data = await r.json().catch(() => ({}));
+    const dbOk = (data as { db?: string })?.db === 'ok';
     return {
       ok: true,
       status: r.status,
       message: dbOk ? 'Serveur connecté' : 'Serveur OK, base de données indisponible',
     };
   } catch (e) {
-    if (axios.isAxiosError(e)) {
-      if (e.response) {
-        return { ok: false, status: e.response.status, message: `Serveur a répondu ${e.response.status}` };
-      }
-      if (e.code === 'ECONNABORTED') {
-        return { ok: false, status: null, message: 'Délai dépassé — serveur trop lent ou endormi' };
-      }
-      return { ok: false, status: null, message: `Injoignable (${e.code ?? 'réseau/CORS'})` };
+    const name = e instanceof Error ? e.name : 'Error';
+    const message = e instanceof Error ? e.message : String(e);
+    if (name === 'AbortError') {
+      return { ok: false, status: null, message: 'Délai dépassé (12 s)' };
     }
-    return { ok: false, status: null, message: 'Erreur inconnue' };
+    return { ok: false, status: null, message: `${name}: ${message}` };
   }
 }
