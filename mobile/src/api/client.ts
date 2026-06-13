@@ -13,6 +13,7 @@ const REFRESH_TOKEN_KEY = 'axis.refreshToken';
 export const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 15000,
+  withCredentials: false, // explicite : pas de cookies, Authorization header only
 });
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {

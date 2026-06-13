@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import helmet from 'helmet';
+import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -13,29 +13,22 @@ async function bootstrap() {
 
   const port = config.get<number>('port', 3000);
   const apiPrefix = config.get<string>('apiPrefix', 'api/v1');
-  const corsOrigins = config.get<string[]>('corsOrigins', []);
 
   app.setGlobalPrefix(apiPrefix);
-  // Helmet : on désactive crossOriginResourcePolicy (par défaut 'same-origin'
-  // qui bloque toute requête cross-origin, écrasant la config CORS). Pour une
-  // API JSON publique, on n'a pas besoin non plus de CSP.
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-      crossOriginOpenerPolicy: false,
-      contentSecurityPolicy: false,
-    }),
-  );
 
-  // CORS : si '*' est dans la liste, on autorise tout origin (reflect).
-  // Combiné avec credentials, on doit refléter l'origin du client plutôt
-  // que renvoyer un wildcard littéral, sinon les navigateurs bloquent.
-  const allowAllOrigins = corsOrigins.includes('*') || corsOrigins.length === 0;
-  app.enableCors({
-    origin: allowAllOrigins ? true : corsOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  // CORS ultra-permissif en middleware brut.
+  // Sans credentials (l'app utilise Authorization: Bearer en header, pas de
+  // cookies) on peut renvoyer un Access-Control-Allow-Origin: * littéral
+  // qui est accepté par TOUS les navigateurs sans condition.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+    res.header('Access-Control-Max-Age', '86400');
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    return next();
   });
 
   app.useGlobalPipes(
