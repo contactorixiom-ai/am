@@ -17,9 +17,16 @@ async function bootstrap() {
 
   app.setGlobalPrefix(apiPrefix);
   app.use(helmet());
+
+  // CORS : si '*' est dans la liste, on autorise tout origin (reflect).
+  // Combiné avec credentials, on doit refléter l'origin du client plutôt
+  // que renvoyer un wildcard littéral, sinon les navigateurs bloquent.
+  const allowAllOrigins = corsOrigins.includes('*') || corsOrigins.length === 0;
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: allowAllOrigins ? true : corsOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   app.useGlobalPipes(
