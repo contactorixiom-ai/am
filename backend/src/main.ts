@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -16,7 +16,6 @@ async function bootstrap() {
   const corsOrigins = config.get<string[]>('corsOrigins', []);
 
   app.setGlobalPrefix(apiPrefix);
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.use(helmet());
   app.enableCors({
     origin: corsOrigins.length > 0 ? corsOrigins : true,
