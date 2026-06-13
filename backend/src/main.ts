@@ -16,7 +16,16 @@ async function bootstrap() {
   const corsOrigins = config.get<string[]>('corsOrigins', []);
 
   app.setGlobalPrefix(apiPrefix);
-  app.use(helmet());
+  // Helmet : on désactive crossOriginResourcePolicy (par défaut 'same-origin'
+  // qui bloque toute requête cross-origin, écrasant la config CORS). Pour une
+  // API JSON publique, on n'a pas besoin non plus de CSP.
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
+      contentSecurityPolicy: false,
+    }),
+  );
 
   // CORS : si '*' est dans la liste, on autorise tout origin (reflect).
   // Combiné avec credentials, on doit refléter l'origin du client plutôt
