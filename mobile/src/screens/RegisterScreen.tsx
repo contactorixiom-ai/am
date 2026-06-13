@@ -2,10 +2,11 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AxisLogo } from '../components/AxisLogo';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { ApiUrlHint, ServerStatusBanner } from '../components/ServerStatusBanner';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -21,14 +22,16 @@ export function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
+    setError(null);
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
-      Alert.alert('Champs manquants', 'Prénom, nom, email et mot de passe requis.');
+      setError('Prénom, nom, email et mot de passe sont requis.');
       return;
     }
     if (password.length < 8) {
-      Alert.alert('Mot de passe trop court', 'Au moins 8 caractères.');
+      setError('Le mot de passe doit faire au moins 8 caractères.');
       return;
     }
     setLoading(true);
@@ -36,15 +39,25 @@ export function RegisterScreen() {
       await register({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim() || undefined,
         password,
       });
+      // Succès → le RootNavigator bascule automatiquement vers l'app
     } catch (e) {
-      const msg = isAxiosError(e)
-        ? (e.response?.data?.message ?? 'Inscription impossible.')
-        : 'Erreur réseau.';
-      Alert.alert('Erreur', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      if (isAxiosError(e)) {
+        if (e.response) {
+          const data = e.response.data as { message?: string | string[] };
+          const m = data?.message ?? `Erreur serveur (${e.response.status})`;
+          setError(Array.isArray(m) ? m.join('\n') : String(m));
+        } else if (e.code === 'ECONNABORTED') {
+          setError('Le serveur met trop de temps à répondre. Réessaie dans un instant.');
+        } else {
+          setError(`Impossible de joindre le serveur (${e.code ?? 'réseau / CORS'}). Vérifie ta connexion.`);
+        }
+      } else {
+        setError('Une erreur inattendue est survenue.');
+      }
     } finally {
       setLoading(false);
     }
@@ -53,10 +66,13 @@ export function RegisterScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: SPACING.xxl, gap: SPACING.xl }}>
+        <ScrollView contentContainerStyle={{ padding: SPACING.xxl, gap: SPACING.lg }}>
           <View style={{ alignItems: 'center', marginTop: SPACING.lg }}>
             <AxisLogo size={64} />
           </View>
+
+          <ServerStatusBanner />
+
           <View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayM, letterSpacing: -0.5 }}>
               Créer un compte
@@ -65,6 +81,22 @@ export function RegisterScreen() {
               Quelques infos et tu peux commander un convoyage ou un envoi de colis.
             </Text>
           </View>
+
+          {error ? (
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 10,
+                backgroundColor: theme.bad + '18',
+                borderWidth: 1,
+                borderColor: theme.bad + '40',
+              }}
+            >
+              <Text style={{ color: theme.bad, fontFamily: TYPO.weights.medium, fontSize: 13, lineHeight: 18 }}>
+                {error}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={{ gap: SPACING.md }}>
             <View style={{ flexDirection: 'row', gap: SPACING.md }}>
@@ -84,6 +116,8 @@ export function RegisterScreen() {
               Déjà inscrit ? Se connecter
             </Button>
           </View>
+
+          <ApiUrlHint />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

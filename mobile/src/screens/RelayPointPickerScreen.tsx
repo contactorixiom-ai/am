@@ -2,7 +2,8 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { CARRIER_LABEL, RelayPoint, searchRelayPoints } from '../api/relayPoints';
 import { Button } from '../components/Button';
 import { DotLoader } from '../components/DotLoader';
@@ -47,7 +48,7 @@ export function RelayPointPickerScreen() {
 
   const goNext = async () => {
     if (!selected) {
-      Alert.alert('Sélection requise', 'Choisis un point relais.');
+      notify('Sélection requise', 'Choisis un point relais.');
       return;
     }
     setBooking(true);
@@ -61,7 +62,7 @@ export function RelayPointPickerScreen() {
       nav.navigate('QuoteReview', { quote });
     } catch (e) {
       const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';
-      Alert.alert('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      notify('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
     } finally {
       setBooking(false);
     }

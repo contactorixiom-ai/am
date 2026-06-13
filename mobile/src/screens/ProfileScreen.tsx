@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import { confirmAction } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
 import { Avatar } from '../components/Avatar';
 import { Icons } from '../components/Icons';
@@ -12,10 +13,7 @@ export function ProfileScreen() {
   const { user, logout } = useSession();
 
   const handleLogout = () => {
-    Alert.alert('Déconnexion', 'Tu es sûr ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Se déconnecter', style: 'destructive', onPress: () => logout() },
-    ]);
+    confirmAction('Déconnexion', 'Tu es sûr ?', () => logout(), 'Se déconnecter');
   };
 
   const fullName = user ? `${user.firstName} ${user.lastName}` : 'Invité';

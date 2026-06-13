@@ -1,7 +1,8 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
-import { Alert, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { QuoteHint } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
@@ -29,7 +30,7 @@ export function QuoteReviewScreen() {
 
   const handleBook = () => {
     if (isConvoy) {
-      Alert.alert(
+      notify(
         'Bientôt disponible',
         "La réservation de convoyage nécessite l'enregistrement préalable d'un véhicule. Cette étape sera ajoutée au prochain sprint.",
       );

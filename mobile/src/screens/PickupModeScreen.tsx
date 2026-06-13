@@ -2,7 +2,8 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { createQuote, PickupMode } from '../api/quotes';
 import { Button } from '../components/Button';
 import { Pill } from '../components/Pill';
@@ -61,7 +62,7 @@ export function PickupModeScreen() {
       nav.navigate('QuoteReview', { quote });
     } catch (e) {
       const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';
-      Alert.alert('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      notify('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
     } finally {
       setLoading(false);
     }

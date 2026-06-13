@@ -77,3 +77,37 @@ export async function hasSession(): Promise<boolean> {
   const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
   return !!token;
 }
+
+// Expose l'URL de l'API pour les écrans de diagnostic.
+export const API_BASE_URL = API_URL;
+
+export interface HealthResult {
+  ok: boolean;
+  status: number | null;
+  message: string;
+}
+
+// Teste la connexion au backend. Renvoie un diagnostic lisible plutôt
+// que de jeter, pour pouvoir l'afficher à l'utilisateur.
+export async function checkHealth(): Promise<HealthResult> {
+  try {
+    const r = await axios.get(`${API_URL}/health`, { timeout: 12000 });
+    const dbOk = (r.data as { db?: string })?.db === 'ok';
+    return {
+      ok: true,
+      status: r.status,
+      message: dbOk ? 'Serveur connecté' : 'Serveur OK, base de données indisponible',
+    };
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      if (e.response) {
+        return { ok: false, status: e.response.status, message: `Serveur a répondu ${e.response.status}` };
+      }
+      if (e.code === 'ECONNABORTED') {
+        return { ok: false, status: null, message: 'Délai dépassé — serveur trop lent ou endormi' };
+      }
+      return { ok: false, status: null, message: `Injoignable (${e.code ?? 'réseau/CORS'})` };
+    }
+    return { ok: false, status: null, message: 'Erreur inconnue' };
+  }
+}

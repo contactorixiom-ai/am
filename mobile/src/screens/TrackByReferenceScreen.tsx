@@ -2,7 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { trackParcel } from '../api/parcels';
 import { AxisLogo } from '../components/AxisLogo';
 import { Button } from '../components/Button';
@@ -21,7 +22,7 @@ export function TrackByReferenceScreen() {
   const submit = async () => {
     const ref = reference.trim().toUpperCase();
     if (!ref) {
-      Alert.alert('Référence manquante', 'Saisis la référence du colis (AXP-...)');
+      notify('Référence manquante', 'Saisis la référence du colis (AXP-...)');
       return;
     }
     setLoading(true);
@@ -32,7 +33,7 @@ export function TrackByReferenceScreen() {
       const msg = isAxiosError(e) && e.response?.status === 404
         ? 'Aucun colis avec cette référence.'
         : 'Impossible de récupérer ce colis.';
-      Alert.alert('Erreur', msg);
+      notify('Erreur', msg);
     } finally {
       setLoading(false);
     }

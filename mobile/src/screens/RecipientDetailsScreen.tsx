@@ -2,7 +2,8 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { createParcel } from '../api/parcels';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
@@ -29,7 +30,7 @@ export function RecipientDetailsScreen() {
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim() || !phone.trim() || !address.trim()) {
-      Alert.alert('Champs manquants', 'Prénom, nom, téléphone et adresse de livraison sont requis.');
+      notify('Champs manquants', 'Prénom, nom, téléphone et adresse de livraison sont requis.');
       return;
     }
     setLoading(true);
@@ -55,7 +56,7 @@ export function RecipientDetailsScreen() {
       nav.replace('BookingConfirmation', { kind: 'parcel', reference: parcel.reference, id: parcel.id });
     } catch (e) {
       const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';
-      Alert.alert('Réservation impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      notify('Réservation impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { notify } from '../utils/notify';
 import { City } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
@@ -39,12 +40,12 @@ export function ParcelRequestScreen() {
 
   const submit = () => {
     if (!from || !to) {
-      Alert.alert('Trajet incomplet', 'Choisis une ville de départ et d\'arrivée.');
+      notify('Trajet incomplet', 'Choisis une ville de départ et d\'arrivée.');
       return;
     }
     const kg = parseFloat(weight.replace(',', '.'));
     if (!kg || kg <= 0) {
-      Alert.alert('Poids invalide', 'Indique un poids supérieur à 0.');
+      notify('Poids invalide', 'Indique un poids supérieur à 0.');
       return;
     }
     nav.navigate('PickupMode', {
