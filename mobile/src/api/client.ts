@@ -94,12 +94,22 @@ export interface HealthResult {
 
 // Teste la connexion au backend via fetch() natif (plus fiable qu'axios
 // sur Safari iOS qui bloque XHR par ITP).
+//
+// IMPORTANT : on récupère le fetch natif de window directement plutôt que
+// d'utiliser le `fetch` du bundle. React Native Web peut wrapper fetch
+// au-dessus de XMLHttpRequest, ce qui ramène le bug ITP qu'on essaie
+// d'éviter. window.fetch est garanti d'être le natif du navigateur.
+const nativeFetch: typeof fetch =
+  typeof window !== 'undefined' && typeof window.fetch === 'function'
+    ? window.fetch.bind(window)
+    : fetch;
+
 export async function checkHealth(): Promise<HealthResult> {
   const url = `${API_URL}/health`;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
-    const r = await fetch(url, { method: 'GET', signal: controller.signal });
+    const r = await nativeFetch(url, { method: 'GET', signal: controller.signal });
     clearTimeout(timeoutId);
 
     if (!r.ok) {
