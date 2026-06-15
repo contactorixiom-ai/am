@@ -1,8 +1,8 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
@@ -40,7 +40,7 @@ export function HomePickupAddressScreen() {
       const quote = await buildQuoteFromDraft(draft, 'HOME_PICKUP');
       nav.navigate('QuoteReview', { quote });
     } catch (e) {
-      const msg = isAxiosError(e) ? (e.response?.data?.message ?? 'Erreur') : 'Erreur réseau.';
+      const msg = e instanceof ApiError ? ((e instanceof ApiError ? e.message : null) ?? 'Erreur') : 'Erreur réseau.';
       notify('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
     } finally {
       setLoading(false);

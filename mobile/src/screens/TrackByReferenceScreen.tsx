@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
 import { trackParcel } from '../api/parcels';
 import { AxisLogo } from '../components/AxisLogo';
@@ -30,7 +30,7 @@ export function TrackByReferenceScreen() {
       const p = await trackParcel(ref);
       nav.navigate('Tracking', { kind: 'parcel', id: p.id, reference: p.reference });
     } catch (e) {
-      const msg = isAxiosError(e) && e.response?.status === 404
+      const msg = e instanceof ApiError && e.status === 404
         ? 'Aucun colis avec cette référence.'
         : 'Impossible de récupérer ce colis.';
       notify('Erreur', msg);

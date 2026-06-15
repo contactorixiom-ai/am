@@ -43,6 +43,25 @@ jobs:
           cp -R design/* public/
           mkdir -p public/app
           cp -R mobile/dist/* public/app/
+
+          # Inject un script de "native fetch keeper" tout en haut du <head>
+          # de l'app, AVANT le bundle Expo. Sauvegarde window.fetch dans
+          # window.__nativeFetch et désinscrit tout service worker, pour que
+          # même si le bundle override fetch ou enregistre un SW qui bloque,
+          # on garde une référence au fetch natif du navigateur.
+          INJECT='<script>(function(){try{window.__nativeFetch=window.fetch.bind(window);}catch(e){window.__nativeFetch=window.fetch;}if(navigator&&navigator.serviceWorker){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}})();</script>'
+          # Insertion juste après <head>
+          if [ -f public/app/index.html ]; then
+            python3 -c "
+import re, sys
+content = open('public/app/index.html').read()
+inject = '''$INJECT'''
+new = re.sub(r'<head([^>]*)>', '<head\\\\1>' + inject, content, count=1)
+open('public/app/index.html', 'w').write(new)
+print('Injected native fetch keeper script')
+"
+          fi
+
           # Force a content change on every build so peaceiris always pushes
           # and GitHub's pages-build-deployment workflow is triggered.
           echo "Build ${{ github.sha }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/.build-stamp

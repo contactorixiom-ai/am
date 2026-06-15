@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiFetch } from './client';
 
 export type MissionStatus =
   | 'DRAFT' | 'PUBLISHED' | 'ACCEPTED' | 'IN_PROGRESS'
@@ -36,16 +36,13 @@ export interface CreateMissionInput {
 }
 
 export async function createMission(input: CreateMissionInput): Promise<MissionSummary> {
-  const r = await api.post<MissionSummary>('/missions', input);
-  return r.data;
+  return apiFetch<MissionSummary>('/missions', { method: 'POST', body: input });
 }
 
 export async function listMissions(): Promise<{ data: MissionSummary[]; meta: { total: number } }> {
-  const r = await api.get('/missions');
-  return r.data;
+  return apiFetch('/missions');
 }
 
 export async function publishMission(id: string): Promise<MissionSummary> {
-  const r = await api.post<MissionSummary>(`/missions/${id}/publish`);
-  return r.data;
+  return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
 }

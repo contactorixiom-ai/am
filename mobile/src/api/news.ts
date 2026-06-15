@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiFetch } from './client';
 
 export interface NewsArticle {
   id: string;
@@ -14,6 +14,5 @@ export interface NewsArticle {
 }
 
 export async function listNews(): Promise<{ data: NewsArticle[] }> {
-  const r = await api.get('/news');
-  return r.data;
+  return apiFetch<{ data: NewsArticle[] }>('/news', { skipAuth: true });
 }

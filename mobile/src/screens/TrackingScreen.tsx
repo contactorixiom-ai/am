@@ -1,7 +1,7 @@
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { isAxiosError } from 'axios';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ApiError } from '../api/client';
 import { ParcelSummary, trackParcel } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
@@ -41,7 +41,7 @@ export function TrackingScreen() {
         setParcel(p);
       }
     } catch (e) {
-      setError(isAxiosError(e) ? 'Impossible de charger le suivi.' : 'Erreur réseau.');
+      setError(e instanceof ApiError ? 'Impossible de charger le suivi.' : 'Erreur réseau.');
     } finally {
       setLoading(false);
       setRefreshing(false);

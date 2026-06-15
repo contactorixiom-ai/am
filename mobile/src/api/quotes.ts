@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiFetch } from './client';
 
 export type QuoteService = 'CONVOY_CAR' | 'CONVOY_MOTO' | 'PARCEL' | 'MERCHANDISE';
 export type TransportMode = 'ROAD' | 'AIR' | 'SEA';
@@ -80,11 +80,9 @@ export interface City {
 }
 
 export async function createQuote(input: CreateQuoteInput): Promise<QuoteResponse> {
-  const r = await api.post<QuoteResponse>('/quotes', input);
-  return r.data;
+  return apiFetch<QuoteResponse>('/quotes', { method: 'POST', body: input, skipAuth: true });
 }
 
 export async function listCities(region?: 'EU' | 'AFRICA'): Promise<City[]> {
-  const r = await api.get<City[]>('/cities', { params: region ? { region } : {} });
-  return r.data;
+  return apiFetch<City[]>('/cities', { skipAuth: true, params: region ? { region } : undefined });
 }

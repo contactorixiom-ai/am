@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
+import { ApiError } from '../api/client';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AxisLogo } from '../components/AxisLogo';
@@ -45,15 +45,11 @@ export function RegisterScreen() {
       });
       // Succès → le RootNavigator bascule automatiquement vers l'app
     } catch (e) {
-      if (isAxiosError(e)) {
-        if (e.response) {
-          const data = e.response.data as { message?: string | string[] };
-          const m = data?.message ?? `Erreur serveur (${e.response.status})`;
-          setError(Array.isArray(m) ? m.join('\n') : String(m));
-        } else if (e.code === 'ECONNABORTED') {
-          setError('Le serveur met trop de temps à répondre. Réessaie dans un instant.');
+      if (e instanceof ApiError) {
+        if (e.isNetworkError) {
+          setError(`Impossible de joindre le serveur. ${e.message}`);
         } else {
-          setError(`Impossible de joindre le serveur (${e.code ?? 'réseau / CORS'}). Vérifie ta connexion.`);
+          setError(e.message);
         }
       } else {
         setError('Une erreur inattendue est survenue.');

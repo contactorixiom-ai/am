@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiFetch } from './client';
 
 export type RelayCarrier = 'MONDIAL_RELAY' | 'LA_POSTE' | 'CHRONOPOST' | 'DPD' | 'UPS_ACCESS_POINT' | 'AXIS_HUB';
 
@@ -28,8 +28,18 @@ export interface SearchRelayParams {
 }
 
 export async function searchRelayPoints(params: SearchRelayParams): Promise<RelayPoint[]> {
-  const r = await api.get<RelayPoint[]>('/relay-points', { params });
-  return r.data;
+  return apiFetch<RelayPoint[]>('/relay-points', {
+    skipAuth: true,
+    params: {
+      city: params.city,
+      country: params.country,
+      carrier: params.carrier,
+      lat: params.lat,
+      lng: params.lng,
+      radius: params.radius,
+      limit: params.limit,
+    },
+  });
 }
 
 export const CARRIER_LABEL: Record<RelayCarrier, string> = {

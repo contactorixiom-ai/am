@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
+import { ApiError } from '../api/client';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AxisLogo } from '../components/AxisLogo';
@@ -31,19 +31,13 @@ export function LoginScreen() {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (e) {
-      if (isAxiosError(e)) {
-        if (e.response) {
-          if (e.response.status === 401) {
-            setError('Email ou mot de passe incorrect.');
-          } else {
-            const data = e.response.data as { message?: string | string[] };
-            const m = data?.message ?? `Erreur serveur (${e.response.status})`;
-            setError(Array.isArray(m) ? m.join('\n') : String(m));
-          }
-        } else if (e.code === 'ECONNABORTED') {
-          setError('Le serveur met trop de temps à répondre. Réessaie dans un instant.');
+      if (e instanceof ApiError) {
+        if (e.status === 401) {
+          setError('Email ou mot de passe incorrect.');
+        } else if (e.isNetworkError) {
+          setError(`Impossible de joindre le serveur. ${e.message}`);
         } else {
-          setError(`Impossible de joindre le serveur (${e.code ?? 'réseau / CORS'}).`);
+          setError(e.message);
         }
       } else {
         setError('Une erreur inattendue est survenue.');

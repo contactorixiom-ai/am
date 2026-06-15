@@ -1,4 +1,4 @@
-import { api, clearSession, setSession } from './client';
+import { apiFetch, clearSession, setSession } from './client';
 
 export type UserRole = 'CLIENT' | 'DRIVER' | 'ADMIN';
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
@@ -26,23 +26,30 @@ export async function register(input: {
   lastName: string;
   phone?: string;
 }): Promise<AuthResult> {
-  const r = await api.post<AuthResult>('/auth/register', { ...input, role: 'CLIENT' });
-  await setSession(r.data.accessToken, r.data.refreshToken);
-  return r.data;
+  const r = await apiFetch<AuthResult>('/auth/register', {
+    method: 'POST',
+    body: { ...input, role: 'CLIENT' },
+    skipAuth: true,
+  });
+  await setSession(r.accessToken, r.refreshToken);
+  return r;
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const r = await api.post<AuthResult>('/auth/login', { email, password });
-  await setSession(r.data.accessToken, r.data.refreshToken);
-  return r.data;
+  const r = await apiFetch<AuthResult>('/auth/login', {
+    method: 'POST',
+    body: { email, password },
+    skipAuth: true,
+  });
+  await setSession(r.accessToken, r.refreshToken);
+  return r;
 }
 
 export async function logout(): Promise<void> {
-  try { await api.post('/auth/logout', {}); } catch { /* ignore */ }
+  try { await apiFetch('/auth/logout', { method: 'POST', body: {} }); } catch { /* ignore */ }
   await clearSession();
 }
 
 export async function fetchMe(): Promise<SessionUser> {
-  const r = await api.get<SessionUser>('/users/me');
-  return r.data;
+  return apiFetch<SessionUser>('/users/me');
 }

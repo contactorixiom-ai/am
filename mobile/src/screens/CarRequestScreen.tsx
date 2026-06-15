@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { isAxiosError } from 'axios';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
 import { City, createQuote, QuoteOptionKind } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
@@ -67,7 +67,7 @@ export function CarRequestScreen() {
       });
       nav.navigate('QuoteReview', { quote });
     } catch (e) {
-      const msg = isAxiosError(e) ? e.response?.data?.message ?? 'Erreur' : 'Erreur réseau.';
+      const msg = e instanceof ApiError ? (e instanceof ApiError ? e.message : null) ?? 'Erreur' : 'Erreur réseau.';
       notify('Devis impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
     } finally {
       setLoading(false);

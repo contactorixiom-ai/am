@@ -1,4 +1,4 @@
-import { api } from './client';
+import { apiFetch } from './client';
 
 export type ParcelStatus =
   | 'DRAFT' | 'AWAITING_DROP_OFF' | 'AWAITING_PICKUP' | 'RECEIVED' | 'IN_TRANSIT'
@@ -52,16 +52,13 @@ export interface CreateParcelInput {
 }
 
 export async function createParcel(input: CreateParcelInput): Promise<ParcelSummary> {
-  const r = await api.post<ParcelSummary>('/parcels', input);
-  return r.data;
+  return apiFetch<ParcelSummary>('/parcels', { method: 'POST', body: input });
 }
 
 export async function listParcels(): Promise<{ data: ParcelSummary[]; meta: { total: number } }> {
-  const r = await api.get('/parcels');
-  return r.data;
+  return apiFetch('/parcels');
 }
 
 export async function trackParcel(reference: string): Promise<ParcelSummary> {
-  const r = await api.get<ParcelSummary>(`/parcels/track/${reference}`);
-  return r.data;
+  return apiFetch<ParcelSummary>(`/parcels/track/${reference}`, { skipAuth: true });
 }
