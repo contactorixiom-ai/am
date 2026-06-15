@@ -44,46 +44,39 @@ jobs:
           mkdir -p public/app
           cp -R mobile/dist/* public/app/
 
-          # Inject un script qui sauve window.fetch dans window.__nativeFetch
-          # AVANT que le bundle Expo charge, et désinscrit tout service worker.
-          # On écrit le script dans un fichier puis on l'injecte avec awk
-          # (plus robuste que sed/python avec quotes).
-          cat > /tmp/inject.js <<'INJECT_SCRIPT_EOF'
-<script>
-(function(){
-  try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
-  window.__nativeFetchReady = true;
-  if (navigator && navigator.serviceWorker) {
-    navigator.serviceWorker.getRegistrations().then(function(rs){
-      rs.forEach(function(r){ r.unregister(); });
-    }).catch(function(){});
-  }
-})();
-</script>
-INJECT_SCRIPT_EOF
-
-          if [ -f public/app/index.html ]; then
-            # awk : à la première ligne contenant <head, on imprime <head...> puis le script
+          # Inject le script "native fetch keeper" depuis mobile/web-inject.html
+          # juste après la balise <head>, AVANT que le bundle Expo charge.
+          # Le script sauve window.fetch dans window.__nativeFetch et désinscrit
+          # tout service worker.
+          if [ -f public/app/index.html ] && [ -f mobile/web-inject.html ]; then
             awk '
               BEGIN { injected = 0 }
               /<head[^>]*>/ && !injected {
                 print $0
-                while ((getline line < "/tmp/inject.js") > 0) print line
-                close("/tmp/inject.js")
+                while ((getline line < "mobile/web-inject.html") > 0) print line
+                close("mobile/web-inject.html")
                 injected = 1
                 next
               }
               { print }
             ' public/app/index.html > public/app/index.html.new
             mv public/app/index.html.new public/app/index.html
-            echo "=== Injection vérifiée : ==="
-            head -20 public/app/index.html
-            echo "==========================="
-            grep -q "__nativeFetch" public/app/index.html && echo "✓ Script bien injecté" || echo "✗ ÉCHEC injection"
+
+            echo "=== Top of index.html after injection ==="
+            head -25 public/app/index.html
+            echo "========================================="
+            if grep -q "__nativeFetch" public/app/index.html; then
+              echo "✓ Script __nativeFetch bien injecté"
+            else
+              echo "✗ ÉCHEC injection : __nativeFetch absent"
+              exit 1
+            fi
+          else
+            echo "✗ Fichier manquant : public/app/index.html ou mobile/web-inject.html"
+            exit 1
           fi
 
           # Force a content change on every build so peaceiris always pushes
-          # and GitHub's pages-build-deployment workflow is triggered.
           echo "Build ${{ github.sha }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/.build-stamp
 
       - name: Deploy to gh-pages branch
