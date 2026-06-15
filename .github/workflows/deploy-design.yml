@@ -34,8 +34,12 @@ jobs:
       - name: Build mobile web bundle
         working-directory: mobile
         env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1' }}
-        run: npx expo export --platform web
+          # URL publique du backend Railway, hardcodée pour éviter les
+          # problèmes de guillemets / espaces dans les secrets GitHub.
+          EXPO_PUBLIC_API_URL: https://am-production-80d6.up.railway.app/api/v1
+        run: |
+          echo "API URL = [$EXPO_PUBLIC_API_URL]"
+          npx expo export --platform web
 
       - name: Assemble Pages site
         run: |
@@ -75,6 +79,24 @@ jobs:
             echo "✗ Fichier manquant : public/app/index.html ou mobile/web-inject.html"
             exit 1
           fi
+
+          # Vérifie que l'URL API est propre dans le bundle (pas de guillemet
+          # ni backslash parasites). Le bundle JS est minifié sur une ligne.
+          BUNDLE=$(ls public/app/_expo/static/js/web/AppEntry-*.js | head -1)
+          if [ -z "$BUNDLE" ]; then
+            echo "✗ Bundle Expo introuvable"
+            exit 1
+          fi
+          echo "Bundle = $BUNDLE"
+          # On extrait l'occurrence de l'URL railway et on vérifie qu'aucun
+          # caractère parasite ne la suit (autre que des chars d'URL valides).
+          URL_HIT=$(grep -oE 'https://am-production-80d6\.up\.railway\.app/api/v1[^a-zA-Z0-9/_.-]?' "$BUNDLE" | head -1 || true)
+          echo "Bundle URL match = [$URL_HIT]"
+          if echo "$URL_HIT" | grep -qE '[\\"]'; then
+            echo "✗ URL polluée par un guillemet ou backslash : [$URL_HIT]"
+            exit 1
+          fi
+          echo "✓ URL API propre dans le bundle"
 
           # Force a content change on every build so peaceiris always pushes
           echo "Build ${{ github.sha }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/.build-stamp
