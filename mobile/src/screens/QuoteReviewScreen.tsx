@@ -2,6 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { SafeAreaView, ScrollView, Text, View } from 'react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
 import { QuoteHint } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
@@ -14,7 +15,7 @@ import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { TYPO } from '../theme/tokens';
 import { fmtEur, fmtLocal } from '../utils/currency';
 
 export function QuoteReviewScreen() {
@@ -58,9 +59,13 @@ export function QuoteReviewScreen() {
             position: 'relative',
           }}
         >
-          {/* Décor : icône éclair en arrière-plan */}
-          <View style={{ position: 'absolute', right: -16, top: -16, opacity: 0.08 }}>
-            <Icons.bolt size={120} color={theme.gold} stroke={1.4} />
+          {/* Décor : 3 cercles concentriques dorés en arrière-plan, top-right */}
+          <View style={{ position: 'absolute', right: -60, top: -50, opacity: 0.14 }} pointerEvents="none">
+            <Svg width={260} height={260} viewBox="0 0 220 220">
+              <SvgCircle cx="110" cy="110" r="100" stroke={theme.gold} strokeWidth={1} fill="none" />
+              <SvgCircle cx="110" cy="110" r="70"  stroke={theme.gold} strokeWidth={1} fill="none" />
+              <SvgCircle cx="110" cy="110" r="40"  stroke={theme.gold} strokeWidth={1} fill="none" />
+            </Svg>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -212,22 +217,73 @@ export function QuoteReviewScreen() {
 
         {/* Décomposition */}
         <Surface padded style={{ padding: 16 }}>
-          <SectionHead title="Décomposition" />
-          <Row
-            label={isConvoy ? `Forfait + ${quote.distanceKm ? Math.round(quote.distanceKm) : 0} km` : `Transport (${quote.weightKg} kg)`}
+          <SectionHead title="Détail du tarif" />
+          <DetailRow
+            label={isConvoy
+              ? `Forfait + ${quote.distanceKm ? Math.round(quote.distanceKm) : 0} km`
+              : `Transport (${quote.weightKg} kg)`}
+            sub={isConvoy
+              ? 'Distance × tarif kilométrique HT'
+              : quote.transportMode === 'AIR' ? 'Acheminement aérien Europe → Afrique' : 'Acheminement maritime conteneur'}
             value={fmtEur(quote.basePriceCents + quote.variablePriceCents)}
           />
           {quote.pickupFeeCents > 0 ? (
-            <Row label="Récupération du colis" value={`+ ${fmtEur(quote.pickupFeeCents)}`} />
+            <DetailRow
+              label="Récupération du colis"
+              sub={pickupSub(quote.pickupMode)}
+              value={`+ ${fmtEur(quote.pickupFeeCents)}`}
+            />
+          ) : null}
+          <DetailRow
+            label="Assurance tous risques"
+            sub={`Jusqu'à 250 000 € · ${isConvoy ? 'AXA Transport' : 'Allianz Marine'}`}
+            value="Inclus"
+            included
+          />
+          <DetailRow
+            label="Suivi GPS temps réel"
+            sub="Mise à jour toutes les 30 secondes"
+            value="Inclus"
+            included
+          />
+          <DetailRow
+            label="Contrat & état des lieux PDF"
+            sub="Signé électroniquement"
+            value="Inclus"
+            included
+          />
+          {isParcel ? (
+            <DetailRow
+              label="Démarches douanières"
+              sub="BSC, déclaration export, certificat origine"
+              value="Inclus"
+              included
+            />
           ) : null}
           {quote.options.map((o) => (
-            <Row key={o.kind} label={o.label} value={`+ ${fmtEur(o.priceCents)}`} muted />
+            <DetailRow
+              key={o.kind}
+              label={o.label}
+              sub="Option ajoutée"
+              value={`+ ${fmtEur(o.priceCents)}`}
+              addon
+            />
           ))}
-          <Divider />
-          <Row label="Sous-total HT" value={fmtEur(quote.subtotalCents)} muted />
-          <Row label="TVA (20 %)" value={fmtEur(quote.totalCents - quote.subtotalCents)} muted />
-          <Divider />
-          <Row label="Total TTC" value={fmtEur(quote.totalCents)} bold />
+
+          <View style={{ height: 1.5, backgroundColor: theme.line, marginTop: 12, marginBottom: 0 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', paddingTop: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                Total TTC
+              </Text>
+              <Text style={{ fontSize: 11, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
+                TVA 20 % incluse
+              </Text>
+            </View>
+            <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 28, color: theme.ink, letterSpacing: -0.3, fontVariant: ['tabular-nums'] }}>
+              {fmtEur(quote.totalCents)}
+            </Text>
+          </View>
 
           {quote.disclaimer ? (
             <View
@@ -250,6 +306,41 @@ export function QuoteReviewScreen() {
             </View>
           ) : null}
         </Surface>
+
+        {/* Comparison strip : 4 badges trust */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[
+            { Ic: Icons.shield, l: 'Assurance 250k€' },
+            { Ic: Icons.pin,    l: 'Suivi temps réel' },
+            { Ic: Icons.doc,    l: 'Contrat signé PDF' },
+            { Ic: Icons.camera, l: 'État des lieux x16' },
+          ].map((b) => (
+            <View
+              key={b.l}
+              style={{
+                flexBasis: '48%',
+                flexGrow: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: theme.surface,
+                borderWidth: 1,
+                borderColor: theme.line,
+              }}
+            >
+              <b.Ic size={16} color={theme.gold} stroke={1.8} />
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.semibold, flex: 1 }}
+              >
+                {b.l}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         {/* Smart hints */}
         {quote.hints && quote.hints.length > 0 ? (
@@ -349,25 +440,47 @@ function pickupModeLabel(mode: string, relayLabel?: string): string {
   }
 }
 
-function Row({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+function DetailRow({
+  label,
+  sub,
+  value,
+  included,
+  addon,
+}: {
+  label: string;
+  sub?: string;
+  value: string;
+  included?: boolean;
+  addon?: boolean;
+}) {
   const { theme } = useTheme();
+  const valueColor = included ? theme.good : addon ? theme.goldDeep : theme.ink;
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.lineSoft,
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+          {label}
+        </Text>
+        {sub ? (
+          <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 1, fontFamily: TYPO.weights.medium }}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
       <Text
         style={{
-          flex: 1,
-          color: muted ? theme.muted : theme.ink,
-          fontFamily: bold ? TYPO.weights.bold : TYPO.weights.medium,
-          fontSize: bold ? 15 : 13.5,
-        }}
-      >
-        {label}
-      </Text>
-      <Text
-        style={{
-          color: muted ? theme.muted : theme.ink,
-          fontFamily: bold ? TYPO.weights.bold : TYPO.weights.semibold,
-          fontSize: bold ? 15 : 13.5,
+          fontSize: 13.5,
+          color: valueColor,
+          fontFamily: TYPO.weights.semibold,
           fontVariant: ['tabular-nums'],
         }}
       >
@@ -377,7 +490,11 @@ function Row({ label, value, bold, muted }: { label: string; value: string; bold
   );
 }
 
-function Divider() {
-  const { theme } = useTheme();
-  return <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 6 }} />;
+function pickupSub(mode: string): string {
+  switch (mode) {
+    case 'HUB_DROP_OFF':   return 'Dépôt au hub Axis · gratuit';
+    case 'RELAY_DROP_OFF': return 'Point relais partenaire';
+    case 'HOME_PICKUP':    return 'Enlèvement à domicile';
+    default:               return '';
+  }
 }
