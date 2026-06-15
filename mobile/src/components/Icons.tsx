@@ -24,7 +24,7 @@ export const Icons = {
   arrowL:  wrap(<><Path d="M19 12H5M11 5l-7 7 7 7" /></>),
   chev:    wrap(<><Path d="M9 6l6 6-6 6" /></>),
   car:     wrap(<><Path d="M4 14l2-5a2 2 0 0 1 2-1.5h8a2 2 0 0 1 2 1.5l2 5v4h-3v-2H7v2H4z" /><Circle cx="7.5" cy="14.5" r="1.4" /><Circle cx="16.5" cy="14.5" r="1.4" /></>),
-  bike:    wrap(<><Circle cx="5.5" cy="16.5" r="3" /><Circle cx="18.5" cy="16.5" r="3" /><Path d="M5.5 16.5 L11 8 L14 8 L18.5 16.5 M11 8 L9 5 H7" /></>),
+  bike:    wrap(<><Circle cx="6" cy="17" r="3" /><Circle cx="18" cy="17" r="3" /><Path d="M8.5 15.5 L11 10.5 H15 L17.5 15.5" /><Path d="M11 10.5 L9 7.5" /><Path d="M7.5 7.5 H10.5" /><Path d="M15 10.5 L16.5 12" /><Path d="M18 15.5 L21 14.5" /></>),
   box:     wrap(<><Path d="M3 7l9-4 9 4v10l-9 4-9-4z" /><Path d="M3 7l9 4 9-4M12 11v10" /></>),
   pallet:  wrap(<><Rect x="4" y="5" width="16" height="9" rx="1" /><Path d="M4 14v4M20 14v4M9 5v9M15 5v9" /></>),
   pin:     wrap(<><Path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z" /><Circle cx="12" cy="9" r="2.5" /></>),
