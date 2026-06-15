@@ -44,22 +44,42 @@ jobs:
           mkdir -p public/app
           cp -R mobile/dist/* public/app/
 
-          # Inject un script de "native fetch keeper" tout en haut du <head>
-          # de l'app, AVANT le bundle Expo. Sauvegarde window.fetch dans
-          # window.__nativeFetch et désinscrit tout service worker, pour que
-          # même si le bundle override fetch ou enregistre un SW qui bloque,
-          # on garde une référence au fetch natif du navigateur.
-          INJECT='<script>(function(){try{window.__nativeFetch=window.fetch.bind(window);}catch(e){window.__nativeFetch=window.fetch;}if(navigator&&navigator.serviceWorker){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}})();</script>'
-          # Insertion juste après <head>
+          # Inject un script qui sauve window.fetch dans window.__nativeFetch
+          # AVANT que le bundle Expo charge, et désinscrit tout service worker.
+          # On écrit le script dans un fichier puis on l'injecte avec awk
+          # (plus robuste que sed/python avec quotes).
+          cat > /tmp/inject.js <<'INJECT_SCRIPT_EOF'
+<script>
+(function(){
+  try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
+  window.__nativeFetchReady = true;
+  if (navigator && navigator.serviceWorker) {
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      rs.forEach(function(r){ r.unregister(); });
+    }).catch(function(){});
+  }
+})();
+</script>
+INJECT_SCRIPT_EOF
+
           if [ -f public/app/index.html ]; then
-            python3 -c "
-import re, sys
-content = open('public/app/index.html').read()
-inject = '''$INJECT'''
-new = re.sub(r'<head([^>]*)>', '<head\\\\1>' + inject, content, count=1)
-open('public/app/index.html', 'w').write(new)
-print('Injected native fetch keeper script')
-"
+            # awk : à la première ligne contenant <head, on imprime <head...> puis le script
+            awk '
+              BEGIN { injected = 0 }
+              /<head[^>]*>/ && !injected {
+                print $0
+                while ((getline line < "/tmp/inject.js") > 0) print line
+                close("/tmp/inject.js")
+                injected = 1
+                next
+              }
+              { print }
+            ' public/app/index.html > public/app/index.html.new
+            mv public/app/index.html.new public/app/index.html
+            echo "=== Injection vérifiée : ==="
+            head -20 public/app/index.html
+            echo "==========================="
+            grep -q "__nativeFetch" public/app/index.html && echo "✓ Script bien injecté" || echo "✗ ÉCHEC injection"
           fi
 
           # Force a content change on every build so peaceiris always pushes
