@@ -9,21 +9,68 @@ const API_URL =
 const ACCESS_TOKEN_KEY = 'axis.accessToken';
 const REFRESH_TOKEN_KEY = 'axis.refreshToken';
 
-// ─── Native fetch keeper ─────────────────────────────────────────────────
-// On récupère le fetch natif sauvegardé par notre script d'init AVANT que
-// le bundle Expo charge et puisse polluer window.fetch.
-declare global {
-  interface Window {
-    __nativeFetch?: typeof fetch;
+// ─── Transport HTTP ──────────────────────────────────────────────────────
+// Sur web on utilise XMLHttpRequest directement plutôt que fetch : XHR ne
+// peut PAS être pollué par un polyfill fetch tiers (whatwg-fetch, etc.),
+// fonctionne sur Safari iOS en mode privé, et expose proprement les erreurs
+// réseau via onerror. Sur natif (React Native) on utilise fetch standard.
+const IS_WEB = typeof window !== 'undefined' && typeof window.XMLHttpRequest === 'function';
+
+interface HttpResponse {
+  status: number;
+  ok: boolean;
+  text: string;
+}
+
+function httpRequestXhr(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  timeoutMs: number,
+): Promise<HttpResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.timeout = timeoutMs;
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.onload = () => {
+      resolve({
+        status: xhr.status,
+        ok: xhr.status >= 200 && xhr.status < 300,
+        text: xhr.responseText ?? '',
+      });
+    };
+    xhr.onerror = () => reject(new Error(`Erreur réseau (XHR onerror, status=${xhr.status})`));
+    xhr.ontimeout = () => reject(new Error(`Timeout après ${timeoutMs}ms`));
+    xhr.onabort = () => reject(new Error('Requête annulée'));
+    try {
+      xhr.send(body);
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+}
+
+async function httpRequestFetch(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  timeoutMs: number,
+): Promise<HttpResponse> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { method, headers, body, signal: controller.signal });
+    const text = await r.text();
+    return { status: r.status, ok: r.ok, text };
+  } finally {
+    clearTimeout(t);
   }
 }
 
-const nativeFetch: typeof fetch =
-  typeof window !== 'undefined' && typeof window.__nativeFetch === 'function'
-    ? window.__nativeFetch
-    : typeof window !== 'undefined' && typeof window.fetch === 'function'
-      ? window.fetch.bind(window)
-      : fetch;
+const httpRequest = IS_WEB ? httpRequestXhr : httpRequestFetch;
 
 // ─── Session ─────────────────────────────────────────────────────────────
 export async function setSession(accessToken: string, refreshToken: string): Promise<void> {
@@ -70,16 +117,18 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) return null;
   try {
-    const r = await nativeFetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
+    const r = await httpRequest(
+      `${API_URL}/auth/refresh`,
+      'POST',
+      { 'Content-Type': 'application/json', Accept: 'application/json' },
+      JSON.stringify({ refreshToken }),
+      15000,
+    );
     if (!r.ok) throw new Error('refresh failed');
-    const data = await r.json();
+    const data = JSON.parse(r.text) as { accessToken: string; refreshToken?: string };
     await AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
     if (data.refreshToken) await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-    return data.accessToken as string;
+    return data.accessToken;
   } catch {
     await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
     return null;
@@ -89,7 +138,6 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function apiFetch<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
   const method = opts.method ?? 'GET';
 
-  // URL avec query params
   let url = `${API_URL}${path}`;
   if (opts.params) {
     const qs = Object.entries(opts.params)
@@ -99,31 +147,20 @@ export async function apiFetch<T = unknown>(path: string, opts: RequestOptions =
     if (qs) url += `?${qs}`;
   }
 
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
+  const headers: Record<string, string> = { Accept: 'application/json' };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (!opts.skipAuth) {
     const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY).catch(() => null);
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 20000);
+  const body = opts.body !== undefined ? JSON.stringify(opts.body) : undefined;
+  const timeoutMs = opts.timeoutMs ?? 20000;
 
-  const doFetch = async (): Promise<Response> =>
-    nativeFetch(url, {
-      method,
-      headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      signal: controller.signal,
-    });
-
-  let response: Response;
+  let response: HttpResponse;
   try {
-    response = await doFetch();
+    response = await httpRequest(url, method, headers, body, timeoutMs);
   } catch (e) {
-    clearTimeout(timeout);
     const name = e instanceof Error ? e.name : 'Error';
     const msg = e instanceof Error ? e.message : String(e);
     throw new ApiError(`${name}: ${msg}`, { status: null, isNetworkError: true });
@@ -136,18 +173,15 @@ export async function apiFetch<T = unknown>(path: string, opts: RequestOptions =
     if (newToken) {
       headers.Authorization = `Bearer ${newToken}`;
       try {
-        response = await doFetch();
+        response = await httpRequest(url, method, headers, body, timeoutMs);
       } catch (e) {
-        clearTimeout(timeout);
         const msg = e instanceof Error ? e.message : String(e);
         throw new ApiError(msg, { status: null, isNetworkError: true });
       }
     }
   }
 
-  clearTimeout(timeout);
-
-  const text = await response.text();
+  const text = response.text;
   const data: unknown = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
 
   if (!response.ok) {
