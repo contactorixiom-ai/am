@@ -2,6 +2,7 @@
 // Fonctionne sur tous navigateurs modernes (Safari iOS inclus) : jsPDF
 // produit un Blob, on déclenche le téléchargement via <a download>.
 import { jsPDF } from 'jspdf';
+import { VEHICLE_SILHOUETTE_CAR, VEHICLE_SILHOUETTE_VAN } from './vehicleSilhouettes';
 
 const NAVY = '#0B2545';
 const GOLD = '#C9A55C';
@@ -450,8 +451,14 @@ export function generateContractPdf(data: ContractPdfData): void {
   doc.setLineWidth(0.3);
   doc.line(M, y, W - M, y);
 
+  // Quel silhouette utiliser ?
+  const cat = (data.vehicleCategory ?? '').toLowerCase();
+  const silhouette = cat.includes('utilit') || cat.includes('camping') || cat.includes('poids')
+    ? VEHICLE_SILHOUETTE_VAN
+    : VEHICLE_SILHOUETTE_CAR;
+
   // ─── ÉTAT DES LIEUX — DÉPART ────────────────────────────────────────────
-  y = drawEtatDesLieux(doc, y + 1, 'DÉPART', {
+  y = drawEtatDesLieux(doc, y + 1, 'DÉPART', silhouette, {
     km: data.departureKm,
     fuel: data.departureFuel,
     date: data.departureDate,
@@ -463,7 +470,7 @@ export function generateContractPdf(data: ContractPdfData): void {
   });
 
   // ─── ÉTAT DES LIEUX — ARRIVÉE ───────────────────────────────────────────
-  y = drawEtatDesLieux(doc, y + 1, 'ARRIVÉE', {
+  y = drawEtatDesLieux(doc, y + 1, 'ARRIVÉE', silhouette, {
     km: data.arrivalKm,
     fuel: data.arrivalFuel,
     date: data.arrivalDate,
@@ -543,7 +550,7 @@ interface EtatDesLieux {
   driverSigned?: boolean;
 }
 
-function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', d: EtatDesLieux): number {
+function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', silhouetteDataUrl: string, d: EtatDesLieux): number {
   const W = doc.internal.pageSize.getWidth();
   const M = 8;
 
@@ -558,7 +565,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   y += 5;
 
   // Zone à 2 colonnes :
-  // gauche  : silhouettes véhicule (placeholder cadre quadrillé)
+  // gauche  : silhouettes véhicule (image extraite du modèle officiel)
   // droite  : km / carburant / date / heure / observations / signatures
   const blockH = 76;
   const leftW = (W - 2 * M) * 0.45;
@@ -568,18 +575,19 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.rect(M, y, leftW, blockH);
   doc.rect(M + leftW, y, rightW, blockH);
 
-  // Cadre silhouettes (placeholder doux)
-  setColor(doc, MUTED, 'draw');
-  doc.setLineWidth(0.15);
-  // Grille fine
-  for (let i = 0; i < 8; i += 1) {
-    doc.line(M + 4, y + 4 + i * 9, M + leftW - 4, y + 4 + i * 9);
+  // Silhouette véhicule (image extraite du modèle officiel Axis)
+  try {
+    const padding = 3;
+    const imgW = leftW - 2 * padding;
+    const imgH = blockH - 2 * padding;
+    doc.addImage(silhouetteDataUrl, 'PNG', M + padding, y + padding, imgW, imgH, undefined, 'FAST');
+  } catch {
+    // En cas d'échec d'embed, fallback texte
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    setColor(doc, MUTED, 'text');
+    doc.text('Zone de marquage état des lieux', M + leftW / 2, y + blockH / 2, { align: 'center' });
   }
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(7.5);
-  setColor(doc, MUTED, 'text');
-  doc.text('Zone de marquage état des lieux', M + leftW / 2, y + blockH / 2, { align: 'center' });
-  doc.text('(rayures, fissures, enfoncements, cassés, manquants)', M + leftW / 2, y + blockH / 2 + 4, { align: 'center' });
 
   // Colonne droite : champs
   const rx = M + leftW + 3;
