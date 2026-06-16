@@ -13,6 +13,13 @@ const wrap = (children: React.ReactNode) => ({ size = 22, color = 'currentColor'
   </Svg>
 );
 
+// Pour les icônes en silhouette pleine (remplies), pas en trait.
+const wrapFill = (children: React.ReactNode) => ({ size = 22, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+    {children}
+  </Svg>
+);
+
 export const Icons = {
   home:    wrap(<><Path d="M3 11 L12 4 L21 11" /><Path d="M5 10v10h14V10" /><Path d="M10 20v-5h4v5" /></>),
   truck:   wrap(<><Path d="M2 7h12v9H2z" /><Path d="M14 10h4l3 3v3h-7" /><Circle cx="6.5" cy="18" r="1.8" /><Circle cx="17.5" cy="18" r="1.8" /></>),
@@ -24,7 +31,7 @@ export const Icons = {
   arrowL:  wrap(<><Path d="M19 12H5M11 5l-7 7 7 7" /></>),
   chev:    wrap(<><Path d="M9 6l6 6-6 6" /></>),
   car:     wrap(<><Path d="M4 14l2-5a2 2 0 0 1 2-1.5h8a2 2 0 0 1 2 1.5l2 5v4h-3v-2H7v2H4z" /><Circle cx="7.5" cy="14.5" r="1.4" /><Circle cx="16.5" cy="14.5" r="1.4" /></>),
-  bike:    wrap(<><Circle cx="6" cy="17" r="3" /><Circle cx="18" cy="17" r="3" /><Path d="M8.5 15.5 L11 10.5 H15 L17.5 15.5" /><Path d="M11 10.5 L9 7.5" /><Path d="M7.5 7.5 H10.5" /><Path d="M15 10.5 L16.5 12" /><Path d="M18 15.5 L21 14.5" /></>),
+  bike:    wrapFill(<Path d="M19.44 9.03 15.41 5H11v2h3.59l2 2H5c-2.8 0-5 2.2-5 5s2.2 5 5 5c2.46 0 4.45-1.69 4.9-4h1.65l2.77-2.77c-.21.54-.32 1.14-.32 1.77 0 2.8 2.2 5 5 5s5-2.2 5-5c0-2.79-2.21-5-4.56-4.97zM7.82 15C7.4 16.15 6.28 17 5 17c-1.63 0-3-1.37-3-3s1.37-3 3-3c1.28 0 2.4.85 2.82 2H5v2h2.82zM19 17c-1.63 0-3-1.37-3-3s1.37-3 3-3 3 1.37 3 3-1.37 3-3 3z" />),
   box:     wrap(<><Path d="M3 7l9-4 9 4v10l-9 4-9-4z" /><Path d="M3 7l9 4 9-4M12 11v10" /></>),
   pallet:  wrap(<><Rect x="4" y="5" width="16" height="9" rx="1" /><Path d="M4 14v4M20 14v4M9 5v9M15 5v9" /></>),
   pin:     wrap(<><Path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z" /><Circle cx="12" cy="9" r="2.5" /></>),
