@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
@@ -40,11 +41,51 @@ const INITIAL_DOCS: Doc[] = [
   { id: 6, cat: 'fact', type: 'Facture', tone: 'warn', title: 'FA-2026-0179', ref: 'Fret 4 palettes → Dakar', date: '08 mai 2026', size: '68 ko', iconKey: 'euro', amountEur: 1240, paid: false },
 ];
 
+const STORAGE_KEY = 'axis.docs.v1';
+
 export function DocumentsScreen() {
   const { theme } = useTheme();
   const { user } = useSession();
   const [tab, setTab] = useState<FilterId>('all');
   const [docs, setDocs] = useState<Doc[]>(INITIAL_DOCS);
+
+  // Restore signed / paid state from local storage
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as Partial<Record<number, Partial<Doc>>>;
+        setDocs((prev) =>
+          prev.map((d) => {
+            const patch = saved[d.id];
+            if (!patch) return d;
+            return { ...d, ...patch };
+          }),
+        );
+      } catch {
+        // ignore corrupted state
+      }
+    });
+  }, []);
+
+  // Persist any change
+  useEffect(() => {
+    const toSave: Record<number, Partial<Doc>> = {};
+    docs.forEach((d) => {
+      if (d.signedAt || d.signatureUrl || d.paid !== INITIAL_DOCS.find((i) => i.id === d.id)?.paid) {
+        toSave[d.id] = {
+          signedAt: d.signedAt,
+          signatureUrl: d.signatureUrl,
+          paid: d.paid,
+          needsSignature: d.needsSignature,
+          tone: d.tone,
+          type: d.type,
+        };
+      }
+    });
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
+  }, [docs]);
+
   const [signing, setSigning] = useState<Doc | null>(null);
   const [viewing, setViewing] = useState<Doc | null>(null);
   const [hasInk, setHasInk] = useState(false);
