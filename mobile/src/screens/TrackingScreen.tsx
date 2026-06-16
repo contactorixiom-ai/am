@@ -7,6 +7,7 @@ import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
 import { Icons } from '../components/Icons';
+import { LiveConvoyPanel } from '../components/LiveConvoyPanel';
 import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
@@ -92,9 +93,20 @@ export function TrackingScreen() {
           />
         }
       >
-        {/* Map */}
+        {/* Map + suivi temps réel chauffeur (mission convoyage) */}
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
+          {kind === 'mission' ? (
+            <LiveConvoyPanel
+              from={{ latitude: 48.8566, longitude: 2.3522 }}
+              to={{ latitude: 50.8503, longitude: 4.3517 }}
+              fromLabel={fromLabel}
+              toLabel={toLabel}
+              driverName="Karim Diallo"
+              vehicleLabel="BMW Série 3 · AX-2847"
+            />
+          ) : (
+            <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
+          )}
         </View>
 
         {/* Status strip */}
