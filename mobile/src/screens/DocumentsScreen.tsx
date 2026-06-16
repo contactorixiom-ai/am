@@ -7,6 +7,8 @@ import { Pill, PillTone } from '../components/Pill';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { notify } from '../utils/notify';
+import { generateContractPdf, generateInvoicePdf } from '../utils/pdf';
+import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
@@ -40,12 +42,66 @@ const INITIAL_DOCS: Doc[] = [
 
 export function DocumentsScreen() {
   const { theme } = useTheme();
+  const { user } = useSession();
   const [tab, setTab] = useState<FilterId>('all');
   const [docs, setDocs] = useState<Doc[]>(INITIAL_DOCS);
   const [signing, setSigning] = useState<Doc | null>(null);
   const [viewing, setViewing] = useState<Doc | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const padRef = useRef<SignaturePadHandle>(null);
+
+  const clientName = user ? `${user.firstName} ${user.lastName}` : 'Client Axis Import';
+  const clientEmail = user?.email;
+
+  const downloadPdf = (d: Doc) => {
+    if (d.cat === 'fact' && d.amountEur) {
+      generateInvoicePdf({
+        number: d.title,
+        date: d.date,
+        amountEur: d.amountEur,
+        paid: !!d.paid,
+        description: d.ref,
+        clientName,
+        clientEmail,
+      });
+      notify('Facture téléchargée', `${d.title}.pdf a été enregistré dans tes fichiers.`);
+      return;
+    }
+    // Contrat / état des lieux / CMR / douane → format contrat officiel
+    const missionRef = d.ref.split('·')[0].trim();
+    const vehicle = d.ref.split('·')[1]?.trim();
+    generateContractPdf({
+      reference: `2026-${missionRef.replace(/[^0-9]/g, '').padStart(4, '0')}-FE12`,
+      copyLabel: 'EXEMPLAIRE\nCLIENT',
+      vehicleCategory: vehicle?.toLowerCase().includes('utilit') ? 'Utilitaire' : 'Berline',
+      driverName: 'Karim Diallo',
+      driverPhone: '+33 6 12 34 56 78',
+      driverLicense: 'B · 12AB34567',
+      estimatedKm: 312,
+      estimatedDuration: '4 h 30',
+      missionReference: missionRef,
+      clientName,
+      vehicleBrandModel: vehicle ?? 'BMW Série 3',
+      plate: 'AX-2847-AI',
+      pickupDate: d.date,
+      pickupTime: '08h30',
+      pickupContact: '+33 6 11 22 33 44',
+      pickupAddress: '14 rue de Vaugirard, 75015 Paris',
+      deliveryDate: d.date,
+      deliveryTime: '14h32',
+      deliveryContact: '+32 471 22 33 44',
+      deliveryAddress: 'Avenue Louise 250, 1050 Bruxelles',
+      departureKm: 48230,
+      departureFuel: 0.75,
+      departureDate: d.date,
+      departureTime: '08h32',
+      departureObservations: 'Véhicule en parfait état. Rayure légère portière avant droite (R).',
+      departureClientSigned: !!d.signatureUrl,
+      departureClientSignedDate: d.signedAt,
+      departureDriverSigned: !!d.signatureUrl,
+    });
+    notify('Document téléchargé', `Le PDF de "${d.title}" a été enregistré dans tes fichiers.`);
+  };
 
   const pendingSignature = docs.find((d) => d.needsSignature && !d.signedAt);
 
@@ -184,7 +240,17 @@ export function DocumentsScreen() {
                       <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>{d.size}</Text>
                     </View>
                   </View>
-                  <Icons.chev size={18} color={theme.muted} stroke={1.6} />
+                  <Pressable
+                    onPress={(e) => { e.stopPropagation?.(); downloadPdf(d); }}
+                    style={({ pressed }) => ({
+                      width: 34, height: 34, borderRadius: 10,
+                      borderWidth: 1, borderColor: theme.line,
+                      backgroundColor: pressed ? theme.bgSoft : theme.surface,
+                      alignItems: 'center', justifyContent: 'center',
+                    })}
+                  >
+                    <Icons.arrow size={15} color={theme.ink} stroke={2} />
+                  </Pressable>
                 </View>
               </Surface>
             </Pressable>
@@ -286,7 +352,7 @@ export function DocumentsScreen() {
                   Signer le document
                 </Button>
               ) : null}
-              <Button kind="outline" size="lg" fullWidth onPress={() => notify('Téléchargement', 'Le PDF a été enregistré dans tes fichiers.')} rightIcon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}>
+              <Button kind="outline" size="lg" fullWidth onPress={() => viewing && downloadPdf(viewing)} rightIcon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}>
                 Télécharger le PDF
               </Button>
             </View>
