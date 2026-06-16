@@ -24,6 +24,8 @@ export type RootStackParamList = {
   RecipientDetails: { quote: QuoteResponse };
   BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
+  Messaging: { driverName?: string; subtitle?: string } | undefined;
+  KycVerification: undefined;
   News: undefined;
 };
 

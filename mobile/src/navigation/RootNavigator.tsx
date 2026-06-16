@@ -10,7 +10,9 @@ import { CarRequestScreen } from '../screens/CarRequestScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { KycVerificationScreen } from '../screens/KycVerificationScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { MessagingScreen } from '../screens/MessagingScreen';
 import { NewsScreen } from '../screens/NewsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
@@ -90,6 +92,8 @@ export function RootNavigator() {
             <RootStack.Screen name="RecipientDetails" component={RecipientDetailsScreen} />
             <RootStack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} options={{ gestureEnabled: false }} />
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
+            <RootStack.Screen name="Messaging" component={MessagingScreen} />
+            <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>
         ) : (

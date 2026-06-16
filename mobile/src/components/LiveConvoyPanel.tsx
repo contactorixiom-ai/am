@@ -1,9 +1,13 @@
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { Icons } from './Icons';
 import { LiveConvoyMap } from './LiveConvoyMap';
 import { Pill } from './Pill';
 import { Surface } from './Surface';
+import { RootStackParamList } from '../navigation/types';
+import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 
@@ -40,6 +44,7 @@ interface Props {
 // (en route / pause / arrêt) qui évolue automatiquement pour la démo.
 export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehicleLabel }: Props) {
   const { theme } = useTheme();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [progress, setProgress] = useState(0);
   const baseProgressRef = useRef(0);
@@ -191,10 +196,16 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
               {vehicleLabel ?? 'BMW Série 3 · AX-2847'} · 4,9 ★
             </Text>
           </View>
-          <Pressable style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: theme.line, backgroundColor: pressed ? theme.bgSoft : theme.surface, alignItems: 'center', justifyContent: 'center' })}>
+          <Pressable
+            onPress={() => notify('Appel chauffeur', `Mise en relation avec ${driverName ?? 'le chauffeur'} dans la version finale.`)}
+            style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: theme.line, backgroundColor: pressed ? theme.bgSoft : theme.surface, alignItems: 'center', justifyContent: 'center' })}
+          >
             <Icons.phone size={16} color={theme.ink} stroke={1.8} />
           </Pressable>
-          <Pressable style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.navy, alignItems: 'center', justifyContent: 'center' })}>
+          <Pressable
+            onPress={() => nav.navigate('Messaging', { driverName: driverName ?? 'Karim Diallo', subtitle: `En route · ${vehicleLabel ?? ''}`.trim() })}
+            style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.navy, alignItems: 'center', justifyContent: 'center' })}
+          >
             <Icons.chat size={16} color="#F5F1E8" stroke={1.8} />
           </Pressable>
         </View>
