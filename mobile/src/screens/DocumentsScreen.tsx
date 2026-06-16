@@ -5,6 +5,7 @@ import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill, PillTone } from '../components/Pill';
+import { PaymentSheet } from '../components/PaymentSheet';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { notify } from '../utils/notify';
@@ -88,6 +89,7 @@ export function DocumentsScreen() {
 
   const [signing, setSigning] = useState<Doc | null>(null);
   const [viewing, setViewing] = useState<Doc | null>(null);
+  const [paying, setPaying] = useState<Doc | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const padRef = useRef<SignaturePadHandle>(null);
 
@@ -384,7 +386,7 @@ export function DocumentsScreen() {
 
             <View style={{ gap: 10 }}>
               {viewing?.cat === 'fact' && !viewing?.paid ? (
-                <Button kind="gold" size="lg" fullWidth onPress={() => viewing && payInvoice(viewing)} rightIcon={<Icons.card size={18} color={theme.navy} stroke={2} />}>
+                <Button kind="gold" size="lg" fullWidth onPress={() => { const d = viewing; setViewing(null); if (d) setPaying(d); }} rightIcon={<Icons.card size={18} color={theme.navy} stroke={2} />}>
                   Régler la facture
                 </Button>
               ) : null}
@@ -400,6 +402,16 @@ export function DocumentsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Paiement Stripe / Apple Pay */}
+      <PaymentSheet
+        visible={!!paying}
+        amountEur={paying?.amountEur ?? 0}
+        reference={paying?.title}
+        description={paying?.ref}
+        onClose={() => setPaying(null)}
+        onPaid={() => { if (paying) payInvoice(paying); }}
+      />
     </SafeAreaView>
   );
 }
