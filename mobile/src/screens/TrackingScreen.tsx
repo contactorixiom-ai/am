@@ -1,4 +1,5 @@
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
@@ -27,6 +28,7 @@ const DEFAULT_STEPS = [
 export function TrackingScreen() {
   const { theme } = useTheme();
   const route = useRoute<RouteProp<RootStackParamList, 'Tracking'>>();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { kind, reference } = route.params;
 
   const [parcel, setParcel] = useState<ParcelSummary | null>(null);
@@ -108,6 +110,38 @@ export function TrackingScreen() {
             <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
           )}
         </View>
+
+        {/* Accès état des lieux (mission convoyage) */}
+        {kind === 'mission' ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <Pressable
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', reference, vehicleLabel: 'BMW Série 3 · AX-2847' })}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                padding: 14,
+                borderRadius: RADII.lg,
+                borderWidth: 1,
+                borderColor: theme.line,
+                backgroundColor: pressed ? theme.bgSoft : theme.surface,
+              })}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: theme.navy, alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.sig size={20} color={theme.goldHi} stroke={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                  État des lieux électronique
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+                  Marquage des dommages, photos et signatures
+                </Text>
+              </View>
+              <Icons.chev size={18} color={theme.muted} stroke={1.8} />
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Status strip */}
         <View

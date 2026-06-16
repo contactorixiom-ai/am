@@ -2,7 +2,6 @@
 // Fonctionne sur tous navigateurs modernes (Safari iOS inclus) : jsPDF
 // produit un Blob, on déclenche le téléchargement via <a download>.
 import { jsPDF } from 'jspdf';
-import { VEHICLE_SILHOUETTE_CAR, VEHICLE_SILHOUETTE_VAN } from './vehicleSilhouettes';
 
 const NAVY = '#0B2545';
 const GOLD = '#C9A55C';
@@ -264,6 +263,7 @@ export interface ContractPdfData {
   departureClientSigned?: boolean;
   departureClientSignedDate?: string;
   departureDriverSigned?: boolean;
+  departureDamages?: PdfDamage[];
 
   arrivalKm?: number;
   arrivalFuel?: 0 | 0.25 | 0.5 | 0.75 | 1;
@@ -273,6 +273,7 @@ export interface ContractPdfData {
   arrivalClientSigned?: boolean;
   arrivalClientSignedDate?: string;
   arrivalDriverSigned?: boolean;
+  arrivalDamages?: PdfDamage[];
 
   // Compat ancienne API (peuvent être ignorés ici)
   title?: string;
@@ -284,6 +285,17 @@ export interface ContractPdfData {
   signedDate?: string;
   priceEur?: number;
 }
+
+export interface PdfDamage {
+  view: 'top' | 'front' | 'rear' | 'left' | 'right';
+  x: number; // 0..1
+  y: number; // 0..1
+  code: 'R' | 'F' | 'E' | 'C' | 'M';
+}
+
+const DAMAGE_COLOR: Record<string, string> = {
+  R: '#C9A55C', F: '#E0A04D', E: '#D97A4E', C: '#C0524B', M: '#8E5BAE',
+};
 
 const VEHICLE_CATEGORIES = [
   'Citadine', 'Berline', 'Break', 'Coupé', 'Monospace', 'SUV', '4×4', 'Utilitaire',
@@ -451,14 +463,11 @@ export function generateContractPdf(data: ContractPdfData): void {
   doc.setLineWidth(0.3);
   doc.line(M, y, W - M, y);
 
-  // Quel silhouette utiliser ?
   const cat = (data.vehicleCategory ?? '').toLowerCase();
-  const silhouette = cat.includes('utilit') || cat.includes('camping') || cat.includes('poids')
-    ? VEHICLE_SILHOUETTE_VAN
-    : VEHICLE_SILHOUETTE_CAR;
+  const isVan = cat.includes('utilit') || cat.includes('camping') || cat.includes('poids');
 
   // ─── ÉTAT DES LIEUX — DÉPART ────────────────────────────────────────────
-  y = drawEtatDesLieux(doc, y + 1, 'DÉPART', silhouette, {
+  y = drawEtatDesLieux(doc, y + 1, 'DÉPART', isVan, {
     km: data.departureKm,
     fuel: data.departureFuel,
     date: data.departureDate,
@@ -467,10 +476,11 @@ export function generateContractPdf(data: ContractPdfData): void {
     clientSigned: data.departureClientSigned ?? !!data.signatureDataUrl,
     clientSignedDate: data.departureClientSignedDate ?? data.signedDate,
     driverSigned: data.departureDriverSigned,
+    damages: data.departureDamages,
   });
 
   // ─── ÉTAT DES LIEUX — ARRIVÉE ───────────────────────────────────────────
-  y = drawEtatDesLieux(doc, y + 1, 'ARRIVÉE', silhouette, {
+  y = drawEtatDesLieux(doc, y + 1, 'ARRIVÉE', isVan, {
     km: data.arrivalKm,
     fuel: data.arrivalFuel,
     date: data.arrivalDate,
@@ -479,6 +489,7 @@ export function generateContractPdf(data: ContractPdfData): void {
     clientSigned: data.arrivalClientSigned,
     clientSignedDate: data.arrivalClientSignedDate,
     driverSigned: data.arrivalDriverSigned,
+    damages: data.arrivalDamages,
   });
 
   // ─── FOOTER ─────────────────────────────────────────────────────────────
@@ -539,6 +550,77 @@ function formatDateLine(date: string, time?: string): string {
   return `${date}${time ? `  —  ${time}` : ''}`;
 }
 
+// Schéma véhicule vue de dessus, dessiné en vectoriel, avec repères de
+// dommages positionnés en coordonnées normalisées (0..1) de la zone donnée.
+function drawCarTopVector(doc: jsPDF, x: number, y: number, w: number, h: number, isVan: boolean, damages: PdfDamage[]) {
+  // Le repère "top" sert au schéma ; les autres vues sont listées en légende.
+  const topDamages = damages.filter((d) => d.view === 'top');
+  const otherDamages = damages.filter((d) => d.view !== 'top');
+
+  // Cadre du véhicule (vue de dessus) centré
+  const carW = w * 0.5;
+  const carH = h * 0.82;
+  const cx = x + w * 0.32;
+  const cy = y + h / 2;
+  const left = cx - carW / 2;
+  const top = cy - carH / 2;
+
+  setColor(doc, NAVY, 'draw');
+  doc.setLineWidth(0.5);
+  // Carrosserie arrondie
+  doc.roundedRect(left, top, carW, carH, 6, 6, 'S');
+  // Pare-brise / lunette
+  setColor(doc, LINE, 'draw');
+  doc.setLineWidth(0.3);
+  doc.line(left + 2, top + carH * 0.22, left + carW - 2, top + carH * 0.22);
+  doc.line(left + 2, top + carH * 0.74, left + carW - 2, top + carH * 0.74);
+  // Toit
+  doc.roundedRect(left + carW * 0.18, top + carH * 0.30, carW * 0.64, carH * 0.40, 2, 2, 'S');
+  if (isVan) {
+    // Caisson cargo : trait supplémentaire
+    doc.line(left + 2, top + carH * 0.5, left + carW - 2, top + carH * 0.5);
+  }
+
+  // Repères dommages (sur la vue de dessus)
+  topDamages.forEach((dmg) => {
+    const px = left + dmg.x * carW;
+    const py = top + dmg.y * carH;
+    setColor(doc, DAMAGE_COLOR[dmg.code] ?? GOLD, 'fill');
+    doc.circle(px, py, 2.4, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5);
+    doc.text(dmg.code, px, py + 1, { align: 'center' });
+  });
+
+  // Légende des dommages des autres vues (avant/arrière/côtés)
+  const lx = x + w * 0.66;
+  let ly = y + 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.5);
+  setColor(doc, MUTED, 'text');
+  if (otherDamages.length > 0) {
+    doc.text('AUTRES VUES', lx, ly);
+    ly += 3.5;
+    const viewLabel: Record<string, string> = { front: 'Avant', rear: 'Arr.', left: 'Gauche', right: 'Droite', top: 'Dessus' };
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    otherDamages.slice(0, 10).forEach((dmg) => {
+      setColor(doc, DAMAGE_COLOR[dmg.code] ?? GOLD, 'fill');
+      doc.circle(lx + 1, ly - 1, 1.6, 'F');
+      setColor(doc, INK, 'text');
+      doc.text(`${dmg.code} · ${viewLabel[dmg.view]}`, lx + 4, ly);
+      ly += 3.2;
+    });
+  } else if (damages.length === 0) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(6);
+    setColor(doc, MUTED, 'text');
+    doc.text('Aucun', lx, ly + 2);
+    doc.text('dommage', lx, ly + 5);
+  }
+}
+
 interface EtatDesLieux {
   km?: number;
   fuel?: 0 | 0.25 | 0.5 | 0.75 | 1;
@@ -548,9 +630,10 @@ interface EtatDesLieux {
   clientSigned?: boolean;
   clientSignedDate?: string;
   driverSigned?: boolean;
+  damages?: PdfDamage[];
 }
 
-function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', silhouetteDataUrl: string, d: EtatDesLieux): number {
+function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', isVan: boolean, d: EtatDesLieux): number {
   const W = doc.internal.pageSize.getWidth();
   const M = 8;
 
@@ -565,7 +648,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   y += 5;
 
   // Zone à 2 colonnes :
-  // gauche  : silhouettes véhicule (image extraite du modèle officiel)
+  // gauche  : schéma véhicule vectoriel + repères de dommages
   // droite  : km / carburant / date / heure / observations / signatures
   const blockH = 76;
   const leftW = (W - 2 * M) * 0.45;
@@ -575,19 +658,8 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.rect(M, y, leftW, blockH);
   doc.rect(M + leftW, y, rightW, blockH);
 
-  // Silhouette véhicule (image extraite du modèle officiel Axis)
-  try {
-    const padding = 3;
-    const imgW = leftW - 2 * padding;
-    const imgH = blockH - 2 * padding;
-    doc.addImage(silhouetteDataUrl, 'PNG', M + padding, y + padding, imgW, imgH, undefined, 'FAST');
-  } catch {
-    // En cas d'échec d'embed, fallback texte
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7.5);
-    setColor(doc, MUTED, 'text');
-    doc.text('Zone de marquage état des lieux', M + leftW / 2, y + blockH / 2, { align: 'center' });
-  }
+  // Schéma véhicule vectoriel (vue de dessus) + repères de dommages
+  drawCarTopVector(doc, M + 4, y + 4, leftW - 8, blockH - 8, isVan, d.damages ?? []);
 
   // Colonne droite : champs
   const rx = M + leftW + 3;

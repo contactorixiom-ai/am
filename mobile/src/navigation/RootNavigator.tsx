@@ -26,6 +26,7 @@ import { ServicePickerScreen } from '../screens/ServicePickerScreen';
 import { TrackByReferenceScreen } from '../screens/TrackByReferenceScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
+import { VehicleInspectionScreen } from '../screens/VehicleInspectionScreen';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
@@ -94,6 +95,7 @@ export function RootNavigator() {
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
             <RootStack.Screen name="Messaging" component={MessagingScreen} />
             <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
+            <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>
         ) : (
