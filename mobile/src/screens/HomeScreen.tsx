@@ -10,6 +10,7 @@ import { SectionHead } from '../components/SectionHead';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
+import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
 
@@ -195,10 +196,15 @@ export function HomeScreen() {
               kind="outline"
               size="sm"
               leftIcon={<Icons.phone size={14} color={theme.ink} stroke={1.8} />}
+              onPress={() => notify('Appel chauffeur', `${MISSION.driver.name} sera mis en relation dans la version finale.`)}
             >
               Appeler
             </Button>
-            <Button kind="primary" size="sm">
+            <Button
+              kind="primary"
+              size="sm"
+              onPress={() => nav.navigate('Tracking', { kind: 'mission', id: MISSION.ref, reference: MISSION.ref })}
+            >
               Suivre
             </Button>
           </View>
@@ -250,7 +256,7 @@ export function HomeScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => nav.navigate('AppTabs')}
+            onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Documents' } as never)}
             style={({ pressed }) => ({
               flex: 1,
               borderWidth: 1,
