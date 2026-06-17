@@ -16,6 +16,7 @@ import { MessagingScreen } from '../screens/MessagingScreen';
 import { MissionDetailsScreen } from '../screens/MissionDetailsScreen';
 import { NewsScreen } from '../screens/NewsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { IntroSlidesScreen, shouldShowIntroSlides } from '../screens/IntroSlidesScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
 import { PickupModeScreen } from '../screens/PickupModeScreen';
@@ -63,8 +64,13 @@ function AppTabs() {
 export function RootNavigator() {
   const { theme } = useTheme();
   const { user, initializing } = useSession();
+  const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
 
-  if (initializing) {
+  React.useEffect(() => {
+    shouldShowIntroSlides().then((needs) => setIntroSeen(!needs));
+  }, []);
+
+  if (initializing || introSeen === null) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
         <DotLoader size={8} />
@@ -108,6 +114,9 @@ export function RootNavigator() {
           </>
         ) : (
           <>
+            {!introSeen ? (
+              <RootStack.Screen name="IntroSlides" component={IntroSlidesScreen} />
+            ) : null}
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Register" component={RegisterScreen} />

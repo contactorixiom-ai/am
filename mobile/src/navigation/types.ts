@@ -9,6 +9,7 @@ export interface ParcelDraft {
 }
 
 export type RootStackParamList = {
+  IntroSlides: undefined;
   Onboarding: undefined;
   Login: undefined;
   Register: undefined;
