@@ -1,5 +1,6 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
@@ -49,6 +50,17 @@ export function TrackingScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inspectionStatus, setInspectionStatus] = useState({ departureDone: false, arrivalDone: false });
+
+  // Recharge le statut de chaque état des lieux à chaque focus de l'écran.
+  useFocusEffect(useCallback(() => {
+    if (kind !== 'mission') return;
+    const dep = `axis.inspection.v1.${reference}.DÉPART`;
+    const arr = `axis.inspection.v1.${reference}.ARRIVÉE`;
+    Promise.all([AsyncStorage.getItem(dep), AsyncStorage.getItem(arr)]).then(([d, a]) => {
+      setInspectionStatus({ departureDone: !!d, arrivalDone: !!a });
+    });
+  }, [kind, reference]));
 
   const load = useCallback(async () => {
     setError(null);
@@ -125,35 +137,22 @@ export function TrackingScreen() {
           )}
         </View>
 
-        {/* Accès état des lieux (mission convoyage) */}
+        {/* Accès état des lieux DÉPART + ARRIVÉE (mission convoyage) */}
         {kind === 'mission' ? (
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <Pressable
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, flexDirection: 'row', gap: 8 }}>
+            <InspectionTile
+              phase="DÉPART"
+              reference={reference}
+              done={inspectionStatus.departureDone}
               onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', reference, vehicleLabel: 'BMW Série 3 · AX-2847' })}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                padding: 14,
-                borderRadius: RADII.lg,
-                borderWidth: 1,
-                borderColor: theme.line,
-                backgroundColor: pressed ? theme.bgSoft : theme.surface,
-              })}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: theme.navy, alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.sig size={20} color={theme.goldHi} stroke={1.8} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
-                  État des lieux électronique
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
-                  Marquage des dommages, photos et signatures
-                </Text>
-              </View>
-              <Icons.chev size={18} color={theme.muted} stroke={1.8} />
-            </Pressable>
+            />
+            <InspectionTile
+              phase="ARRIVÉE"
+              reference={reference}
+              done={inspectionStatus.arrivalDone}
+              locked={!inspectionStatus.departureDone}
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', reference, vehicleLabel: 'BMW Série 3 · AX-2847' })}
+            />
           </View>
         ) : null}
 
@@ -317,6 +316,55 @@ export function TrackingScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function InspectionTile({
+  phase, reference, done, locked, onPress,
+}: {
+  phase: 'DÉPART' | 'ARRIVÉE';
+  reference: string;
+  done: boolean;
+  locked?: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={locked ? undefined : onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        padding: 12,
+        borderRadius: RADII.lg,
+        borderWidth: 1.5,
+        borderColor: done ? theme.good : locked ? theme.line : theme.gold + '60',
+        backgroundColor: locked
+          ? theme.surface2
+          : done
+            ? theme.good + '12'
+            : pressed ? theme.bgSoft : theme.surface,
+        opacity: locked ? 0.6 : 1,
+      })}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{
+          width: 28, height: 28, borderRadius: 14,
+          backgroundColor: done ? theme.good : locked ? theme.line : theme.gold,
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          {done ? <Icons.check size={14} color="#fff" stroke={2.8} /> : <Icons.sig size={14} color={done || locked ? '#fff' : theme.navy} stroke={1.8} />}
+        </View>
+        <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+          État des lieux
+        </Text>
+      </View>
+      <Text style={{ fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 8 }}>
+        {phase === 'DÉPART' ? 'Départ' : 'Arrivée'}
+      </Text>
+      <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+        {done ? '✓ Signé bilatéralement' : locked ? 'Disponible après le départ' : 'À réaliser'}
+      </Text>
+    </Pressable>
   );
 }
 

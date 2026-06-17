@@ -1,6 +1,7 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
@@ -34,6 +35,18 @@ const FUEL_LEVELS = [
 
 const STEPS = ['Véhicule', 'Carrosserie', 'Signatures'];
 
+// Persistance entre l'état des lieux de DÉPART et d'ARRIVÉE pour pouvoir
+// comparer (km, carburant, dommages déjà signalés au départ).
+interface SavedInspection {
+  km?: number;
+  fuel?: number | null;
+  damages: Damage[];
+  date: string;
+}
+const STORAGE_KEY_PREFIX = 'axis.inspection.v1.';
+const storageKey = (reference: string, phase: 'DÉPART' | 'ARRIVÉE') =>
+  `${STORAGE_KEY_PREFIX}${reference}.${phase}`;
+
 export function VehicleInspectionScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -41,8 +54,12 @@ export function VehicleInspectionScreen() {
   const phase = route.params?.phase ?? 'DÉPART';
   const reference = route.params?.reference ?? '2026-2847-FE12';
   const vehicleLabel = route.params?.vehicleLabel ?? 'BMW Série 3 · AX-2847';
+  const isArrival = phase === 'ARRIVÉE';
 
   const [step, setStep] = useState(0);
+
+  // État des lieux de DÉPART (chargé en arrivée)
+  const [departureRef, setDepartureRef] = useState<SavedInspection | null>(null);
 
   // Step 1
   const [km, setKm] = useState('');
@@ -79,27 +96,87 @@ export function VehicleInspectionScreen() {
     setEditing(null);
   };
 
-  const finish = async () => {
-    await generateContractPdf({
-      reference,
-      copyLabel: 'EXEMPLAIRE\nCLIENT',
-      vehicleCategory: 'Berline',
-      driverName: 'Karim Diallo',
-      clientName: 'Client Axis Import',
-      vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
-      plate: vehicleLabel.split('·')[1]?.trim(),
-      pickupDate: new Date().toLocaleDateString('fr-FR'),
-      departureKm: km ? parseInt(km, 10) : undefined,
-      departureFuel: (fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined,
-      departureDate: new Date().toLocaleDateString('fr-FR'),
-      departureTime: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      departureObservations: summarizeDamages(damages),
-      departureClientSigned: clientSigned,
-      departureClientSignedDate: new Date().toLocaleDateString('fr-FR'),
-      departureDriverSigned: driverSigned,
-      departureDamages: damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code })),
+  // Charge le DÉPART au montage si on est en ARRIVÉE.
+  useEffect(() => {
+    if (!isArrival) return;
+    AsyncStorage.getItem(storageKey(reference, 'DÉPART')).then((raw) => {
+      if (!raw) return;
+      try { setDepartureRef(JSON.parse(raw) as SavedInspection); } catch { /* ignore */ }
     });
-    notify('État des lieux finalisé', 'Le PV a été généré et téléchargé. Il est envoyé au client et au garage.');
+  }, [isArrival, reference]);
+
+  const finish = async () => {
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-FR');
+    const timeStr = today.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const kmNum = km ? parseInt(km, 10) : undefined;
+    const fuelV = (fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined;
+    const obsText = summarizeDamages(damages);
+    const damagePoints = damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code }));
+
+    // Persiste l'état des lieux pour cette phase (utile pour comparaison).
+    await AsyncStorage.setItem(
+      storageKey(reference, phase),
+      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr } as SavedInspection),
+    );
+
+    if (isArrival) {
+      // PV de livraison : embarque DÉPART + ARRIVÉE dans le même contrat.
+      await generateContractPdf({
+        reference,
+        copyLabel: 'EXEMPLAIRE\nCLIENT',
+        vehicleCategory: 'Berline',
+        driverName: 'Karim Diallo',
+        clientName: 'Client Axis Import',
+        vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
+        plate: vehicleLabel.split('·')[1]?.trim(),
+        pickupDate: departureRef?.date ?? dateStr,
+        deliveryDate: dateStr,
+        deliveryTime: timeStr,
+        // DÉPART récupéré du précédent état des lieux
+        departureKm: departureRef?.km,
+        departureFuel: (departureRef?.fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined,
+        departureDate: departureRef?.date,
+        departureObservations: departureRef ? summarizeDamages(departureRef.damages) : undefined,
+        departureClientSigned: !!departureRef,
+        departureClientSignedDate: departureRef?.date,
+        departureDriverSigned: !!departureRef,
+        departureDamages: departureRef?.damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code })) ?? [],
+        // ARRIVÉE = ce qui vient d'être saisi
+        arrivalKm: kmNum,
+        arrivalFuel: fuelV,
+        arrivalDate: dateStr,
+        arrivalTime: timeStr,
+        arrivalObservations: obsText,
+        arrivalClientSigned: clientSigned,
+        arrivalClientSignedDate: dateStr,
+        arrivalDriverSigned: driverSigned,
+        arrivalDamages: damagePoints,
+      });
+      notify('PV de livraison finalisé', 'Le contrat avec les deux états des lieux est généré et envoyé au client.');
+    } else {
+      // PV de prise en charge : juste le DÉPART
+      await generateContractPdf({
+        reference,
+        copyLabel: 'EXEMPLAIRE\nCLIENT',
+        vehicleCategory: 'Berline',
+        driverName: 'Karim Diallo',
+        clientName: 'Client Axis Import',
+        vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
+        plate: vehicleLabel.split('·')[1]?.trim(),
+        pickupDate: dateStr,
+        departureKm: kmNum,
+        departureFuel: fuelV,
+        departureDate: dateStr,
+        departureTime: timeStr,
+        departureObservations: obsText,
+        departureClientSigned: clientSigned,
+        departureClientSignedDate: dateStr,
+        departureDriverSigned: driverSigned,
+        departureDamages: damagePoints,
+      });
+      notify('PV de prise en charge finalisé', 'Le contrat est généré. L\'état des lieux d\'arrivée sera signé à la livraison.');
+    }
     nav.goBack();
   };
 
@@ -110,7 +187,10 @@ export function VehicleInspectionScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title={`État des lieux — ${phase}`} subtitle={`${vehicleLabel} · ${reference}`} />
+      <AppBar
+        title={isArrival ? 'État des lieux — ARRIVÉE' : 'État des lieux — DÉPART'}
+        subtitle={isArrival ? `${vehicleLabel} · PV de livraison` : `${vehicleLabel} · PV de prise en charge`}
+      />
 
       {/* Stepper */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12, gap: 6 }}>
@@ -125,6 +205,37 @@ export function VehicleInspectionScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 24, gap: 14 }}>
+        {/* Bannière comparative DÉPART (uniquement en ARRIVÉE) */}
+        {isArrival && departureRef ? (
+          <Surface padded flat style={{ padding: 14, backgroundColor: theme.surface2, borderColor: theme.gold + '40', borderWidth: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Icons.shield size={16} color={theme.gold} stroke={1.8} />
+              <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                Rappel état des lieux DÉPART · {departureRef.date}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 18, flexWrap: 'wrap' }}>
+              <RefKv label="Kilométrage" value={departureRef.km ? `${departureRef.km.toLocaleString('fr-FR')} km` : '—'} />
+              <RefKv label="Carburant" value={fuelLabel(departureRef.fuel ?? null)} />
+              <RefKv label="Dommages" value={`${departureRef.damages.length} signalé${departureRef.damages.length > 1 ? 's' : ''}`} />
+            </View>
+            {km && departureRef.km ? (
+              <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 10 }}>
+                Distance parcourue : <Text style={{ fontFamily: TYPO.weights.bold }}>{Math.max(0, parseInt(km, 10) - departureRef.km).toLocaleString('fr-FR')} km</Text>
+              </Text>
+            ) : null}
+          </Surface>
+        ) : null}
+
+        {isArrival && !departureRef ? (
+          <Surface padded flat style={{ padding: 14, backgroundColor: theme.warn + '15', borderColor: theme.warn + '40', borderWidth: 1, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <Icons.warn size={18} color={theme.warn} stroke={1.8} />
+            <Text style={{ flex: 1, fontSize: 12.5, color: theme.warn, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+              État des lieux de DÉPART non retrouvé pour ce dossier. Le PV de livraison sera généré sans comparaison automatique.
+            </Text>
+          </Surface>
+        ) : null}
+
         {step === 0 ? (
           <>
             <Surface padded style={{ padding: 16, gap: 14 }}>
@@ -227,7 +338,7 @@ export function VehicleInspectionScreen() {
         ) : (
           <>
             <SignatureBlock title="Signature du conducteur" who="Karim Diallo" padRef={driverPad} onSign={setDriverSigned} signed={driverSigned} />
-            <SignatureBlock title="Signature du client" who="À faire signer au client" padRef={clientPad} onSign={setClientSigned} signed={clientSigned} />
+            <SignatureBlock title={isArrival ? 'Signature du destinataire' : 'Signature du client'} who={isArrival ? 'Personne qui réceptionne le véhicule' : 'À faire signer au client'} padRef={clientPad} onSign={setClientSigned} signed={clientSigned} />
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
               <Icons.warn size={18} color={theme.gold} stroke={1.8} />
               <Text style={{ flex: 1, fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
@@ -249,7 +360,7 @@ export function VehicleInspectionScreen() {
           </Button>
         ) : (
           <Button kind="gold" size="lg" fullWidth disabled={!canNext} onPress={finish} rightIcon={<Icons.check size={18} color={theme.navy} stroke={2.4} />}>
-            Finaliser le PV
+            {isArrival ? 'Finaliser le PV de livraison' : 'Finaliser le PV de prise en charge'}
           </Button>
         )}
       </View>
@@ -323,6 +434,20 @@ function SignatureBlock({ title, who, padRef, onSign, signed }: { title: string;
       </Pressable>
     </Surface>
   );
+}
+
+function RefKv({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <Text style={{ fontSize: 10, color: '#6F6E6B', letterSpacing: 0.7, textTransform: 'uppercase', fontWeight: '600' }}>{label}</Text>
+      <Text style={{ fontSize: 14, color: '#1B1B1F', fontWeight: '700', marginTop: 2 }}>{value}</Text>
+    </View>
+  );
+}
+
+function fuelLabel(v: number | null): string {
+  if (v === null) return '—';
+  return v === 0 ? 'Vide' : v === 1 ? 'Plein' : v === 0.25 ? '¼' : v === 0.5 ? '½' : v === 0.75 ? '¾' : `${v}`;
 }
 
 function summarizeDamages(damages: Damage[]): string {
