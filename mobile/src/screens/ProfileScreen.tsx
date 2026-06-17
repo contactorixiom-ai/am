@@ -175,7 +175,13 @@ export function ProfileScreen() {
           <MenuSection label="Activité">
             <MenuRow iconKey="truck" label="Mes missions" />
             <MenuRow iconKey="doc" label="Documents & factures" />
-            <MenuRow iconKey="news" label="Actualités transport" />
+            <MenuRow iconKey="car" label="Documents véhicule" sub="Carte grise, CT, assurance" onPress={() => nav.navigate('VehicleDocs')} />
+            <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
+          </MenuSection>
+
+          <MenuSection label="Sécurité">
+            <MenuRow iconKey="shield" label="Sécurité du compte" sub="Face ID, 2FA, sessions" onPress={() => nav.navigate('SecuritySettings')} />
+            <MenuRow iconKey="sig" label="Vérification d'identité" sub="KYC chauffeur" onPress={() => nav.navigate('KycVerification')} />
           </MenuSection>
 
           <MenuSection label="Axis">

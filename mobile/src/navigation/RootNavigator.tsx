@@ -22,7 +22,9 @@ import { QuoteReviewScreen } from '../screens/QuoteReviewScreen';
 import { RecipientDetailsScreen } from '../screens/RecipientDetailsScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { RelayPointPickerScreen } from '../screens/RelayPointPickerScreen';
+import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen';
 import { ServicePickerScreen } from '../screens/ServicePickerScreen';
+import { VehicleDocsScreen } from '../screens/VehicleDocsScreen';
 import { TrackByReferenceScreen } from '../screens/TrackByReferenceScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
@@ -95,6 +97,8 @@ export function RootNavigator() {
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
             <RootStack.Screen name="Messaging" component={MessagingScreen} />
             <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
+            <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <RootStack.Screen name="VehicleDocs" component={VehicleDocsScreen} />
             <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>

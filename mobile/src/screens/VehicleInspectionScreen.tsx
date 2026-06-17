@@ -79,8 +79,8 @@ export function VehicleInspectionScreen() {
     setEditing(null);
   };
 
-  const finish = () => {
-    generateContractPdf({
+  const finish = async () => {
+    await generateContractPdf({
       reference,
       copyLabel: 'EXEMPLAIRE\nCLIENT',
       vehicleCategory: 'Berline',

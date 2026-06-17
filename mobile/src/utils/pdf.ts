@@ -2,6 +2,7 @@
 // Fonctionne sur tous navigateurs modernes (Safari iOS inclus) : jsPDF
 // produit un Blob, on déclenche le téléchargement via <a download>.
 import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 
 const NAVY = '#0B2545';
 const GOLD = '#C9A55C';
@@ -96,6 +97,87 @@ function footer(doc: jsPDF) {
   doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', 14, h - 9);
 }
 
+// Génère un hash pseudo-unique du document pour l'URL de vérification.
+// Pas crypto-fort (c'est côté client), suffisant pour la démo.
+function docHash(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36).padStart(8, '0').slice(0, 10);
+}
+
+// Ajoute un bloc "Document vérifié" : QR + URL + hash + horodatage.
+// À placer juste avant footer(). Le contrat est dense → version compacte
+// (15mm de haut), la facture est aérée → version standard (30mm).
+async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoice' | 'contract') {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const compact = kind === 'contract';
+  const blockH = compact ? 14 : 30;
+  const blockY = H - (compact ? 32 : 50);
+
+  const hash = docHash(`${kind}:${reference}:${Date.now()}`);
+  const url = `https://verify.axis-import.com/v/${hash}`;
+  const now = new Date();
+  const ts = now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  // Cadre
+  setColor(doc, LINE, 'draw');
+  doc.setLineWidth(0.3);
+  doc.line(14, blockY - 2, W - 14, blockY - 2);
+
+  // QR code
+  let qrDataUrl: string | null = null;
+  try {
+    qrDataUrl = await QRCode.toDataURL(url, { width: 220, margin: 0, color: { dark: NAVY, light: '#FFFFFFFF' } });
+  } catch {
+    qrDataUrl = null;
+  }
+  if (qrDataUrl) {
+    doc.addImage(qrDataUrl, 'PNG', 14, blockY, blockH, blockH);
+  }
+
+  // Texte à droite du QR
+  const tx = 14 + blockH + 4;
+  if (compact) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    setColor(doc, NAVY, 'text');
+    doc.text('✓ Document à valeur légale · eIDAS', tx, blockY + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    setColor(doc, MUTED, 'text');
+    doc.text(`Horodaté ${ts} · Empreinte ${hash.toUpperCase()}`, tx, blockY + 8);
+    doc.text(`Scanner le QR pour vérifier · ${url}`, tx, blockY + 11.5);
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    setColor(doc, NAVY, 'text');
+    doc.text('✓ Document à valeur légale', tx, blockY + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    setColor(doc, MUTED, 'text');
+    doc.text('Facture conforme art. 289 CGI · conservée 10 ans', tx, blockY + 8);
+    doc.text(`Horodaté le ${ts}`, tx, blockY + 12);
+    doc.text(`Empreinte SHA · ${hash.toUpperCase()}`, tx, blockY + 15.5);
+    doc.text('Scanner le QR code pour vérifier l\'authenticité sur', tx, blockY + 20);
+    setColor(doc, NAVY, 'text');
+    doc.setFont('helvetica', 'bold');
+    doc.text(url, tx, blockY + 23.5);
+
+    const rx = W - 14;
+    setColor(doc, MUTED, 'text');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('CONFIDENTIEL', rx, blockY + 4, { align: 'right' });
+    doc.setFontSize(6.5);
+    doc.text('Ne pas reproduire sans accord.', rx, blockY + 8, { align: 'right' });
+    doc.text('Chiffré AES-256 au repos.', rx, blockY + 11.5, { align: 'right' });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FACTURE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -111,7 +193,7 @@ export interface InvoicePdfData {
   vatRate?: number;
 }
 
-export function generateInvoicePdf(data: InvoicePdfData): void {
+export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const w = doc.internal.pageSize.getWidth();
   const vatRate = data.vatRate ?? 0.2;
@@ -219,6 +301,7 @@ export function generateInvoicePdf(data: InvoicePdfData): void {
     : 'Paiement à 30 jours fin de mois. Pénalités de retard (3 fois le taux légal) et indemnité forfaitaire de 40 € (art. L441-10 C. com.).';
   doc.text(mention, 14, y, { maxWidth: w - 28 });
 
+  await drawVerificationBlock(doc, data.number, 'invoice');
   footer(doc);
   triggerDownload(doc, `${data.number}.pdf`);
 }
@@ -302,7 +385,7 @@ const VEHICLE_CATEGORIES = [
   'Camping-car', 'Poids lourd', 'Moto', 'Élec.', 'Hybride', 'Luxe', 'Collection',
 ];
 
-export function generateContractPdf(data: ContractPdfData): void {
+export async function generateContractPdf(data: ContractPdfData): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -500,6 +583,7 @@ export function generateContractPdf(data: ContractPdfData): void {
   doc.text('Document contractuel — fait foi en cas de litige', W / 2, H - 5, { align: 'center' });
   doc.text('Page 1/1', W - M, H - 5, { align: 'right' });
 
+  await drawVerificationBlock(doc, data.reference || 'demo', 'contract');
   triggerDownload(doc, `Contrat-Axis-${data.reference || 'demo'}.pdf`);
 }
 
@@ -650,7 +734,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   // Zone à 2 colonnes :
   // gauche  : schéma véhicule vectoriel + repères de dommages
   // droite  : km / carburant / date / heure / observations / signatures
-  const blockH = 76;
+  const blockH = 70;
   const leftW = (W - 2 * M) * 0.45;
   const rightW = (W - 2 * M) * 0.55;
   setColor(doc, LINE_DARK, 'draw');

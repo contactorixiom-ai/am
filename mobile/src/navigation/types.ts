@@ -26,6 +26,8 @@ export type RootStackParamList = {
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
   Messaging: { driverName?: string; subtitle?: string } | undefined;
   KycVerification: undefined;
+  SecuritySettings: undefined;
+  VehicleDocs: undefined;
   VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; reference?: string; vehicleLabel?: string } | undefined;
   News: undefined;
 };

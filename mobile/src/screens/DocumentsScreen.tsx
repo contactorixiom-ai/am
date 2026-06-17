@@ -96,9 +96,9 @@ export function DocumentsScreen() {
   const clientName = user ? `${user.firstName} ${user.lastName}` : 'Client Axis Import';
   const clientEmail = user?.email;
 
-  const downloadPdf = (d: Doc) => {
+  const downloadPdf = async (d: Doc) => {
     if (d.cat === 'fact' && d.amountEur) {
-      generateInvoicePdf({
+      await generateInvoicePdf({
         number: d.title,
         date: d.date,
         amountEur: d.amountEur,
@@ -113,7 +113,7 @@ export function DocumentsScreen() {
     // Contrat / état des lieux / CMR / douane → format contrat officiel
     const missionRef = d.ref.split('·')[0].trim();
     const vehicle = d.ref.split('·')[1]?.trim();
-    generateContractPdf({
+    await generateContractPdf({
       reference: `2026-${missionRef.replace(/[^0-9]/g, '').padStart(4, '0')}-FE12`,
       copyLabel: 'EXEMPLAIRE\nCLIENT',
       vehicleCategory: vehicle?.toLowerCase().includes('utilit') ? 'Utilitaire' : 'Berline',
