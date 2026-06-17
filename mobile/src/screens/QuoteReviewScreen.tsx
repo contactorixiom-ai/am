@@ -8,6 +8,7 @@ import { QuoteHint } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
+import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
 import { StyledRouteMap } from '../components/StyledRouteMap';
@@ -17,6 +18,7 @@ import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { fmtEur, fmtLocal } from '../utils/currency';
+import { selectPartner } from '../utils/logisticsPartners';
 
 export function QuoteReviewScreen() {
   const { theme } = useTheme();
@@ -28,6 +30,10 @@ export function QuoteReviewScreen() {
   const isConvoy = quote.service === 'CONVOY_CAR' || quote.service === 'CONVOY_MOTO';
   const isParcel = quote.service === 'PARCEL' || quote.service === 'MERCHANDISE';
   const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
+
+  // Pour les colis : on pré-sélectionne le transporteur partenaire (tronçon 1)
+  // pour informer le client AVANT achat. Numéro de tracking caché à ce stade.
+  const partner = isParcel ? selectPartner({ fromCountry: quote.fromCountry, weightKg: quote.weightKg ?? undefined, toCountry: quote.toCountry }) : null;
 
   const handleBook = () => {
     if (isConvoy) {
@@ -306,6 +312,14 @@ export function QuoteReviewScreen() {
             </View>
           ) : null}
         </Surface>
+
+        {/* Transporteur partenaire (premier tronçon) — uniquement colis */}
+        {partner ? (
+          <View>
+            <SectionHead title="Premier kilomètre" />
+            <LogisticsPartnerCard partner={partner} showTracking={false} />
+          </View>
+        ) : null}
 
         {/* Comparison strip : 4 badges trust */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

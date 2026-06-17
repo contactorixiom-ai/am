@@ -14,6 +14,8 @@ import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
+import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
+import { selectPartner } from '../utils/logisticsPartners';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
 // Étapes par défaut si pas de tracking events (mission convoyage)
@@ -24,6 +26,18 @@ const DEFAULT_STEPS = [
   { label: "État des lieux d'arrivée",    sub: 'Prévu 14h32',                            done: false, current: false },
   { label: 'Livré',                       sub: '—',                                       done: false, current: false },
 ];
+
+// Étapes pour un colis Europe→Afrique : 5 tronçons distincts
+function buildParcelLegs(partnerName: string, port: string) {
+  return [
+    { label: `Enlèvement par ${partnerName}`, sub: 'Premier tronçon — chez toi',          done: true,  current: false },
+    { label: `Acheminement au port`,           sub: `${port}`,                              done: true,  current: false },
+    { label: 'Consolidation conteneur',        sub: 'Prise en charge Axis maritime',        done: false, current: true  },
+    { label: 'Traversée maritime',             sub: 'Marseille → Dakar · 14 jours',         done: false, current: false },
+    { label: 'Dédouanement Dakar',             sub: 'BSC + déclaration export',             done: false, current: false },
+    { label: 'Livraison destinataire',         sub: 'Remise au destinataire final',         done: false, current: false },
+  ];
+}
 
 export function TrackingScreen() {
   const { theme } = useTheme();
@@ -171,6 +185,15 @@ export function TrackingScreen() {
           </View>
         ) : null}
 
+        {/* Transporteur partenaire (tronçon 1) — uniquement colis */}
+        {kind === 'parcel' ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+            <LogisticsPartnerCard
+              partner={selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry })}
+            />
+          </View>
+        ) : null}
+
         {/* Sheet with driver + timeline */}
         <View style={{ padding: 16 }}>
           <Surface padded style={{ padding: 16 }}>
@@ -227,7 +250,13 @@ export function TrackingScreen() {
                   done: i < arr.length - 1,
                   current: i === arr.length - 1,
                 }))
-              : DEFAULT_STEPS.map((s, i) => ({ ...s, time: i < 2 ? '22 mai · 11:08' : i === 2 ? 'Maintenant' : 'Prévu' }))
+              : (kind === 'parcel'
+                  ? buildParcelLegs(
+                      selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry }).name,
+                      'Hub Roissy → Port autonome de Marseille',
+                    )
+                  : DEFAULT_STEPS
+                ).map((s, i, arr) => ({ ...s, time: i < (arr.length >> 1) ? 'Hier · 17:42' : i === (arr.length >> 1) ? 'Maintenant' : 'Prévu' }))
             ).map((step, i, arr) => (
               <View key={i} style={{ flexDirection: 'row', gap: 12, paddingBottom: i === arr.length - 1 ? 0 : 14 }}>
                 <View style={{ alignItems: 'center' }}>
