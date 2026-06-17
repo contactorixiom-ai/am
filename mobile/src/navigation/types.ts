@@ -24,11 +24,13 @@ export type RootStackParamList = {
   RecipientDetails: { quote: QuoteResponse };
   BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
+  MissionDetails: { reference?: string } | undefined;
   Messaging: { driverName?: string; subtitle?: string } | undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
   VehicleDocs: undefined;
   VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; reference?: string; vehicleLabel?: string } | undefined;
+  Notifications: undefined;
   News: undefined;
 };
 

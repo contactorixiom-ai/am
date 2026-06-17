@@ -13,7 +13,9 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { KycVerificationScreen } from '../screens/KycVerificationScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MessagingScreen } from '../screens/MessagingScreen';
+import { MissionDetailsScreen } from '../screens/MissionDetailsScreen';
 import { NewsScreen } from '../screens/NewsScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
 import { PickupModeScreen } from '../screens/PickupModeScreen';
@@ -95,11 +97,13 @@ export function RootNavigator() {
             <RootStack.Screen name="RecipientDetails" component={RecipientDetailsScreen} />
             <RootStack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} options={{ gestureEnabled: false }} />
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
+            <RootStack.Screen name="MissionDetails" component={MissionDetailsScreen} />
             <RootStack.Screen name="Messaging" component={MessagingScreen} />
             <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <RootStack.Screen name="VehicleDocs" component={VehicleDocsScreen} />
             <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
+            <RootStack.Screen name="Notifications" component={NotificationsScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>
         ) : (

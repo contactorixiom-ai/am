@@ -96,7 +96,7 @@ export function TripsScreen() {
         {/* Carte mission active (démo) */}
         {(tab === 'all' || tab === 'convoy') ? (
           <Pressable
-            onPress={() => nav.navigate('Tracking', { kind: 'mission', id: DEMO_MISSION.ref, reference: DEMO_MISSION.ref })}
+            onPress={() => nav.navigate('MissionDetails', { reference: DEMO_MISSION.ref })}
           >
             <Surface padded style={{ padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

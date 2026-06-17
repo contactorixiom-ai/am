@@ -86,6 +86,7 @@ export function HomeScreen() {
           </Text>
         </View>
         <Pressable
+          onPress={() => nav.navigate('Notifications')}
           style={({ pressed }) => ({
             width: 42,
             height: 42,
@@ -116,6 +117,7 @@ export function HomeScreen() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24, gap: 18 }}>
         {/* Hero — Active mission */}
+        <Pressable onPress={() => nav.navigate('MissionDetails', { reference: MISSION.ref })}>
         <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <Pill tone="navy">● En route</Pill>
@@ -209,6 +211,7 @@ export function HomeScreen() {
             </Button>
           </View>
         </Surface>
+        </Pressable>
 
         {/* Quick actions */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
