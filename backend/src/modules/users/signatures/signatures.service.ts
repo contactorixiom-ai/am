@@ -15,10 +15,8 @@ export class SignaturesService {
   /**
    * Appose une signature électronique sur un document :
    *  - vérifie les droits (propriétaire, participant à la mission, ou ADMIN),
-   *  - pose `signedAt`,
-   *  - persiste l'URL de la signature dans un AuditLog (le modèle Document
-   *    n'a pas encore de colonne dédiée — cf. rapport, champ `signatureUrl`
-   *    à ajouter par l'orchestrateur).
+   *  - pose `signedAt`, `signatureUrl`, `signedBy` sur le document,
+   *  - trace l'opération dans un AuditLog.
    */
   async sign(documentId: string, user: AuthenticatedUser, dto: SignDocumentDto) {
     const doc = await this.prisma.document.findUnique({
@@ -40,7 +38,7 @@ export class SignaturesService {
 
     const updated = await this.prisma.document.update({
       where: { id: documentId },
-      data: { signedAt: new Date() },
+      data: { signedAt: new Date(), signatureUrl: dto.signatureUrl, signedBy: user.id },
     });
 
     await this.prisma.auditLog.create({
@@ -56,8 +54,8 @@ export class SignaturesService {
     return {
       id: updated.id,
       signedAt: updated.signedAt,
-      signatureUrl: dto.signatureUrl,
-      signedBy: user.id,
+      signatureUrl: updated.signatureUrl,
+      signedBy: updated.signedBy,
     };
   }
 }

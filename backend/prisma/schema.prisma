@@ -458,7 +458,9 @@ model Document {
   mimeType    String
   fileSize    Int
   pageCount   Int?
-  signedAt    DateTime?
+  signedAt      DateTime?
+  signatureUrl  String?
+  signedBy      String?   @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

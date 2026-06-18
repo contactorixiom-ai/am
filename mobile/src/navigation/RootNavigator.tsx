@@ -32,6 +32,7 @@ import { TrackByReferenceScreen } from '../screens/TrackByReferenceScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
 import { VehicleInspectionScreen } from '../screens/VehicleInspectionScreen';
+import { CustomsRequirementsScreen } from '../screens/CustomsRequirementsScreen';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
@@ -109,6 +110,7 @@ export function RootNavigator() {
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <RootStack.Screen name="VehicleDocs" component={VehicleDocsScreen} />
             <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
+            <RootStack.Screen name="CustomsRequirements" component={CustomsRequirementsScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>

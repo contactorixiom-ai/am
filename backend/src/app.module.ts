@@ -19,6 +19,7 @@ import { NewsModule } from './modules/news/news.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { CustomsModule } from './modules/customs/customs.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -67,6 +68,7 @@ import { HealthModule } from './modules/health/health.module';
     ParcelsModule,
     NewsModule,
     PaymentsModule,
+    CustomsModule,
   ],
 })
 export class AppModule {}

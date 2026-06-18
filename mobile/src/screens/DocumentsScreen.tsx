@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
@@ -434,6 +437,7 @@ export function DocumentsScreen() {
 // gracieuse vers la matrice démo locale si l'API est indisponible.
 function CustomsCard() {
   const { theme } = useTheme();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [req, setReq] = useState<CountryRequirements | null>(null);
 
   useEffect(() => {
@@ -496,6 +500,14 @@ function CustomsCard() {
           Checklist PDF
         </Button>
       </View>
+      <Pressable
+        onPress={() => nav.navigate('CustomsRequirements', { countryCode: req.countryCode })}
+        style={({ pressed }) => ({ marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 10, backgroundColor: pressed ? theme.bgSoft : 'transparent' })}
+      >
+        <Text style={{ fontSize: 12.5, color: theme.navy, fontFamily: TYPO.weights.semibold }}>
+          Voir la réglementation par pays →
+        </Text>
+      </Pressable>
     </Surface>
   );
 }
