@@ -12,6 +12,7 @@ import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
+import { fetchSessions, revokeSession, type AuthSession } from '../api/security';
 
 const STORAGE_KEY = 'axis.security.v1';
 
@@ -41,18 +42,83 @@ const SESSIONS: Session[] = [
   { id: 's3', device: 'Safari · iPad Air', location: 'Bordeaux, France', ip: '88.171.•••.18', lastSeen: 'Il y a 1 sem' },
 ];
 
+/** Masque partiellement une IP pour l'affichage (RGPD). */
+function maskIp(ip: string | null): string {
+  if (!ip) return 'IP inconnue';
+  const v4 = ip.split('.');
+  if (v4.length === 4) return `${v4[0]}.${v4[1]}.•••.${v4[3]}`;
+  return ip.length > 12 ? `${ip.slice(0, 8)}…` : ip;
+}
+
+/** Libellé "vu il y a…" à partir d'une date ISO. */
+function relativeLabel(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 2) return 'À l\'instant';
+  if (mins < 60) return `Il y a ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `Il y a ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `Il y a ${days} j`;
+  return `Il y a ${Math.round(days / 7)} sem`;
+}
+
+/** Déduit un nom d'appareil lisible à partir du User-Agent. */
+function deviceLabel(ua: string | null): string {
+  if (!ua) return 'Appareil inconnu';
+  const os = /iPhone|iPad|iOS/i.test(ua) ? 'iOS'
+    : /Android/i.test(ua) ? 'Android'
+    : /Mac OS|Macintosh/i.test(ua) ? 'macOS'
+    : /Windows/i.test(ua) ? 'Windows'
+    : /Linux/i.test(ua) ? 'Linux' : 'Web';
+  const browser = /Safari/i.test(ua) && !/Chrome/i.test(ua) ? 'Safari'
+    : /Chrome/i.test(ua) ? 'Chrome'
+    : /Firefox/i.test(ua) ? 'Firefox'
+    : 'Navigateur';
+  return `${os} · ${browser}`;
+}
+
+function toScreenSession(s: AuthSession): Session {
+  return {
+    id: s.id,
+    device: deviceLabel(s.userAgent),
+    location: '—',
+    ip: maskIp(s.ipAddress),
+    lastSeen: relativeLabel(s.createdAt),
+    current: s.current,
+  };
+}
+
 export function SecuritySettingsScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [s, setS] = useState<State>(DEFAULT);
   const [sessions, setSessions] = useState<Session[]>(SESSIONS);
+  // `sessionsOnline` : true si les sessions proviennent du backend (sinon démo).
+  const [sessionsOnline, setSessionsOnline] = useState(false);
   const [pinDialog, setPinDialog] = useState<'create' | 'remove' | null>(null);
   const [pinDraft, setPinDraft] = useState('');
 
   useEffect(() => {
+    // Réglages de verrouillage : toujours en local (Face ID / PIN / 2FA).
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (raw) try { setS({ ...DEFAULT, ...JSON.parse(raw) }); } catch { /* ignore */ }
     });
+  }, []);
+
+  useEffect(() => {
+    // Sessions actives : on tente le backend, fallback gracieux sur le mock.
+    let cancelled = false;
+    fetchSessions()
+      .then((list) => {
+        if (cancelled) return;
+        if (list.length > 0) {
+          setSessions(list.map(toScreenSession));
+          setSessionsOnline(true);
+        }
+      })
+      .catch(() => { /* hors-ligne → on garde les sessions de démo */ });
+    return () => { cancelled = true; };
   }, []);
 
   const persist = (next: State) => {
@@ -97,8 +163,14 @@ export function SecuritySettingsScreen() {
   };
 
   const revoke = (id: string) => {
+    // Optimiste : on retire localement, puis on confirme côté backend si en ligne.
     setSessions((prev) => prev.filter((x) => x.id !== id));
     notify('Session révoquée', 'Cet appareil est déconnecté immédiatement.');
+    if (sessionsOnline) {
+      revokeSession(id).catch(() => {
+        notify('Révocation différée', 'Le serveur est injoignable, réessaie plus tard.');
+      });
+    }
   };
 
   return (

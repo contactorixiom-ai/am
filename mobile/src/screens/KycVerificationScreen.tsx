@@ -12,6 +12,13 @@ import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
+import { ApiError } from '../api/client';
+import {
+  fetchKycOverview,
+  uploadAndSubmitKyc,
+  type KycDocumentType,
+  type KycStatus as ApiKycStatus,
+} from '../api/kyc';
 
 type DocStatus = 'pending' | 'uploaded' | 'verified' | 'rejected';
 
@@ -20,16 +27,24 @@ interface RequiredDoc {
   title: string;
   hint: string;
   required: boolean;
+  /** Type KYC backend associé (sert au mapping API ↔ écran). */
+  apiType: KycDocumentType;
 }
 
 const REQUIRED_DOCS: RequiredDoc[] = [
-  { key: 'license_front', title: 'Permis de conduire — recto', hint: 'Photo nette, sans reflet', required: true },
-  { key: 'license_back',  title: 'Permis de conduire — verso', hint: 'Toutes les catégories visibles', required: true },
-  { key: 'id_front',      title: 'Pièce d\'identité — recto', hint: 'CNI ou passeport', required: true },
-  { key: 'id_back',       title: 'Pièce d\'identité — verso', hint: 'Sauf si passeport', required: false },
-  { key: 'address',       title: 'Justificatif de domicile', hint: 'Moins de 3 mois (facture, quittance)', required: true },
-  { key: 'selfie',        title: 'Selfie de contrôle', hint: 'Pour vérification anti-fraude', required: true },
+  { key: 'license_front', title: 'Permis de conduire — recto', hint: 'Photo nette, sans reflet', required: true, apiType: 'DRIVER_LICENSE' },
+  { key: 'license_back',  title: 'Permis de conduire — verso', hint: 'Toutes les catégories visibles', required: true, apiType: 'DRIVER_LICENSE' },
+  { key: 'id_front',      title: 'Pièce d\'identité — recto', hint: 'CNI ou passeport', required: true, apiType: 'IDENTITY_CARD' },
+  { key: 'id_back',       title: 'Pièce d\'identité — verso', hint: 'Sauf si passeport', required: false, apiType: 'IDENTITY_CARD' },
+  { key: 'address',       title: 'Justificatif de domicile', hint: 'Moins de 3 mois (facture, quittance)', required: true, apiType: 'PROOF_OF_ADDRESS' },
+  { key: 'selfie',        title: 'Selfie de contrôle', hint: 'Pour vérification anti-fraude', required: true, apiType: 'OTHER' },
 ];
+
+function apiStatusToDocStatus(status: ApiKycStatus): DocStatus {
+  if (status === 'APPROVED') return 'verified';
+  if (status === 'REJECTED') return 'rejected';
+  return 'uploaded';
+}
 
 type State = Record<string, { status: DocStatus; uri?: string; uploadedAt?: string }>;
 
@@ -39,11 +54,44 @@ export function KycVerificationScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [state, setState] = useState<State>({});
+  // `online` indique si le backend KYC répond ; sinon on reste en mode démo local.
+  const [online, setOnline] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
+  // Au montage : on tente de charger le statut KYC réel depuis le backend.
+  // En cas d'échec réseau, on retombe gracieusement sur l'état local (démo).
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) try { setState(JSON.parse(raw)); } catch { /* ignore */ }
-    });
+    let cancelled = false;
+    (async () => {
+      try {
+        const overview = await fetchKycOverview();
+        if (cancelled) return;
+        // On agrège le dernier statut connu par type de document.
+        const byType: Partial<Record<KycDocumentType, ApiKycStatus>> = {};
+        for (const d of overview.documents) {
+          if (!byType[d.type]) byType[d.type] = d.status; // documents triés par date desc
+        }
+        const next: State = {};
+        REQUIRED_DOCS.forEach((doc) => {
+          const st = byType[doc.apiType];
+          if (st) {
+            next[doc.key] = {
+              status: apiStatusToDocStatus(st),
+              uploadedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+            };
+          }
+        });
+        setState((prev) => ({ ...prev, ...next }));
+        setOnline(true);
+      } catch {
+        // Backend indisponible → on charge l'état local persistant.
+        const raw = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
+        if (!cancelled && raw) {
+          try { setState(JSON.parse(raw)); } catch { /* ignore */ }
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -57,10 +105,42 @@ export function KycVerificationScreen() {
   const allVerified = REQUIRED_DOCS.every((d) => !d.required || state[d.key]?.status === 'verified');
   const allUploaded = uploadedRequired === totalRequired;
 
+  const todayLabel = () =>
+    new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Marque un document comme déposé localement (état optimiste + persistance).
+  const markUploaded = (key: string, uri?: string) => {
+    setState((prev) => ({
+      ...prev,
+      [key]: { status: 'uploaded', uri, uploadedAt: todayLabel() },
+    }));
+  };
+
+  // Envoie réellement le document au backend (upload + dépôt KYC). En cas
+  // d'échec on garde l'état local pour rester démo-able.
+  const sendToBackend = async (doc: RequiredDoc, dataUrl: string, fileName: string, mimeType: string) => {
+    setBusyKey(doc.key);
+    try {
+      await uploadAndSubmitKyc({ type: doc.apiType, fileName, mimeType, data: dataUrl });
+      setOnline(true);
+      notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
+    } catch (e) {
+      const msg = e instanceof ApiError && e.isNetworkError
+        ? 'Document enregistré en local (serveur injoignable).'
+        : 'Document enregistré en local (envoi serveur impossible).';
+      notify('Mode hors-ligne', msg);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const pickFile = (key: string) => {
+    const doc = REQUIRED_DOCS.find((d) => d.key === key);
+    if (!doc) return;
+
     if (typeof window === 'undefined' || typeof document === 'undefined') {
-      // Native fallback — on n'a pas configuré expo-image-picker dans cette
-      // version, donc on simule pour la démo.
+      // Native fallback — expo-image-picker non configuré dans cette version,
+      // on simule un dépôt pour la démo.
       simulateUpload(key);
       return;
     }
@@ -73,15 +153,9 @@ export function KycVerificationScreen() {
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
-        setState((prev) => ({
-          ...prev,
-          [key]: {
-            status: 'uploaded',
-            uri: dataUrl,
-            uploadedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-          },
-        }));
+        markUploaded(key, dataUrl);
         notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
+        void sendToBackend(doc, dataUrl, file.name, file.type || 'image/jpeg');
       };
       reader.readAsDataURL(file);
     };
@@ -89,13 +163,7 @@ export function KycVerificationScreen() {
   };
 
   const simulateUpload = (key: string) => {
-    setState((prev) => ({
-      ...prev,
-      [key]: {
-        status: 'uploaded',
-        uploadedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-      },
-    }));
+    markUploaded(key);
     notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
   };
 
@@ -160,6 +228,7 @@ export function KycVerificationScreen() {
                 status={s}
                 uri={state[doc.key]?.uri}
                 uploadedAt={state[doc.key]?.uploadedAt}
+                busy={busyKey === doc.key}
                 onPick={() => pickFile(doc.key)}
               />
             );
@@ -184,8 +253,9 @@ export function KycVerificationScreen() {
           ))}
         </Surface>
 
-        {/* Bouton démo */}
-        {allUploaded && !allVerified ? (
+        {/* Bouton démo : en mode hors-ligne uniquement (sinon la validation
+            est faite par un ADMIN via le backend). */}
+        {!online && allUploaded && !allVerified ? (
           <Button kind="outline" size="lg" fullWidth onPress={simulateAdminApproval}>
             [Démo] Simuler la validation conformité
           </Button>
@@ -196,7 +266,7 @@ export function KycVerificationScreen() {
 }
 
 function DocCard({
-  title, hint, required, status, uri, uploadedAt, onPick,
+  title, hint, required, status, uri, uploadedAt, busy, onPick,
 }: {
   title: string;
   hint: string;
@@ -204,20 +274,23 @@ function DocCard({
   status: DocStatus;
   uri?: string;
   uploadedAt?: string;
+  busy?: boolean;
   onPick: () => void;
 }) {
   const { theme } = useTheme();
   const tone: PillTone =
+    busy ? 'navy' :
     status === 'verified' ? 'good' :
     status === 'uploaded' ? 'navy' :
     status === 'rejected' ? 'bad' : 'ghost';
   const label =
+    busy ? 'Envoi…' :
     status === 'verified' ? 'Vérifié' :
     status === 'uploaded' ? 'En vérification' :
     status === 'rejected' ? 'Refusé' : (required ? 'Requis' : 'Optionnel');
 
   return (
-    <Pressable onPress={onPick}>
+    <Pressable onPress={onPick} disabled={busy}>
       <Surface padded style={{ padding: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ width: 56, height: 44, borderRadius: 8, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>

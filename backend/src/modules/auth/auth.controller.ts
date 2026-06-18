@@ -1,4 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -47,5 +60,28 @@ export class AuthController {
   @ApiOperation({ summary: 'Déconnexion (révoque le refresh token)' })
   async logout(@CurrentUser('id') userId: string, @Body() body: Partial<RefreshDto>) {
     await this.auth.logout(userId, body.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get('sessions')
+  @ApiOperation({ summary: 'Lister ses sessions / appareils connectés' })
+  sessions(
+    @CurrentUser('id') userId: string,
+    @Query('refreshToken') refreshToken?: string,
+  ) {
+    return this.auth.listSessions(userId, refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete('sessions/:id')
+  @ApiOperation({ summary: 'Révoquer une session (déconnecter un appareil)' })
+  async revokeSession(
+    @CurrentUser('id') userId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    await this.auth.revokeSession(userId, id);
   }
 }
