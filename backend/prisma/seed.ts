@@ -1,5 +1,6 @@
-import { AccountType, NewsStatus, PrismaClient, RelayCarrier, UserRole, UserStatus } from '@prisma/client';
+import { AccountType, NewsStatus, Prisma, PrismaClient, RelayCarrier, UserRole, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { COUNTRY_REGULATIONS } from '../src/modules/customs/customs.data';
 
 const prisma = new PrismaClient();
 
@@ -132,6 +133,34 @@ async function main(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(`✅ Seeded ${RELAY_POINTS.length} relay points`);
+
+  // ── Réglementations douanières par pays (BSC / BESC / ECTN / FERI…) ──────
+  for (const reg of COUNTRY_REGULATIONS) {
+    await prisma.countryRegulation.upsert({
+      where: { countryCode: reg.countryCode },
+      update: {
+        countryName: reg.countryName,
+        cargoTrackingType: reg.cargoTrackingType,
+        cargoMandatory: reg.cargoMandatory,
+        authority: reg.authority,
+        currency: reg.currency,
+        customsNotes: reg.customsNotes,
+        requiredDocuments: reg.requiredDocuments as unknown as Prisma.InputJsonValue,
+      },
+      create: {
+        countryCode: reg.countryCode,
+        countryName: reg.countryName,
+        cargoTrackingType: reg.cargoTrackingType,
+        cargoMandatory: reg.cargoMandatory,
+        authority: reg.authority,
+        currency: reg.currency,
+        customsNotes: reg.customsNotes,
+        requiredDocuments: reg.requiredDocuments as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+  // eslint-disable-next-line no-console
+  console.log(`✅ Seeded ${COUNTRY_REGULATIONS.length} country regulations`);
 
   // eslint-disable-next-line no-console
   console.log('✅ Seed complete. Demo accounts:');

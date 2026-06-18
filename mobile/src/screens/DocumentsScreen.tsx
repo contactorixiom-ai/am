@@ -9,10 +9,19 @@ import { PaymentSheet } from '../components/PaymentSheet';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { notify } from '../utils/notify';
-import { generateContractPdf, generateInvoicePdf } from '../utils/pdf';
+import { generateContractPdf, generateInvoicePdf, generateCustomsChecklistPdf } from '../utils/pdf';
+import {
+  CARGO_TYPE_LABEL,
+  CountryRequirements,
+  getDemoRequirements,
+  getRequirements,
+} from '../api/customs';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
+
+// Destination par défaut pour la carte "réglementation douanière".
+const CUSTOMS_DEMO_COUNTRY = 'SN';
 
 type FilterId = 'all' | 'contrat' | 'fact' | 'cmr' | 'douane';
 
@@ -235,6 +244,9 @@ export function DocumentsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 14 }}>
+        {/* Carte réglementation douanière (onglets Tous + Douane) */}
+        {(tab === 'all' || tab === 'douane') ? <CustomsCard /> : null}
+
         {/* Carte "à signer" */}
         {pendingSignature ? (
           <Surface padded flat style={{ padding: 14, backgroundColor: theme.navy, borderColor: theme.navy }}>
@@ -413,5 +425,77 @@ export function DocumentsScreen() {
         onPaid={() => { if (paying) payInvoice(paying); }}
       />
     </SafeAreaView>
+  );
+}
+
+// ─── Carte réglementation douanière ────────────────────────────────────────
+// Résume le bordereau requis + le nombre de documents douaniers manquants
+// pour une destination, avec export PDF de la checklist. Dégradation
+// gracieuse vers la matrice démo locale si l'API est indisponible.
+function CustomsCard() {
+  const { theme } = useTheme();
+  const [req, setReq] = useState<CountryRequirements | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const r = await getRequirements(CUSTOMS_DEMO_COUNTRY);
+        if (active) setReq(r);
+      } catch {
+        if (active) setReq(getDemoRequirements(CUSTOMS_DEMO_COUNTRY));
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  if (!req) return null;
+
+  const mandatory = req.checklist.filter((i) => i.mandatory);
+  const missing = mandatory.filter((i) => i.provided !== true).length;
+  const trackingLabel = req.cargoTrackingType ? CARGO_TYPE_LABEL[req.cargoTrackingType] : null;
+
+  const exportPdf = async () => {
+    await generateCustomsChecklistPdf({
+      countryName: req.countryName,
+      countryCode: req.countryCode,
+      trackingTypeLabel: trackingLabel ?? undefined,
+      authority: req.authority ?? undefined,
+      customsNotes: req.customsNotes ?? undefined,
+      items: req.checklist.map((i) => ({ label: i.label, mandatory: i.mandatory, provided: i.provided, note: i.note })),
+    });
+    notify('Checklist exportée', `Checklist douanière ${req.countryName} enregistrée en PDF.`);
+  };
+
+  return (
+    <Surface padded style={{ padding: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icons.globe size={22} color={theme.navy} stroke={1.6} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+            Réglementation · {req.countryName}
+          </Text>
+          <Text numberOfLines={2} style={{ fontSize: 14, color: theme.ink, marginTop: 3, lineHeight: 18, fontFamily: TYPO.weights.semibold }}>
+            {trackingLabel ?? 'Aucun bordereau spécifique'}
+          </Text>
+          {req.authority ? (
+            <Text numberOfLines={1} style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
+              Émis par {req.authority}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+        <Pill tone={missing > 0 ? 'warn' : 'good'}>
+          {missing > 0 ? `${missing} document(s) manquant(s)` : 'Dossier complet'}
+        </Pill>
+        <View style={{ flex: 1 }} />
+        <Button kind="outline" size="sm" onPress={exportPdf} rightIcon={<Icons.doc size={15} color={theme.navy} stroke={1.8} />}>
+          Checklist PDF
+        </Button>
+      </View>
+    </Surface>
   );
 }
