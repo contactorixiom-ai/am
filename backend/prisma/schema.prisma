@@ -682,6 +682,7 @@ model Parcel {
   items          ParcelItem[]
   trackingEvents ParcelTrackingEvent[]
   documents      Document[]
+  cargoNotes     CargoTrackingNote[]
   conversation   Conversation?
 
   @@index([senderId, status])
@@ -947,4 +948,75 @@ model AuditLog {
 
   @@index([userId, createdAt])
   @@index([entity, entityId])
+}
+
+// ============================================================================
+//  DOUANE & RÉGLEMENTATION — Bordereaux de Suivi de Cargaison
+//  (BSC / BESC / ECTN / BIETC / FERI / Cargo Waiver selon les pays)
+//  Posé par l'orchestrateur — possédé par l'Agent Administratif/réglementation.
+// ============================================================================
+
+enum CargoTrackingType {
+  BSC // Bordereau de Suivi de Cargaison (Sénégal, Côte d'Ivoire, Mali, Guinée…)
+  BESC // Bordereau Électronique de Suivi de Cargaison (Cameroun, Gabon, RCA…)
+  ECTN // Electronic Cargo Tracking Note (Togo, Bénin, Niger, RDC…)
+  BIETC // Bordereau d'Identification Électronique du Transport de Cargaison (Gabon)
+  FERI // Fiche Électronique de Renseignement à l'Importation (RDC, Congo)
+  CARGO_WAIVER // Terme générique
+}
+
+enum CargoTrackingStatus {
+  NOT_REQUIRED
+  TO_REQUEST
+  DRAFT
+  SUBMITTED
+  VALIDATED
+  REJECTED
+  ISSUED
+}
+
+// Réglementation par pays de destination : type de bordereau requis,
+// documents douaniers obligatoires, autorité émettrice, devise locale.
+model CountryRegulation {
+  id                String             @id @default(uuid()) @db.Uuid
+  countryCode       String             @unique // ISO 3166-1 alpha-2 (SN, CI, CM…)
+  countryName       String
+  cargoTrackingType CargoTrackingType?
+  cargoMandatory    Boolean            @default(true)
+  authority         String? // organisme émetteur (COSEC, OGEFREM, CNCC…)
+  currency          String             @default("XOF")
+  customsNotes      String?
+  requiredDocuments Json // liste structurée des documents requis
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  cargoNotes CargoTrackingNote[]
+
+  @@index([countryCode])
+}
+
+// Instance d'un bordereau de suivi de cargaison rattaché à un envoi.
+model CargoTrackingNote {
+  id           String             @id @default(uuid()) @db.Uuid
+  parcelId     String?            @db.Uuid
+  parcel       Parcel?            @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+  regulationId String?            @db.Uuid
+  regulation   CountryRegulation? @relation(fields: [regulationId], references: [id], onDelete: SetNull)
+
+  type               CargoTrackingType
+  status             CargoTrackingStatus @default(TO_REQUEST)
+  number             String? // numéro BSC/ECTN une fois émis
+  destinationCountry String
+  blNumber           String? // n° connaissement / Bill of Lading
+  hsCode             String? // code SH de la marchandise
+  fobValueCents      Int?
+  feeCents           Int?
+  issuedAt           DateTime?
+  validatedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parcelId])
+  @@index([destinationCountry, status])
 }
