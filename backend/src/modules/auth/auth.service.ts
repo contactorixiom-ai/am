@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -27,6 +28,15 @@ export interface AuthResult extends AuthTokens {
     role: User['role'];
     status: UserStatus;
   };
+}
+
+export interface SessionInfo {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+  current: boolean;
 }
 
 @Injectable()
@@ -109,6 +119,44 @@ export class AuthService {
     }
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Liste les sessions actives (refresh tokens non révoqués et non expirés). */
+  async listSessions(userId: string, currentRefreshToken?: string): Promise<SessionInfo[]> {
+    const currentHash = currentRefreshToken ? this.hashToken(currentRefreshToken) : undefined;
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        tokenHash: true,
+        userAgent: true,
+        ipAddress: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+    return tokens.map((t) => ({
+      id: t.id,
+      userAgent: t.userAgent,
+      ipAddress: t.ipAddress,
+      createdAt: t.createdAt,
+      expiresAt: t.expiresAt,
+      current: currentHash ? t.tokenHash === currentHash : false,
+    }));
+  }
+
+  /** Révoque une session précise (déconnecte l'appareil correspondant). */
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    const token = await this.prisma.refreshToken.findUnique({ where: { id: sessionId } });
+    if (!token || token.userId !== userId) {
+      throw new NotFoundException('Session introuvable');
+    }
+    if (token.revokedAt) return;
+    await this.prisma.refreshToken.update({
+      where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
   }
