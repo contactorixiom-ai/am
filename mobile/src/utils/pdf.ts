@@ -307,6 +307,124 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CHECKLIST DOUANIÈRE — documents requis à l'import par pays
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CustomsChecklistItem {
+  label: string;
+  mandatory: boolean;
+  provided?: boolean;
+  note?: string;
+}
+
+export interface CustomsChecklistData {
+  countryName: string;
+  countryCode: string;
+  trackingTypeLabel?: string;   // ex "Bordereau de Suivi de Cargaison (BSC)"
+  authority?: string;           // ex "COSEC"
+  cargoStatusLabel?: string;    // ex "À demander"
+  customsNotes?: string;
+  items: CustomsChecklistItem[];
+}
+
+export async function generateCustomsChecklistPdf(data: CustomsChecklistData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const w = doc.internal.pageSize.getWidth();
+
+  invoiceHeader(doc, 'Checklist douanière', `${data.countryName} · ${data.countryCode}`);
+
+  let y = 40;
+
+  // Encart bordereau requis
+  if (data.trackingTypeLabel) {
+    setColor(doc, NAVY, 'fill');
+    doc.roundedRect(14, y, w - 28, 18, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    setColor(doc, GOLD, 'text');
+    doc.text('BORDEREAU DE SUIVI DE CARGAISON REQUIS', 18, y + 6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text(data.trackingTypeLabel, 18, y + 11.5, { maxWidth: w - 60 });
+    if (data.authority) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(`Émis par ${data.authority}`, 18, y + 15.5);
+    }
+    if (data.cargoStatusLabel) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      setColor(doc, GOLD, 'text');
+      doc.text(`Statut : ${data.cargoStatusLabel}`, w - 18, y + 11.5, { align: 'right' });
+    }
+    y += 24;
+  }
+
+  // En-tête tableau
+  setColor(doc, NAVY, 'fill');
+  doc.rect(14, y, w - 28, 9, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Document', 18, y + 6);
+  doc.text('Obligatoire', w - 70, y + 6);
+  doc.text('Statut', w - 18, y + 6, { align: 'right' });
+  y += 13;
+
+  data.items.forEach((item) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    setColor(doc, INK, 'text');
+    doc.text(item.label, 18, y, { maxWidth: w - 95 });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    setColor(doc, item.mandatory ? NAVY : MUTED, 'text');
+    doc.text(item.mandatory ? 'Oui' : 'Recommandé', w - 70, y);
+
+    const provided = item.provided === true;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    if (provided) doc.setTextColor(31, 138, 91);
+    else setColor(doc, item.mandatory ? '#B7791F' : MUTED, 'text');
+    doc.text(provided ? '✓ Fourni' : 'Manquant', w - 18, y, { align: 'right' });
+
+    if (item.note) {
+      y += 4;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      setColor(doc, MUTED, 'text');
+      const lines = doc.splitTextToSize(item.note, w - 95);
+      doc.text(lines, 18, y);
+      y += (lines.length - 1) * 3.5;
+    }
+
+    y += 6;
+    setColor(doc, LINE, 'draw');
+    doc.setLineWidth(0.2);
+    doc.line(14, y - 2, w - 14, y - 2);
+  });
+
+  if (data.customsNotes) {
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    setColor(doc, NAVY, 'text');
+    doc.text('Notes douanières', 14, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    setColor(doc, INK, 'text');
+    const lines = doc.splitTextToSize(data.customsNotes, w - 28);
+    doc.text(lines, 14, y);
+  }
+
+  footer(doc);
+  triggerDownload(doc, `Checklist-douane-${data.countryCode}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONTRAT DE CONVOYAGE + ÉTAT DES LIEUX
 // Fidèle au modèle officiel Axis Import (départ + arrivée sur 1 page A4).
 // ═══════════════════════════════════════════════════════════════════════════
