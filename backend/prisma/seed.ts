@@ -1,6 +1,6 @@
 import { AccountType, NewsStatus, Prisma, PrismaClient, RelayCarrier, UserRole, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { COUNTRY_REGULATIONS } from '../src/modules/customs/customs.data';
+import { COUNTRY_REGULATIONS, zoneForCountry } from '../src/modules/customs/customs.data';
 
 const prisma = new PrismaClient();
 
@@ -159,8 +159,17 @@ async function main(): Promise<void> {
       },
     });
   }
+  // Récap par zone géographique (utile en dev pour vérifier la couverture).
+  const zoneCounts = COUNTRY_REGULATIONS.reduce<Record<string, number>>((acc, r) => {
+    const z = zoneForCountry(r.countryCode) ?? 'UNKNOWN';
+    acc[z] = (acc[z] ?? 0) + 1;
+    return acc;
+  }, {});
   // eslint-disable-next-line no-console
-  console.log(`✅ Seeded ${COUNTRY_REGULATIONS.length} country regulations`);
+  console.log(
+    `✅ Seeded ${COUNTRY_REGULATIONS.length} country regulations · ` +
+      Object.entries(zoneCounts).map(([z, n]) => `${z}:${n}`).join(' · '),
+  );
 
   // eslint-disable-next-line no-console
   console.log('✅ Seed complete. Demo accounts:');

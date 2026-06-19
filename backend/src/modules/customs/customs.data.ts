@@ -1,10 +1,28 @@
 import { CargoTrackingType } from '@prisma/client';
+import { AFRICA_SUBSAHARAN_REGULATIONS } from './regulations/africa-subsaharan';
+import { EUROPE_REGULATIONS } from './regulations/europe';
+
+/**
+ * Catégorie fonctionnelle d'un document de la checklist douanière.
+ * Permet de filtrer la liste selon le type d'envoi (colis personnel,
+ * marchandise commerciale, véhicule…).
+ */
+export type DocumentCategory =
+  | 'commercial'
+  | 'transport'
+  | 'origin'
+  | 'insurance'
+  | 'tracking'
+  | 'compliance'
+  | 'vehicle';
 
 export interface RequiredDocument {
   key: string;
   label: string;
   mandatory: boolean;
   note?: string;
+  /** Catégorie fonctionnelle pour filtrer par type d'envoi. */
+  category?: DocumentCategory;
   /** État "fourni" calculé à la volée pour un colis (cf. getRequirements). */
   provided?: boolean;
 }
@@ -20,146 +38,106 @@ export interface CountryRegulationSeed {
   requiredDocuments: RequiredDocument[];
 }
 
-// ─── Socle documentaire commun à tout import de marchandises ───────────────
-// La plupart des pays exigent ce noyau ; chaque pays y ajoute son bordereau.
-function baseDocuments(extra: RequiredDocument[] = []): RequiredDocument[] {
-  return [
-    {
-      key: 'commercial_invoice',
-      label: 'Facture commerciale',
-      mandatory: true,
-      note: '3 exemplaires originaux, datés et signés.',
-    },
-    {
-      key: 'packing_list',
-      label: 'Liste de colisage',
-      mandatory: true,
-      note: 'Détail des colis, poids brut/net et dimensions.',
-    },
-    {
-      key: 'bill_of_lading',
-      label: 'Connaissement (B/L) ou LTA',
-      mandatory: true,
-      note: 'Connaissement maritime (B/L) ou lettre de transport aérien (LTA).',
-    },
-    {
-      key: 'certificate_of_origin',
-      label: 'Certificat d\'origine',
-      mandatory: true,
-      note: 'Visé par la chambre de commerce du pays d\'expédition.',
-    },
-    {
-      key: 'insurance_certificate',
-      label: 'Attestation d\'assurance',
-      mandatory: false,
-      note: 'Recommandée pour couvrir la valeur déclarée.',
-    },
-    ...extra,
-  ];
+/**
+ * Regroupement géographique des pays couverts — utile pour l'UI mobile
+ * (sélecteur de pays groupé) et pour le rapport orchestrateur.
+ */
+export type CountryZone =
+  | 'AFRICA_WEST'
+  | 'AFRICA_CENTRAL'
+  | 'AFRICA_EAST'
+  | 'AFRICA_SOUTH'
+  | 'EUROPE_EU'
+  | 'EUROPE_EFTA'
+  | 'EUROPE_OTHER';
+
+const COUNTRY_ZONE: Record<string, CountryZone> = {
+  // Afrique de l'Ouest
+  SN: 'AFRICA_WEST', CI: 'AFRICA_WEST', ML: 'AFRICA_WEST', BF: 'AFRICA_WEST',
+  NE: 'AFRICA_WEST', BJ: 'AFRICA_WEST', TG: 'AFRICA_WEST', GN: 'AFRICA_WEST',
+  GW: 'AFRICA_WEST', SL: 'AFRICA_WEST', LR: 'AFRICA_WEST', GH: 'AFRICA_WEST',
+  NG: 'AFRICA_WEST', MR: 'AFRICA_WEST', CV: 'AFRICA_WEST', GM: 'AFRICA_WEST',
+  // Afrique Centrale
+  CM: 'AFRICA_CENTRAL', GA: 'AFRICA_CENTRAL', CG: 'AFRICA_CENTRAL', CD: 'AFRICA_CENTRAL',
+  CF: 'AFRICA_CENTRAL', TD: 'AFRICA_CENTRAL', GQ: 'AFRICA_CENTRAL', ST: 'AFRICA_CENTRAL',
+  // Afrique de l'Est
+  KE: 'AFRICA_EAST', TZ: 'AFRICA_EAST', UG: 'AFRICA_EAST', RW: 'AFRICA_EAST',
+  BI: 'AFRICA_EAST', SD: 'AFRICA_EAST', SS: 'AFRICA_EAST', ET: 'AFRICA_EAST',
+  ER: 'AFRICA_EAST', DJ: 'AFRICA_EAST', SO: 'AFRICA_EAST',
+  // Afrique Australe
+  ZA: 'AFRICA_SOUTH', NA: 'AFRICA_SOUTH', BW: 'AFRICA_SOUTH', ZW: 'AFRICA_SOUTH',
+  ZM: 'AFRICA_SOUTH', MW: 'AFRICA_SOUTH', MZ: 'AFRICA_SOUTH', AO: 'AFRICA_SOUTH',
+  LS: 'AFRICA_SOUTH', SZ: 'AFRICA_SOUTH', MG: 'AFRICA_SOUTH', KM: 'AFRICA_SOUTH',
+  MU: 'AFRICA_SOUTH',
+  // UE 27
+  FR: 'EUROPE_EU', DE: 'EUROPE_EU', IT: 'EUROPE_EU', ES: 'EUROPE_EU',
+  PT: 'EUROPE_EU', BE: 'EUROPE_EU', NL: 'EUROPE_EU', LU: 'EUROPE_EU',
+  AT: 'EUROPE_EU', IE: 'EUROPE_EU', FI: 'EUROPE_EU', SE: 'EUROPE_EU',
+  DK: 'EUROPE_EU', GR: 'EUROPE_EU', PL: 'EUROPE_EU', CZ: 'EUROPE_EU',
+  SK: 'EUROPE_EU', HU: 'EUROPE_EU', RO: 'EUROPE_EU', BG: 'EUROPE_EU',
+  SI: 'EUROPE_EU', HR: 'EUROPE_EU', EE: 'EUROPE_EU', LV: 'EUROPE_EU',
+  LT: 'EUROPE_EU', CY: 'EUROPE_EU', MT: 'EUROPE_EU',
+  // AELE
+  CH: 'EUROPE_EFTA', NO: 'EUROPE_EFTA', IS: 'EUROPE_EFTA', LI: 'EUROPE_EFTA',
+  // Autres Europe
+  GB: 'EUROPE_OTHER', TR: 'EUROPE_OTHER', RS: 'EUROPE_OTHER', BA: 'EUROPE_OTHER',
+  MK: 'EUROPE_OTHER', ME: 'EUROPE_OTHER', AL: 'EUROPE_OTHER', MD: 'EUROPE_OTHER',
+  UA: 'EUROPE_OTHER',
+};
+
+export const COUNTRY_ZONE_LABEL: Record<CountryZone, string> = {
+  AFRICA_WEST: 'Afrique de l\'Ouest',
+  AFRICA_CENTRAL: 'Afrique Centrale',
+  AFRICA_EAST: 'Afrique de l\'Est',
+  AFRICA_SOUTH: 'Afrique Australe',
+  EUROPE_EU: 'Union européenne',
+  EUROPE_EFTA: 'AELE',
+  EUROPE_OTHER: 'Autres Europe',
+};
+
+export function zoneForCountry(countryCode: string): CountryZone | null {
+  return COUNTRY_ZONE[countryCode.toUpperCase()] ?? null;
 }
 
-function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocument {
-  const labels: Record<CargoTrackingType, string> = {
-    BSC: 'Bordereau de Suivi de Cargaison (BSC)',
-    BESC: 'Bordereau Électronique de Suivi de Cargaison (BESC)',
-    ECTN: 'Electronic Cargo Tracking Note (ECTN)',
-    BIETC: 'Bordereau d\'Identification Électronique du Transport de Cargaison (BIETC)',
-    FERI: 'Fiche Électronique de Renseignement à l\'Importation (FERI)',
-    CARGO_WAIVER: 'Cargo Tracking Note',
-  };
-  return {
-    key: 'cargo_tracking_note',
-    label: labels[type],
-    mandatory: true,
-    note: `Obligatoire à l'import — émis par ${authority}. À valider avant l'embarquement.`,
-  };
-}
-
-// ─── Matrice réglementaire par pays (pilote) ───────────────────────────────
+// ─── Matrice réglementaire complète ────────────────────────────────────────
+// On délègue le détail par région à `regulations/*.ts` pour garder ce fichier
+// digeste. Tout ajout ou correction passe par les fichiers régionaux.
 export const COUNTRY_REGULATIONS: CountryRegulationSeed[] = [
-  {
-    countryCode: 'SN',
-    countryName: 'Sénégal',
-    cargoTrackingType: CargoTrackingType.BSC,
-    cargoMandatory: true,
-    authority: 'COSEC (Conseil Sénégalais des Chargeurs)',
-    currency: 'XOF',
-    customsNotes:
-      'Le BSC doit être validé avant l\'arrivée au port de Dakar. Numéro à reporter sur la déclaration douanière.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.BSC, 'le COSEC')]),
-  },
-  {
-    countryCode: 'CI',
-    countryName: 'Côte d\'Ivoire',
-    cargoTrackingType: CargoTrackingType.BSC,
-    cargoMandatory: true,
-    authority: 'OIC (Office Ivoirien des Chargeurs)',
-    currency: 'XOF',
-    customsNotes:
-      'BSC obligatoire pour le port d\'Abidjan et de San Pedro. Validation avant embarquement requise.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.BSC, 'l\'OIC')]),
-  },
-  {
-    countryCode: 'CM',
-    countryName: 'Cameroun',
-    cargoTrackingType: CargoTrackingType.BESC,
-    cargoMandatory: true,
-    authority: 'CNCC (Conseil National des Chargeurs du Cameroun)',
-    currency: 'XAF',
-    customsNotes:
-      'Le BESC (parfois appelé BIC) est exigé pour le port de Douala. À établir au départ.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.BESC, 'le CNCC')]),
-  },
-  {
-    countryCode: 'BJ',
-    countryName: 'Bénin',
-    cargoTrackingType: CargoTrackingType.ECTN,
-    cargoMandatory: true,
-    authority: 'CNCC (Conseil National des Chargeurs du Bénin)',
-    currency: 'XOF',
-    customsNotes: 'ECTN obligatoire pour le port de Cotonou.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.ECTN, 'le CNCC')]),
-  },
-  {
-    countryCode: 'TG',
-    countryName: 'Togo',
-    cargoTrackingType: CargoTrackingType.ECTN,
-    cargoMandatory: true,
-    authority: 'CNCC (Conseil National des Chargeurs du Togo)',
-    currency: 'XOF',
-    customsNotes: 'ECTN obligatoire pour le port de Lomé.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.ECTN, 'le CNCC')]),
-  },
-  {
-    countryCode: 'GA',
-    countryName: 'Gabon',
-    cargoTrackingType: CargoTrackingType.BIETC,
-    cargoMandatory: true,
-    authority: 'Conseil Gabonais des Chargeurs',
-    currency: 'XAF',
-    customsNotes: 'Le BIETC est exigé pour le port d\'Owendo / Libreville.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.BIETC, 'le Conseil Gabonais des Chargeurs')]),
-  },
-  {
-    countryCode: 'CD',
-    countryName: 'République Démocratique du Congo',
-    cargoTrackingType: CargoTrackingType.FERI,
-    cargoMandatory: true,
-    authority: 'OGEFREM (Office de Gestion du Fret Multimodal)',
-    currency: 'CDF',
-    customsNotes:
-      'La FERI est délivrée par l\'OGEFREM. Indispensable pour le dédouanement à Matadi et à l\'est du pays.',
-    requiredDocuments: baseDocuments([trackingDoc(CargoTrackingType.FERI, 'l\'OGEFREM')]),
-  },
+  ...AFRICA_SUBSAHARAN_REGULATIONS,
+  ...EUROPE_REGULATIONS,
 ];
+
+/**
+ * Récupère la fiche réglementaire d'un pays (insensible à la casse).
+ * Helper exporté pour les tests, le seed et les consommateurs externes.
+ */
+export function findRegulation(countryCode: string): CountryRegulationSeed | null {
+  const code = countryCode.toUpperCase();
+  return COUNTRY_REGULATIONS.find((r) => r.countryCode === code) ?? null;
+}
 
 /**
  * Déduit le type de bordereau requis pour un pays de destination.
  * Renvoie null si le pays n'est pas couvert / pas concerné.
  */
 export function trackingTypeForCountry(countryCode: string): CargoTrackingType | null {
-  const reg = COUNTRY_REGULATIONS.find(
-    (r) => r.countryCode === countryCode.toUpperCase(),
-  );
-  return reg?.cargoTrackingType ?? null;
+  return findRegulation(countryCode)?.cargoTrackingType ?? null;
+}
+
+/**
+ * Filtre la checklist douanière selon le type d'envoi.
+ * - `parcel`        : envoi standard de marchandise / colis (exclut `vehicle`).
+ * - `vehicle`       : convoyage de véhicule (n'exclut rien, ajoute le bloc véhicule).
+ * - `personalParcel`: colis perso (assurance et compliance recommandés, vehicle exclu).
+ * - `commercial`    : marchandise commerciale (toutes catégories sauf vehicle).
+ */
+export type ShipmentKind = 'parcel' | 'vehicle' | 'personalParcel' | 'commercial';
+
+export function filterDocumentsForShipment(
+  docs: RequiredDocument[],
+  kind: ShipmentKind,
+): RequiredDocument[] {
+  if (kind === 'vehicle') return docs;
+  // Tous les autres types n'ont pas besoin des docs spécifiques véhicule.
+  return docs.filter((d) => d.category !== 'vehicle');
 }

@@ -1,6 +1,6 @@
 import { RouteProp, useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import { ApiError } from '../api/client';
 import {
   CARGO_STATUS_LABEL,
@@ -22,6 +22,11 @@ import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { generateCustomsChecklistPdf } from '../utils/pdf';
 import { notify } from '../utils/notify';
+import {
+  COUNTRY_SUMMARIES,
+  groupCountriesByZone,
+  searchCountries,
+} from '../utils/countryRegulations';
 
 // Le screen lit ses params de façon défensive : il n'exige PAS d'entrée dans
 // RootStackParamList (fichier gelé). L'orchestrateur ajoutera la route.
@@ -57,6 +62,7 @@ export function CustomsRequirementsScreen() {
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingDemo, setUsingDemo] = useState(false);
+  const [query, setQuery] = useState('');
 
   // Liste des pays couverts (pour le sélecteur)
   useEffect(() => {
@@ -69,7 +75,13 @@ export function CustomsRequirementsScreen() {
         }
         throw new Error('empty');
       } catch {
-        setCountries(listDemoRegulations().map((r) => ({ code: r.countryCode, name: r.countryName })));
+        // Fallback : on prend la liste compacte locale (matrice étendue),
+        // qui couvre toute l'Afrique subsaharienne et l'Europe.
+        const demoFromApi = listDemoRegulations();
+        const fallback = demoFromApi.length
+          ? demoFromApi.map((r) => ({ code: r.countryCode, name: r.countryName }))
+          : COUNTRY_SUMMARIES.map((c) => ({ code: c.code, name: c.name }));
+        setCountries(fallback);
       }
     })();
   }, []);
@@ -100,6 +112,12 @@ export function CustomsRequirementsScreen() {
   useEffect(() => {
     load(country);
   }, [country, load]);
+
+  // Filtre + regroupement par zone géographique pour le sélecteur.
+  const grouped = useMemo(() => {
+    const filtered = searchCountries(query, countries);
+    return groupCountriesByZone(filtered);
+  }, [countries, query]);
 
   const cargoNote = data?.cargoNote ?? null;
   const cargoStatusLabel = cargoNote
@@ -142,31 +160,78 @@ export function CustomsRequirementsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar title="Réglementation douanière" subtitle="Documents requis à l'import" />
 
-      {/* Sélecteur pays */}
-      <View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 8 }}
+      {/* Recherche pays */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <View
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            paddingHorizontal: 12, paddingVertical: 10,
+            borderRadius: 12, borderWidth: 1, borderColor: theme.line,
+            backgroundColor: theme.surface,
+          }}
         >
-          {countries.map((c) => {
-            const on = c.code === country;
-            return (
-              <Pressable
-                key={c.code}
-                onPress={() => setCountry(c.code)}
+          <Icons.globe size={16} color={theme.muted} stroke={1.6} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher un pays (ex. Sénégal, Cameroun, FR…)"
+            placeholderTextColor={theme.muted}
+            style={{ flex: 1, fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium, padding: 0 }}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {query ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+              <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Effacer</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Sélecteur pays groupé par zone */}
+      <View style={{ maxHeight: 168 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 16, gap: 10 }}
+        >
+          {grouped.map((g) => (
+            <View key={g.zone}>
+              <Text
                 style={{
-                  flexShrink: 0, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
-                  borderWidth: 1, borderColor: on ? theme.select : theme.line,
-                  backgroundColor: on ? theme.select : theme.surface,
+                  fontSize: 10.5, color: theme.muted, letterSpacing: 0.8,
+                  textTransform: 'uppercase', fontFamily: TYPO.weights.semibold,
+                  marginBottom: 6,
                 }}
               >
-                <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.medium }}>
-                  {c.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+                {g.label}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {g.items.map((c) => {
+                  const on = c.code === country;
+                  return (
+                    <Pressable
+                      key={c.code}
+                      onPress={() => setCountry(c.code)}
+                      style={{
+                        paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999,
+                        borderWidth: 1, borderColor: on ? theme.select : theme.line,
+                        backgroundColor: on ? theme.select : theme.surface,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12.5, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.medium }}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+          {grouped.length === 0 ? (
+            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, textAlign: 'center', paddingVertical: 12 }}>
+              Aucun pays ne correspond à « {query} ».
+            </Text>
+          ) : null}
         </ScrollView>
       </View>
 
