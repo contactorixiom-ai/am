@@ -6,6 +6,7 @@ import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
 import { QuoteHint } from '../api/quotes';
 import { AppBar } from '../components/AppBar';
+import { ParcelWizard } from '../components/ParcelWizard';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
@@ -51,6 +52,8 @@ export function QuoteReviewScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar title="Ton devis" subtitle={quote.reference} />
+      {/* Continuité visuelle avec le parcours colis (ParcelWizard étape 5). */}
+      {isParcel ? <ParcelWizard step={5} onBack={() => nav.goBack()} subtitle="Récap & paiement" /> : null}
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 16 }}>
         {/* Hero prix — card navy avec total en doré */}
