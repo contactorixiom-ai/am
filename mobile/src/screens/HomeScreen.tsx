@@ -144,23 +144,29 @@ export function HomeScreen() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24, gap: 18 }}>
         {/* Hero — Active mission */}
-        <Pressable onPress={() => nav.navigate('MissionDetails', { reference: MISSION.ref })}>
         <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          {/* Header cliquable → ouvre le dossier complet (sans englober les boutons) */}
+          <Pressable
+            onPress={() => nav.navigate('MissionDetails', { reference: MISSION.ref })}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}
+          >
             <Pill tone="navy">● En route</Pill>
-            <Text
-              style={{
-                fontSize: 11.5,
-                color: theme.muted,
-                letterSpacing: 0.7,
-                textTransform: 'uppercase',
-                fontFamily: TYPO.weights.medium,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {MISSION.ref}
-            </Text>
-          </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text
+                style={{
+                  fontSize: 11.5,
+                  color: theme.muted,
+                  letterSpacing: 0.7,
+                  textTransform: 'uppercase',
+                  fontFamily: TYPO.weights.medium,
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
+                {MISSION.ref}
+              </Text>
+              <Icons.chev size={14} color={theme.muted} stroke={2} />
+            </View>
+          </Pressable>
           <Text
             style={{
               fontFamily: TYPO.weights.bold,
@@ -238,7 +244,6 @@ export function HomeScreen() {
             </Button>
           </View>
         </Surface>
-        </Pressable>
 
         {/* Quick actions */}
         <View style={{ flexDirection: 'row', gap: 10 }}>

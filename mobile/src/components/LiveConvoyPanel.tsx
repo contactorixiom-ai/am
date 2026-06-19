@@ -47,11 +47,20 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [progress, setProgress] = useState(0);
+  // tick force un re-render chaque seconde pour rafraîchir "depuis Xs" et l'ETA
+  // même pendant les phases PAUSE/STOP où rien d'autre ne bouge.
+  const [, setTick] = useState(0);
   const baseProgressRef = useRef(0);
   const phaseStartRef = useRef<number>(Date.now());
   const pulse = useRef(new Animated.Value(0)).current;
 
   const phase = SCRIPT[phaseIdx];
+
+  // Tick de rafraîchissement : 1 fois par seconde, indépendant des phases.
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Animation de progression : pour la phase ROLLING on interpole linéairement
   // entre baseProgress et baseProgress + delta sur la durée. Pour les autres,
@@ -103,13 +112,25 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
   const totalKm = 312;
   const doneKm = Math.round(totalKm * progress);
   const remainKm = totalKm - doneKm;
-  const etaMin = Math.max(0, Math.round((1 - progress) * 200));
-  const eta = new Date(Date.now() + etaMin * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  // ETA basé sur une vitesse moyenne de 85 km/h (autoroute mixte UE).
+  // Quand le véhicule est en pause/arrêt, on ajoute le temps de pause restant.
+  const avgSpeedKmh = 85;
+  const driveMin = (remainKm / avgSpeedKmh) * 60;
+  const phaseRemainMs = Math.max(0, phase.durationMs - (Date.now() - phaseStartRef.current));
+  const pauseRemainMin = phase.state === 'PAUSE' || phase.state === 'STOP' ? phaseRemainMs / 60000 : 0;
+  const etaMin = Math.max(0, Math.round(driveMin + pauseRemainMin));
+  const eta = phase.state === 'ARRIVED'
+    ? 'Arrivé'
+    : new Date(Date.now() + etaMin * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   const since = (() => {
     const sec = Math.floor((Date.now() - phaseStartRef.current) / 1000);
-    if (sec < 60) return `${sec}s`;
-    return `${Math.floor(sec / 60)} min`;
+    if (sec < 60) return `${sec} s`;
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    if (min < 60) return rem > 0 && min < 5 ? `${min} min ${rem} s` : `${min} min`;
+    const h = Math.floor(min / 60);
+    return `${h} h ${min % 60} min`;
   })();
 
   return (
