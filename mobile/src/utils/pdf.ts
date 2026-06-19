@@ -3,6 +3,7 @@
 // produit un Blob, on déclenche le téléchargement via <a download>.
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { AXIS_LOGO_PDF } from './axisLogoPdf';
 
 const NAVY = '#0B2545';
 const GOLD = '#C9A55C';
@@ -11,20 +12,18 @@ const MUTED = '#6F6E6B';
 const LINE = '#E5DDC8';
 const LINE_DARK = '#1B1B1F';
 
-// ─── Logo AXIS (vector) ───────────────────────────────────────────────────
+// ─── Logo AXIS ────────────────────────────────────────────────────────────
+// Le vrai logo neutre Axis (étoile dans cercle + flèche) est embarqué en
+// base64 dans axisLogoPdf.ts. On le pose comme image sur le PDF.
 
 function drawAxisLogo(doc: jsPDF, x: number, y: number, size = 8) {
-  // Cercle doré + "A" stylisé
-  doc.setFillColor(NAVY);
-  doc.circle(x + size / 2, y + size / 2, size / 2, 'F');
-  doc.setDrawColor(GOLD);
-  doc.setLineWidth(0.4);
-  doc.circle(x + size / 2, y + size / 2, size / 2 - 0.4, 'S');
-  // Trait stylisé central
-  doc.setLineWidth(0.6);
-  doc.line(x + size * 0.32, y + size * 0.7, x + size * 0.5, y + size * 0.32);
-  doc.line(x + size * 0.5, y + size * 0.32, x + size * 0.68, y + size * 0.7);
-  doc.line(x + size * 0.4, y + size * 0.56, x + size * 0.6, y + size * 0.56);
+  try {
+    doc.addImage(AXIS_LOGO_PDF, 'PNG', x, y, size, size, undefined, 'FAST');
+  } catch {
+    // Fallback géométrique si l'image ne peut pas être chargée
+    doc.setFillColor(0, 0, 0);
+    doc.circle(x + size / 2, y + size / 2, size / 2 - 0.5, 'S');
+  }
 }
 
 // ─── Helpers communs ──────────────────────────────────────────────────────
