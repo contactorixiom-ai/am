@@ -45,11 +45,18 @@ export class CustomsController {
     summary: 'Réglementation + checklist des documents requis pour un pays',
   })
   @ApiQuery({ name: 'parcelId', required: false })
+  @ApiQuery({
+    name: 'kind',
+    required: false,
+    enum: ['parcel', 'vehicle', 'personalParcel', 'commercial'],
+    description: 'Type d\'envoi : filtre la checklist (ex. exclut les docs véhicule pour un colis).',
+  })
   getRequirements(
     @Param('countryCode') countryCode: string,
     @Query('parcelId') parcelId?: string,
+    @Query('kind') kind?: 'parcel' | 'vehicle' | 'personalParcel' | 'commercial',
   ) {
-    return this.customs.getRequirements(countryCode, parcelId);
+    return this.customs.getRequirements(countryCode, parcelId, kind);
   }
 
   @ApiBearerAuth()

@@ -13,6 +13,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   COUNTRY_REGULATIONS,
   RequiredDocument,
+  ShipmentKind,
+  filterDocumentsForShipment,
   trackingTypeForCountry,
 } from './customs.data';
 import {
@@ -126,9 +128,11 @@ export class CustomsService {
    * Si un parcelId est fourni, calcule l'état "fourni / manquant" de chaque
    * document à partir des documents douaniers déjà rattachés au colis.
    */
-  async getRequirements(countryCode: string, parcelId?: string) {
+  async getRequirements(countryCode: string, parcelId?: string, kind?: ShipmentKind) {
     const reg = await this.getRegulation(countryCode);
-    const requiredDocuments = (reg.requiredDocuments as unknown as RequiredDocument[]) ?? [];
+    const allDocs = (reg.requiredDocuments as unknown as RequiredDocument[]) ?? [];
+    // Filtrage par type d'envoi : un colis ne demande pas les docs véhicule.
+    const requiredDocuments = kind ? filterDocumentsForShipment(allDocs, kind) : allDocs;
 
     let cargoNote = null;
     let checklist: RequiredDocument[] = requiredDocuments;

@@ -5,12 +5,24 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   Length,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+
+export const DOCUMENT_CATEGORIES = [
+  'commercial',
+  'transport',
+  'origin',
+  'insurance',
+  'tracking',
+  'compliance',
+  'vehicle',
+] as const;
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
 
 /**
  * Un document requis à l'import dans un pays donné.
@@ -32,6 +44,13 @@ export class RequiredDocumentDto {
   @ApiPropertyOptional({ description: 'Précisions (nombre d\'exemplaires, langue, légalisation…)' })
   @IsOptional() @IsString() @MaxLength(240)
   note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Catégorie du document (filtre selon le type d\'envoi).',
+    enum: DOCUMENT_CATEGORIES,
+  })
+  @IsOptional() @IsIn(DOCUMENT_CATEGORIES as unknown as string[])
+  category?: DocumentCategory;
 }
 
 export class CreateCountryRegulationDto {
