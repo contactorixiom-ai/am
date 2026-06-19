@@ -50,7 +50,7 @@ function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocume
     BSC: 'Bordereau de Suivi de Cargaison (BSC)',
     BESC: 'Bordereau Électronique de Suivi de Cargaison (BESC)',
     ECTN: 'Electronic Cargo Tracking Note (ECTN)',
-    BIETC: 'Bordereau d\'Identification Électronique du Transport de Cargaison (BIETC)',
+    BIETC: 'Bordereau d\'Identification Électronique de Traçabilité des Cargaisons (BIETC)',
     FERI: 'Fiche Électronique de Renseignement à l\'Importation (FERI)',
     CARGO_WAIVER: 'Cargo Tracking Note',
   };
@@ -108,22 +108,22 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     countryName: 'Mali',
     cargoTrackingType: CargoTrackingType.BSC,
     cargoMandatory: true,
-    authority: 'CMTR (Conseil Malien des Transports Routiers)',
+    authority: 'CMC (Conseil Malien des Chargeurs)',
     currency: 'XOF',
     customsNotes:
-      'Le BSC est exigé pour toute marchandise transitant par les ports de Dakar, Abidjan, Lomé, Conakry ou Tema à destination du Mali (pays enclavé).',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BSC, 'le CMTR'), ...VEHICLE_DOCS]),
+      'Le BSC est exigé pour toute marchandise transitant par les ports de Dakar, Abidjan, Lomé, Conakry ou Tema à destination du Mali (pays enclavé). Émis par le CMC (Conseil Malien des Chargeurs).',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BSC, 'le CMC'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'BF',
     countryName: 'Burkina Faso',
-    cargoTrackingType: CargoTrackingType.BSC,
+    cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
     authority: 'CBC (Conseil Burkinabè des Chargeurs)',
     currency: 'XOF',
     customsNotes:
-      'BSC obligatoire pour tout fret à destination du Burkina (pays enclavé, transit principalement par Lomé, Abidjan, Tema).',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BSC, 'le CBC'), ...VEHICLE_DOCS]),
+      'ECTN obligatoire pour tout fret à destination du Burkina (pays enclavé, transit principalement par Lomé, Abidjan, Tema). Émis par le CBC.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le CBC'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'NE',
@@ -139,13 +139,13 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   {
     countryCode: 'BJ',
     countryName: 'Bénin',
-    cargoTrackingType: CargoTrackingType.ECTN,
+    cargoTrackingType: CargoTrackingType.BESC,
     cargoMandatory: true,
-    authority: 'CNCB (Conseil National des Chargeurs du Bénin)',
+    authority: 'PAC (Port Autonome de Cotonou) — anciennement CNCB',
     currency: 'XOF',
     customsNotes:
-      'ECTN obligatoire pour le port de Cotonou, à valider avant embarquement.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le CNCB'), ...VEHICLE_DOCS]),
+      'BESC (Bordereau Électronique de Suivi des Cargaisons) obligatoire pour le port de Cotonou, à valider 5 jours avant l\'arrivée du navire. Géré par le Port Autonome de Cotonou (PAC) depuis l\'arrêté n°019 d\'octobre 2021 (auparavant CNCB).',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'le PAC'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'TG',
@@ -163,22 +163,23 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     countryName: 'Guinée',
     cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
-    authority: 'CNCG (Conseil National des Chargeurs de Guinée)',
+    authority: 'CGC (Conseil Guinéen des Chargeurs)',
     currency: 'GNF',
     customsNotes:
-      'ECTN exigé pour le port de Conakry. Validation avant embarquement par le correspondant CNCG.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le CNCG'), ...VEHICLE_DOCS]),
+      'ECTN/BSC exigé pour le port de Conakry (décret N° D/2011/305/PRG/SGG depuis 2011, renforcé par décret 2018/10/1/2/2/MT). Validation avant embarquement par le correspondant CGC.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le CGC'), ...VEHICLE_DOCS]),
   },
   {
+    // TODO: à confirmer — délégataire officiel (Catalyst Business Solutions / Antaser selon les périodes).
     countryCode: 'GW',
     countryName: 'Guinée-Bissau',
     cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
-    authority: 'Direction des Douanes de Guinée-Bissau',
+    authority: 'Direção Geral das Alfândegas (gestion déléguée à un prestataire agréé)',
     currency: 'XOF',
     customsNotes:
-      'Un Cargo Tracking Note est exigé pour le port de Bissau (mis en place via prestataire agréé).',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'l\'administration douanière'), ...VEHICLE_DOCS]),
+      'CEE (Certificado Eletrônico de Embarque), équivalent ECTN/BSC, exigé pour le port de Bissau (Porto Pidjiguiti) depuis 2011. Gestion opérationnelle déléguée à un prestataire agréé.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le prestataire agréé'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'SL',
@@ -196,11 +197,11 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     countryName: 'Liberia',
     cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
-    authority: 'Liberia Shippers Council (LSC)',
+    authority: 'National Port Authority (NPA) of Liberia',
     currency: 'LRD',
     customsNotes:
-      'ECTN/CTN obligatoire pour le port de Monrovia (Freeport of Monrovia).',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le LSC'), ...VEHICLE_DOCS]),
+      'CTN/ECTN obligatoire pour le port de Monrovia (Freeport of Monrovia), Greenville et autres ports liberiens. Imposé par la NPA depuis 2018.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'la NPA'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'GH',
@@ -210,7 +211,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     authority: 'Ghana Shippers\' Authority (GSA)',
     currency: 'GHS',
     customsNotes:
-      'Plus de CTN obligatoire depuis 2024 (suspendu), mais la conformité produit (CCVR — Conformity Certificate Verification Report) est requise via Ghana Standards Authority. ICUMS (Integrated Customs Management System) pour le dédouanement.',
+      'CTN suspendu depuis 2024. Une réintroduction sous forme de SPN (Smart Port Note) était prévue pour le 1er février 2026 par la GSA mais a été reportée sine die suite à l\'opposition des opérateurs. Conformité produit (CCVR — Conformity Certificate Verification Report) requise via Ghana Standards Authority. ICUMS (Integrated Customs Management System) pour le dédouanement.',
     requiredDocuments: baseDocs([
       { key: 'ccvr_certificate', label: 'CCVR (Conformity Certificate)', mandatory: true, category: 'compliance', note: 'Émis avant embarquement par un organisme agréé (Bureau Veritas, Cotecna, Intertek).' },
       ...VEHICLE_DOCS,
@@ -232,15 +233,16 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     ]),
   },
   {
+    // TODO: à confirmer — l'émetteur du BSC en Mauritanie n'est pas formellement identifié dans nos sources publiques (DGD ou PANPA / Port Autonome de Nouakchott).
     countryCode: 'MR',
     countryName: 'Mauritanie',
     cargoTrackingType: CargoTrackingType.BSC,
     cargoMandatory: true,
-    authority: 'Direction Générale des Douanes (DGD)',
+    authority: 'Direction Générale des Douanes (DGD) — TODO à confirmer',
     currency: 'MRU',
     customsNotes:
-      'BSC obligatoire pour le port de Nouakchott et Nouadhibou. Visa préalable de l\'autorité portuaire.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BSC, 'la DGD'), ...VEHICLE_DOCS]),
+      'BSC/ECTN exigé pour les ports de Nouakchott (PANPA — Port Autonome de Nouakchott) et Nouadhibou. Visa préalable de l\'autorité portuaire.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BSC, 'l\'autorité douanière mauritanienne'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'CV',
@@ -276,7 +278,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     authority: 'CNCC (Conseil National des Chargeurs du Cameroun)',
     currency: 'XAF',
     customsNotes:
-      'Le BESC (parfois noté BIC) est exigé pour le port de Douala et de Kribi. À établir au départ. Référence à reporter sur la déclaration.',
+      'BESC obligatoire pour les ports de Douala et de Kribi, validé par le CNCC. À établir au départ. Référence à reporter sur la déclaration douanière.',
     requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'le CNCC'), ...VEHICLE_DOCS]),
   },
   {
@@ -313,26 +315,27 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.FERI, 'l\'OGEFREM'), ...VEHICLE_DOCS]),
   },
   {
+    // TODO: à confirmer — la RCA n'a pas de Conseil National des Chargeurs. Selon plusieurs sources, le BESC est émis par la Direction Générale des Douanes ; un accord 2023 délègue l'opérationnel à JSL Africa SAS / SAIGE pour la zone Cameroun↔RCA.
     countryCode: 'CF',
     countryName: 'République Centrafricaine',
     cargoTrackingType: CargoTrackingType.BESC,
     cargoMandatory: true,
-    authority: 'BARC (Bureau d\'Affrètement Routier Centrafricain)',
+    authority: 'Direction Générale des Douanes (RCA)',
     currency: 'XAF',
     customsNotes:
-      'BESC requis (pays enclavé, transit principalement par Douala ou Pointe-Noire). Validation BARC obligatoire.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'le BARC'), ...VEHICLE_DOCS]),
+      'BESC requis pour tout import/export (pays enclavé, transit principalement par Douala ou Pointe-Noire). La RCA ne dispose pas d\'un Conseil National des Chargeurs : l\'émission est gérée par la Direction Générale des Douanes, avec délégation opérationnelle à des partenaires agréés (JSL Africa, SAIGE depuis 2023).',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'la Direction Générale des Douanes'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'TD',
     countryName: 'Tchad',
     cargoTrackingType: CargoTrackingType.BESC,
     cargoMandatory: true,
-    authority: 'CNUT (Conseil National des Utilisateurs des Transports)',
+    authority: 'COC-TCHAD (Conseil des Chargeurs du Tchad)',
     currency: 'XAF',
     customsNotes:
-      'BESC obligatoire (pays enclavé, transit par Douala). Validation avant embarquement.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'le CNUT'), ...VEHICLE_DOCS]),
+      'BESC/ECTN obligatoire (pays enclavé, transit principalement par Douala). Validation au plus tard 5 jours avant l\'arrivée du navire. Géré par le Conseil des Chargeurs du Tchad (COC-TCHAD).',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.BESC, 'COC-TCHAD'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'GQ',
@@ -436,11 +439,11 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     countryName: 'Soudan',
     cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
-    authority: 'Sudan Shippers Council',
+    authority: 'Sudan Customs Authority (ACD)',
     currency: 'SDG',
     customsNotes:
-      'CTN exigé pour le Port-Soudan. Contexte sécuritaire à vérifier au cas par cas.',
-    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le Sudan Shippers Council'), ...VEHICLE_DOCS]),
+      'ACD (Advance Cargo Declaration) / ECTN obligatoire pour Port-Soudan depuis le 1er janvier 2026 pour tous les imports et marchandises en transit. À valider au moins 5 jours avant l\'arrivée du navire, référence ACD à reporter sur le B/L. Contexte sécuritaire à vérifier au cas par cas.',
+    requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'la Sudan Customs Authority'), ...VEHICLE_DOCS]),
   },
   {
     countryCode: 'SS',
@@ -549,9 +552,9 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     cargoTrackingType: null,
     cargoMandatory: false,
     authority: 'ZIMRA (Zimbabwe Revenue Authority)',
-    currency: 'USD',
+    currency: 'ZWG',
     customsNotes:
-      'CBCA (Consignment Based Conformity Assessment) géré par Bureau Veritas obligatoire pour la plupart des produits réglementés. Pays enclavé.',
+      'Devise officielle : ZiG (Zimbabwe Gold, code ZWG) depuis avril 2024 — USD reste largement utilisé en pratique (système multi-devises). CBCA (Consignment Based Conformity Assessment) géré par Bureau Veritas obligatoire pour la plupart des produits réglementés. Pays enclavé.',
     requiredDocuments: baseDocs([
       { key: 'cbca_certificate', label: 'CBCA Certificate', mandatory: true, category: 'compliance', note: 'Émis avant embarquement par Bureau Veritas.' },
       ...VEHICLE_DOCS,
@@ -587,7 +590,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     authority: 'Autoridade Tributária de Moçambique (AT)',
     currency: 'MZN',
     customsNotes:
-      'Pas de CTN. Inspection préalable (PSI) Intertek/Bureau Veritas possible. Ports : Maputo, Beira, Nacala.',
+      'Pas de CTN à l\'embarquement. Pre-Shipment Inspection (PSI) sur la "Lista Positiva" via Intertek (programme officiel), accompagnée d\'un Documento Único Certificado (DUC). Système électronique national de suivi en transit MECTS/SEERC pour le scellement. Ports : Maputo, Beira, Nacala.',
     requiredDocuments: baseDocs(VEHICLE_DOCS),
   },
   {
@@ -595,12 +598,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     countryName: 'Angola',
     cargoTrackingType: CargoTrackingType.CARGO_WAIVER,
     cargoMandatory: true,
-    authority: 'AGT (Administração Geral Tributária) / CNC',
+    authority: 'ARCCLA (Agência Reguladora de Certificação de Cargas e Logística de Angola)',
     currency: 'AOA',
     customsNotes:
-      'Cargo Tracking Note (CNCA) obligatoire pour le port de Luanda. Licence d\'importation préalable (Ministério da Indústria e Comércio) souvent requise.',
+      'CNCA / ARCCLA (Cargo Tracking Note) obligatoire pour tous les ports angolais (Luanda, Lobito, Namibe, Soyo). À valider au plus tard 5 jours avant l\'arrivée du navire, référence à reporter sur le B/L. Licence d\'importation préalable (Ministério da Indústria e Comércio) souvent requise.',
     requiredDocuments: baseDocs([
-      trackingDoc(CargoTrackingType.CARGO_WAIVER, 'le CNC angolais'),
+      trackingDoc(CargoTrackingType.CARGO_WAIVER, 'l\'ARCCLA'),
       { key: 'import_license', label: 'Licence d\'importation', mandatory: true, category: 'compliance' },
       ...VEHICLE_DOCS,
     ]),
