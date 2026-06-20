@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
 import { Avatar } from '../components/Avatar';
@@ -8,7 +8,6 @@ import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
-import { useToast } from '../components/PushToast';
 import { SectionHead } from '../components/SectionHead';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -41,32 +40,6 @@ export function HomeScreen() {
   const { theme } = useTheme();
   const { user } = useSession();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const toast = useToast();
-  const toastTriggered = useRef(false);
-
-  // Démo : à la première arrivée sur le Home, on simule l'arrivée d'événements
-  // chauffeur sous forme de toast push (visuel impactant pour la démo).
-  useEffect(() => {
-    if (toastTriggered.current) return;
-    toastTriggered.current = true;
-    const t1 = setTimeout(() => {
-      toast.push({
-        kind: 'driver',
-        title: 'Karim fait une pause',
-        body: 'Aire de Ressons-sur-Matz · pause repas 25 min',
-        onPress: () => nav.navigate('Tracking', { kind: 'mission', id: MISSION.ref, reference: MISSION.ref }),
-      });
-    }, 4500);
-    const t2 = setTimeout(() => {
-      toast.push({
-        kind: 'doc',
-        title: 'Contrat à signer',
-        body: 'Contrat de convoyage AX-2847 · BMW Série 3',
-        onPress: () => nav.navigate('AppTabs'),
-      });
-    }, 12000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [toast, nav]);
 
   // Statut KYC pour afficher une bannière d'incitation si nécessaire.
   // Repli silencieux en mode hors-ligne (on n'embête pas l'utilisateur démo).

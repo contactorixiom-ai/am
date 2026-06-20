@@ -167,20 +167,6 @@ export function KycVerificationScreen() {
     notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
   };
 
-  // Bouton démo : valider tout d'un coup (pour la présentation client)
-  const simulateAdminApproval = () => {
-    setState((prev) => {
-      const next: State = { ...prev };
-      REQUIRED_DOCS.forEach((d) => {
-        if (next[d.key]?.status === 'uploaded') {
-          next[d.key] = { ...next[d.key], status: 'verified' };
-        }
-      });
-      return next;
-    });
-    notify('Profil vérifié', 'Tes documents ont été validés par notre équipe conformité.');
-  };
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar title="Vérification d'identité" subtitle="KYC chauffeur · conforme RGPD" />
@@ -252,14 +238,6 @@ export function KycVerificationScreen() {
             </View>
           ))}
         </Surface>
-
-        {/* Bouton démo : en mode hors-ligne uniquement (sinon la validation
-            est faite par un ADMIN via le backend). */}
-        {!online && allUploaded && !allVerified ? (
-          <Button kind="outline" size="lg" fullWidth onPress={simulateAdminApproval}>
-            [Démo] Simuler la validation conformité
-          </Button>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

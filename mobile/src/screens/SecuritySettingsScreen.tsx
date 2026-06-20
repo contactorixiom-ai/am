@@ -36,11 +36,6 @@ interface Session {
   current?: boolean;
 }
 
-const SESSIONS: Session[] = [
-  { id: 's1', device: 'iPhone 15 Pro · Safari', location: 'Paris, France', ip: '92.184.•••.42', lastSeen: 'À l\'instant', current: true },
-  { id: 's2', device: 'Chrome · macOS Sonoma', location: 'Paris, France', ip: '92.184.•••.42', lastSeen: 'Il y a 2 j' },
-  { id: 's3', device: 'Safari · iPad Air', location: 'Bordeaux, France', ip: '88.171.•••.18', lastSeen: 'Il y a 1 sem' },
-];
 
 /** Masque partiellement une IP pour l'affichage (RGPD). */
 function maskIp(ip: string | null): string {
@@ -93,8 +88,7 @@ export function SecuritySettingsScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [s, setS] = useState<State>(DEFAULT);
-  const [sessions, setSessions] = useState<Session[]>(SESSIONS);
-  // `sessionsOnline` : true si les sessions proviennent du backend (sinon démo).
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsOnline, setSessionsOnline] = useState(false);
   const [pinDialog, setPinDialog] = useState<'create' | 'remove' | null>(null);
   const [pinDraft, setPinDraft] = useState('');
@@ -107,17 +101,14 @@ export function SecuritySettingsScreen() {
   }, []);
 
   useEffect(() => {
-    // Sessions actives : on tente le backend, fallback gracieux sur le mock.
     let cancelled = false;
     fetchSessions()
       .then((list) => {
         if (cancelled) return;
-        if (list.length > 0) {
-          setSessions(list.map(toScreenSession));
-          setSessionsOnline(true);
-        }
+        setSessions(list.map(toScreenSession));
+        setSessionsOnline(true);
       })
-      .catch(() => { /* hors-ligne → on garde les sessions de démo */ });
+      .catch(() => { /* offline → liste vide, l'écran affichera un empty state */ });
     return () => { cancelled = true; };
   }, []);
 

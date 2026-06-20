@@ -14,16 +14,6 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
 
-// Démo : une mission convoyage active si on n'a aucune donnée backend.
-const DEMO_MISSION = {
-  ref: 'AX-2847',
-  from: 'Paris 15ᵉ',
-  to: 'Bruxelles, Schaerbeek',
-  eta: '14h32',
-  remaining: '47 km',
-  progress: 0.78,
-};
-
 type FilterId = 'all' | 'convoy' | 'parcel' | 'done';
 
 export function TripsScreen() {
@@ -94,46 +84,6 @@ export function TripsScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.navy} />}
       >
-        {/* Carte mission active (démo) */}
-        {(tab === 'all' || tab === 'convoy') ? (
-          <Pressable
-            onPress={() => nav.navigate('MissionDetails', { reference: DEMO_MISSION.ref })}
-          >
-            <Surface padded style={{ padding: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Pill tone="navy">● En route</Pill>
-                <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.medium, fontVariant: ['tabular-nums'] }}>
-                  {DEMO_MISSION.ref}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold, letterSpacing: -0.2, lineHeight: 22 }}>
-                {DEMO_MISSION.from} <Text style={{ color: theme.muted, fontFamily: TYPO.weights.regular }}>vers</Text> {DEMO_MISSION.to}
-              </Text>
-              <View style={{ flexDirection: 'row', marginTop: 12, gap: 18 }}>
-                <View>
-                  <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
-                    Arrivée
-                  </Text>
-                  <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
-                    {DEMO_MISSION.eta}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
-                    Restant
-                  </Text>
-                  <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
-                    {DEMO_MISSION.remaining}
-                  </Text>
-                </View>
-              </View>
-              <View style={{ height: 4, backgroundColor: theme.bgSoft, borderRadius: 2, marginTop: 12 }}>
-                <View style={{ width: `${DEMO_MISSION.progress * 100}%`, height: '100%', backgroundColor: theme.gold, borderRadius: 2 }} />
-              </View>
-            </Surface>
-          </Pressable>
-        ) : null}
-
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
             <DotLoader size={8} />

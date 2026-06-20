@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
+import { EmptyState } from '../components/EmptyState';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
@@ -28,16 +29,9 @@ interface AppNotif {
   action?: { screen: keyof RootStackParamList; params?: Record<string, unknown> };
 }
 
-const DEMO_NOTIFS: AppNotif[] = [
-  { id: 'n1', kind: 'driver_pause',     title: 'Karim fait une pause',                  body: 'Aire de Ressons-sur-Matz · pause repas 25 min · reprise prévue à 13h05.',                  time: 'À l\'instant', action: { screen: 'Tracking', params: { kind: 'mission', id: 'AX-2847', reference: 'AX-2847' } } },
-  { id: 'n2', kind: 'document_to_sign', title: 'Contrat à signer',                      body: 'Contrat de convoyage AX-2847 · BMW Série 3 prêt à être signé électroniquement.',          time: 'Il y a 18 min', action: { screen: 'AppTabs' } },
-  { id: 'n3', kind: 'driver_started',   title: 'Convoyage démarré',                     body: 'Karim Diallo a récupéré ton véhicule. État des lieux signé.',                              time: 'Il y a 1 h', action: { screen: 'Tracking', params: { kind: 'mission', id: 'AX-2847', reference: 'AX-2847' } } },
-  { id: 'n4', kind: 'invoice_due',      title: 'Facture à régler',                      body: 'FA-2026-0179 · 1 240,00 € · Fret 4 palettes → Dakar. À régler sous 5 jours.',             time: 'Il y a 3 h', action: { screen: 'AppTabs' } },
-  { id: 'n5', kind: 'security_login',   title: 'Nouvelle connexion',                    body: 'iPhone 15 Pro · Safari · Paris · 92.184.•••.42. Ce n\'était pas toi ? Vérifie ta sécurité.', time: 'Il y a 5 h', action: { screen: 'SecuritySettings' } },
-  { id: 'n6', kind: 'kyc_validated',    title: 'Profil vérifié ✓',                      body: 'Notre équipe a validé ton permis de conduire et ta pièce d\'identité.',                    time: 'Hier', action: { screen: 'KycVerification' } },
-  { id: 'n7', kind: 'invoice_paid',     title: 'Paiement confirmé',                     body: 'FA-2026-0184 · 512,00 € · Apple Pay · convoyage Paris → Bruxelles.',                       time: 'Hier' },
-  { id: 'n8', kind: 'news',             title: 'Réglementation Sénégal',                body: 'Nouveau document douanier obligatoire pour les exports véhicules à partir du 1er juin.',     time: 'Il y a 2 j', action: { screen: 'News' } },
-];
+// La liste réelle viendra du backend (module notifications).
+// En attendant on affiche un empty state.
+const DEMO_NOTIFS: AppNotif[] = [];
 
 const STORAGE_KEY = 'axis.notifs.read.v1';
 
@@ -101,6 +95,16 @@ export function NotificationsScreen() {
       />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, gap: 16 }}>
+        {notifs.length === 0 ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="bell"
+              title="Tu es à jour"
+              subtitle="Tes alertes (chauffeur en route, contrat à signer, paiement, douane…) apparaîtront ici dès la première mission."
+            />
+          </Surface>
+        ) : null}
+
         {today.length > 0 ? (
           <Group title="Aujourd'hui">
             {today.map((n) => <NotifCard key={n.id} notif={n} onPress={() => open(n)} />)}
@@ -111,12 +115,6 @@ export function NotificationsScreen() {
             {earlier.map((n) => <NotifCard key={n.id} notif={n} onPress={() => open(n)} />)}
           </Group>
         ) : null}
-
-        <Surface padded style={{ padding: 14, marginTop: 4 }}>
-          <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, textAlign: 'center' }}>
-            Tu peux personnaliser les notifications dans Profil → Sécurité du compte.
-          </Text>
-        </Surface>
       </ScrollView>
     </SafeAreaView>
   );
