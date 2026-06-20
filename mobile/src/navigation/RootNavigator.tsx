@@ -68,7 +68,12 @@ export function RootNavigator() {
   const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
-    shouldShowIntroSlides().then((needs) => setIntroSeen(!needs));
+    // Filet de sécurité : si shouldShowIntroSlides échoue (ex. AsyncStorage
+    // bloqué en navigation privée Safari iOS), on saute l'intro pour ne
+    // pas bloquer l'utilisateur sur un écran blanc.
+    shouldShowIntroSlides()
+      .then((needs) => setIntroSeen(!needs))
+      .catch(() => setIntroSeen(true));
   }, []);
 
   if (initializing || introSeen === null) {

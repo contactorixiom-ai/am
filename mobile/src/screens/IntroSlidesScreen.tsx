@@ -137,6 +137,13 @@ function SlideView({ slide, width }: { slide: Slide; width: number }) {
 }
 
 export async function shouldShowIntroSlides(): Promise<boolean> {
-  const seen = await AsyncStorage.getItem(SEEN_KEY);
-  return seen !== '1';
+  // En navigation privée Safari iOS, AsyncStorage (qui utilise localStorage)
+  // peut throw QUOTA_EXCEEDED ou être inaccessible. On retombe alors sur
+  // "intro déjà vue" pour ne pas bloquer l'app sur un écran blanc.
+  try {
+    const seen = await AsyncStorage.getItem(SEEN_KEY);
+    return seen !== '1';
+  } catch {
+    return false;
+  }
 }
