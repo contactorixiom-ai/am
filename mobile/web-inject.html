@@ -1,15 +1,26 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
+<style>
+  #__axis_err {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 99999;
+    padding: 14px 16px;
+    background: #C0524B; color: #fff;
+    font: 13px/1.4 -apple-system, system-ui, sans-serif;
+    max-height: 50vh; overflow: auto;
+    white-space: pre-wrap;
+    display: none;
+  }
+  #__axis_err strong { color: #FFD; }
+</style>
 <script>
 (function(){
-  // 1) On sauve le fetch natif AVANT que le bundle Expo charge un polyfill.
+  // 1) Native fetch keeper
   try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
   window.__nativeFetchReady = true;
 
-  // 2) On tue agressivement tout Service Worker résiduel d'un déploiement
-  //    précédent. Sur Safari iOS, un SW orphelin qui tente de servir des
-  //    chunks JS qui n'existent plus déclenche "WebKitBlobResource erreur 1".
+  // 2) Kill résiduel Service Workers
   if (navigator && navigator.serviceWorker) {
     try {
       navigator.serviceWorker.getRegistrations().then(function(rs){
@@ -18,9 +29,7 @@
     } catch(e) {}
   }
 
-  // 3) On purge également les Cache Storage (utilisés par un SW pour la cache
-  //    de chunks). Si le SW vient d'être désinscrit, ses caches restent et
-  //    Safari peut encore les servir par erreur.
+  // 3) Purge Cache Storage
   if (typeof caches !== 'undefined' && caches.keys) {
     try {
       caches.keys().then(function(names){
@@ -28,5 +37,36 @@
       }).catch(function(){});
     } catch(e) {}
   }
+
+  // 4) Diagnostic visible : si le bundle plante au démarrage, on affiche
+  //    l'erreur dans une bannière rouge en haut de page plutôt que de
+  //    laisser un écran blanc silencieux.
+  function showErr(label, msg) {
+    var el = document.getElementById('__axis_err');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__axis_err';
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.style.display = 'block';
+    el.innerHTML += '<strong>' + label + '</strong>: ' + String(msg).replace(/[<>&]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c]; }) + '\n\n';
+  }
+  window.addEventListener('error', function(e){
+    var src = e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno : '';
+    showErr('JS Error', (e.message || 'unknown') + src);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    showErr('Promise rejection', (e.reason && (e.reason.stack || e.reason.message || e.reason)) || 'unknown');
+  });
+
+  // 5) Watchdog : si l'app n'a pas affiché de contenu après 12s, on affiche
+  //    un message d'aide (probablement bundle qui plante silencieusement).
+  setTimeout(function(){
+    var root = document.getElementById('root') || document.body;
+    var hasContent = root && root.children && root.children.length > 1; // > 1 car notre bannière compte
+    if (!hasContent) {
+      showErr('Watchdog', 'L\'app n\'a pas pu démarrer en 12s. Bundle bloqué ?');
+    }
+  }, 12000);
 })();
 </script>
