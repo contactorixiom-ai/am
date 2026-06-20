@@ -5,12 +5,14 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
 
-const NAVY = '#0B2545';
-const GOLD = '#C9A55C';
-const INK = '#1B1B1F';
-const MUTED = '#6F6E6B';
-const LINE = '#E5DDC8';
-const LINE_DARK = '#1B1B1F';
+// Palette neutre noir & blanc pour des documents officiels institutionnels
+// (style transporteur classique). Plus aucun navy/doré dans les PDF — le
+// logo neutre noir + structure en niveaux de gris est cohérent.
+const INK = '#000000';        // texte principal / bandeaux / cadres
+const SOFT_INK = '#3A3A3A';   // bandeaux secondaires
+const MUTED = '#6B6B6B';      // libellés, mentions légales
+const LINE = '#CCCCCC';       // séparateurs principaux
+const LINE_SOFT = '#E5E5E5';  // séparateurs secondaires
 
 // ─── Logo AXIS ────────────────────────────────────────────────────────────
 // Le vrai logo neutre Axis (étoile dans cercle + flèche) est embarqué en
@@ -53,34 +55,41 @@ function setColor(doc: jsPDF, hex: string, kind: 'fill' | 'text' | 'draw') {
 // ─── Bandeau / footer communs ─────────────────────────────────────────────
 
 function invoiceHeader(doc: jsPDF, title: string, subtitle?: string) {
-  setColor(doc, NAVY, 'fill');
-  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 28, 'F');
+  const W = doc.internal.pageSize.getWidth();
 
-  drawAxisLogo(doc, 14, 9, 10);
+  // En-tête sobre, fond blanc, style document officiel (façon DHL/Geodis).
+  drawAxisLogo(doc, 14, 10, 14);
 
+  // Bloc identité Axis à gauche, en noir
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
-  setColor(doc, GOLD, 'text');
-  doc.text('AXIS IMPORT', 28, 14);
+  setColor(doc, INK, 'text');
+  doc.text('AXIS IMPORT', 32, 16);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text('TRANSPORT · CONVOYAGE', 28, 19);
+  setColor(doc, MUTED, 'text');
+  doc.text('TRANSPORT · CONVOYAGE', 32, 21);
 
+  // Titre et sous-titre à droite, en noir
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  setColor(doc, GOLD, 'text');
+  doc.setFontSize(13);
+  setColor(doc, INK, 'text');
   const titleW = doc.getTextWidth(title);
-  doc.text(title, doc.internal.pageSize.getWidth() - 14 - titleW, 14);
+  doc.text(title, W - 14 - titleW, 16);
 
   if (subtitle) {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    setColor(doc, MUTED, 'text');
     const subW = doc.getTextWidth(subtitle);
-    doc.text(subtitle, doc.internal.pageSize.getWidth() - 14 - subW, 19);
+    doc.text(subtitle, W - 14 - subW, 21);
   }
+
+  // Trait de séparation noir épais : signature graphique du document officiel
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.8);
+  doc.line(14, 28, W - 14, 28);
 }
 
 function footer(doc: jsPDF) {
@@ -129,7 +138,7 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
   // QR code
   let qrDataUrl: string | null = null;
   try {
-    qrDataUrl = await QRCode.toDataURL(url, { width: 220, margin: 0, color: { dark: NAVY, light: '#FFFFFFFF' } });
+    qrDataUrl = await QRCode.toDataURL(url, { width: 220, margin: 0, color: { dark: INK, light: '#FFFFFFFF' } });
   } catch {
     qrDataUrl = null;
   }
@@ -142,7 +151,7 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
   if (compact) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    setColor(doc, NAVY, 'text');
+    setColor(doc, INK, 'text');
     doc.text('✓ Document à valeur légale · eIDAS', tx, blockY + 4);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
@@ -152,7 +161,7 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    setColor(doc, NAVY, 'text');
+    setColor(doc, INK, 'text');
     doc.text('✓ Document à valeur légale', tx, blockY + 4);
 
     doc.setFont('helvetica', 'normal');
@@ -162,7 +171,7 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
     doc.text(`Horodaté le ${ts}`, tx, blockY + 12);
     doc.text(`Empreinte SHA · ${hash.toUpperCase()}`, tx, blockY + 15.5);
     doc.text('Scanner le QR code pour vérifier l\'authenticité sur', tx, blockY + 20);
-    setColor(doc, NAVY, 'text');
+    setColor(doc, INK, 'text');
     doc.setFont('helvetica', 'bold');
     doc.text(url, tx, blockY + 23.5);
 
@@ -209,7 +218,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
   setColor(doc, MUTED, 'text');
   doc.text('ÉMETTEUR', 14, y);
   doc.text('DESTINATAIRE', w / 2 + 4, y);
-  setColor(doc, GOLD, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.5);
   doc.line(14, y + 1.5, 32, y + 1.5);
   doc.line(w / 2 + 4, y + 1.5, w / 2 + 22, y + 1.5);
@@ -240,7 +249,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
 
   // Tableau
   y = 95;
-  setColor(doc, NAVY, 'fill');
+  setColor(doc, INK, 'fill');
   doc.rect(14, y, w - 28, 9, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
@@ -286,7 +295,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
   y += 8;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  setColor(doc, NAVY, 'text');
+  setColor(doc, INK, 'text');
   doc.text('Total TTC', totalsX, y);
   doc.text(`${ttc.toFixed(2).replace('.', ',')} €`, w - 18, y, { align: 'right' });
 
@@ -336,11 +345,11 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData): P
 
   // Encart bordereau requis
   if (data.trackingTypeLabel) {
-    setColor(doc, NAVY, 'fill');
+    setColor(doc, INK, 'fill');
     doc.roundedRect(14, y, w - 28, 18, 2, 2, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    setColor(doc, GOLD, 'text');
+    setColor(doc, INK, 'text');
     doc.text('BORDEREAU DE SUIVI DE CARGAISON REQUIS', 18, y + 6);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
@@ -354,14 +363,14 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData): P
     if (data.cargoStatusLabel) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      setColor(doc, GOLD, 'text');
+      setColor(doc, INK, 'text');
       doc.text(`Statut : ${data.cargoStatusLabel}`, w - 18, y + 11.5, { align: 'right' });
     }
     y += 24;
   }
 
   // En-tête tableau
-  setColor(doc, NAVY, 'fill');
+  setColor(doc, INK, 'fill');
   doc.rect(14, y, w - 28, 9, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
@@ -379,7 +388,7 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData): P
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    setColor(doc, item.mandatory ? NAVY : MUTED, 'text');
+    setColor(doc, item.mandatory ? INK : MUTED, 'text');
     doc.text(item.mandatory ? 'Oui' : 'Recommandé', w - 70, y);
 
     const provided = item.provided === true;
@@ -409,7 +418,7 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData): P
     y += 4;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    setColor(doc, NAVY, 'text');
+    setColor(doc, INK, 'text');
     doc.text('Notes douanières', 14, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
@@ -534,7 +543,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<void> 
   doc.text('État des lieux — Document contractuel', W / 2, M + 8, { align: 'center' });
 
   // N° encadré
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.4);
   const num = `N° ${data.reference || '2026-XXXX-XXXX'}`;
   const numW = doc.getTextWidth(num) + 6;
@@ -590,7 +599,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<void> 
   doc.line(M + 16, y, W - M, y);
 
   y += 3;
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.3);
   doc.line(M, y, W - M, y);
 
@@ -637,7 +646,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<void> 
   drawField(M + 2 * c3W + 1, 'IMMATRICULATION', data.plate);
 
   y += 6;
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.3);
   doc.line(M, y, W - M, y);
 
@@ -659,7 +668,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<void> 
   drawDateTimeContact(doc, W / 2 + 4, y, data.deliveryDate, data.deliveryTime, data.deliveryContact, data.deliveryAddress);
 
   y += 13;
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.3);
   doc.line(M, y, W - M, y);
 
@@ -711,7 +720,7 @@ function drawCheckbox(doc: jsPDF, x: number, y: number, size: number, checked: b
   doc.setLineWidth(0.25);
   doc.rect(x, y, size, size);
   if (checked) {
-    setColor(doc, NAVY, 'fill');
+    setColor(doc, INK, 'fill');
     doc.rect(x + 0.4, y + 0.4, size - 0.8, size - 0.8, 'F');
   }
 }
@@ -766,7 +775,7 @@ function drawCarTopVector(doc: jsPDF, x: number, y: number, w: number, h: number
   const left = cx - carW / 2;
   const top = cy - carH / 2;
 
-  setColor(doc, NAVY, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.5);
   // Carrosserie arrondie
   doc.roundedRect(left, top, carW, carH, 6, 6, 'S');
@@ -786,7 +795,7 @@ function drawCarTopVector(doc: jsPDF, x: number, y: number, w: number, h: number
   topDamages.forEach((dmg) => {
     const px = left + dmg.x * carW;
     const py = top + dmg.y * carH;
-    setColor(doc, DAMAGE_COLOR[dmg.code] ?? GOLD, 'fill');
+    setColor(doc, DAMAGE_COLOR[dmg.code] ?? INK, 'fill');
     doc.circle(px, py, 2.4, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
@@ -807,7 +816,7 @@ function drawCarTopVector(doc: jsPDF, x: number, y: number, w: number, h: number
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.5);
     otherDamages.slice(0, 10).forEach((dmg) => {
-      setColor(doc, DAMAGE_COLOR[dmg.code] ?? GOLD, 'fill');
+      setColor(doc, DAMAGE_COLOR[dmg.code] ?? INK, 'fill');
       doc.circle(lx + 1, ly - 1, 1.6, 'F');
       setColor(doc, INK, 'text');
       doc.text(`${dmg.code} · ${viewLabel[dmg.view]}`, lx + 4, ly);
@@ -839,7 +848,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   const M = 8;
 
   // Bandeau navy
-  setColor(doc, NAVY, 'fill');
+  setColor(doc, INK, 'fill');
   doc.rect(M, y, W - 2 * M, 5, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -854,7 +863,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   const blockH = 70;
   const leftW = (W - 2 * M) * 0.45;
   const rightW = (W - 2 * M) * 0.55;
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.3);
   doc.rect(M, y, leftW, blockH);
   doc.rect(M + leftW, y, rightW, blockH);
@@ -934,7 +943,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.text('SIGN. CLIENT / TAMPON RESPONSABLE', rx + rightW / 2, sy);
 
   // Cadres signature
-  setColor(doc, LINE_DARK, 'draw');
+  setColor(doc, INK, 'draw');
   doc.setLineWidth(0.2);
   doc.rect(rx, sy + 2, rightW / 2 - 4, 12);
   doc.rect(rx + rightW / 2, sy + 2, rightW / 2 - 6, 12);
@@ -975,7 +984,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   ];
   let cx = M + 16;
   codes.forEach((c) => {
-    setColor(doc, NAVY, 'fill');
+    setColor(doc, INK, 'fill');
     doc.rect(cx, y + 1, 3, 3, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
