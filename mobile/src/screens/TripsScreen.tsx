@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 
 import { listParcels, ParcelSummary } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
 import { DotLoader } from '../components/DotLoader';
+import { EmptyState } from '../components/EmptyState';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StatusBadge } from '../components/StatusBadge';
@@ -138,16 +139,15 @@ export function TripsScreen() {
             <DotLoader size={8} />
           </View>
         ) : visible.length === 0 && (tab === 'parcel' || tab === 'done') ? (
-          <Surface padded style={{ padding: 18, alignItems: 'center', gap: 6 }}>
-            <Icons.box size={26} color={theme.muted} stroke={1.5} />
-            <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.title, marginTop: 8 }}>
-              Aucun envoi
-            </Text>
-            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 13, textAlign: 'center', maxWidth: 260 }}>
-              {tab === 'done'
-                ? 'Tes envois livrés apparaîtront ici.'
-                : 'Crée ta première demande depuis l\'accueil pour voir tes envois ici.'}
-            </Text>
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey={tab === 'done' ? 'check' : 'box'}
+              title={tab === 'done' ? 'Aucun envoi livré' : 'Aucun envoi en cours'}
+              subtitle={tab === 'done'
+                ? 'Tes envois livrés apparaîtront ici, avec leur PV signé.'
+                : 'Crée ta première demande de transport pour la voir apparaître ici.'}
+              cta={tab === 'done' ? undefined : { label: 'Nouvelle demande', onPress: () => nav.navigate('ServicePicker') }}
+            />
           </Surface>
         ) : (
           visible.map((p) => (

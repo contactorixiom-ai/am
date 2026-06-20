@@ -8,6 +8,7 @@ import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill, PillTone } from '../components/Pill';
+import { EmptyState } from '../components/EmptyState';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
@@ -265,6 +266,20 @@ export function DocumentsScreen() {
               </View>
               <Button kind="gold" size="sm" onPress={() => openSign(pendingSignature)}>Signer</Button>
             </View>
+          </Surface>
+        ) : null}
+
+        {/* Empty state si le filtre ne ramène rien */}
+        {visible.length === 0 ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey={tab === 'fact' ? 'euro' : tab === 'cmr' ? 'globe' : tab === 'douane' ? 'globe' : 'doc'}
+              title={tab === 'all' ? 'Aucun document' : 'Aucun document dans ce filtre'}
+              subtitle={tab === 'all'
+                ? 'Tes contrats, factures et états des lieux apparaîtront ici dès ta première mission.'
+                : 'Essaye un autre filtre ou repasse plus tard.'}
+              variant="compact"
+            />
           </Surface>
         ) : null}
 

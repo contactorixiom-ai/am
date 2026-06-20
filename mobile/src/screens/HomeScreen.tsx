@@ -1,8 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
 import { Avatar } from '../components/Avatar';
+import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
@@ -65,6 +67,17 @@ export function HomeScreen() {
     }, 12000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [toast, nav]);
+
+  // Statut KYC pour afficher une bannière d'incitation si nécessaire.
+  // Repli silencieux en mode hors-ligne (on n'embête pas l'utilisateur démo).
+  const [kycStatus, setKycStatus] = useState<GlobalKycStatus | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchKycOverview()
+      .then((o) => { if (!cancelled) setKycStatus(o.status); })
+      .catch(() => { /* offline → on n'affiche pas la bannière */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -143,6 +156,34 @@ export function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24, gap: 18 }}>
+        {/* Bannière KYC : invite à compléter la vérification d'identité.
+            S'affiche uniquement si l'API a répondu avec un statut < APPROVED
+            (donc jamais en mode hors-ligne pour éviter le bruit). */}
+        {kycStatus !== null && kycStatus !== 'APPROVED' ? (
+          <Banner
+            tone={kycStatus === 'REJECTED' ? 'error' : 'info'}
+            title={
+              kycStatus === 'REJECTED'
+                ? 'Identité refusée'
+                : kycStatus === 'PENDING'
+                  ? 'Identité en cours de vérification'
+                  : 'Vérifie ton identité'
+            }
+            message={
+              kycStatus === 'REJECTED'
+                ? 'Reprends les pièces refusées pour pouvoir continuer.'
+                : kycStatus === 'PENDING'
+                  ? 'Notre équipe valide tes documents sous 24 h.'
+                  : '2 min pour pouvoir envoyer un colis ou un véhicule.'
+            }
+            action={
+              kycStatus === 'PENDING'
+                ? undefined
+                : { label: kycStatus === 'REJECTED' ? 'Corriger' : 'Vérifier', onPress: () => nav.navigate('KycVerification') }
+            }
+          />
+        ) : null}
+
         {/* Hero — Active mission */}
         <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
           {/* Header cliquable → ouvre le dossier complet (sans englober les boutons) */}
