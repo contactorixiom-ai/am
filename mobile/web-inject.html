@@ -1,11 +1,32 @@
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <script>
 (function(){
+  // 1) On sauve le fetch natif AVANT que le bundle Expo charge un polyfill.
   try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
   window.__nativeFetchReady = true;
+
+  // 2) On tue agressivement tout Service Worker résiduel d'un déploiement
+  //    précédent. Sur Safari iOS, un SW orphelin qui tente de servir des
+  //    chunks JS qui n'existent plus déclenche "WebKitBlobResource erreur 1".
   if (navigator && navigator.serviceWorker) {
-    navigator.serviceWorker.getRegistrations().then(function(rs){
-      rs.forEach(function(r){ r.unregister(); });
-    }).catch(function(){});
+    try {
+      navigator.serviceWorker.getRegistrations().then(function(rs){
+        rs.forEach(function(r){ try { r.unregister(); } catch(e){} });
+      }).catch(function(){});
+    } catch(e) {}
+  }
+
+  // 3) On purge également les Cache Storage (utilisés par un SW pour la cache
+  //    de chunks). Si le SW vient d'être désinscrit, ses caches restent et
+  //    Safari peut encore les servir par erreur.
+  if (typeof caches !== 'undefined' && caches.keys) {
+    try {
+      caches.keys().then(function(names){
+        names.forEach(function(n){ try { caches.delete(n); } catch(e){} });
+      }).catch(function(){});
+    } catch(e) {}
   }
 })();
 </script>
