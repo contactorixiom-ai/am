@@ -1,6 +1,19 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
+<style>
+  #__axis_err {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 99999;
+    padding: 14px 16px;
+    background: #C0524B; color: #fff;
+    font: 13px/1.4 -apple-system, system-ui, sans-serif;
+    max-height: 60vh; overflow: auto;
+    white-space: pre-wrap;
+    display: none;
+  }
+  #__axis_err strong { color: #FFD; }
+</style>
 <script>
 (function(){
   try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
@@ -19,5 +32,29 @@
       }).catch(function(){});
     } catch(e) {}
   }
+  function showErr(label, msg) {
+    var el = document.getElementById('__axis_err');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__axis_err';
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.style.display = 'block';
+    el.innerHTML += '<strong>' + label + '</strong>: ' + String(msg).replace(/[<>&]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c]; }) + '\n\n';
+  }
+  window.addEventListener('error', function(e){
+    var src = e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno : '';
+    showErr('JS Error', (e.message || 'unknown') + src);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    showErr('Promise rejection', (e.reason && (e.reason.stack || e.reason.message || e.reason)) || 'unknown');
+  });
+  setTimeout(function(){
+    var root = document.getElementById('root') || document.body;
+    var hasContent = root && root.children && root.children.length > 1;
+    if (!hasContent) {
+      showErr('Watchdog 15s', 'L\'app n\'a pas pu démarrer en 15s. Bundle bloqué ?');
+    }
+  }, 15000);
 })();
 </script>
