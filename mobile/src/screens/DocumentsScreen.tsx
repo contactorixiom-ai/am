@@ -2,334 +2,414 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
-import { Pill, PillTone } from '../components/Pill';
-import { EmptyState } from '../components/EmptyState';
+import { Pill } from '../components/Pill';
+import { Surface } from '../components/Surface';
+import { ComplianceChecklist } from '../components/ComplianceChecklist';
+import { DocumentHub, DocStatusEntry } from '../components/DocumentHub';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
-import { Surface } from '../components/Surface';
 import { notify } from '../utils/notify';
-import { generateContractPdf, generateInvoicePdf, generateCustomsChecklistPdf } from '../utils/pdf';
+import {
+  generateCommercialInvoicePdf,
+  generateContractPdf,
+  generateCustomsMandatePdf,
+  generateExportDeclarationPdf,
+  generateInsuranceCertificatePdf,
+  generateInvoicePdf,
+  generatePackingListPdf,
+} from '../utils/pdf';
+import {
+  CatalogDoc,
+  ShipmentKind,
+  catalogByKind,
+} from '../utils/documentCatalog';
 import {
   CARGO_TYPE_LABEL,
   CountryRequirements,
   getDemoRequirements,
   getRequirements,
 } from '../api/customs';
+import { COUNTRY_SUMMARIES, groupCountriesByZone } from '../utils/countryRegulations';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { TYPO } from '../theme/tokens';
 
-// Destination par défaut pour la carte "réglementation douanière".
-const CUSTOMS_DEMO_COUNTRY = 'SN';
+// Destination + type d'envoi par défaut (cf. cahier des charges).
+const DEFAULT_COUNTRY = 'SN';
+const DEFAULT_KIND: ShipmentKind = 'commercial';
 
-type FilterId = 'all' | 'contrat' | 'fact' | 'cmr' | 'douane';
+// Clé de persistance des statuts de documents du centre de conformité.
+const HUB_STORAGE_KEY = 'axis.compliance.v1';
+// Clé de persistance des factures (héritée de l'écran existant).
+const INVOICE_STORAGE_KEY = 'axis.docs.v1';
 
-interface Doc {
+const KIND_OPTIONS: { id: ShipmentKind; label: string; icon: keyof typeof Icons }[] = [
+  { id: 'parcel', label: 'Colis', icon: 'box' },
+  { id: 'commercial', label: 'Marchandise', icon: 'pallet' },
+  { id: 'vehicle', label: 'Véhicule', icon: 'car' },
+];
+
+// ─── Factures (section paiement existante, conservée) ───────────────────────
+interface Invoice {
   id: number;
-  cat: Exclude<FilterId, 'all'>;
-  type: string;
-  tone: PillTone;
   title: string;
   ref: string;
   date: string;
-  size: string;
-  iconKey: keyof typeof Icons;
-  needsSignature?: boolean;
-  signatureUrl?: string;
-  signedAt?: string;
-  amountEur?: number;
-  paid?: boolean;
+  amountEur: number;
+  paid: boolean;
 }
 
-const INITIAL_DOCS: Doc[] = [
-  { id: 1, cat: 'contrat', type: 'À signer', tone: 'warn', title: 'Contrat de convoyage', ref: 'AX-2847 · BMW Série 3', date: '22 mai 2026', size: '178 ko', iconKey: 'sig', needsSignature: true },
-  { id: 2, cat: 'contrat', type: 'Contrat', tone: 'navy', title: 'État des lieux — départ', ref: 'AX-2847 · BMW Série 3', date: '22 mai 2026', size: '2,1 Mo', iconKey: 'doc' },
-  { id: 3, cat: 'cmr', type: 'CMR', tone: 'gold', title: 'Lettre de voiture internationale', ref: 'AX-2811 · 4 palettes', date: '18 mai 2026', size: '320 ko', iconKey: 'globe' },
-  { id: 4, cat: 'douane', type: 'Douane', tone: 'gold', title: 'Déclaration export — Sénégal', ref: 'AX-2811', date: '17 mai 2026', size: '440 ko', iconKey: 'globe' },
-  { id: 5, cat: 'fact', type: 'Facture', tone: 'good', title: 'FA-2026-0184', ref: 'Convoyage Paris → Bruxelles', date: '14 mai 2026', size: '64 ko', iconKey: 'euro', amountEur: 512, paid: true },
-  { id: 6, cat: 'fact', type: 'Facture', tone: 'warn', title: 'FA-2026-0179', ref: 'Fret 4 palettes → Dakar', date: '08 mai 2026', size: '68 ko', iconKey: 'euro', amountEur: 1240, paid: false },
+const INITIAL_INVOICES: Invoice[] = [
+  { id: 5, title: 'FA-2026-0184', ref: 'Convoyage Paris → Bruxelles', date: '14 mai 2026', amountEur: 512, paid: true },
+  { id: 6, title: 'FA-2026-0179', ref: 'Fret 4 palettes → Dakar', date: '08 mai 2026', amountEur: 1240, paid: false },
 ];
 
-const STORAGE_KEY = 'axis.docs.v1';
+type StatusMap = Record<string, DocStatusEntry>;
 
 export function DocumentsScreen() {
   const { theme } = useTheme();
   const { user } = useSession();
-  const [tab, setTab] = useState<FilterId>('all');
-  const [docs, setDocs] = useState<Doc[]>(INITIAL_DOCS);
-
-  // Restore signed / paid state from local storage
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const saved = JSON.parse(raw) as Partial<Record<number, Partial<Doc>>>;
-        setDocs((prev) =>
-          prev.map((d) => {
-            const patch = saved[d.id];
-            if (!patch) return d;
-            return { ...d, ...patch };
-          }),
-        );
-      } catch {
-        // ignore corrupted state
-      }
-    });
-  }, []);
-
-  // Persist any change
-  useEffect(() => {
-    const toSave: Record<number, Partial<Doc>> = {};
-    docs.forEach((d) => {
-      if (d.signedAt || d.signatureUrl || d.paid !== INITIAL_DOCS.find((i) => i.id === d.id)?.paid) {
-        toSave[d.id] = {
-          signedAt: d.signedAt,
-          signatureUrl: d.signatureUrl,
-          paid: d.paid,
-          needsSignature: d.needsSignature,
-          tone: d.tone,
-          type: d.type,
-        };
-      }
-    });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
-  }, [docs]);
-
-  const [signing, setSigning] = useState<Doc | null>(null);
-  const [viewing, setViewing] = useState<Doc | null>(null);
-  const [paying, setPaying] = useState<Doc | null>(null);
-  const [hasInk, setHasInk] = useState(false);
-  const padRef = useRef<SignaturePadHandle>(null);
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const clientName = user ? `${user.firstName} ${user.lastName}` : 'Client Axis Import';
   const clientEmail = user?.email;
 
-  const downloadPdf = async (d: Doc) => {
-    if (d.cat === 'fact' && d.amountEur) {
-      await generateInvoicePdf({
-        number: d.title,
-        date: d.date,
-        amountEur: d.amountEur,
-        paid: !!d.paid,
-        description: d.ref,
-        clientName,
-        clientEmail,
-      });
-      notify('Facture téléchargée', `${d.title}.pdf a été enregistré dans tes fichiers.`);
-      return;
-    }
-    // Contrat / état des lieux / CMR / douane → format contrat officiel
-    const missionRef = d.ref.split('·')[0].trim();
-    const vehicle = d.ref.split('·')[1]?.trim();
-    await generateContractPdf({
-      reference: `2026-${missionRef.replace(/[^0-9]/g, '').padStart(4, '0')}-FE12`,
-      copyLabel: 'EXEMPLAIRE\nCLIENT',
-      vehicleCategory: vehicle?.toLowerCase().includes('utilit') ? 'Utilitaire' : 'Berline',
-      driverName: 'Karim Diallo',
-      driverPhone: '+33 6 12 34 56 78',
-      driverLicense: 'B · 12AB34567',
-      estimatedKm: 312,
-      estimatedDuration: '4 h 30',
-      missionReference: missionRef,
-      clientName,
-      vehicleBrandModel: vehicle ?? 'BMW Série 3',
-      plate: 'AX-2847-AI',
-      pickupDate: d.date,
-      pickupTime: '08h30',
-      pickupContact: '+33 6 11 22 33 44',
-      pickupAddress: '14 rue de Vaugirard, 75015 Paris',
-      deliveryDate: d.date,
-      deliveryTime: '14h32',
-      deliveryContact: '+32 471 22 33 44',
-      deliveryAddress: 'Avenue Louise 250, 1050 Bruxelles',
-      departureKm: 48230,
-      departureFuel: 0.75,
-      departureDate: d.date,
-      departureTime: '08h32',
-      departureObservations: 'Véhicule en parfait état. Rayure légère portière avant droite (R).',
-      departureClientSigned: !!d.signatureUrl,
-      departureClientSignedDate: d.signedAt,
-      departureDriverSigned: !!d.signatureUrl,
+  // ─── Sélection destination + type d'envoi ─────────────────────────────────
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [kind, setKind] = useState<ShipmentKind>(DEFAULT_KIND);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // ─── Réglementation pays (API + repli démo gracieux) ──────────────────────
+  const [req, setReq] = useState<CountryRequirements | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setReq(null);
+    (async () => {
+      try {
+        const r = await getRequirements(country);
+        if (active) { setReq(r); setDemoMode(false); }
+      } catch {
+        if (active) {
+          const demo = getDemoRequirements(country);
+          // Repli ultime : enveloppe minimale si le pays n'est pas dans la matrice démo.
+          setReq(demo ?? fallbackRequirements(country));
+          setDemoMode(true);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, [country]);
+
+  // ─── Statuts des documents (persistés par pays + kind + docKey) ───────────
+  const [status, setStatus] = useState<StatusMap>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HUB_STORAGE_KEY).then((raw) => {
+      if (!raw) return;
+      try { setStatus(JSON.parse(raw)); } catch { /* ignore */ }
     });
-    notify('Document téléchargé', `Le PDF de "${d.title}" a été enregistré dans tes fichiers.`);
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(HUB_STORAGE_KEY, JSON.stringify(status)).catch(() => {});
+  }, [status]);
+
+  const statusKey = (doc: CatalogDoc) => `${country}:${kind}:${doc.key}`;
+
+  // ─── Factures (paiement) ──────────────────────────────────────────────────
+  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
+  const [paying, setPaying] = useState<Invoice | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(INVOICE_STORAGE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as Record<number, { paid?: boolean }>;
+        setInvoices((prev) => prev.map((inv) => (saved[inv.id]?.paid != null ? { ...inv, paid: !!saved[inv.id].paid } : inv)));
+      } catch { /* ignore */ }
+    });
+  }, []);
+
+  const persistInvoices = (next: Invoice[]) => {
+    const toSave: Record<number, { paid: boolean }> = {};
+    next.forEach((inv) => { toSave[inv.id] = { paid: inv.paid }; });
+    AsyncStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
   };
 
-  const pendingSignature = docs.find((d) => d.needsSignature && !d.signedAt);
+  // ─── Liste des documents requis pour la destination/kind ──────────────────
+  const requiredDocs = useMemo(() => buildRequiredDocs(kind, req), [kind, req]);
 
-  const counts = useMemo(() => {
-    const c: Record<FilterId, number> = { all: docs.length, contrat: 0, fact: 0, cmr: 0, douane: 0 };
-    docs.forEach((d) => { c[d.cat] += 1; });
-    return c;
-  }, [docs]);
+  // ─── Conformité globale : X/Y documents conformes ─────────────────────────
+  const conformCount = useMemo(
+    () => requiredDocs.filter((d) => status[statusKey(d)]?.state === 'ready').length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [requiredDocs, status, country, kind],
+  );
 
-  const visible = tab === 'all' ? docs : docs.filter((d) => d.cat === tab);
+  const trackingLabel = req?.cargoTrackingType ? CARGO_TYPE_LABEL[req.cargoTrackingType] : null;
+  const countryName = req?.countryName ?? COUNTRY_SUMMARIES.find((c) => c.code === country)?.name ?? country;
 
-  const openSign = (doc: Doc) => {
+  // ─── Signature (modal existant réutilisé) ─────────────────────────────────
+  const [signing, setSigning] = useState<CatalogDoc | null>(null);
+  const [hasInk, setHasInk] = useState(false);
+  const padRef = useRef<SignaturePadHandle>(null);
+
+  const markReady = (doc: CatalogDoc, patch?: Partial<DocStatusEntry>) => {
+    const at = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    setStatus((prev) => ({ ...prev, [statusKey(doc)]: { state: 'ready', at, ...patch } }));
+  };
+
+  // ─── Génération PDF : map doc.generator → fonction ────────────────────────
+  const handleGenerate = async (doc: CatalogDoc) => {
+    setBusyKey(statusKey(doc));
+    try {
+      await runGenerator(doc, { countryName, clientName, clientEmail, currency: req?.currency });
+      markReady(doc);
+      notify('Document généré', `Le PDF « ${doc.label} » a été enregistré dans tes fichiers.`);
+    } catch {
+      notify('Génération impossible', 'Le document n\'a pas pu être généré. Réessaie.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  // ─── Téléversement (file picker web, fallback natif) ──────────────────────
+  const handleUpload = (doc: CatalogDoc) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      // Natif : pas de picker configuré dans cette version → dépôt simulé pour la démo.
+      markReady(doc);
+      notify('Document ajouté', `« ${doc.label} » a été marqué comme fourni.`);
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const isImage = (file.type || '').startsWith('image/');
+        markReady(doc, { uri: isImage ? dataUrl : undefined });
+        notify('Document ajouté', `« ${doc.label} » a été téléversé.`);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
+  // ─── Signature ────────────────────────────────────────────────────────────
+  const handleSign = (doc: CatalogDoc) => {
     setHasInk(false);
     setSigning(doc);
   };
 
-  const confirmSign = () => {
+  const confirmSign = async () => {
     if (!signing) return;
     if (padRef.current?.isEmpty()) {
       notify('Signature vide', 'Trace ta signature dans le cadre avant de valider.');
       return;
     }
     const url = padRef.current?.toDataUrl() ?? undefined;
-    const now = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-    setDocs((prev) =>
-      prev.map((d) =>
-        d.id === signing.id
-          ? { ...d, signedAt: now, signatureUrl: url, type: 'Signé', tone: 'good' as PillTone, needsSignature: false }
-          : d,
-      ),
-    );
+    const at = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const doc = signing;
     setSigning(null);
+    setStatus((prev) => ({ ...prev, [statusKey(doc)]: { state: 'ready', at, uri: url } }));
+    // Régénère le PDF signé quand un générateur est associé (mandat, contrat…).
+    if (doc.generator) {
+      try {
+        await runGenerator(doc, { countryName, clientName, clientEmail, currency: req?.currency, signatureDataUrl: url, signedDate: at });
+      } catch { /* le statut signé est déjà enregistré */ }
+    }
     notify('Document signé', 'Ta signature a été enregistrée. Le PDF signé est disponible dans tes documents.');
   };
 
-  const payInvoice = (doc: Doc) => {
-    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, paid: true, tone: 'good' as PillTone } : d)));
-    setViewing((v) => (v && v.id === doc.id ? { ...v, paid: true } : v));
-    notify('Paiement enregistré', `La facture ${doc.title} est marquée comme réglée.`);
+  // ─── Factures ─────────────────────────────────────────────────────────────
+  const downloadInvoice = async (inv: Invoice) => {
+    await generateInvoicePdf({
+      number: inv.title, date: inv.date, amountEur: inv.amountEur, paid: inv.paid,
+      description: inv.ref, clientName, clientEmail,
+    });
+    notify('Facture téléchargée', `${inv.title}.pdf a été enregistré dans tes fichiers.`);
+  };
+
+  const payInvoice = (inv: Invoice) => {
+    setInvoices((prev) => {
+      const next = prev.map((i) => (i.id === inv.id ? { ...i, paid: true } : i));
+      persistInvoices(next);
+      return next;
+    });
+    notify('Paiement enregistré', `La facture ${inv.title} est marquée comme réglée.`);
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar
-        title="Documents"
-        subtitle="Signature, factures, douane"
-        trailing={
-          <Pressable
-            style={({ pressed }) => ({
-              width: 36, height: 36, borderRadius: 10,
-              backgroundColor: pressed ? theme.line : theme.bgSoft,
-              alignItems: 'center', justifyContent: 'center',
-            })}
-          >
-            <Icons.search size={18} color={theme.ink} stroke={1.8} />
-          </Pressable>
-        }
-      />
+      <AppBar title="Documents" subtitle="Centre de conformité import / export" />
 
-      {/* Filtres */}
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 8 }}>
-          {([
-            { id: 'all', label: 'Tous' },
-            { id: 'contrat', label: 'Contrats' },
-            { id: 'fact', label: 'Factures' },
-            { id: 'cmr', label: 'CMR' },
-            { id: 'douane', label: 'Douane' },
-          ] as { id: FilterId; label: string }[]).map((f) => {
-            const on = tab === f.id;
-            return (
-              <Pressable
-                key={f.id}
-                onPress={() => setTab(f.id)}
-                style={{
-                  flexShrink: 0, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
-                  borderWidth: 1, borderColor: on ? theme.select : theme.line,
-                  backgroundColor: on ? theme.select : theme.surface,
-                  flexDirection: 'row', alignItems: 'center', gap: 6,
-                }}
-              >
-                <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.medium }}>{f.label}</Text>
-                <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.muted, opacity: 0.8, fontFamily: TYPO.weights.semibold }}>{counts[f.id]}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28, gap: 14 }}>
+        {/* ─── Sélecteur destination + type d'envoi ─── */}
+        <Surface padded style={{ padding: 14, gap: 12 }}>
+          <View>
+            <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
+              Destination
+            </Text>
+            <Pressable
+              onPress={() => setPickerOpen(true)}
+              style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10,
+                borderWidth: 1, borderColor: theme.line,
+                backgroundColor: pressed ? theme.bgSoft : theme.surface2,
+              })}
+            >
+              <Icons.globe size={18} color={theme.navy} stroke={1.7} />
+              <Text style={{ flex: 1, fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{countryName}</Text>
+              <Pill tone="ghost">{country}</Pill>
+              <Icons.chev size={16} color={theme.muted} stroke={2.2} />
+            </Pressable>
+          </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 14 }}>
-        {/* Carte réglementation douanière (onglets Tous + Douane) */}
-        {(tab === 'all' || tab === 'douane') ? <CustomsCard /> : null}
+          <View>
+            <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
+              Type d'envoi
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {KIND_OPTIONS.map((opt) => {
+                const on = kind === opt.id;
+                const KIcon = Icons[opt.icon];
+                return (
+                  <Pressable
+                    key={opt.id}
+                    onPress={() => setKind(opt.id)}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 10,
+                      borderWidth: 1, borderColor: on ? theme.select : theme.line,
+                      backgroundColor: on ? theme.select : theme.surface,
+                      alignItems: 'center', gap: 5,
+                    }}
+                  >
+                    <KIcon size={18} color={on ? theme.selectInk : theme.navy} stroke={1.7} />
+                    <Text style={{ fontSize: 12.5, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </Surface>
 
-        {/* Carte "à signer" */}
-        {pendingSignature ? (
-          <Surface padded flat style={{ padding: 14, backgroundColor: theme.navy, borderColor: theme.navy }}>
+        {/* ─── Conformité globale ─── */}
+        <ComplianceChecklist
+          countryName={countryName}
+          trackingLabel={trackingLabel}
+          authority={req?.authority}
+          conform={conformCount}
+          total={requiredDocs.length}
+          demo={demoMode}
+          onSeeRegulation={() => nav.navigate('CustomsRequirements', { countryCode: country, kind })}
+        />
+
+        {/* ─── Documents requis groupés ─── */}
+        <DocumentHub
+          docs={requiredDocs}
+          status={status}
+          statusKey={statusKey}
+          busyKey={busyKey}
+          onGenerate={handleGenerate}
+          onUpload={handleUpload}
+          onSign={handleSign}
+        />
+
+        {/* ─── Factures (paiement) ─── */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <Icons.euro size={15} color={theme.muted} stroke={1.8} />
+          <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+            Factures
+          </Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.line }} />
+        </View>
+        {invoices.map((inv) => (
+          <Surface key={inv.id} padded style={{ padding: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.gold + '2E', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.sig size={22} color={theme.goldHi} stroke={1.8} />
+              <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.euro size={22} color={theme.navy} stroke={1.6} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 11, color: theme.goldHi, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>À signer</Text>
-                <Text style={{ fontSize: 14.5, color: '#F5F1E8', lineHeight: 18, marginTop: 2, fontFamily: TYPO.weights.semibold }}>
-                  {pendingSignature.title} {pendingSignature.ref.split('·')[0].trim()}
+                <Pill tone={inv.paid ? 'good' : 'warn'}>{inv.paid ? 'Payé' : 'À régler'}</Pill>
+                <Text style={{ fontSize: 14, color: theme.ink, marginTop: 6, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{inv.title}</Text>
+                <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                  {`${inv.amountEur.toLocaleString('fr-FR')} € · ${inv.ref}`}
                 </Text>
               </View>
-              <Button kind="gold" size="sm" onPress={() => openSign(pendingSignature)}>Signer</Button>
+              {inv.paid ? (
+                <Pressable
+                  onPress={() => downloadInvoice(inv)}
+                  style={({ pressed }) => ({
+                    width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: theme.line,
+                    backgroundColor: pressed ? theme.bgSoft : theme.surface, alignItems: 'center', justifyContent: 'center',
+                  })}
+                >
+                  <Icons.arrow size={15} color={theme.ink} stroke={2} />
+                </Pressable>
+              ) : (
+                <Button kind="gold" size="sm" onPress={() => setPaying(inv)} rightIcon={<Icons.card size={15} color={theme.navy} stroke={2} />}>
+                  Régler
+                </Button>
+              )}
             </View>
           </Surface>
-        ) : null}
-
-        {/* Empty state si le filtre ne ramène rien */}
-        {visible.length === 0 ? (
-          <Surface padded style={{ padding: 4 }}>
-            <EmptyState
-              iconKey={tab === 'fact' ? 'euro' : tab === 'cmr' ? 'globe' : tab === 'douane' ? 'globe' : 'doc'}
-              title={tab === 'all' ? 'Aucun document' : 'Aucun document dans ce filtre'}
-              subtitle={tab === 'all'
-                ? 'Tes contrats, factures et états des lieux apparaîtront ici dès ta première mission.'
-                : 'Essaye un autre filtre ou repasse plus tard.'}
-              variant="compact"
-            />
-          </Surface>
-        ) : null}
-
-        {/* Liste */}
-        {visible.map((d) => {
-          const IconComp = Icons[d.iconKey];
-          const isInvoice = d.cat === 'fact';
-          return (
-            <Pressable key={d.id} onPress={() => (isInvoice ? setViewing(d) : d.needsSignature && !d.signedAt ? openSign(d) : setViewing(d))}>
-              <Surface padded style={{ padding: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    <IconComp size={22} color={theme.navy} stroke={1.6} />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Pill tone={d.signedAt ? 'good' : isInvoice ? (d.paid ? 'good' : 'warn') : d.tone}>
-                        {d.signedAt ? 'Signé' : isInvoice ? (d.paid ? 'Payé' : 'À régler') : d.type}
-                      </Pill>
-                      {d.signatureUrl ? (
-                        <Image source={{ uri: d.signatureUrl }} style={{ width: 56, height: 22 }} resizeMode="contain" />
-                      ) : null}
-                    </View>
-                    <Text numberOfLines={1} style={{ fontSize: 14, color: theme.ink, marginTop: 6, fontFamily: TYPO.weights.semibold }}>{d.title}</Text>
-                    <Text numberOfLines={1} style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
-                      {isInvoice && d.amountEur ? `${d.amountEur.toLocaleString('fr-FR')} € · ${d.ref}` : d.ref}
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
-                      <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>{d.signedAt ?? d.date}</Text>
-                      <Text style={{ fontSize: 11, color: theme.muted }}>·</Text>
-                      <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>{d.size}</Text>
-                    </View>
-                  </View>
-                  <Pressable
-                    onPress={(e) => { e.stopPropagation?.(); downloadPdf(d); }}
-                    style={({ pressed }) => ({
-                      width: 34, height: 34, borderRadius: 10,
-                      borderWidth: 1, borderColor: theme.line,
-                      backgroundColor: pressed ? theme.bgSoft : theme.surface,
-                      alignItems: 'center', justifyContent: 'center',
-                    })}
-                  >
-                    <Icons.arrow size={15} color={theme.ink} stroke={2} />
-                  </Pressable>
-                </View>
-              </Surface>
-            </Pressable>
-          );
-        })}
+        ))}
       </ScrollView>
+
+      {/* ─── Modal sélecteur de pays ─── */}
+      <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 18, paddingBottom: 24, maxHeight: '82%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, marginBottom: 12 }}>
+              <Text style={{ flex: 1, fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold }}>Pays de destination</Text>
+              <Pressable onPress={() => setPickerOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.x size={16} color={theme.ink} stroke={2} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8, gap: 14 }}>
+              {groupCountriesByZone().map((group) => (
+                <View key={group.zone} style={{ gap: 6 }}>
+                  <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, paddingHorizontal: 4 }}>
+                    {group.label}
+                  </Text>
+                  {group.items.map((c) => {
+                    const on = c.code === country;
+                    return (
+                      <Pressable
+                        key={c.code}
+                        onPress={() => { setCountry(c.code); setPickerOpen(false); }}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row', alignItems: 'center', gap: 10,
+                          paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10,
+                          borderWidth: 1, borderColor: on ? theme.select : theme.line,
+                          backgroundColor: on ? theme.select : pressed ? theme.bgSoft : theme.surface,
+                        })}
+                      >
+                        <Text style={{ flex: 1, fontSize: 14, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{c.name}</Text>
+                        <Text style={{ fontSize: 11.5, color: on ? theme.selectInk : theme.muted, fontFamily: TYPO.weights.semibold }}>{c.code}</Text>
+                        {on ? <Icons.check size={16} color={theme.selectInk} stroke={2.4} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ─── Modal signature ─── */}
       <Modal visible={!!signing} transparent animationType="slide" onRequestClose={() => setSigning(null)}>
@@ -341,7 +421,7 @@ export function DocumentsScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold }}>Signer le document</Text>
-                <Text numberOfLines={1} style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{signing?.title}</Text>
+                <Text numberOfLines={1} style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{signing?.label}</Text>
               </View>
               <Pressable onPress={() => setSigning(null)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Icons.x size={16} color={theme.ink} stroke={2} />
@@ -371,69 +451,7 @@ export function DocumentsScreen() {
         </View>
       </Modal>
 
-      {/* ─── Modal détail document / facture ─── */}
-      <Modal visible={!!viewing} transparent animationType="slide" onRequestClose={() => setViewing(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Pill tone={viewing?.signedAt ? 'good' : viewing?.cat === 'fact' ? (viewing?.paid ? 'good' : 'warn') : viewing?.tone ?? 'navy'}>
-                  {viewing?.signedAt ? 'Signé' : viewing?.cat === 'fact' ? (viewing?.paid ? 'Payé' : 'À régler') : viewing?.type ?? ''}
-                </Pill>
-                <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 8 }}>{viewing?.title}</Text>
-                <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>{viewing?.ref}</Text>
-              </View>
-              <Pressable onPress={() => setViewing(null)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.x size={16} color={theme.ink} stroke={2} />
-              </Pressable>
-            </View>
-
-            {viewing?.cat === 'fact' && viewing?.amountEur ? (
-              <Surface padded style={{ padding: 16 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.semibold }}>Montant TTC</Text>
-                  <Text style={{ fontSize: 26, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
-                    {viewing.amountEur.toLocaleString('fr-FR')} €
-                  </Text>
-                </View>
-                <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 12 }} />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>Statut</Text>
-                  <Text style={{ fontSize: 12.5, color: viewing.paid ? theme.good : theme.warn, fontFamily: TYPO.weights.semibold }}>
-                    {viewing.paid ? '✓ Réglée' : 'En attente de règlement'}
-                  </Text>
-                </View>
-              </Surface>
-            ) : null}
-
-            {viewing?.signatureUrl ? (
-              <Surface padded style={{ padding: 14 }}>
-                <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>Signature</Text>
-                <Image source={{ uri: viewing.signatureUrl }} style={{ width: '100%', height: 80, marginTop: 8 }} resizeMode="contain" />
-                <Text style={{ fontSize: 11.5, color: theme.good, fontFamily: TYPO.weights.semibold, marginTop: 6 }}>Signé le {viewing.signedAt}</Text>
-              </Surface>
-            ) : null}
-
-            <View style={{ gap: 10 }}>
-              {viewing?.cat === 'fact' && !viewing?.paid ? (
-                <Button kind="gold" size="lg" fullWidth onPress={() => { const d = viewing; setViewing(null); if (d) setPaying(d); }} rightIcon={<Icons.card size={18} color={theme.navy} stroke={2} />}>
-                  Régler la facture
-                </Button>
-              ) : null}
-              {viewing?.needsSignature && !viewing?.signedAt ? (
-                <Button kind="gold" size="lg" fullWidth onPress={() => { const d = viewing; setViewing(null); if (d) openSign(d); }} rightIcon={<Icons.sig size={18} color={theme.navy} stroke={2} />}>
-                  Signer le document
-                </Button>
-              ) : null}
-              <Button kind="outline" size="lg" fullWidth onPress={() => viewing && downloadPdf(viewing)} rightIcon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}>
-                Télécharger le PDF
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Paiement Stripe / Apple Pay */}
+      {/* ─── Paiement Stripe / Apple Pay ─── */}
       <PaymentSheet
         visible={!!paying}
         amountEur={paying?.amountEur ?? 0}
@@ -446,83 +464,95 @@ export function DocumentsScreen() {
   );
 }
 
-// ─── Carte réglementation douanière ────────────────────────────────────────
-// Résume le bordereau requis + le nombre de documents douaniers manquants
-// pour une destination, avec export PDF de la checklist. Dégradation
-// gracieuse vers la matrice démo locale si l'API est indisponible.
-function CustomsCard() {
-  const { theme } = useTheme();
-  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [req, setReq] = useState<CountryRequirements | null>(null);
+// ─── Logique : documents requis pour une destination + type d'envoi ─────────
+// On part du catalogue filtré par type d'envoi, puis on garde :
+//  - les documents obligatoires par défaut (baseline) ;
+//  - ceux explicitement listés par la réglementation du pays ;
+//  - le bordereau de suivi seulement si le pays en exige un.
+function buildRequiredDocs(kind: ShipmentKind, req: CountryRequirements | null): CatalogDoc[] {
+  const base = catalogByKind(kind);
+  const regKeys = new Set((req?.checklist ?? []).map((i) => i.key));
+  const hasTracking = !!req?.cargoTrackingType;
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const r = await getRequirements(CUSTOMS_DEMO_COUNTRY);
-        if (active) setReq(r);
-      } catch {
-        if (active) setReq(getDemoRequirements(CUSTOMS_DEMO_COUNTRY));
-      }
-    })();
-    return () => { active = false; };
-  }, []);
+  return base.filter((doc) => {
+    if (doc.key === 'cargo_tracking_note') return hasTracking;
+    if (doc.mandatory) return true;
+    return regKeys.has(doc.key);
+  });
+}
 
-  if (!req) return null;
-
-  const mandatory = req.checklist.filter((i) => i.mandatory);
-  const missing = mandatory.filter((i) => i.provided !== true).length;
-  const trackingLabel = req.cargoTrackingType ? CARGO_TYPE_LABEL[req.cargoTrackingType] : null;
-
-  const exportPdf = async () => {
-    await generateCustomsChecklistPdf({
-      countryName: req.countryName,
-      countryCode: req.countryCode,
-      trackingTypeLabel: trackingLabel ?? undefined,
-      authority: req.authority ?? undefined,
-      customsNotes: req.customsNotes ?? undefined,
-      items: req.checklist.map((i) => ({ label: i.label, mandatory: i.mandatory, provided: i.provided, note: i.note })),
-    });
-    notify('Checklist exportée', `Checklist douanière ${req.countryName} enregistrée en PDF.`);
+// Enveloppe minimale si le pays n'est ni dans l'API ni dans la matrice démo.
+function fallbackRequirements(code: string): CountryRequirements {
+  const summary = COUNTRY_SUMMARIES.find((c) => c.code === code.toUpperCase());
+  return {
+    countryCode: code.toUpperCase(),
+    countryName: summary?.name ?? code.toUpperCase(),
+    cargoTrackingType: summary?.trackingType ?? null,
+    cargoMandatory: !!summary?.trackingType,
+    authority: summary?.authority ?? null,
+    currency: summary?.currency ?? 'EUR',
+    customsNotes: null,
+    checklist: [],
+    cargoNote: null,
   };
+}
 
-  return (
-    <Surface padded style={{ padding: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Icons.globe size={22} color={theme.navy} stroke={1.6} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
-            Réglementation · {req.countryName}
-          </Text>
-          <Text numberOfLines={2} style={{ fontSize: 14, color: theme.ink, marginTop: 3, lineHeight: 18, fontFamily: TYPO.weights.semibold }}>
-            {trackingLabel ?? 'Aucun bordereau spécifique'}
-          </Text>
-          {req.authority ? (
-            <Text numberOfLines={1} style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
-              Émis par {req.authority}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-        <Pill tone={missing > 0 ? 'warn' : 'good'}>
-          {missing > 0 ? `${missing} document(s) manquant(s)` : 'Dossier complet'}
-        </Pill>
-        <View style={{ flex: 1 }} />
-        <Button kind="outline" size="sm" onPress={exportPdf} rightIcon={<Icons.doc size={15} color={theme.navy} stroke={1.8} />}>
-          Checklist PDF
-        </Button>
-      </View>
-      <Pressable
-        onPress={() => nav.navigate('CustomsRequirements', { countryCode: req.countryCode })}
-        style={({ pressed }) => ({ marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 10, backgroundColor: pressed ? theme.bgSoft : 'transparent' })}
-      >
-        <Text style={{ fontSize: 12.5, color: theme.navy, fontFamily: TYPO.weights.semibold }}>
-          Voir la réglementation par pays →
-        </Text>
-      </Pressable>
-    </Surface>
-  );
+// ─── Mapping doc.generator → générateur PDF ─────────────────────────────────
+interface GenCtx {
+  countryName: string;
+  clientName: string;
+  clientEmail?: string;
+  currency?: string;
+  signatureDataUrl?: string;
+  signedDate?: string;
+}
+
+async function runGenerator(doc: CatalogDoc, ctx: GenCtx): Promise<void> {
+  switch (doc.generator) {
+    case 'commercialInvoice':
+    case 'proformaInvoice':
+      await generateCommercialInvoicePdf({
+        currency: ctx.currency,
+        destinationCountry: ctx.countryName,
+        recipient: { country: ctx.countryName },
+        number: doc.generator === 'proformaInvoice' ? `PRO-${new Date().getFullYear()}-0001` : undefined,
+      });
+      return;
+    case 'packingList':
+      await generatePackingListPdf({});
+      return;
+    case 'exportDeclaration':
+      await generateExportDeclarationPdf({ destinationCountry: ctx.countryName, currency: ctx.currency });
+      return;
+    case 'insuranceCertificate':
+      await generateInsuranceCertificatePdf({
+        currency: ctx.currency,
+        route: `Le Havre (FR) → ${ctx.countryName}, maritime`,
+        insured: ctx.clientName,
+      });
+      return;
+    case 'customsMandate':
+      await generateCustomsMandatePdf({
+        principal: { name: ctx.clientName },
+        destinationCountry: ctx.countryName,
+        signatureDataUrl: ctx.signatureDataUrl,
+        signedDate: ctx.signedDate,
+      });
+      return;
+    case 'cmr':
+    case 'contract':
+    case 'inspectionReport':
+    default:
+      // Documents véhicule / transport → format contrat officiel existant.
+      await generateContractPdf({
+        reference: `2026-${Math.floor(1000 + Math.random() * 8999)}-FE12`,
+        copyLabel: 'EXEMPLAIRE\nCLIENT',
+        clientName: ctx.clientName,
+        departureClientSigned: !!ctx.signatureDataUrl,
+        departureClientSignedDate: ctx.signedDate,
+        signatureDataUrl: ctx.signatureDataUrl,
+        signedDate: ctx.signedDate,
+      });
+      return;
+  }
 }
