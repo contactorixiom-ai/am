@@ -1025,3 +1025,625 @@ function drawFuelGauge(doc: jsPDF, x: number, y: number, level?: number) {
   doc.setLineWidth(0.2);
   doc.line(x, y + 6, x + 32, y + 6);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS PARTAGÉS — documents douaniers / commerciaux
+// (en-tête Axis + footer + QR déjà fournis par invoiceHeader/footer/
+//  drawVerificationBlock ; ici de quoi composer des blocs « parties » et
+//  des tableaux dans le même style noir & blanc.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Bloc « libellé » (petit titre souligné, style ÉMETTEUR/DESTINATAIRE).
+function blockLabel(doc: jsPDF, label: string, x: number, y: number) {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setColor(doc, MUTED, 'text');
+  doc.text(label, x, y);
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(x, y + 1.5, x + Math.min(doc.getTextWidth(label) + 4, 60), y + 1.5);
+}
+
+// Écrit une pile de lignes de texte (valeur), renvoie le y final.
+function textLines(doc: jsPDF, lines: (string | undefined)[], x: number, y: number, lh = 4.5): number {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setColor(doc, INK, 'text');
+  let cy = y;
+  lines.forEach((l) => {
+    if (l !== undefined && l !== '') {
+      doc.text(l, x, cy);
+      cy += lh;
+    }
+  });
+  return cy;
+}
+
+// Couple « libellé / valeur » sur une ligne, valeur alignée à droite.
+function kv(doc: jsPDF, label: string, value: string, x: number, y: number, right: number) {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setColor(doc, MUTED, 'text');
+  doc.text(label, x, y);
+  doc.setFont('helvetica', 'bold');
+  setColor(doc, INK, 'text');
+  doc.text(value, right, y, { align: 'right' });
+}
+
+interface TableCol {
+  header: string;
+  width: number;                    // largeur relative (somme libre, normalisée)
+  align?: 'left' | 'right';
+}
+
+// Tableau générique en-tête noir + lignes, renvoie le y final.
+function drawTable(
+  doc: jsPDF,
+  cols: TableCol[],
+  rows: string[][],
+  x: number,
+  y: number,
+  totalW: number,
+): number {
+  const sum = cols.reduce((s, c) => s + c.width, 0);
+  const widths = cols.map((c) => (c.width / sum) * totalW);
+  const xs: number[] = [];
+  let acc = x;
+  widths.forEach((w) => { xs.push(acc); acc += w; });
+
+  // En-tête
+  setColor(doc, INK, 'fill');
+  doc.rect(x, y, totalW, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  cols.forEach((c, i) => {
+    const right = c.align === 'right';
+    doc.text(c.header, right ? xs[i] + widths[i] - 2 : xs[i] + 2, y + 5.3, { align: right ? 'right' : 'left' });
+  });
+  let cy = y + 12;
+
+  // Lignes
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  rows.forEach((row) => {
+    setColor(doc, INK, 'text');
+    let rowH = 4;
+    cols.forEach((c, i) => {
+      const right = c.align === 'right';
+      const cellLines = doc.splitTextToSize(row[i] ?? '', widths[i] - 4);
+      doc.text(cellLines, right ? xs[i] + widths[i] - 2 : xs[i] + 2, cy, { align: right ? 'right' : 'left' });
+      rowH = Math.max(rowH, cellLines.length * 4);
+    });
+    cy += rowH + 2;
+    setColor(doc, LINE_SOFT, 'draw');
+    doc.setLineWidth(0.2);
+    doc.line(x, cy - 2, x + totalW, cy - 2);
+  });
+  return cy;
+}
+
+// Cadre de signature avec libellé. Renvoie rien (positionnement absolu).
+function signatureBox(doc: jsPDF, label: string, x: number, y: number, w: number, signedLabel?: string) {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  setColor(doc, MUTED, 'text');
+  doc.text(label, x, y);
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.3);
+  doc.rect(x, y + 2, w, 20);
+  if (signedLabel) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 138, 91);
+    doc.text(signedLabel, x + 3, y + 13);
+  }
+}
+
+const EURO = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FACTURE COMMERCIALE (export) — base du calcul des droits de douane
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CommercialInvoiceLine {
+  designation: string;
+  hsCode?: string;        // code SH / nomenclature douanière
+  quantity?: number;
+  unitPrice?: number;     // PU dans la devise
+  amount?: number;        // si absent : quantity * unitPrice
+}
+
+export interface CommercialInvoicePdfData {
+  number?: string;
+  date?: string;
+  incoterm?: string;              // ex "FOB Le Havre", "CIF Dakar"
+  currency?: string;              // ex "EUR"
+  originCountry?: string;         // pays d'origine des marchandises
+  destinationCountry?: string;
+  sender?: { name?: string; address?: string; vat?: string };
+  recipient?: { name?: string; address?: string; country?: string };
+  lines?: CommercialInvoiceLine[];
+  fobValue?: number;              // valeur FOB (sinon = total lignes)
+  notes?: string;
+}
+
+export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 14;
+
+  const number = data.number ?? `FC-${new Date().getFullYear()}-0001`;
+  const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const currency = data.currency ?? 'EUR';
+  const incoterm = data.incoterm ?? 'FOB Le Havre';
+  const lines: CommercialInvoiceLine[] = data.lines?.length
+    ? data.lines
+    : [
+        { designation: 'Pièces détachées automobiles (lot)', hsCode: '8708.99', quantity: 12, unitPrice: 145 },
+        { designation: 'Groupe électrogène 5 kVA', hsCode: '8502.11', quantity: 2, unitPrice: 820 },
+      ];
+
+  invoiceHeader(doc, 'Facture commerciale', `${number} · ${date}`);
+
+  // Parties
+  let y = 40;
+  blockLabel(doc, 'EXPÉDITEUR', M, y);
+  blockLabel(doc, 'DESTINATAIRE', W / 2 + 4, y);
+  y += 6;
+  const s = data.sender ?? {};
+  const r = data.recipient ?? {};
+  textLines(doc, [
+    s.name ?? 'Axis Import SAS',
+    s.address ?? '14 rue de la Logistique, 75015 Paris',
+    `TVA : ${s.vat ?? 'FR42 925487312'}`,
+  ], M, y);
+  textLines(doc, [
+    r.name ?? 'Sahel Trading SARL',
+    r.address ?? 'Zone portuaire, Dakar',
+    `Pays : ${r.country ?? data.destinationCountry ?? 'Sénégal'}`,
+  ], W / 2 + 4, y);
+
+  // Conditions (Incoterm / origine / devise)
+  y += 18;
+  setColor(doc, INK, 'fill');
+  doc.roundedRect(M, y, W - 2 * M, 9, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`INCOTERM ${incoterm}`, M + 3, y + 5.8);
+  doc.text(`ORIGINE ${data.originCountry ?? 'France (UE)'}`, M + 70, y + 5.8);
+  doc.text(`DEVISE ${currency}`, W - M - 3, y + 5.8, { align: 'right' });
+
+  // Tableau lignes
+  y += 14;
+  const rows = lines.map((l) => {
+    const amount = l.amount ?? (l.quantity ?? 1) * (l.unitPrice ?? 0);
+    return [
+      l.designation,
+      l.hsCode ?? '—',
+      String(l.quantity ?? 1),
+      l.unitPrice !== undefined ? EURO(l.unitPrice) : '—',
+      EURO(amount),
+    ];
+  });
+  y = drawTable(
+    doc,
+    [
+      { header: 'Désignation', width: 9 },
+      { header: 'Code SH', width: 3 },
+      { header: 'Qté', width: 2, align: 'right' },
+      { header: `PU (${currency})`, width: 3, align: 'right' },
+      { header: `Montant (${currency})`, width: 3.5, align: 'right' },
+    ],
+    rows,
+    M,
+    y,
+    W - 2 * M,
+  );
+
+  const total = lines.reduce((sum, l) => sum + (l.amount ?? (l.quantity ?? 1) * (l.unitPrice ?? 0)), 0);
+  const fob = data.fobValue ?? total;
+
+  // Totaux
+  y += 6;
+  const tx = W - 80;
+  kv(doc, `Total ${currency}`, EURO(total), tx, y, W - M);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  setColor(doc, INK, 'text');
+  doc.text(`Valeur FOB`, tx, y);
+  doc.text(`${EURO(fob)} ${currency}`, W - M, y, { align: 'right' });
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(tx, y + 2, W - M, y + 2);
+
+  // Mentions export
+  y += 12;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  const mention = data.notes
+    ?? 'Marchandises destinées à l\'exportation. Origine attestée par certificat séparé. Valeur déclarée pour usage douanier exclusivement.';
+  doc.text(doc.splitTextToSize(mention, W - 2 * M), M, y);
+
+  await drawVerificationBlock(doc, number, 'contract');
+  footer(doc);
+  triggerDownload(doc, `Facture-commerciale-${number}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LISTE DE COLISAGE (Packing List)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PackingListPackage {
+  contents?: string;
+  dimensions?: string;     // "L×l×H" en cm, ex "120×80×100"
+  grossKg?: number;
+  netKg?: number;
+}
+
+export interface PackingListPdfData {
+  number?: string;
+  date?: string;
+  sender?: { name?: string; address?: string };
+  recipient?: { name?: string; address?: string };
+  packages?: PackingListPackage[];
+}
+
+export async function generatePackingListPdf(data: PackingListPdfData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 14;
+
+  const number = data.number ?? `LC-${new Date().getFullYear()}-0001`;
+  const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const pkgs: PackingListPackage[] = data.packages?.length
+    ? data.packages
+    : [
+        { contents: 'Pièces détachées (cartons)', dimensions: '120×80×100', grossKg: 320, netKg: 295 },
+        { contents: 'Groupe électrogène', dimensions: '90×60×80', grossKg: 145, netKg: 138 },
+        { contents: 'Accessoires divers', dimensions: '60×40×40', grossKg: 48, netKg: 42 },
+      ];
+
+  invoiceHeader(doc, 'Liste de colisage', `${number} · ${date}`);
+
+  let y = 40;
+  blockLabel(doc, 'EXPÉDITEUR', M, y);
+  blockLabel(doc, 'DESTINATAIRE', W / 2 + 4, y);
+  y += 6;
+  textLines(doc, [
+    data.sender?.name ?? 'Axis Import SAS',
+    data.sender?.address ?? '14 rue de la Logistique, 75015 Paris',
+  ], M, y);
+  textLines(doc, [
+    data.recipient?.name ?? 'Sahel Trading SARL',
+    data.recipient?.address ?? 'Zone portuaire, Dakar',
+  ], W / 2 + 4, y);
+
+  y += 16;
+  const rows = pkgs.map((p, i) => [
+    String(i + 1),
+    p.contents ?? '—',
+    p.dimensions ? `${p.dimensions} cm` : '—',
+    p.grossKg !== undefined ? `${p.grossKg.toLocaleString('fr-FR')} kg` : '—',
+    p.netKg !== undefined ? `${p.netKg.toLocaleString('fr-FR')} kg` : '—',
+  ]);
+  y = drawTable(
+    doc,
+    [
+      { header: 'N°', width: 1.2 },
+      { header: 'Contenu', width: 6 },
+      { header: 'Dimensions (L×l×H)', width: 4 },
+      { header: 'Poids brut', width: 3, align: 'right' },
+      { header: 'Poids net', width: 3, align: 'right' },
+    ],
+    rows,
+    M,
+    y,
+    W - 2 * M,
+  );
+
+  const gross = pkgs.reduce((s, p) => s + (p.grossKg ?? 0), 0);
+  const net = pkgs.reduce((s, p) => s + (p.netKg ?? 0), 0);
+
+  // Totaux
+  y += 6;
+  const tx = W - 90;
+  kv(doc, 'Nombre de colis', String(pkgs.length), tx, y, W - M);
+  y += 6;
+  kv(doc, 'Poids brut total', `${gross.toLocaleString('fr-FR')} kg`, tx, y, W - M);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  setColor(doc, INK, 'text');
+  doc.text('Poids net total', tx, y);
+  doc.text(`${net.toLocaleString('fr-FR')} kg`, W - M, y, { align: 'right' });
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(tx, y + 2, W - M, y + 2);
+
+  await drawVerificationBlock(doc, number, 'contract');
+  footer(doc);
+  triggerDownload(doc, `Liste-colisage-${number}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DÉCLARATION D'EXPORTATION SIMPLIFIÉE (DAU / EX1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ExportDeclarationPdfData {
+  number?: string;
+  date?: string;
+  exporter?: { name?: string; address?: string; eori?: string };
+  recipient?: { name?: string; address?: string; country?: string };
+  regime?: string;               // ex "Exportation définitive (régime 10)"
+  customsOffice?: string;        // bureau de douane
+  goods?: string;                // désignation marchandise
+  hsCode?: string;
+  value?: number;
+  currency?: string;
+  destinationCountry?: string;
+}
+
+export async function generateExportDeclarationPdf(data: ExportDeclarationPdfData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 14;
+
+  const number = data.number ?? `EX1-${new Date().getFullYear()}-0001`;
+  const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const currency = data.currency ?? 'EUR';
+
+  invoiceHeader(doc, 'Déclaration d\'exportation', `DAU / EX1 · ${number} · ${date}`);
+
+  let y = 40;
+  blockLabel(doc, 'EXPORTATEUR', M, y);
+  blockLabel(doc, 'DESTINATAIRE', W / 2 + 4, y);
+  y += 6;
+  textLines(doc, [
+    data.exporter?.name ?? 'Axis Import SAS',
+    data.exporter?.address ?? '14 rue de la Logistique, 75015 Paris',
+    `EORI : ${data.exporter?.eori ?? 'FR92548731200018'}`,
+  ], M, y);
+  textLines(doc, [
+    data.recipient?.name ?? 'Sahel Trading SARL',
+    data.recipient?.address ?? 'Zone portuaire, Dakar',
+    `Pays : ${data.recipient?.country ?? data.destinationCountry ?? 'Sénégal'}`,
+  ], W / 2 + 4, y);
+
+  // Bloc régime / bureau
+  y += 18;
+  const half = (W - 2 * M - 6) / 2;
+  const box = (label: string, value: string, x: number) => {
+    setColor(doc, LINE, 'draw');
+    doc.setLineWidth(0.3);
+    doc.rect(x, y, half, 14);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    setColor(doc, MUTED, 'text');
+    doc.text(label, x + 3, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    setColor(doc, INK, 'text');
+    doc.text(doc.splitTextToSize(value, half - 6), x + 3, y + 10);
+  };
+  box('RÉGIME DOUANIER', data.regime ?? 'Exportation définitive (régime 10 00)', M);
+  box('BUREAU DE DOUANE', data.customsOffice ?? 'Le Havre Port (FR LEH)', M + half + 6);
+
+  // Marchandise
+  y += 20;
+  blockLabel(doc, 'MARCHANDISE', M, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setColor(doc, INK, 'text');
+  doc.text(doc.splitTextToSize(data.goods ?? 'Pièces détachées automobiles et groupe électrogène', W - 2 * M), M, y);
+
+  y += 10;
+  const tx = M;
+  kv(doc, 'Code SH (nomenclature)', data.hsCode ?? '8708.99', tx, y, W - M);
+  y += 6;
+  kv(doc, 'Pays de destination', data.destinationCountry ?? data.recipient?.country ?? 'Sénégal', tx, y, W - M);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  setColor(doc, INK, 'text');
+  doc.text('Valeur déclarée', tx, y);
+  doc.text(`${EURO(data.value ?? 2380)} ${currency}`, W - M, y, { align: 'right' });
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(tx, y + 2, W - M, y + 2);
+
+  y += 12;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  doc.text(doc.splitTextToSize(
+    'Déclaration simplifiée établie en vue de la sortie du territoire douanier de l\'Union. Document à présenter au bureau de douane d\'exportation.',
+    W - 2 * M,
+  ), M, y);
+
+  await drawVerificationBlock(doc, number, 'contract');
+  footer(doc);
+  triggerDownload(doc, `Declaration-export-${number}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTESTATION D'ASSURANCE TRANSPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface InsuranceCertificatePdfData {
+  number?: string;
+  date?: string;
+  insurer?: string;
+  policyNumber?: string;
+  insured?: string;             // assuré (client / Axis)
+  goods?: string;               // marchandise assurée
+  coverageAmount?: number;      // plafond
+  currency?: string;
+  route?: string;               // trajet
+  validFrom?: string;
+  validTo?: string;
+}
+
+export async function generateInsuranceCertificatePdf(data: InsuranceCertificatePdfData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 14;
+
+  const number = data.number ?? `ASS-${new Date().getFullYear()}-0001`;
+  const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const currency = data.currency ?? 'EUR';
+
+  invoiceHeader(doc, 'Attestation d\'assurance', `Transport · ${number}`);
+
+  let y = 42;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  setColor(doc, INK, 'text');
+  doc.text(doc.splitTextToSize(
+    `${data.insurer ?? 'AXA Transport & Logistique'} atteste que la marchandise désignée ci-dessous est couverte pendant toute la durée de son transport, conformément aux conditions générales de la police n° ${data.policyNumber ?? 'TRP-2026-44821'}.`,
+    W - 2 * M,
+  ), M, y);
+
+  y += 18;
+  const tx = M;
+  const row = (label: string, value: string) => {
+    kv(doc, label, value, tx, y, W - M);
+    y += 7;
+    setColor(doc, LINE_SOFT, 'draw');
+    doc.setLineWidth(0.2);
+    doc.line(M, y - 2.5, W - M, y - 2.5);
+  };
+  row('Assureur', data.insurer ?? 'AXA Transport & Logistique');
+  row('N° de police', data.policyNumber ?? 'TRP-2026-44821');
+  row('Assuré', data.insured ?? 'Axis Import SAS pour le compte de qui il appartiendra');
+  row('Marchandise assurée', data.goods ?? 'Pièces détachées et matériel — 513 kg');
+  row('Trajet couvert', data.route ?? 'Le Havre (FR) → Dakar (SN), maritime');
+  row('Validité', `${data.validFrom ?? date} au ${data.validTo ?? '31 décembre 2026'}`);
+
+  // Plafond mis en avant
+  y += 4;
+  setColor(doc, INK, 'fill');
+  doc.roundedRect(M, y, W - 2 * M, 16, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text('PLAFOND DE GARANTIE', M + 4, y + 6.5);
+  doc.setFontSize(15);
+  doc.text(`${EURO(data.coverageAmount ?? 25000)} ${currency}`, W - M - 4, y + 10.5, { align: 'right' });
+
+  y += 24;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  doc.text(doc.splitTextToSize(
+    'Garantie « tous risques transport » (clauses Institute Cargo Clauses A), sous réserve des exclusions des conditions générales. Attestation délivrée à titre justificatif.',
+    W - 2 * M,
+  ), M, y);
+
+  await drawVerificationBlock(doc, number, 'contract');
+  footer(doc);
+  triggerDownload(doc, `Attestation-assurance-${number}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MANDAT DE DÉDOUANEMENT (avec zone de signature client)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CustomsMandatePdfData {
+  number?: string;
+  date?: string;
+  principal?: { name?: string; address?: string };   // mandant = client
+  agent?: string;                                     // mandataire = Axis / commissionnaire
+  scope?: string;                                     // étendue du mandat
+  destinationCountry?: string;
+  signatureDataUrl?: string;                          // signature client (data URL)
+  signedDate?: string;
+}
+
+export async function generateCustomsMandatePdf(data: CustomsMandatePdfData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 14;
+
+  const number = data.number ?? `MND-${new Date().getFullYear()}-0001`;
+  const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  invoiceHeader(doc, 'Mandat de dédouanement', `${number} · ${date}`);
+
+  let y = 42;
+  blockLabel(doc, 'LE MANDANT (CLIENT)', M, y);
+  y += 6;
+  y = textLines(doc, [
+    data.principal?.name ?? 'Sahel Trading SARL',
+    data.principal?.address ?? 'Zone portuaire, Dakar',
+  ], M, y);
+
+  y += 4;
+  blockLabel(doc, 'DONNE MANDAT À', M, y);
+  y += 6;
+  y = textLines(doc, [
+    data.agent ?? 'Axis Import SAS — commissionnaire en douane agréé',
+    '14 rue de la Logistique, 75015 Paris · agrément n° FR-OEA-2025-1182',
+  ], M, y);
+
+  // Étendue
+  y += 6;
+  blockLabel(doc, 'ÉTENDUE DU MANDAT', M, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setColor(doc, INK, 'text');
+  doc.text(doc.splitTextToSize(
+    data.scope
+      ?? `Le mandant autorise le mandataire à accomplir en son nom et pour son compte l'ensemble des formalités douanières (déclaration, paiement des droits et taxes, enlèvement) relatives à l'opération à destination de ${data.destinationCountry ?? 'Sénégal'}, ainsi qu'à le représenter auprès de l'administration des douanes.`,
+    W - 2 * M,
+  ), M, y);
+
+  // Clauses
+  y += 24;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  setColor(doc, MUTED, 'text');
+  doc.text(doc.splitTextToSize(
+    'Le présent mandat est consenti pour la durée de l\'opération. Le mandant déclare exactes les informations transmises et demeure responsable de la véracité des éléments déclarés. Le mandataire est tenu à une obligation de moyens et de confidentialité.',
+    W - 2 * M,
+  ), M, y);
+
+  // Zone de signature
+  y += 26;
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.3);
+  doc.line(M, y - 4, W - M, y - 4);
+
+  const halfW = (W - 2 * M - 10) / 2;
+  signatureBox(doc, 'POUR AXIS IMPORT (MANDATAIRE)', M, y, halfW, '✓ Signé');
+
+  // Signature client (image si fournie)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  setColor(doc, MUTED, 'text');
+  doc.text('LE MANDANT — « Bon pour mandat »', M + halfW + 10, y);
+  setColor(doc, INK, 'draw');
+  doc.rect(M + halfW + 10, y + 2, halfW, 20);
+  if (data.signatureDataUrl) {
+    try {
+      doc.addImage(data.signatureDataUrl, 'PNG', M + halfW + 12, y + 3, halfW - 4, 16);
+    } catch {
+      /* ignore image errors */
+    }
+  }
+  if (data.signedDate) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    setColor(doc, MUTED, 'text');
+    doc.text(`Signé le ${data.signedDate}`, M + halfW + 10, y + 26);
+  }
+
+  await drawVerificationBlock(doc, number, 'contract');
+  footer(doc);
+  triggerDownload(doc, `Mandat-dedouanement-${number}.pdf`);
+}
