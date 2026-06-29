@@ -11,6 +11,7 @@ export type DocumentCategory =
   | 'commercial'
   | 'transport'
   | 'origin'
+  | 'customs'
   | 'insurance'
   | 'tracking'
   | 'compliance'
