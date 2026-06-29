@@ -17,6 +17,7 @@ export const DOCUMENT_CATEGORIES = [
   'commercial',
   'transport',
   'origin',
+  'customs',
   'insurance',
   'tracking',
   'compliance',
