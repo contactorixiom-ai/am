@@ -9,6 +9,7 @@ import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
+import { AutoDossierCard } from '../components/AutoDossierCard';
 import { ComplianceChecklist } from '../components/ComplianceChecklist';
 import { DocumentHub, DocStatusEntry } from '../components/DocumentHub';
 import { PaymentSheet } from '../components/PaymentSheet';
@@ -34,6 +35,7 @@ import {
   getDemoRequirements,
   getRequirements,
 } from '../api/customs';
+import { ShipmentInput, buildDossierPlan } from '../utils/dossierAuto';
 import { COUNTRY_SUMMARIES, groupCountriesByZone } from '../utils/countryRegulations';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -157,6 +159,21 @@ export function DocumentsScreen() {
   const trackingLabel = req?.cargoTrackingType ? CARGO_TYPE_LABEL[req.cargoTrackingType] : null;
   const countryName = req?.countryName ?? COUNTRY_SUMMARIES.find((c) => c.code === country)?.name ?? country;
 
+  // ─── Plan d'auto-dossier : « saisir une fois, tout générer » ──────────────
+  // On dérive un ShipmentInput de la sélection courante + du profil client ;
+  // le reste (valeurs marchandise, poids…) retombe sur des replis démo.
+  const dossierPlan = useMemo(() => {
+    const input: ShipmentInput = {
+      kind,
+      destinationCountry: countryName,
+      destinationCode: country,
+      currency: req?.currency,
+      recipient: { name: clientName, email: clientEmail, country: countryName },
+    };
+    return buildDossierPlan(input, req);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, country, countryName, req, clientName, clientEmail]);
+
   // ─── Signature (modal existant réutilisé) ─────────────────────────────────
   const [signing, setSigning] = useState<CatalogDoc | null>(null);
   const [hasInk, setHasInk] = useState(false);
@@ -165,6 +182,17 @@ export function DocumentsScreen() {
   const markReady = (doc: CatalogDoc, patch?: Partial<DocStatusEntry>) => {
     const at = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     setStatus((prev) => ({ ...prev, [statusKey(doc)]: { state: 'ready', at, ...patch } }));
+  };
+
+  // Marque « prêts » les documents générés en lot par l'auto-dossier, pour que
+  // la liste détaillée reflète instantanément les PDF produits.
+  const markKeysReady = (docKeys: string[]) => {
+    const at = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    setStatus((prev) => {
+      const next = { ...prev };
+      docKeys.forEach((k) => { next[`${country}:${kind}:${k}`] = { state: 'ready', at }; });
+      return next;
+    });
   };
 
   // ─── Génération PDF : map doc.generator → fonction ────────────────────────
@@ -305,6 +333,13 @@ export function DocumentsScreen() {
             </View>
           </View>
         </Surface>
+
+        {/* ─── Auto-dossier : « saisir une fois, tout générer » ─── */}
+        <AutoDossierCard
+          plan={dossierPlan}
+          demo={demoMode}
+          onGenerated={markKeysReady}
+        />
 
         {/* ─── Conformité globale ─── */}
         <ComplianceChecklist
