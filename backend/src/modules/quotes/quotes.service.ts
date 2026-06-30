@@ -39,6 +39,8 @@ export class QuotesService {
         volumeM3: dto.volumeM3,
         units: dto.units,
         options: dto.options ?? [],
+        vehicleCategory: dto.vehicleCategory,
+        pickupDistanceKm: dto.pickupDistanceKm,
       });
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'Invalid quote input');

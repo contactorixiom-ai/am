@@ -2,12 +2,65 @@ import { PickupMode, QuoteOptionKind, QuoteService } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────
 // TARIFS AXIS IMPORT (HT, en cents pour éviter les arrondis flottants)
-// Source : grille tarifaire métier validée juin 2026.
-//   - Convoyage Europe : 0,66 €/km HT
+// Source : grille tarifaire Convoyage 2026 + tarifs colis.
+//   - Convoyage : tarif €/km HT par catégorie de véhicule (voir grille)
+//   - Forfait minimum convoyage : 40 € HT pour toute mission < 60 km
 //   - Colis aérien     : à partir de 8,50 €/kg HT
 //   - Colis maritime   : à partir de 4,50 €/kg HT (plus long, moins cher)
 //   - Véhicule export Afrique : forcément maritime (calculé sur volume + poids)
 // ─────────────────────────────────────────────────────────────────────
+
+// Grille tarifaire Convoyage 2026 — prix au kilomètre HT par catégorie.
+// Inclus dans le prix : chauffeur pro, RC pro, assurance dommages véhicule.
+// Refacturés au réel (hors prix km) : carburant, péages.
+export const VEHICLE_CATEGORY_RATE_CENTS: Record<string, number> = {
+  moto: 60,
+  citadine: 65,
+  berline: 70,
+  break: 75,
+  coupe: 75,
+  electrique: 80,
+  hybride: 80,
+  monospace: 85,
+  suv: 85,
+  '4x4': 85,
+  camping_car: 85,
+  poids_lourd: 90,
+  utilitaire: 100,
+  luxe: 110,
+  collection: 130,
+};
+
+// Forfait minimum : 40 € HT pour toute mission de moins de 60 km.
+export const CONVOY_MIN_FORFAIT_CENTS = 4000;
+export const CONVOY_MIN_FORFAIT_KM = 60;
+
+// Tarif appliqué si la catégorie n'est pas précisée (repli prudent).
+const CONVOY_DEFAULT_RATE_CENTS: Record<'CONVOY_CAR' | 'CONVOY_MOTO', number> = {
+  CONVOY_CAR: 70,  // berline
+  CONVOY_MOTO: 60, // moto
+};
+
+// Normalise un libellé de catégorie (« SUV », « 4×4 », « Camping-car »,
+// « Poids lourd »…) vers une clé de VEHICLE_CATEGORY_RATE_CENTS.
+export function normalizeVehicleCategory(raw?: string): string | null {
+  if (!raw) return null;
+  const k = raw
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // enlève les accents
+    .replace(/×/g, 'x')
+    .replace(/[\s-]+/g, '_')
+    .trim();
+  if (k in VEHICLE_CATEGORY_RATE_CENTS) return k;
+  // Quelques alias courants
+  const alias: Record<string, string> = {
+    '4_4': '4x4', '4x4': '4x4', quatre_quatre: '4x4',
+    campingcar: 'camping_car', camping_car: 'camping_car',
+    poidslourd: 'poids_lourd', poids_lourd: 'poids_lourd',
+    suv: 'suv', vehicule_de_luxe: 'luxe', collection: 'collection',
+  };
+  return alias[k] ?? null;
+}
 
 export type TransportMode = 'ROAD' | 'AIR' | 'SEA';
 
@@ -64,6 +117,9 @@ export const PICKUP_PRICING: Record<PickupMode, { baseCents: number; perKgCents:
   },
 };
 
+// Supplément enlèvement à domicile : 0,75 €/km TTC = 0,625 €/km HT → 63 cents HT.
+export const HOME_PICKUP_PER_KM_CENTS_HT = 63;
+
 // ─────────────────────────────────────────────────────────────────────
 // ADD-ONS / OPTIONS
 // ─────────────────────────────────────────────────────────────────────
@@ -88,6 +144,10 @@ export interface QuoteComputationInput {
   volumeM3?: number;
   units?: number;
   options: QuoteOptionKind[];
+  /** Catégorie de véhicule pour le convoyage (berline, SUV, utilitaire…). */
+  vehicleCategory?: string;
+  /** Distance du premier km (domicile → hub) pour l'enlèvement à domicile. */
+  pickupDistanceKm?: number;
 }
 
 export interface ComputedOption {
@@ -138,10 +198,15 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
     if (km <= 0) {
       throw new Error('distanceKm est requis pour un convoyage (ou ville reconnue)');
     }
+    // Tarif au km selon la catégorie de véhicule (grille Convoyage 2026).
+    const catKey = normalizeVehicleCategory(input.vehicleCategory);
+    const perKmCents = (catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey])
+      || CONVOY_DEFAULT_RATE_CENTS[input.service];
     transportMode = rules.defaultMode;
-    basePriceCents = rules.baseCents;
-    variablePriceCents = Math.round(km * rules.perKmCents);
-    minCents = rules.minCents;
+    basePriceCents = 0;
+    variablePriceCents = Math.round(km * perKmCents);
+    // Forfait minimum 40 € HT pour les missions courtes (< 60 km).
+    minCents = km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
     uncertaintyPct = rules.uncertaintyPct;
   } else if (input.service === 'PARCEL') {
     const rules = PRICING.PARCEL;
@@ -184,6 +249,11 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
     const kg = input.weightKg ?? 0;
     const computed = pickupRules.baseCents + Math.round(kg * pickupRules.perKgCents);
     pickupFeeCents = Math.max(pickupRules.minCents, computed);
+    // Enlèvement à domicile : supplément 0,75 €/km TTC (≈ 0,63 €/km HT) sur la
+    // distance domicile → hub, si elle est connue.
+    if (pickupMode === 'HOME_PICKUP' && (input.pickupDistanceKm ?? 0) > 0) {
+      pickupFeeCents += Math.round((input.pickupDistanceKm as number) * HOME_PICKUP_PER_KM_CENTS_HT);
+    }
   }
 
   const rawSubtotal = basePriceCents + variablePriceCents + pickupFeeCents;

@@ -66,6 +66,14 @@ export class CreateQuoteDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
   distanceKm?: number;
 
+  @ApiPropertyOptional({ description: 'Catégorie de véhicule (berline, SUV, utilitaire, luxe…) — grille convoyage' })
+  @IsOptional() @IsString() @MaxLength(40)
+  vehicleCategory?: string;
+
+  @ApiPropertyOptional({ description: 'Distance domicile → hub en km (enlèvement à domicile)' })
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
+  pickupDistanceKm?: number;
+
   @ApiPropertyOptional({ description: 'Poids en kg (colis, marchandise)' })
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
   weightKg?: number;
