@@ -34,6 +34,10 @@ export interface CreateQuoteInput {
   volumeM3?: number;
   units?: number;
   options?: QuoteOptionKind[];
+  /** Catégorie de véhicule pour le convoyage (grille tarifaire par catégorie). */
+  vehicleCategory?: string;
+  /** Distance domicile → hub (enlèvement à domicile). */
+  pickupDistanceKm?: number;
 }
 
 export interface QuoteOption {

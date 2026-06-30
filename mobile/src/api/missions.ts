@@ -57,6 +57,7 @@ export const CONVOY_DRAFT_KEY = 'axis.convoyDraft.v1';
 
 export interface ConvoyDraft {
   // Véhicule
+  vehicleCategory?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   vehiclePlate?: string;

@@ -25,12 +25,31 @@ const OPTIONS: { kind: QuoteOptionKind; label: string; hint: string }[] = [
   { kind: 'WEEKEND_PICKUP',    label: 'Enlèvement weekend',    hint: '+40 €' },
 ];
 
+// Catégories de la grille tarifaire Convoyage 2026 (tarif €/km HT).
+const VEHICLE_CATEGORIES: { key: string; label: string; rate: string }[] = [
+  { key: 'citadine', label: 'Citadine', rate: '0,65 €' },
+  { key: 'berline', label: 'Berline', rate: '0,70 €' },
+  { key: 'break', label: 'Break', rate: '0,75 €' },
+  { key: 'coupe', label: 'Coupé', rate: '0,75 €' },
+  { key: 'electrique', label: 'Électrique', rate: '0,80 €' },
+  { key: 'hybride', label: 'Hybride', rate: '0,80 €' },
+  { key: 'monospace', label: 'Monospace', rate: '0,85 €' },
+  { key: 'suv', label: 'SUV', rate: '0,85 €' },
+  { key: '4x4', label: '4×4', rate: '0,85 €' },
+  { key: 'camping_car', label: 'Camping-car', rate: '0,85 €' },
+  { key: 'poids_lourd', label: 'Poids lourd', rate: '0,90 €' },
+  { key: 'utilitaire', label: 'Utilitaire', rate: '1,00 €' },
+  { key: 'luxe', label: 'Luxe', rate: '1,10 €' },
+  { key: 'collection', label: 'Collection', rate: '1,30 €' },
+];
+
 export function CarRequestScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [from, setFrom] = useState<City | null>(null);
   const [to, setTo] = useState<City | null>(null);
+  const [category, setCategory] = useState('berline');
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
@@ -56,6 +75,7 @@ export function CarRequestScreen() {
     try {
       const quote = await createQuote({
         service: 'CONVOY_CAR',
+        vehicleCategory: category,
         fromCity: from.city,
         fromCountry: from.country,
         fromLatitude: from.latitude,
@@ -70,6 +90,7 @@ export function CarRequestScreen() {
       // via AsyncStorage pour que QuoteReviewScreen puisse créer la mission.
       const parsedYear = parseInt(vehicleYear, 10);
       await saveConvoyDraft({
+        vehicleCategory: category,
         vehicleMake: vehicleMake.trim() || undefined,
         vehicleModel: vehicleModel.trim() || undefined,
         vehiclePlate: vehiclePlate.trim() || undefined,
@@ -127,6 +148,29 @@ export function CarRequestScreen() {
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Véhicule" />
             <View style={{ gap: 10 }}>
+              {/* Catégorie → détermine le tarif au km (grille Convoyage 2026) */}
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' }}>
+                Catégorie · tarif au km
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                {VEHICLE_CATEGORIES.map((c) => {
+                  const on = category === c.key;
+                  return (
+                    <Pressable
+                      key={c.key}
+                      onPress={() => setCategory(c.key)}
+                      style={{
+                        paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12,
+                        borderWidth: 1.5, borderColor: on ? theme.select : theme.line,
+                        backgroundColor: on ? theme.select : theme.surface, alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{c.label}</Text>
+                      <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>{c.rate}/km</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
               <Field label="Marque" value={vehicleMake} onChangeText={setVehicleMake} placeholder="BMW, Peugeot…" />
               <Field label="Modèle" value={vehicleModel} onChangeText={setVehicleModel} placeholder="Série 3, 308…" />
               <View style={{ flexDirection: 'row', gap: 10 }}>
