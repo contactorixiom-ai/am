@@ -30,6 +30,8 @@ import {
   generateInsuranceCertificatePdf,
   generateCustomsMandatePdf,
   generateContractPdf,
+  generateDossierPdf,
+  type DossierItem as PdfDossierItem,
   type CommercialInvoicePdfData,
   type PackingListPdfData,
   type ExportDeclarationPdfData,
@@ -398,38 +400,7 @@ export function buildDossierPlan(
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  2. MAPPING générateur → fonction PDF
-// ════════════════════════════════════════════════════════════════════════
-
-// Exécute le bon générateur pdf.ts pour un payload pré-rempli.
-async function runPayload(payload: GeneratorPayload): Promise<void> {
-  switch (payload.kind) {
-    case 'commercialInvoice':
-    case 'proformaInvoice':
-      await generateCommercialInvoicePdf(payload.data);
-      return;
-    case 'packingList':
-      await generatePackingListPdf(payload.data);
-      return;
-    case 'exportDeclaration':
-      await generateExportDeclarationPdf(payload.data);
-      return;
-    case 'insuranceCertificate':
-      await generateInsuranceCertificatePdf(payload.data);
-      return;
-    case 'customsMandate':
-      await generateCustomsMandatePdf(payload.data);
-      return;
-    case 'contract':
-      await generateContractPdf(payload.data);
-      return;
-    default:
-      return;
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════
-//  3. GÉNÉRATION GROUPÉE
+//  3. GÉNÉRATION GROUPÉE (un seul PDF dossier)
 // ════════════════════════════════════════════════════════════════════════
 
 export interface GenerateAllResult {
@@ -461,23 +432,26 @@ export async function generateAllAuto(
 ): Promise<GenerateAllResult> {
   const generated: string[] = [];
   const failed: string[] = [];
-  const total = plan.auto.length;
 
-  for (let i = 0; i < plan.auto.length; i += 1) {
-    const item = plan.auto[i];
-    options.onProgress?.(i + 1, total, item);
-    if (!item.prefilled) {
-      failed.push(item.doc.label);
-      continue;
-    }
-    try {
-      // Séquentiel : on attend chaque PDF (téléchargement) avant le suivant.
-      // eslint-disable-next-line no-await-in-loop
-      await runPayload(item.prefilled);
+  // On assemble tous les documents générables en UN SEUL PDF multi-pages.
+  // (Safari iOS et la plupart des navigateurs bloquent les téléchargements
+  //  multiples successifs : la boucle précédente ne sortait qu'un fichier.)
+  const items: PdfDossierItem[] = [];
+  for (const item of plan.auto) {
+    if (item.prefilled) {
+      items.push({ generator: item.prefilled.kind, data: item.prefilled.data });
       generated.push(item.doc.label);
-    } catch {
+    } else {
       failed.push(item.doc.label);
     }
+  }
+
+  if (items.length > 0) {
+    const fname = `Dossier-Axis-${plan.input.destinationCode ?? 'export'}.pdf`;
+    await generateDossierPdf(items, fname, (done, totalDocs) => {
+      const current = plan.auto[Math.min(done - 1, plan.auto.length - 1)];
+      if (current) options.onProgress?.(done, totalDocs, current);
+    });
   }
 
   return {

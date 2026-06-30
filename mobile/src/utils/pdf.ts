@@ -201,8 +201,8 @@ export interface InvoicePdfData {
   vatRate?: number;
 }
 
-export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const w = doc.internal.pageSize.getWidth();
   const vatRate = data.vatRate ?? 0.2;
   const ttc = data.amountEur;
@@ -311,7 +311,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<void> {
 
   await drawVerificationBlock(doc, data.number, 'invoice');
   footer(doc);
-  triggerDownload(doc, `${data.number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `${data.number}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -335,8 +335,8 @@ export interface CustomsChecklistData {
   items: CustomsChecklistItem[];
 }
 
-export async function generateCustomsChecklistPdf(data: CustomsChecklistData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateCustomsChecklistPdf(data: CustomsChecklistData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const w = doc.internal.pageSize.getWidth();
 
   invoiceHeader(doc, 'Checklist douanière', `${data.countryName} · ${data.countryCode}`);
@@ -429,7 +429,7 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData): P
   }
 
   footer(doc);
-  triggerDownload(doc, `Checklist-douane-${data.countryCode}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Checklist-douane-${data.countryCode}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -511,8 +511,8 @@ const VEHICLE_CATEGORIES = [
   'Camping-car', 'Poids lourd', 'Moto', 'Élec.', 'Hybride', 'Luxe', 'Collection',
 ];
 
-export async function generateContractPdf(data: ContractPdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 8; // marge
@@ -710,7 +710,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<void> 
   doc.text('Page 1/1', W - M, H - 5, { align: 'right' });
 
   await drawVerificationBlock(doc, data.reference || 'demo', 'contract');
-  triggerDownload(doc, `Contrat-Axis-${data.reference || 'demo'}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Contrat-Axis-${data.reference || 'demo'}.pdf`);
 }
 
 // ─── Sous-blocs ───────────────────────────────────────────────────────────
@@ -1168,8 +1168,8 @@ export interface CommercialInvoicePdfData {
   notes?: string;
 }
 
-export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1270,7 +1270,7 @@ export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfDat
 
   await drawVerificationBlock(doc, number, 'contract');
   footer(doc);
-  triggerDownload(doc, `Facture-commerciale-${number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Facture-commerciale-${number}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1292,8 +1292,8 @@ export interface PackingListPdfData {
   packages?: PackingListPackage[];
 }
 
-export async function generatePackingListPdf(data: PackingListPdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generatePackingListPdf(data: PackingListPdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1366,7 +1366,7 @@ export async function generatePackingListPdf(data: PackingListPdfData): Promise<
 
   await drawVerificationBlock(doc, number, 'contract');
   footer(doc);
-  triggerDownload(doc, `Liste-colisage-${number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Liste-colisage-${number}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1387,8 +1387,8 @@ export interface ExportDeclarationPdfData {
   destinationCountry?: string;
 }
 
-export async function generateExportDeclarationPdf(data: ExportDeclarationPdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateExportDeclarationPdf(data: ExportDeclarationPdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1467,7 +1467,7 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
 
   await drawVerificationBlock(doc, number, 'contract');
   footer(doc);
-  triggerDownload(doc, `Declaration-export-${number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Declaration-export-${number}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1488,8 +1488,8 @@ export interface InsuranceCertificatePdfData {
   validTo?: string;
 }
 
-export async function generateInsuranceCertificatePdf(data: InsuranceCertificatePdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateInsuranceCertificatePdf(data: InsuranceCertificatePdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1546,7 +1546,7 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
 
   await drawVerificationBlock(doc, number, 'contract');
   footer(doc);
-  triggerDownload(doc, `Attestation-assurance-${number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Attestation-assurance-${number}.pdf`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1564,8 +1564,8 @@ export interface CustomsMandatePdfData {
   signedDate?: string;
 }
 
-export async function generateCustomsMandatePdf(data: CustomsMandatePdfData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sharedDoc?: jsPDF): Promise<void> {
+  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1645,5 +1645,79 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData): Pr
 
   await drawVerificationBlock(doc, number, 'contract');
   footer(doc);
-  triggerDownload(doc, `Mandat-dedouanement-${number}.pdf`);
+  if (!sharedDoc) triggerDownload(doc, `Mandat-dedouanement-${number}.pdf`);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  DOSSIER COMPLET — un seul PDF multi-pages
+//  Les navigateurs (surtout Safari iOS) bloquent les téléchargements
+//  multiples successifs. On assemble donc tous les documents générables
+//  dans un unique PDF, téléchargé en une fois.
+// ════════════════════════════════════════════════════════════════════════
+
+export type DossierGenerator =
+  | 'commercialInvoice'
+  | 'proformaInvoice'
+  | 'packingList'
+  | 'exportDeclaration'
+  | 'insuranceCertificate'
+  | 'customsMandate'
+  | 'contract';
+
+export interface DossierItem {
+  generator: DossierGenerator;
+  data: any;
+}
+
+// Associe une clé de générateur à sa fonction (rend dans le doc partagé).
+async function renderInto(doc: jsPDF, item: DossierItem): Promise<void> {
+  switch (item.generator) {
+    case 'commercialInvoice':
+    case 'proformaInvoice':
+      await generateCommercialInvoicePdf(item.data, doc);
+      break;
+    case 'packingList':
+      await generatePackingListPdf(item.data, doc);
+      break;
+    case 'exportDeclaration':
+      await generateExportDeclarationPdf(item.data, doc);
+      break;
+    case 'insuranceCertificate':
+      await generateInsuranceCertificatePdf(item.data, doc);
+      break;
+    case 'customsMandate':
+      await generateCustomsMandatePdf(item.data, doc);
+      break;
+    case 'contract':
+      await generateContractPdf(item.data, doc);
+      break;
+  }
+}
+
+/**
+ * Génère un dossier complet : tous les documents fournis dans un seul PDF
+ * multi-pages, téléchargé une seule fois. Renvoie le nombre de documents
+ * effectivement rendus.
+ */
+export async function generateDossierPdf(
+  items: DossierItem[],
+  filename = 'Dossier-Axis.pdf',
+  onProgress?: (done: number, total: number) => void,
+): Promise<number> {
+  if (items.length === 0) return 0;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  let rendered = 0;
+  for (let i = 0; i < items.length; i += 1) {
+    if (i > 0) doc.addPage();
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await renderInto(doc, items[i]);
+      rendered += 1;
+    } catch {
+      // En cas d'échec sur un document, on continue les autres.
+    }
+    onProgress?.(i + 1, items.length);
+  }
+  triggerDownload(doc, filename);
+  return rendered;
 }
