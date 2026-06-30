@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from './client';
 
 export type MissionStatus =
@@ -13,7 +14,7 @@ export interface MissionSummary {
   pickupAt: string;
   deliveryCity: string;
   deliveryCountry: string;
-  vehicle: { make: string; model: string; year: number };
+  vehicle: { make: string; model: string; year: number; licensePlate?: string };
   driver?: { firstName: string; lastName: string } | null;
 }
 
@@ -45,4 +46,52 @@ export async function listMissions(): Promise<{ data: MissionSummary[]; meta: { 
 
 export async function publishMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
+}
+
+// ─── Brouillon de convoyage (threadé sans toucher navigation/types) ────────
+// CarRequestScreen collecte les infos véhicule + trajet mais ne peut pas les
+// passer en paramètres de route (navigation/types.ts est gelé). On persiste
+// donc ces infos via AsyncStorage, et QuoteReviewScreen les relit au moment
+// de la réservation pour créer le véhicule puis la mission.
+export const CONVOY_DRAFT_KEY = 'axis.convoyDraft.v1';
+
+export interface ConvoyDraft {
+  // Véhicule
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehiclePlate?: string;
+  vehicleYear?: number;
+  // Adresses (optionnelles — à défaut on retombe sur ville/pays du devis)
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  // Notes saisies par le client
+  notes?: string;
+  // Référence du devis associé, pour invalider un brouillon obsolète
+  quoteReference?: string;
+}
+
+export async function saveConvoyDraft(draft: ConvoyDraft): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CONVOY_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // Navigation privée / quota : on continue, le repli devis reste possible.
+  }
+}
+
+export async function readConvoyDraft(): Promise<ConvoyDraft | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CONVOY_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ConvoyDraft;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearConvoyDraft(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CONVOY_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
 }

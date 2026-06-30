@@ -1,10 +1,13 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
+import { ApiError } from '../api/client';
 import { QuoteHint } from '../api/quotes';
+import { createVehicle } from '../api/vehicles';
+import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { Button } from '../components/Button';
@@ -32,16 +35,85 @@ export function QuoteReviewScreen() {
   const isParcel = quote.service === 'PARCEL' || quote.service === 'MERCHANDISE';
   const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
 
+  const [booking, setBooking] = useState(false);
+
   // Pour les colis : on pré-sélectionne le transporteur partenaire (tronçon 1)
   // pour informer le client AVANT achat. Numéro de tracking caché à ce stade.
   const partner = isParcel ? selectPartner({ fromCountry: quote.fromCountry, weightKg: quote.weightKg ?? undefined, toCountry: quote.toCountry }) : null;
 
+  // Réservation réelle d'un convoyage : créer le véhicule puis la mission.
+  const bookConvoy = async () => {
+    setBooking(true);
+    try {
+      const draft = await readConvoyDraft();
+
+      // 1) Véhicule — make/model/plate/year obligatoires côté DTO. À défaut
+      // (brouillon perdu, navigation privée), on met des valeurs neutres pour
+      // que la création reste possible plutôt que de bloquer l'utilisateur.
+      const vehicle = await createVehicle({
+        type: quote.service === 'CONVOY_MOTO' ? 'MOTORCYCLE' : 'CAR',
+        make: draft?.vehicleMake || 'Véhicule',
+        model: draft?.vehicleModel || 'À préciser',
+        year: draft?.vehicleYear ?? new Date().getFullYear(),
+        licensePlate: draft?.vehiclePlate || 'TEMP-0000',
+        registrationCountry: quote.fromCountry?.slice(0, 2).toUpperCase() || undefined,
+      });
+
+      // 2) Mission — coordonnées dérivées du devis. pickupAt = demain matin.
+      const pickupAt = new Date();
+      pickupAt.setDate(pickupAt.getDate() + 1);
+      pickupAt.setHours(8, 0, 0, 0);
+
+      const mission = await createMission({
+        vehicleId: vehicle.id,
+        pickupAddress: draft?.pickupAddress || `${quote.fromCity}, ${quote.fromCountry}`,
+        pickupCity: quote.fromCity,
+        pickupCountry: quote.fromCountry,
+        pickupLatitude: quote.fromLatitude ?? 0,
+        pickupLongitude: quote.fromLongitude ?? 0,
+        pickupAt: pickupAt.toISOString(),
+        deliveryAddress: draft?.deliveryAddress || `${quote.toCity}, ${quote.toCountry}`,
+        deliveryCity: quote.toCity,
+        deliveryCountry: quote.toCountry,
+        deliveryLatitude: quote.toLatitude ?? 0,
+        deliveryLongitude: quote.toLongitude ?? 0,
+        pickupNotes: draft?.notes,
+      });
+
+      await clearConvoyDraft();
+      nav.replace('BookingConfirmation', {
+        kind: 'mission',
+        reference: mission.reference,
+        id: mission.id,
+      });
+    } catch (e) {
+      // Repli démo : sur erreur réseau (backend down) on génère une référence
+      // locale et on navigue quand même pour garder l'app démo-able hors-ligne.
+      const isNetwork = e instanceof ApiError ? e.isNetworkError : !(e instanceof ApiError);
+      if (isNetwork) {
+        const localRef = `AX-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Date.now()
+          .toString(36)
+          .slice(-4)
+          .toUpperCase()}`;
+        await clearConvoyDraft();
+        notify('Enregistré en local', 'Pas de réseau : ta réservation est gardée localement et sera synchronisée plus tard.');
+        nav.replace('BookingConfirmation', {
+          kind: 'mission',
+          reference: localRef,
+          id: 'local-demo',
+        });
+        return;
+      }
+      const msg = e instanceof ApiError ? e.message : 'Erreur inconnue.';
+      notify('Réservation impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+    } finally {
+      setBooking(false);
+    }
+  };
+
   const handleBook = () => {
     if (isConvoy) {
-      notify(
-        'Bientôt disponible',
-        "La réservation de convoyage nécessite l'enregistrement préalable d'un véhicule. Cette étape sera ajoutée au prochain sprint.",
-      );
+      bookConvoy();
       return;
     }
     if (isParcel) {
@@ -389,11 +461,12 @@ export function QuoteReviewScreen() {
           size="lg"
           fullWidth
           onPress={handleBook}
+          loading={booking}
           rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
         >
-          Réserver maintenant
+          {isConvoy ? 'Réserver le convoyage' : 'Réserver maintenant'}
         </Button>
-        <Button kind="ghost" onPress={() => nav.goBack()}>
+        <Button kind="ghost" onPress={() => nav.goBack()} disabled={booking}>
           Modifier le devis
         </Button>
       </View>

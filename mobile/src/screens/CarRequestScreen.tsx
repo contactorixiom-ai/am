@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Te
 import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
 import { City, createQuote, QuoteOptionKind } from '../api/quotes';
+import { saveConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
@@ -64,6 +65,17 @@ export function CarRequestScreen() {
         toLatitude: to.latitude,
         toLongitude: to.longitude,
         options: Array.from(selectedOptions),
+      });
+      // navigation/types.ts est gelé : on persiste les infos véhicule + notes
+      // via AsyncStorage pour que QuoteReviewScreen puisse créer la mission.
+      const parsedYear = parseInt(vehicleYear, 10);
+      await saveConvoyDraft({
+        vehicleMake: vehicleMake.trim() || undefined,
+        vehicleModel: vehicleModel.trim() || undefined,
+        vehiclePlate: vehiclePlate.trim() || undefined,
+        vehicleYear: Number.isFinite(parsedYear) ? parsedYear : undefined,
+        notes: notes.trim() || undefined,
+        quoteReference: quote.reference,
       });
       nav.navigate('QuoteReview', { quote });
     } catch (e) {
