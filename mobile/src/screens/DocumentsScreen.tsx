@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
@@ -36,10 +36,15 @@ import {
   getRequirements,
 } from '../api/customs';
 import { ShipmentInput, buildDossierPlan } from '../utils/dossierAuto';
+import {
+  SHIPMENT_INFO_KEY,
+  ShipmentInfoForm,
+  shipmentInfoToInput,
+} from './ShipmentInfoScreen';
 import { COUNTRY_SUMMARIES, groupCountriesByZone } from '../utils/countryRegulations';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { TYPO } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
 
 // Destination + type d'envoi par défaut (cf. cahier des charges).
 const DEFAULT_COUNTRY = 'SN';
@@ -84,6 +89,13 @@ export function DocumentsScreen() {
   // ─── Sélection destination + type d'envoi ─────────────────────────────────
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [kind, setKind] = useState<ShipmentKind>(DEFAULT_KIND);
+  // Infos d'envoi saisies par l'utilisateur (rechargées à chaque focus écran).
+  const [shipmentInfo, setShipmentInfo] = useState<ShipmentInfoForm | null>(null);
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem(SHIPMENT_INFO_KEY)
+      .then((raw) => { if (raw) { try { setShipmentInfo(JSON.parse(raw)); } catch { /* ignore */ } } })
+      .catch(() => {});
+  }, []));
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // ─── Réglementation pays (API + repli démo gracieux) ──────────────────────
@@ -163,16 +175,36 @@ export function DocumentsScreen() {
   // On dérive un ShipmentInput de la sélection courante + du profil client ;
   // le reste (valeurs marchandise, poids…) retombe sur des replis démo.
   const dossierPlan = useMemo(() => {
-    const input: ShipmentInput = {
+    // Base : sélection courante + profil client.
+    const base: ShipmentInput = {
       kind,
       destinationCountry: countryName,
       destinationCode: country,
       currency: req?.currency,
       recipient: { name: clientName, email: clientEmail, country: countryName },
     };
+    // Surcouche : infos d'envoi saisies par l'utilisateur (prioritaires).
+    const input: ShipmentInput = shipmentInfo
+      ? {
+          ...base,
+          ...shipmentInfoToInput(shipmentInfo),
+          kind,
+          destinationCountry: countryName,
+          destinationCode: country,
+          // on garde le destinataire saisi s'il existe, sinon le profil
+          recipient: {
+            name: shipmentInfo.recipientName || clientName,
+            email: clientEmail,
+            address: shipmentInfo.recipientAddress || undefined,
+            country: countryName,
+          },
+        }
+      : base;
     return buildDossierPlan(input, req);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, country, countryName, req, clientName, clientEmail]);
+  }, [kind, country, countryName, req, clientName, clientEmail, shipmentInfo]);
+
+  const hasShipmentInfo = !!(shipmentInfo && (shipmentInfo.goodsDesignation || shipmentInfo.declaredValue || shipmentInfo.recipientName));
 
   // ─── Signature (modal existant réutilisé) ─────────────────────────────────
   const [signing, setSigning] = useState<CatalogDoc | null>(null);
@@ -333,6 +365,30 @@ export function DocumentsScreen() {
             </View>
           </View>
         </Surface>
+
+        {/* ─── Infos d'envoi (saisie unique → documents pré-remplis) ─── */}
+        <Pressable
+          onPress={() => nav.navigate('ShipmentInfo')}
+          style={({ pressed }) => ({
+            flexDirection: 'row', alignItems: 'center', gap: 12,
+            padding: 14, borderRadius: RADII.lg, borderWidth: 1,
+            borderColor: hasShipmentInfo ? theme.good : theme.gold + '66',
+            backgroundColor: pressed ? theme.bgSoft : theme.surface,
+          })}
+        >
+          <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: hasShipmentInfo ? theme.good + '1F' : theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Icons.edit size={18} color={hasShipmentInfo ? theme.good : theme.navy} stroke={1.8} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+              {hasShipmentInfo ? 'Infos d\'envoi renseignées' : 'Renseigner les infos d\'envoi'}
+            </Text>
+            <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+              {hasShipmentInfo ? 'Touche pour modifier · documents pré-remplis' : 'Marchandise, valeur, parties — saisis une fois'}
+            </Text>
+          </View>
+          <Icons.chev size={18} color={theme.muted} stroke={2} />
+        </Pressable>
 
         {/* ─── Auto-dossier : « saisir une fois, tout générer » ─── */}
         <AutoDossierCard
