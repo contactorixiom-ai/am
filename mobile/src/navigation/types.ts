@@ -16,8 +16,8 @@ export type RootStackParamList = {
   TrackByReference: undefined;
   AppTabs: undefined;
   ServicePicker: undefined;
-  CarRequest: undefined;
-  ParcelRequest: undefined;
+  CarRequest: { service?: 'CONVOY_CAR' | 'CONVOY_MOTO' } | undefined;
+  ParcelRequest: { service?: 'PARCEL' | 'MERCHANDISE' } | undefined;
   PickupMode: { draft: ParcelDraft };
   RelayPointPicker: { draft: ParcelDraft };
   HomePickupAddress: { draft: ParcelDraft };

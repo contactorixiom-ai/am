@@ -15,6 +15,7 @@ import { Icons } from '../components/Icons';
 import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
+import { RouteMap } from '../components/RouteMap';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -189,7 +190,7 @@ export function QuoteReviewScreen() {
           >
             {fmtEur(quote.totalCents)}
           </Text>
-          {totalLocal ? (
+          {isParcel && totalLocal ? (
             <Text
               style={{
                 fontSize: 13,
@@ -214,15 +215,19 @@ export function QuoteReviewScreen() {
           </Text>
         </Surface>
 
-        {/* Trajet visuel sur carte */}
+        {/* Trajet visuel — vraie carte OpenStreetMap si coordonnées connues,
+            sinon carte stylisée en repli. */}
         {quote.fromLatitude && quote.fromLongitude && quote.toLatitude && quote.toLongitude ? (
-          <StyledRouteMap
-            height={180}
-            from={quote.fromCity}
-            to={quote.toCity}
-            progress={0}
+          <RouteMap
+            height={200}
+            from={{ latitude: quote.fromLatitude, longitude: quote.fromLongitude }}
+            to={{ latitude: quote.toLatitude, longitude: quote.toLongitude }}
+            fromLabel={quote.fromCity}
+            toLabel={quote.toCity}
           />
-        ) : null}
+        ) : (
+          <StyledRouteMap height={180} from={quote.fromCity} to={quote.toCity} progress={0} />
+        )}
 
         {/* Récap trajet */}
         <Surface padded style={{ padding: 16 }}>
@@ -431,8 +436,8 @@ export function QuoteReviewScreen() {
           ))}
         </View>
 
-        {/* Smart hints */}
-        {quote.hints && quote.hints.length > 0 ? (
+        {/* Smart hints (conseils maritime/aérien/relais) — propres aux colis */}
+        {isParcel && quote.hints && quote.hints.length > 0 ? (
           <View>
             <SectionHead title="Conseils Axis" />
             <View style={{ gap: 10 }}>

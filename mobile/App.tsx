@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DotLoader } from './src/components/DotLoader';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/PushToast';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ParcelDraftProvider } from './src/state/ParcelDraftContext';
@@ -34,19 +35,21 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <SessionProvider>
-            <ParcelDraftProvider>
-              <ToastProvider>
-                <StatusBar style="auto" />
-                <RootNavigator />
-              </ToastProvider>
-            </ParcelDraftProvider>
-          </SessionProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <SessionProvider>
+              <ParcelDraftProvider>
+                <ToastProvider>
+                  <StatusBar style="auto" />
+                  <RootNavigator />
+                </ToastProvider>
+              </ParcelDraftProvider>
+            </SessionProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

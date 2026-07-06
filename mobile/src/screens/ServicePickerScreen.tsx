@@ -23,9 +23,9 @@ const SERVICES: {
   enabled: boolean;
 }[] = [
   { id: 'car',   IconComp: Icons.car,    title: 'Convoyage voiture',       sub: 'Particulier ou pro',           tag: 'Europe',   delay: '2-5 jours',  enabled: true },
-  { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Plateau ou roulé',             tag: 'Europe',   delay: '2-4 jours',  enabled: false },
+  { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Plateau ou roulé',             tag: 'Europe',   delay: '2-4 jours',  enabled: true },
   { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: '< 30 kg, multi-points',        tag: 'Eur ⇄ Afr', delay: '5-10 jours', enabled: true },
-  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur ⇄ Afr', delay: '7-21 jours', enabled: false },
+  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur ⇄ Afr', delay: '7-21 jours', enabled: true },
 ];
 
 export function ServicePickerScreen() {
@@ -35,8 +35,10 @@ export function ServicePickerScreen() {
 
   const goNext = () => {
     if (!selected) return;
-    if (selected === 'car') nav.navigate('CarRequest');
-    else if (selected === 'colis') nav.navigate('ParcelRequest');
+    if (selected === 'car') nav.navigate('CarRequest', { service: 'CONVOY_CAR' });
+    else if (selected === 'moto') nav.navigate('CarRequest', { service: 'CONVOY_MOTO' });
+    else if (selected === 'colis') nav.navigate('ParcelRequest', { service: 'PARCEL' });
+    else if (selected === 'merch') nav.navigate('ParcelRequest', { service: 'MERCHANDISE' });
   };
 
   return (

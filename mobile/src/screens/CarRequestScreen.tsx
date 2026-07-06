@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
@@ -46,10 +46,13 @@ const VEHICLE_CATEGORIES: { key: string; label: string; rate: string }[] = [
 export function CarRequestScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'CarRequest'>>();
+  const service = route.params?.service ?? 'CONVOY_CAR';
+  const isMoto = service === 'CONVOY_MOTO';
 
   const [from, setFrom] = useState<City | null>(null);
   const [to, setTo] = useState<City | null>(null);
-  const [category, setCategory] = useState('berline');
+  const [category, setCategory] = useState(isMoto ? 'moto' : 'berline');
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
@@ -74,7 +77,7 @@ export function CarRequestScreen() {
     setLoading(true);
     try {
       const quote = await createQuote({
-        service: 'CONVOY_CAR',
+        service,
         vehicleCategory: category,
         fromCity: from.city,
         fromCountry: from.country,
@@ -109,7 +112,7 @@ export function CarRequestScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Convoyage voiture" subtitle="Étape 2 sur 2 · détails" />
+      <AppBar title={isMoto ? 'Convoyage moto' : 'Convoyage voiture'} subtitle="Étape 2 sur 2 · détails" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 16 }}>
           {/* Trajet */}
@@ -148,31 +151,41 @@ export function CarRequestScreen() {
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Véhicule" />
             <View style={{ gap: 10 }}>
-              {/* Catégorie → détermine le tarif au km (grille Convoyage 2026) */}
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' }}>
-                Catégorie · tarif au km
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-                {VEHICLE_CATEGORIES.map((c) => {
-                  const on = category === c.key;
-                  return (
-                    <Pressable
-                      key={c.key}
-                      onPress={() => setCategory(c.key)}
-                      style={{
-                        paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12,
-                        borderWidth: 1.5, borderColor: on ? theme.select : theme.line,
-                        backgroundColor: on ? theme.select : theme.surface, alignItems: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{c.label}</Text>
-                      <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>{c.rate}/km</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <Field label="Marque" value={vehicleMake} onChangeText={setVehicleMake} placeholder="BMW, Peugeot…" />
-              <Field label="Modèle" value={vehicleModel} onChangeText={setVehicleModel} placeholder="Série 3, 308…" />
+              {/* Catégorie → détermine le tarif au km (grille Convoyage 2026).
+                  Masquée pour la moto (tarif unique 0,60 €/km). */}
+              {isMoto ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+                  <Icons.bike size={18} color={theme.gold} stroke={1.8} />
+                  <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Tarif moto : 0,60 €/km HT</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' }}>
+                    Catégorie · tarif au km
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                    {VEHICLE_CATEGORIES.map((c) => {
+                      const on = category === c.key;
+                      return (
+                        <Pressable
+                          key={c.key}
+                          onPress={() => setCategory(c.key)}
+                          style={{
+                            paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12,
+                            borderWidth: 1.5, borderColor: on ? theme.select : theme.line,
+                            backgroundColor: on ? theme.select : theme.surface, alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{c.label}</Text>
+                          <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>{c.rate}/km</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
+              <Field label={isMoto ? 'Marque' : 'Marque'} value={vehicleMake} onChangeText={setVehicleMake} placeholder={isMoto ? 'Yamaha, Honda…' : 'BMW, Peugeot…'} />
+              <Field label="Modèle" value={vehicleModel} onChangeText={setVehicleModel} placeholder={isMoto ? 'MT-07, CB500…' : 'Série 3, 308…'} />
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Field
                   containerStyle={{ flex: 1.2 }}
