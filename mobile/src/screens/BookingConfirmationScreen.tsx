@@ -15,6 +15,7 @@ import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
+import { generateShippingLabelPdf } from '../utils/pdf';
 import { selectPartner } from '../utils/logisticsPartners';
 
 // Instructions personnalisées selon le mode de récupération.
@@ -354,7 +355,18 @@ export function BookingConfirmationScreen() {
               kind="outline"
               size="md"
               style={{ flex: 1 }}
-              onPress={() => notify('PDF', 'Étiquette PDF prête bientôt — fonctionnalité en cours.')}
+              onPress={async () => {
+                await generateShippingLabelPdf({
+                  reference,
+                  toCity: lastBooking?.to?.city,
+                  toCountry: lastBooking?.to?.country,
+                  fromCity: lastBooking?.from?.city,
+                  weightKg: lastBooking?.weightKg,
+                  transportMode: lastBooking?.transportMode,
+                  pickupMode: pickupMode === 'HUB_DROP_OFF' ? 'Dépôt hub' : pickupMode === 'RELAY_DROP_OFF' ? 'Point relais' : 'Enlèvement domicile',
+                });
+                notify('Étiquette générée', 'Colle-la sur ton colis, QR visible.');
+              }}
               leftIcon={<Icons.doc size={16} color={theme.ink} stroke={1.8} />}
             >
               Étiquette PDF

@@ -3,7 +3,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
-import { confirmAction } from '../utils/notify';
+import { confirmAction, notify } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
 import { Avatar } from '../components/Avatar';
 import { Icons } from '../components/Icons';
@@ -167,15 +167,15 @@ export function ProfileScreen() {
         {/* Sections */}
         <View style={{ paddingHorizontal: 8, paddingTop: 14 }}>
           <MenuSection label="Compte">
-            <MenuRow iconKey="user" label="Mon profil" />
-            <MenuRow iconKey="pin" label="Mes adresses" trailing="0" />
-            <MenuRow iconKey="card" label="Modes de paiement" trailing="0" />
+            <MenuRow iconKey="user" label="Mon profil" sub="Infos personnelles" onPress={() => nav.navigate('ShipmentInfo')} />
+            <MenuRow iconKey="pin" label="Mes adresses" trailing="0" onPress={() => notify('Mes adresses', 'Le carnet d\'adresses arrive avec la prochaine version.')} />
+            <MenuRow iconKey="card" label="Modes de paiement" trailing="0" onPress={() => notify('Modes de paiement', 'La gestion des cartes arrive avec l\'activation Stripe.')} />
           </MenuSection>
 
           <MenuSection label="Activité">
-            <MenuRow iconKey="truck" label="Mes missions" />
+            <MenuRow iconKey="truck" label="Mes missions" onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Trips' } as never)} />
             <MenuRow iconKey="chat" label="Messages" sub="Chauffeurs et support" onPress={() => nav.navigate('Conversations')} />
-            <MenuRow iconKey="doc" label="Documents & factures" />
+            <MenuRow iconKey="doc" label="Documents & factures" onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Documents' } as never)} />
             <MenuRow iconKey="car" label="Documents véhicule" sub="Carte grise, CT, assurance" onPress={() => nav.navigate('VehicleDocs')} />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
           </MenuSection>
@@ -187,14 +187,14 @@ export function ProfileScreen() {
 
           <MenuSection label="Axis">
             <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, pause, alertes" onPress={() => nav.navigate('DriverMode')} />
-            <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" />
-            <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" />
-            <MenuRow iconKey="shield" label="Centre d'aide" />
+            <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" onPress={() => nav.navigate('KycVerification')} />
+            <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" onPress={() => notify('Parrainage', 'Le programme de parrainage ouvre au lancement officiel.')} />
+            <MenuRow iconKey="shield" label="Centre d'aide" onPress={() => nav.navigate('Conversations')} />
           </MenuSection>
 
           <MenuSection label="Préférences">
-            <MenuRow iconKey="bell" label="Notifications" />
-            <MenuRow iconKey="globe" label="Langue" trailing="Français" />
+            <MenuRow iconKey="bell" label="Notifications" onPress={() => nav.navigate('Notifications')} />
+            <MenuRow iconKey="globe" label="Langue" trailing="Français" onPress={() => notify('Langue', 'Français uniquement pour le moment — anglais à venir.')} />
             <MenuRowToggle
               label="Mode sombre"
               value={isDark}

@@ -6,6 +6,8 @@ export interface ParcelDraft {
   weightKg: number;
   category: string;
   transportMode: 'AIR' | 'SEA';
+  /** PARCEL (colis < 30 kg) ou MERCHANDISE (palettes, volumineux). */
+  service?: 'PARCEL' | 'MERCHANDISE';
 }
 
 export type RootStackParamList = {

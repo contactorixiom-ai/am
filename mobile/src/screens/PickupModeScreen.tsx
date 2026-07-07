@@ -62,7 +62,7 @@ export async function buildQuoteFromDraft(
   pickupMode: PickupMode,
 ) {
   return createQuote({
-    service: 'PARCEL',
+    service: draft.service ?? 'PARCEL',
     transportMode: draft.transportMode,
     pickupMode,
     fromCity: draft.from.city,

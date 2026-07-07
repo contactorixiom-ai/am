@@ -1721,3 +1721,127 @@ export async function generateDossierPdf(
   triggerDownload(doc, filename);
   return rendered;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  ÉTIQUETTE D'EXPÉDITION — à coller sur le colis
+//  Style transporteur : référence énorme, QR scannable, blocs exp./dest.
+// ════════════════════════════════════════════════════════════════════════
+
+export interface ShippingLabelData {
+  reference: string;
+  fromName?: string;
+  fromCity?: string;
+  toName?: string;
+  toCity?: string;
+  toCountry?: string;
+  weightKg?: number;
+  transportMode?: 'AIR' | 'SEA' | 'ROAD';
+  pickupMode?: string;
+}
+
+export async function generateShippingLabelPdf(data: ShippingLabelData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 20;
+  const labelW = W - 2 * M;
+  const labelH = 130;
+  const top = 30;
+
+  // Traits de découpe
+  setColor(doc, MUTED, 'draw');
+  doc.setLineWidth(0.2);
+  doc.setLineDashPattern([2, 2], 0);
+  doc.rect(M - 4, top - 4, labelW + 8, labelH + 8);
+  doc.setLineDashPattern([], 0);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  doc.text('Découper et coller sur le colis, référence et QR visibles.', M - 4, top - 7);
+
+  // Cadre étiquette
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.8);
+  doc.rect(M, top, labelW, labelH);
+
+  // Bandeau haut : logo + AXIS IMPORT + mode
+  drawAxisLogo(doc, M + 4, top + 4, 12);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  setColor(doc, INK, 'text');
+  doc.text('AXIS IMPORT', M + 19, top + 10);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  setColor(doc, MUTED, 'text');
+  doc.text('TRANSPORT · CONVOYAGE', M + 19, top + 14);
+  const modeLabel = data.transportMode === 'SEA' ? 'MARITIME' : data.transportMode === 'ROAD' ? 'ROUTIER' : 'AÉRIEN';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  setColor(doc, INK, 'text');
+  doc.text(modeLabel, M + labelW - 4, top + 10, { align: 'right' });
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(M, top + 18, M + labelW, top + 18);
+
+  // Référence énorme
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(26);
+  setColor(doc, INK, 'text');
+  doc.text(data.reference, M + 6, top + 32);
+
+  // QR code à droite
+  try {
+    const qr = await QRCode.toDataURL(JSON.stringify({ ref: data.reference }), { width: 300, margin: 0, color: { dark: INK, light: '#FFFFFFFF' } });
+    doc.addImage(qr, 'PNG', M + labelW - 42, top + 22, 36, 36);
+  } catch { /* sans QR si échec */ }
+
+  // Blocs expéditeur / destinataire
+  let y = top + 46;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  doc.text('EXPÉDITEUR', M + 6, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+  setColor(doc, INK, 'text');
+  doc.text(`${data.fromName ?? 'Client Axis'} · ${data.fromCity ?? 'France'}`, M + 6, y + 5.5);
+
+  y += 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  setColor(doc, MUTED, 'text');
+  doc.text('DESTINATAIRE', M + 6, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  setColor(doc, INK, 'text');
+  doc.text(data.toName ?? 'Destinataire', M + 6, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12);
+  doc.text(`${data.toCity ?? ''}${data.toCountry ? ` · ${data.toCountry}` : ''}`.trim(), M + 6, y + 14);
+
+  // Pied d'étiquette : poids + remise + date
+  const fy = top + labelH - 10;
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.5);
+  doc.line(M, fy - 6, M + labelW, fy - 6);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  setColor(doc, INK, 'text');
+  doc.text(data.weightKg ? `${data.weightKg} kg` : 'Poids : —', M + 6, fy);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  setColor(doc, MUTED, 'text');
+  if (data.pickupMode) doc.text(data.pickupMode, M + labelW / 2, fy, { align: 'center' });
+  doc.text(new Date().toLocaleDateString('fr-FR'), M + labelW - 6, fy, { align: 'right' });
+
+  // Instructions sous l'étiquette
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  setColor(doc, MUTED, 'text');
+  doc.text(doc.splitTextToSize(
+    'Présente cette étiquette (papier ou écran) lors du dépôt en hub, en point relais ou au passage du transporteur. Le QR contient ta référence de suivi.',
+    labelW,
+  ), M, top + labelH + 14);
+
+  footer(doc);
+  triggerDownload(doc, `Etiquette-${data.reference}.pdf`);
+}

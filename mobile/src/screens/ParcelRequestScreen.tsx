@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
@@ -32,6 +32,9 @@ import { ParcelContentScreen } from './ParcelContentScreen';
 export function ParcelRequestScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ParcelRequest'>>();
+  // PARCEL (colis) ou MERCHANDISE (volumineux) selon le service choisi.
+  const service = route.params?.service ?? 'PARCEL';
   const { draft, set, reset, saveForLater, restored } = useParcelDraft();
 
   // Index interne 0 (Trajet) / 1 (Colis) / 2 (Contenu)
@@ -93,6 +96,7 @@ export function ParcelRequestScreen() {
           weightKg: draft.weightKg!,
           category: draft.customsCategory ?? 'PERSONAL_EFFECTS',
           transportMode: draft.transportMode ?? 'AIR',
+          service,
         },
       });
     }
