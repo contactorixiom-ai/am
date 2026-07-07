@@ -131,6 +131,7 @@ export function TrackingScreen() {
               toLabel={toLabel}
               driverName="Karim Diallo"
               vehicleLabel="BMW Série 3 · AX-2847"
+              missionId={route.params.id}
             />
           ) : (
             <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />

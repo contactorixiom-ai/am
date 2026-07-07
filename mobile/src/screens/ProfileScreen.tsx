@@ -186,6 +186,7 @@ export function ProfileScreen() {
           </MenuSection>
 
           <MenuSection label="Axis">
+            <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, pause, alertes" onPress={() => nav.navigate('DriverMode')} />
             <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" />
             <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" />
             <MenuRow iconKey="shield" label="Centre d'aide" />
