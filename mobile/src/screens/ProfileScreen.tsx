@@ -174,6 +174,7 @@ export function ProfileScreen() {
 
           <MenuSection label="Activité">
             <MenuRow iconKey="truck" label="Mes missions" />
+            <MenuRow iconKey="chat" label="Messages" sub="Chauffeurs et support" onPress={() => nav.navigate('Conversations')} />
             <MenuRow iconKey="doc" label="Documents & factures" />
             <MenuRow iconKey="car" label="Documents véhicule" sub="Carte grise, CT, assurance" onPress={() => nav.navigate('VehicleDocs')} />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />

@@ -26,7 +26,8 @@ export type RootStackParamList = {
   BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
   MissionDetails: { reference?: string } | undefined;
-  Messaging: { driverName?: string; subtitle?: string } | undefined;
+  Messaging: { driverName?: string; subtitle?: string; conversationId?: string } | undefined;
+  Conversations: undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
   VehicleDocs: undefined;

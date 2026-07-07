@@ -363,7 +363,7 @@ export function BookingConfirmationScreen() {
               kind="outline"
               size="md"
               style={{ flex: 1 }}
-              onPress={() => nav.navigate('Messaging', undefined)}
+              onPress={() => nav.navigate('Conversations')}
               leftIcon={<Icons.chat size={16} color={theme.ink} stroke={1.8} />}
             >
               Support
