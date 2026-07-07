@@ -221,10 +221,12 @@ export async function checkHealth(): Promise<HealthResult> {
       message: dbOk ? 'Serveur connecté' : 'Serveur OK, base de données indisponible',
     };
   } catch (e) {
+    // Message humain : le détail technique (XHR onerror, timeout…) n'aide
+    // pas l'utilisateur — on affiche une phrase claire à la place.
     if (e instanceof ApiError) {
-      if (e.isNetworkError) return { ok: false, status: null, message: e.message };
-      return { ok: false, status: e.status, message: e.message };
+      if (e.isNetworkError) return { ok: false, status: null, message: 'Serveur momentanément inaccessible — réessaie dans un instant.' };
+      return { ok: false, status: e.status, message: `Service indisponible (erreur ${e.status ?? '?'}).` };
     }
-    return { ok: false, status: null, message: 'Erreur inconnue' };
+    return { ok: false, status: null, message: 'Serveur momentanément inaccessible.' };
   }
 }
