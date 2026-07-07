@@ -6,8 +6,10 @@ import { Icons } from './Icons';
 import { LiveConvoyMap } from './LiveConvoyMap';
 import { Pill } from './Pill';
 import { Surface } from './Surface';
+import { getLatestPosition, GpsPoint } from '../api/gps';
 import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
+import { distanceMeters } from '../utils/stationaryWatch';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 
@@ -38,11 +40,45 @@ interface Props {
   toLabel?: string;
   driverName?: string;
   vehicleLabel?: string;
+  /**
+   * Id de la mission backend : si fourni, on interroge la vraie position GPS
+   * (GET /missions/:id/gps/latest) toutes les 10 s. Dès qu'une position
+   * réelle existe, elle remplace l'animation de démo ; sinon (pas encore de
+   * point, hors-ligne, erreur) la démo continue de tourner.
+   */
+  missionId?: string;
+}
+
+// Interroge la dernière position GPS réelle de la mission toutes les 10 s.
+// Silencieux en cas d'échec : on retombe simplement sur l'animation démo.
+function useLiveGps(missionId?: string): GpsPoint | null {
+  const [point, setPoint] = useState<GpsPoint | null>(null);
+  useEffect(() => {
+    // 'demo' = mission de repli locale (DriverModeScreen) : rien côté backend.
+    if (!missionId || missionId === 'demo') return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const p = await getLatestPosition(missionId);
+        if (!cancelled && p && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+          setPoint(p);
+        }
+      } catch {
+        // Réseau/droits : silencieux, l'animation démo reste affichée.
+      }
+    };
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [missionId]);
+  return point;
 }
 
 // Panneau de suivi convoyage temps réel — carte interactive + état du chauffeur
-// (en route / pause / arrêt) qui évolue automatiquement pour la démo.
-export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehicleLabel }: Props) {
+// (en route / pause / arrêt). Si `missionId` est fourni et que le chauffeur a
+// émis des positions GPS réelles, elles sont affichées ; sinon la scène de
+// démo évolue automatiquement.
+export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehicleLabel, missionId }: Props) {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phaseIdx, setPhaseIdx] = useState(0);
@@ -55,6 +91,24 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
   const pulse = useRef(new Animated.Value(0)).current;
 
   const phase = SCRIPT[phaseIdx];
+  const livePoint = useLiveGps(missionId);
+
+  // Valeurs dérivées de la vraie position GPS (si le chauffeur en a émis).
+  // Progression = distance parcourue depuis le départ, projetée sur le trajet.
+  const live = livePoint
+    ? (() => {
+        const routeM = Math.max(1, distanceMeters(from.latitude, from.longitude, to.latitude, to.longitude));
+        const doneM = distanceMeters(from.latitude, from.longitude, livePoint.latitude, livePoint.longitude);
+        const speed = livePoint.speedKmh ?? null;
+        return {
+          prog: Math.min(1, Math.max(0, doneM / routeM)),
+          totalKm: Math.max(1, Math.round(routeM / 1000)),
+          speed,
+          moving: (speed ?? 0) > 5,
+          ageSec: Math.max(0, Math.floor((Date.now() - new Date(livePoint.recordedAt).getTime()) / 1000)),
+        };
+      })()
+    : null;
 
   // Tick de rafraîchissement : 1 fois par seconde, indépendant des phases.
   useEffect(() => {
@@ -103,43 +157,59 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
     return () => loop.stop();
   }, [pulse]);
 
-  const statusColor =
-    phase.state === 'ROLLING' ? theme.good :
-    phase.state === 'PAUSE'   ? '#E0A04D' :
-    phase.state === 'STOP'    ? theme.gold :
-                                theme.navy;
+  // Valeurs affichées : GPS réel prioritaire, sinon scénario de démo.
+  const displayState: DriverState = live ? (live.moving ? 'ROLLING' : 'STOP') : phase.state;
+  const displayProgress = live ? live.prog : progress;
+  const displayLabel = live
+    ? (live.moving ? 'En route' : 'Véhicule à l\'arrêt')
+    : phase.label;
+  const displayDetail = live
+    ? (live.speed !== null
+        ? `GPS temps réel · ${Math.round(live.speed)} km/h`
+        : 'GPS temps réel · position transmise par le chauffeur')
+    : phase.detail;
 
-  const totalKm = 312;
-  const doneKm = Math.round(totalKm * progress);
+  const statusColor =
+    displayState === 'ROLLING' ? theme.good :
+    displayState === 'PAUSE'   ? '#E0A04D' :
+    displayState === 'STOP'    ? (live ? '#E0A04D' : theme.gold) :
+                                 theme.navy;
+
+  const totalKm = live ? live.totalKm : 312;
+  const doneKm = Math.round(totalKm * displayProgress);
   const remainKm = totalKm - doneKm;
-  // ETA basé sur une vitesse moyenne de 85 km/h (autoroute mixte UE).
-  // Quand le véhicule est en pause/arrêt, on ajoute le temps de pause restant.
-  const avgSpeedKmh = 85;
+  // ETA : vitesse GPS réelle si le véhicule roule, sinon moyenne 85 km/h
+  // (autoroute mixte UE). En démo, on ajoute le temps de pause restant.
+  const avgSpeedKmh = live && live.speed !== null && live.speed > 20 ? live.speed : 85;
   const driveMin = (remainKm / avgSpeedKmh) * 60;
   const phaseRemainMs = Math.max(0, phase.durationMs - (Date.now() - phaseStartRef.current));
-  const pauseRemainMin = phase.state === 'PAUSE' || phase.state === 'STOP' ? phaseRemainMs / 60000 : 0;
+  const pauseRemainMin = !live && (phase.state === 'PAUSE' || phase.state === 'STOP') ? phaseRemainMs / 60000 : 0;
   const etaMin = Math.max(0, Math.round(driveMin + pauseRemainMin));
-  const eta = phase.state === 'ARRIVED'
+  const eta = !live && phase.state === 'ARRIVED'
     ? 'Arrivé'
     : new Date(Date.now() + etaMin * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-  const since = (() => {
-    const sec = Math.floor((Date.now() - phaseStartRef.current) / 1000);
+  const fmtDuration = (sec: number) => {
     if (sec < 60) return `${sec} s`;
     const min = Math.floor(sec / 60);
     const rem = sec % 60;
     if (min < 60) return rem > 0 && min < 5 ? `${min} min ${rem} s` : `${min} min`;
     const h = Math.floor(min / 60);
     return `${h} h ${min % 60} min`;
-  })();
+  };
+
+  // Démo : « depuis Xs » (durée de la phase). GPS réel : fraîcheur du point.
+  const sinceLabel = live
+    ? `· MAJ il y a ${fmtDuration(live.ageSec)}`
+    : `· depuis ${fmtDuration(Math.floor((Date.now() - phaseStartRef.current) / 1000))}`;
 
   return (
     <View style={{ gap: 12 }}>
       <LiveConvoyMap
         from={from}
         to={to}
-        progress={progress}
-        paused={phase.state !== 'ROLLING' && phase.state !== 'ARRIVED'}
+        progress={displayProgress}
+        paused={displayState !== 'ROLLING' && displayState !== 'ARRIVED'}
         height={260}
         fromLabel={fromLabel}
         toLabel={toLabel}
@@ -161,11 +231,13 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
               }}
             />
             <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: statusColor, alignItems: 'center', justifyContent: 'center' }}>
-              {phase.state === 'PAUSE' ? (
+              {displayState === 'PAUSE' ? (
                 <Text style={{ color: '#fff', fontSize: 13 }}>⏸</Text>
-              ) : phase.state === 'STOP' ? (
-                <Icons.fuel size={14} color="#fff" stroke={2.2} />
-              ) : phase.state === 'ARRIVED' ? (
+              ) : displayState === 'STOP' ? (
+                live
+                  ? <Icons.pin size={14} color="#fff" stroke={2.2} />
+                  : <Icons.fuel size={14} color="#fff" stroke={2.2} />
+              ) : displayState === 'ARRIVED' ? (
                 <Icons.check size={14} color="#fff" stroke={3} />
               ) : (
                 <Icons.car size={14} color="#fff" stroke={2} />
@@ -174,15 +246,16 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Pill tone={phase.state === 'ROLLING' ? 'good' : phase.state === 'PAUSE' ? 'warn' : phase.state === 'ARRIVED' ? 'gold' : 'navy'}>
-                {phase.label}
+              <Pill tone={displayState === 'ROLLING' ? 'good' : displayState === 'PAUSE' ? 'warn' : displayState === 'ARRIVED' ? 'gold' : live ? 'warn' : 'navy'}>
+                {displayLabel}
               </Pill>
+              {live ? <Pill tone="gold">Live</Pill> : null}
               <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                · depuis {since}
+                {sinceLabel}
               </Text>
             </View>
             <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 4 }}>
-              {phase.detail}
+              {displayDetail}
             </Text>
           </View>
         </View>
@@ -190,7 +263,7 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
         {/* Ligne de progression km */}
         <View style={{ marginTop: 14 }}>
           <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.bgSoft, overflow: 'hidden' }}>
-            <View style={{ width: `${Math.round(progress * 100)}%`, height: '100%', backgroundColor: theme.gold }} />
+            <View style={{ width: `${Math.round(displayProgress * 100)}%`, height: '100%', backgroundColor: theme.gold }} />
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
             <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
