@@ -186,6 +186,7 @@ export function ProfileScreen() {
           </MenuSection>
 
           <MenuSection label="Axis">
+            <MenuRow iconKey="sliders" label="Espace admin" sub="Générateur de documents · envois" onPress={() => nav.navigate('Admin')} />
             <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, pause, alertes" onPress={() => nav.navigate('DriverMode')} />
             <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" onPress={() => nav.navigate('KycVerification')} />
             <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" onPress={() => notify('Parrainage', 'Le programme de parrainage ouvre au lancement officiel.')} />

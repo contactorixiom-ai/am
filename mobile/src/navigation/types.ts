@@ -31,6 +31,7 @@ export type RootStackParamList = {
   Messaging: { driverName?: string; subtitle?: string; conversationId?: string } | undefined;
   Conversations: undefined;
   DriverMode: undefined;
+  Admin: undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
   VehicleDocs: undefined;

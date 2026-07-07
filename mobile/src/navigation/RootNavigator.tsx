@@ -12,6 +12,7 @@ import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { KycVerificationScreen } from '../screens/KycVerificationScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { AdminScreen } from '../screens/AdminScreen';
 import { ConversationsScreen } from '../screens/ConversationsScreen';
 import { DriverModeScreen } from '../screens/DriverModeScreen';
 import { MessagingScreen } from '../screens/MessagingScreen';
@@ -116,6 +117,7 @@ export function RootNavigator() {
             <RootStack.Screen name="Messaging" component={MessagingScreen} />
             <RootStack.Screen name="Conversations" component={ConversationsScreen} />
             <RootStack.Screen name="DriverMode" component={DriverModeScreen} />
+            <RootStack.Screen name="Admin" component={AdminScreen} />
             <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <RootStack.Screen name="VehicleDocs" component={VehicleDocsScreen} />
