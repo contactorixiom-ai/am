@@ -173,7 +173,9 @@ export function MissionDetailsScreen() {
         {/* Timeline */}
         <SectionCard title="Historique">
           {MISSION.timeline.map((t, i, arr) => (
-            <View key={i} style={{ flexDirection: 'row', gap: 12, paddingBottom: i === arr.length - 1 ? 0 : 12 }}>
+            <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
+              {/* Le padding vertical vit dans la colonne texte : le trait
+                  rejoint ainsi la pastille suivante sans coupure. */}
               <View style={{ alignItems: 'center' }}>
                 <View
                   style={{
@@ -187,10 +189,10 @@ export function MissionDetailsScreen() {
                   {t.done ? <Icons.check size={9} color="#fff" stroke={3} /> : null}
                 </View>
                 {i < arr.length - 1 ? (
-                  <View style={{ flex: 1, width: 1.5, backgroundColor: t.done ? theme.good : theme.line, marginTop: 2 }} />
+                  <View style={{ flex: 1, width: 1.5, backgroundColor: t.done ? theme.good : theme.line, marginTop: 2, marginBottom: 2 }} />
                 ) : null}
               </View>
-              <View style={{ flex: 1, paddingBottom: 2 }}>
+              <View style={{ flex: 1, paddingBottom: i === arr.length - 1 ? 2 : 14 }}>
                 <Text style={{ fontSize: 13, color: t.done || t.current ? theme.ink : theme.muted, fontFamily: t.current ? TYPO.weights.semibold : TYPO.weights.medium }}>
                   {t.label}
                 </Text>

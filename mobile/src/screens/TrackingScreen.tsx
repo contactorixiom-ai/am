@@ -258,7 +258,10 @@ export function TrackingScreen() {
                   : DEFAULT_STEPS
                 ).map((s, i, arr) => ({ ...s, time: i < (arr.length >> 1) ? 'Hier · 17:42' : i === (arr.length >> 1) ? 'Maintenant' : 'Prévu' }))
             ).map((step, i, arr) => (
-              <View key={i} style={{ flexDirection: 'row', gap: 12, paddingBottom: i === arr.length - 1 ? 0 : 14 }}>
+              <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
+                {/* Colonne pastille + trait : le padding vertical vit dans la
+                    colonne de texte pour que le trait rejoigne la pastille
+                    suivante sans coupure. */}
                 <View style={{ alignItems: 'center' }}>
                   <View
                     style={{
@@ -288,11 +291,12 @@ export function TrackingScreen() {
                         width: 1.5,
                         backgroundColor: step.done ? theme.good : theme.line,
                         marginTop: 2,
+                        marginBottom: 2,
                       }}
                     />
                   ) : null}
                 </View>
-                <View style={{ flex: 1, paddingBottom: 4 }}>
+                <View style={{ flex: 1, paddingBottom: i === arr.length - 1 ? 4 : 16 }}>
                   <Text
                     style={{
                       fontSize: 13.5,
