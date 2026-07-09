@@ -1,7 +1,7 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
 import { ApiError } from '../api/client';
@@ -344,6 +344,7 @@ export function QuoteReviewScreen() {
               sub="BSC, déclaration export, certificat origine"
               value="Inclus"
               included
+              onPress={() => nav.navigate('CustomsRequirements', { countryCode: quote.toCountry, kind: 'parcel' })}
             />
           ) : null}
           {quote.options.map((o) => (
@@ -541,17 +542,21 @@ function DetailRow({
   value,
   included,
   addon,
+  onPress,
 }: {
   label: string;
   sub?: string;
   value: string;
   included?: boolean;
   addon?: boolean;
+  onPress?: () => void;
 }) {
   const { theme } = useTheme();
   const valueColor = included ? theme.good : addon ? theme.goldDeep : theme.ink;
+  const Container: React.ComponentType<any> = onPress ? Pressable : View;
   return (
-    <View
+    <Container
+      onPress={onPress}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -570,6 +575,14 @@ function DetailRow({
             {sub}
           </Text>
         ) : null}
+        {onPress ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+            <Text style={{ fontSize: 11.5, color: theme.navy, fontFamily: TYPO.weights.semibold }}>
+              Voir la checklist douanière
+            </Text>
+            <Icons.arrow size={12} color={theme.navy} stroke={2} />
+          </View>
+        ) : null}
       </View>
       <Text
         style={{
@@ -581,7 +594,7 @@ function DetailRow({
       >
         {value}
       </Text>
-    </View>
+    </Container>
   );
 }
 

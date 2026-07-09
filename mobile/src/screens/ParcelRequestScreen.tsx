@@ -166,6 +166,7 @@ export function ParcelRequestScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 function StepTrajet() {
   const { theme } = useTheme();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { draft, set } = useParcelDraft();
   const [reqs, setReqs] = useState<CountryRequirements | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
@@ -234,26 +235,51 @@ function StepTrajet() {
         </Surface>
       ) : null}
 
-      {/* Réglementation */}
+      {/* Réglementation douanière — cliquable pour ouvrir la checklist complète */}
       {draft.to && !loadingReqs && reqs && reqs.cargoMandatory && reqs.cargoTrackingType ? (
-        <Surface flat style={{ backgroundColor: theme.warn + '12', borderColor: theme.warn + '40' }}>
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-            <Icons.warn size={18} color={theme.warn} stroke={1.8} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.warn, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
-                {reqs.cargoTrackingType} obligatoire — émis par {reqs.authority ?? 'l\'autorité locale'}
-              </Text>
-              {reqs.customsNotes ? (
-                <Text style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 4, lineHeight: 17 }}>
-                  {reqs.customsNotes}
+        <Pressable onPress={() => nav.navigate('CustomsRequirements', { countryCode: draft.to!.country, kind: 'parcel' })}>
+          <Surface flat style={{ backgroundColor: theme.warn + '12', borderColor: theme.warn + '40' }}>
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+              <Icons.warn size={18} color={theme.warn} stroke={1.8} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.warn, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+                  {reqs.cargoTrackingType} obligatoire — émis par {reqs.authority ?? 'l\'autorité locale'}
                 </Text>
-              ) : null}
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 6 }}>
-                Pas d'inquiétude — Axis s'en occupe pour toi (inclus dans le prix).
-              </Text>
+                {reqs.customsNotes ? (
+                  <Text style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 4, lineHeight: 17 }}>
+                    {reqs.customsNotes}
+                  </Text>
+                ) : null}
+                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 6 }}>
+                  Pas d'inquiétude — Axis s'en occupe pour toi (inclus dans le prix).
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}>
+                  <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 12 }}>
+                    Voir les documents requis
+                  </Text>
+                  <Icons.arrow size={13} color={theme.navy} stroke={2} />
+                </View>
+              </View>
             </View>
-          </View>
-        </Surface>
+          </Surface>
+        </Pressable>
+      ) : draft.to && !loadingReqs ? (
+        <Pressable onPress={() => nav.navigate('CustomsRequirements', { countryCode: draft.to!.country, kind: 'parcel' })}>
+          <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+              <Icons.doc size={18} color={theme.navy} stroke={1.8} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+                  Documents requis à l'import
+                </Text>
+                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 2 }}>
+                  Checklist douanière pour {draft.to.city}, {draft.to.country}
+                </Text>
+              </View>
+              <Icons.arrow size={15} color={theme.navy} stroke={2} />
+            </View>
+          </Surface>
+        </Pressable>
       ) : null}
 
       {/* Mode de transport */}

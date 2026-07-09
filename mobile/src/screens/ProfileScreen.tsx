@@ -167,7 +167,7 @@ export function ProfileScreen() {
         {/* Sections */}
         <View style={{ paddingHorizontal: 8, paddingTop: 14 }}>
           <MenuSection label="Compte">
-            <MenuRow iconKey="user" label="Mon profil" sub="Infos personnelles" onPress={() => nav.navigate('ShipmentInfo')} />
+            <MenuRow iconKey="box" label="Infos d'envoi" sub="Expéditeur, marchandise — pour vos documents" onPress={() => nav.navigate('ShipmentInfo')} />
             <MenuRow iconKey="pin" label="Mes adresses" trailing="0" onPress={() => notify('Mes adresses', 'Le carnet d\'adresses arrive avec la prochaine version.')} />
             <MenuRow iconKey="card" label="Modes de paiement" trailing="0" onPress={() => notify('Modes de paiement', 'La gestion des cartes arrive avec l\'activation Stripe.')} />
           </MenuSection>
