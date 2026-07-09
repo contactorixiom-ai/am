@@ -74,6 +74,7 @@ export function HomeScreen() {
         }}
       >
         <Pressable
+          onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Profile' } as never)}
           style={({ pressed }) => ({
             width: 42,
             height: 42,
@@ -155,6 +156,34 @@ export function HomeScreen() {
                 : { label: kycStatus === 'REJECTED' ? 'Corriger' : 'Vérifier', onPress: () => nav.navigate('KycVerification') }
             }
           />
+        ) : null}
+
+        {/* Accès direct Espace admin — réservé aux opérateurs (rôle ADMIN) */}
+        {user?.role === 'ADMIN' ? (
+          <Pressable
+            onPress={() => nav.navigate('Admin')}
+            style={({ pressed }) => ({
+              borderWidth: 1,
+              borderColor: theme.gold + '66',
+              backgroundColor: pressed ? theme.bgSoft : theme.surface,
+              borderRadius: RADII.xxl,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            })}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.gold + '26', alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.sliders size={22} color={theme.goldDeep} stroke={1.7} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Espace admin</Text>
+              <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
+                Documents officiels · envois à traiter
+              </Text>
+            </View>
+            <Icons.chev size={18} color={theme.muted} stroke={2} />
+          </Pressable>
         ) : null}
 
         {/* Hero — Active mission */}
