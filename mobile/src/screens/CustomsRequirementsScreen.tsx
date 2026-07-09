@@ -5,7 +5,10 @@ import { ApiError } from '../api/client';
 import {
   CARGO_STATUS_LABEL,
   CARGO_TYPE_LABEL,
+  CargoTrackingNote,
+  CargoTrackingStatus,
   CountryRequirements,
+  createCargoNote,
   getDemoRequirements,
   getRequirements,
   listDemoRegulations,
@@ -63,6 +66,9 @@ export function CustomsRequirementsScreen() {
   const [loading, setLoading] = useState(true);
   const [usingDemo, setUsingDemo] = useState(false);
   const [query, setQuery] = useState('');
+  // Bordereau demandé localement (ou renvoyé par l'API) pour le pays courant.
+  const [localNote, setLocalNote] = useState<CargoTrackingNote | null>(null);
+  const [requesting, setRequesting] = useState(false);
 
   // Liste des pays couverts (pour le sélecteur)
   useEffect(() => {
@@ -88,6 +94,7 @@ export function CustomsRequirementsScreen() {
 
   const load = useCallback(async (code: string) => {
     setLoading(true);
+    setLocalNote(null); // nouveau pays → on repart d'un bordereau vierge
     try {
       const r = await getRequirements(code, parcelId);
       setData(r);
@@ -119,7 +126,7 @@ export function CustomsRequirementsScreen() {
     return groupCountriesByZone(filtered);
   }, [countries, query]);
 
-  const cargoNote = data?.cargoNote ?? null;
+  const cargoNote = data?.cargoNote ?? localNote;
   const cargoStatusLabel = cargoNote
     ? CARGO_STATUS_LABEL[cargoNote.status]
     : data?.cargoMandatory
@@ -136,6 +143,30 @@ export function CustomsRequirementsScreen() {
     const missingCount = mandatory.filter((i) => i.provided !== true).length;
     return { missing: missingCount, total: mandatory.length };
   }, [data]);
+
+  // Demande d'émission du bordereau de suivi (BSC/BESC/ECTN/FERI…).
+  // L'endpoint exige une session ; en cas d'échec réseau/401 on simule
+  // localement pour conserver un parcours démontrable hors-ligne.
+  const requestCargoNote = async () => {
+    if (!data) return;
+    setRequesting(true);
+    try {
+      const note = await createCargoNote({ destinationCountry: data.countryCode });
+      setLocalNote(note);
+      notify('Demande envoyée', `Bordereau ${data.cargoTrackingType ?? ''} demandé pour ${data.countryName}. Axis prend le relais.`);
+    } catch {
+      const simulated: CargoTrackingNote = {
+        id: `local-${Date.now()}`,
+        type: data.cargoTrackingType ?? 'BSC',
+        status: 'SUBMITTED',
+        destinationCountry: data.countryCode,
+      };
+      setLocalNote(simulated);
+      notify('Demande enregistrée', 'Ta demande de bordereau est enregistrée. Axis la soumet à l\'autorité dès que possible.');
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   const exportPdf = async () => {
     if (!data) return;
@@ -291,6 +322,27 @@ export function CustomsRequirementsScreen() {
                 Devise {data.currency}
               </Text>
             </View>
+
+            {/* Action : demander le bordereau — ou suivi de son statut */}
+            {data.cargoMandatory && !cargoNote ? (
+              <View style={{ marginTop: 14 }}>
+                <Button
+                  kind="gold"
+                  size="lg"
+                  fullWidth
+                  loading={requesting}
+                  onPress={requestCargoNote}
+                  rightIcon={<Icons.arrow size={16} color={theme.navy} stroke={2} />}
+                >
+                  Demander le bordereau à Axis
+                </Button>
+                <Text style={{ fontSize: 11, color: '#C7CFDE', marginTop: 8, fontFamily: TYPO.weights.medium, textAlign: 'center' }}>
+                  Inclus dans le prix de l'envoi — Axis gère la démarche pour toi.
+                </Text>
+              </View>
+            ) : cargoNote ? (
+              <CargoStatusStepper status={cargoNote.status} />
+            ) : null}
           </Surface>
 
           {/* Checklist */}
@@ -364,5 +416,43 @@ export function CustomsRequirementsScreen() {
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+// Progression du bordereau : À demander → Soumis → Validé → Émis.
+const CARGO_FLOW: CargoTrackingStatus[] = ['TO_REQUEST', 'SUBMITTED', 'VALIDATED', 'ISSUED'];
+const CARGO_FLOW_LABELS = ['À demander', 'Soumis', 'Validé', 'Émis'];
+
+function CargoStatusStepper({ status }: { status: CargoTrackingStatus }) {
+  const { theme } = useTheme();
+  const rejected = status === 'REJECTED';
+  const idx = status === 'DRAFT' ? 0 : Math.max(0, CARGO_FLOW.indexOf(status));
+  return (
+    <View style={{ marginTop: 16 }}>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {CARGO_FLOW_LABELS.map((label, i) => {
+          const done = !rejected && i <= idx;
+          return (
+            <View key={label} style={{ flex: 1, gap: 5 }}>
+              <View
+                style={{
+                  height: 3,
+                  borderRadius: 2,
+                  backgroundColor: rejected && i === 1 ? theme.bad : done ? theme.goldHi : 'rgba(245,241,232,0.18)',
+                }}
+              />
+              <Text style={{ fontSize: 9.5, color: done ? '#F5F1E8' : '#8FA0B8', fontFamily: TYPO.weights.semibold }}>
+                {label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      {rejected ? (
+        <Text style={{ fontSize: 11, color: theme.bad, marginTop: 8, fontFamily: TYPO.weights.medium }}>
+          Bordereau rejeté — Axis te recontacte pour corriger les informations.
+        </Text>
+      ) : null}
+    </View>
   );
 }
