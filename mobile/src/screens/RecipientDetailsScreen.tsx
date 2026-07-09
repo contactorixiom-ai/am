@@ -69,7 +69,7 @@ export function RecipientDetailsScreen() {
       recipientLastName: lastName.trim(),
       recipientPhone: phone.trim(),
       recipientEmail: email.trim() || undefined,
-      destinationAddress: deliverToRelay ? 'Point relais Axis' : address.trim(),
+      destinationAddress: deliverToRelay ? `Point relais Axis ${quote.toCity}` : address.trim(),
       deliverToAxisRelay: deliverToRelay,
     });
     setShowPayment(true);
@@ -91,7 +91,7 @@ export function RecipientDetailsScreen() {
         originCity: quote.fromCity,
         destinationCountry: quote.toCountry,
         destinationCity: quote.toCity,
-        destinationAddress: deliverToRelay ? 'Point relais Axis Dakar' : address.trim(),
+        destinationAddress: deliverToRelay ? `Point relais Axis ${quote.toCity}` : address.trim(),
         recipientFirstName: firstName.trim(),
         recipientLastName: lastName.trim(),
         recipientPhone: phone.trim(),
