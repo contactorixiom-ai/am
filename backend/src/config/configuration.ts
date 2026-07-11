@@ -42,5 +42,10 @@ export default () => ({
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
   },
 
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    currency: process.env.STRIPE_CURRENCY ?? 'eur',
+  },
+
   logLevel: process.env.LOG_LEVEL ?? 'info',
 });
