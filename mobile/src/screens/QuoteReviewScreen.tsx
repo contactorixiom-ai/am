@@ -332,12 +332,22 @@ export function QuoteReviewScreen() {
             value="Inclus"
             included
           />
-          <DetailRow
-            label="Contrat & état des lieux PDF"
-            sub="Signé électroniquement"
-            value="Inclus"
-            included
-          />
+          {isConvoy ? (
+            <DetailRow
+              label="Contrat & état des lieux PDF"
+              sub="Signé électroniquement"
+              value="Inclus"
+              included
+            />
+          ) : null}
+          {isParcel ? (
+            <DetailRow
+              label="Étiquette & preuve de dépôt"
+              sub="Étiquette QR + récépissé PDF"
+              value="Inclus"
+              included
+            />
+          ) : null}
           {isParcel ? (
             <DetailRow
               label="Démarches douanières"
@@ -403,12 +413,20 @@ export function QuoteReviewScreen() {
 
         {/* Comparison strip : 4 badges trust */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {[
-            { Ic: Icons.shield, l: 'Assurance 250k€' },
-            { Ic: Icons.pin,    l: 'Suivi temps réel' },
-            { Ic: Icons.doc,    l: 'Contrat signé PDF' },
-            { Ic: Icons.camera, l: 'État des lieux x16' },
-          ].map((b) => (
+          {(isConvoy
+            ? [
+                { Ic: Icons.shield, l: 'Assurance 250k€' },
+                { Ic: Icons.pin,    l: 'Suivi temps réel' },
+                { Ic: Icons.doc,    l: 'Contrat signé PDF' },
+                { Ic: Icons.camera, l: 'État des lieux photos' },
+              ]
+            : [
+                { Ic: Icons.shield, l: 'Assurance 250k€' },
+                { Ic: Icons.pin,    l: 'Suivi temps réel' },
+                { Ic: Icons.box,    l: 'Emballage vérifié' },
+                { Ic: Icons.doc,    l: 'Étiquette QR' },
+              ]
+          ).map((b) => (
             <View
               key={b.l}
               style={{
