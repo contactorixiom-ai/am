@@ -70,13 +70,8 @@ export function TripsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar title="Mes envois" subtitle="Convoyages et colis · suivi temps réel" />
 
-      {/* Filtres */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: 'center' }}
-      >
+      {/* Filtres — onglets fins soulignés */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme.line }}>
         {([
           { id: 'all',    label: 'Tous' },
           { id: 'convoy', label: 'Convoyage' },
@@ -89,18 +84,21 @@ export function TripsScreen() {
               key={f.id}
               onPress={() => setTab(f.id)}
               style={{
-                flexShrink: 0, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
-                borderWidth: 1, borderColor: on ? theme.select : theme.line,
-                backgroundColor: on ? theme.select : theme.surface,
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 13,
+                borderBottomWidth: 2,
+                borderBottomColor: on ? theme.gold : 'transparent',
+                marginBottom: -1,
               }}
             >
-              <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.medium }}>
+              <Text style={{ fontSize: 13.5, color: on ? theme.ink : theme.muted, fontFamily: on ? TYPO.weights.semibold : TYPO.weights.medium }}>
                 {f.label}
               </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
