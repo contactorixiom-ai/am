@@ -277,8 +277,8 @@ export function BookingConfirmationScreen() {
           </Surface>
         ) : null}
 
-        {/* KYC nudge — seulement si non vérifié */}
-        {(kyc === 'NONE' || kyc === 'PENDING' || kyc === 'REJECTED') ? (
+        {/* KYC nudge — colis uniquement (formalité douane pièce d'identité) */}
+        {kind === 'parcel' && (kyc === 'NONE' || kyc === 'PENDING' || kyc === 'REJECTED') ? (
           <Surface flat style={{ backgroundColor: theme.warn + '12', borderColor: theme.warn + '40' }}>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
               <Icons.shield size={20} color={theme.warn} stroke={1.8} />
@@ -351,26 +351,28 @@ export function BookingConfirmationScreen() {
             Voir le suivi en direct
           </Button>
           <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
-            <Button
-              kind="outline"
-              size="md"
-              style={{ flex: 1 }}
-              onPress={async () => {
-                await generateShippingLabelPdf({
-                  reference,
-                  toCity: lastBooking?.to?.city,
-                  toCountry: lastBooking?.to?.country,
-                  fromCity: lastBooking?.from?.city,
-                  weightKg: lastBooking?.weightKg,
-                  transportMode: lastBooking?.transportMode,
-                  pickupMode: pickupMode === 'HUB_DROP_OFF' ? 'Dépôt hub' : pickupMode === 'RELAY_DROP_OFF' ? 'Point relais' : 'Enlèvement domicile',
-                });
-                notify('Étiquette générée', 'Colle-la sur ton colis, QR visible.');
-              }}
-              leftIcon={<Icons.doc size={16} color={theme.ink} stroke={1.8} />}
-            >
-              Étiquette PDF
-            </Button>
+            {kind === 'parcel' ? (
+              <Button
+                kind="outline"
+                size="md"
+                style={{ flex: 1 }}
+                onPress={async () => {
+                  await generateShippingLabelPdf({
+                    reference,
+                    toCity: lastBooking?.to?.city,
+                    toCountry: lastBooking?.to?.country,
+                    fromCity: lastBooking?.from?.city,
+                    weightKg: lastBooking?.weightKg,
+                    transportMode: lastBooking?.transportMode,
+                    pickupMode: pickupMode === 'HUB_DROP_OFF' ? 'Dépôt hub' : pickupMode === 'RELAY_DROP_OFF' ? 'Point relais' : 'Enlèvement domicile',
+                  });
+                  notify('Étiquette générée', 'Colle-la sur ton colis, QR visible.');
+                }}
+                leftIcon={<Icons.doc size={16} color={theme.ink} stroke={1.8} />}
+              >
+                Étiquette PDF
+              </Button>
+            ) : null}
             <Button
               kind="outline"
               size="md"

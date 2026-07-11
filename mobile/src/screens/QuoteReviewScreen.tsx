@@ -341,10 +341,9 @@ export function QuoteReviewScreen() {
           {isParcel ? (
             <DetailRow
               label="Démarches douanières"
-              sub="BSC, déclaration export, certificat origine"
+              sub="Bordereaux et documents gérés par Axis"
               value="Inclus"
               included
-              onPress={() => nav.navigate('CustomsRequirements', { countryCode: quote.toCountry, kind: 'parcel' })}
             />
           ) : null}
           {quote.options.map((o) => (
