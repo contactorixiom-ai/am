@@ -25,6 +25,7 @@ export type AdminDocTypeId =
   | 'invoice'
   | 'commercialInvoice'
   | 'packingList'
+  | 'shippingInstructions'
   | 'contract'
   | 'insurance'
   | 'exportDeclaration'
@@ -284,6 +285,63 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       recipientName: '',
       recipientAddress: '',
       packagesText: '',
+    }),
+  },
+  {
+    id: 'shippingInstructions',
+    label: 'Instructions au transitaire',
+    description: 'Lettre d\'ordre d\'expédition (Shipping Instructions)',
+    icon: 'truck',
+    activity: 'marchandise',
+    refPrefix: 'SI',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N°', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'forwarder', label: 'À l\'attention de (transitaire)', required: true, placeholder: 'Bolloré Logistics, Grimaldi…' },
+      { key: 'invoiceRef', label: 'Facture liée', half: true, placeholder: 'FC-2026-0001' },
+      { key: 'senderName', label: 'Expéditeur' },
+      { key: 'senderAddress', label: 'Adresse expéditeur' },
+      { key: 'senderContact', label: 'Contact expéditeur', placeholder: '+33 1 84 88 12 00' },
+      { key: 'recipientName', label: 'Destinataire', required: true },
+      { key: 'recipientAddress', label: 'Adresse destinataire' },
+      { key: 'recipientContact', label: 'Contact destinataire' },
+      { key: 'pickupLocation', label: 'Lieu d\'enlèvement', placeholder: 'Entrepôt, 75015 Paris' },
+      { key: 'deliveryLocation', label: 'Lieu de livraison', placeholder: 'Port de Dakar' },
+      { key: 'incoterm', label: 'Incoterm applicable', half: true, placeholder: 'CIF Dakar' },
+      { key: 'goodsNature', label: 'Nature de la marchandise', placeholder: 'Prêt-à-porter' },
+      { key: 'packages', label: 'Colis / palettes', half: true, placeholder: '2 palettes' },
+      { key: 'grossWeight', label: 'Poids brut (kg)', type: 'number', half: true },
+      { key: 'volume', label: 'Volume (m³)', type: 'number', half: true },
+      { key: 'docInvoice', label: 'Facture commerciale jointe', type: 'boolean', half: true },
+      { key: 'docPackingList', label: 'Packing list jointe', type: 'boolean', half: true },
+      { key: 'customsByAxis', label: 'Dédouanement export par Axis', type: 'boolean', half: true },
+      { key: 'insuranceByAxis', label: 'Assurance transport par Axis', type: 'boolean', half: true },
+      { key: 'signatory', label: 'Signataire', half: true, placeholder: 'R. Diallo' },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateLong,
+      forwarder: '',
+      invoiceRef: '',
+      senderName: 'Axis Import SAS',
+      senderAddress: '14 rue de la Logistique, 75015 Paris',
+      senderContact: '+33 1 84 88 12 00',
+      recipientName: '',
+      recipientAddress: '',
+      recipientContact: '',
+      pickupLocation: '',
+      deliveryLocation: '',
+      incoterm: 'CIF Dakar',
+      goodsNature: '',
+      packages: '',
+      grossWeight: '',
+      volume: '',
+      docInvoice: true,
+      docPackingList: true,
+      customsByAxis: true,
+      insuranceByAxis: true,
+      signatory: '',
     }),
   },
   {
@@ -598,6 +656,201 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   labelDownload(doc, `Etiquette-${data.reference}.pdf`);
 }
 
+// ─── Lettre d'instructions au transitaire (générée localement) ──────────────
+
+export interface ShippingInstructionsData {
+  number: string;
+  date?: string;
+  forwarder?: string;
+  invoiceRef?: string;
+  sender?: { name?: string; address?: string; contact?: string };
+  recipient?: { name?: string; address?: string; contact?: string };
+  pickupLocation?: string;
+  deliveryLocation?: string;
+  incoterm?: string;
+  goodsNature?: string;
+  packages?: string;
+  grossWeightKg?: number;
+  volumeM3?: number;
+  docInvoice?: boolean;
+  docPackingList?: boolean;
+  customsByAxis?: boolean;
+  insuranceByAxis?: boolean;
+  signatory?: string;
+}
+
+export async function generateShippingInstructionsPdf(data: ShippingInstructionsData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 16;
+  const DASH = '—';
+  const COL = M + 60; // colonne des valeurs des sections numérotées
+
+  // ── En-tête officiel (noir & blanc, cohérent avec pdf.ts) ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text('AXIS IMPORT', M, 16);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('TRANSPORT · CONVOYAGE · IMPORT-EXPORT', M, 21);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  doc.text('INSTRUCTIONS D\'EXPÉDITION', W - M, 16, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(107, 107, 107);
+  doc.text(`N° ${data.number}`, W - M, 21, { align: 'right' });
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(M, 27, W - M, 27);
+
+  let y = 37;
+
+  // ── À l'attention de / Date ──
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.text('À l\'attention de :', M, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.forwarder || DASH, M + 32, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date :', W - M - 42, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.date || DASH, W - M - 30, y);
+  y += 10;
+
+  // ── Objet ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('OBJET : Instructions d\'expédition pour l\'exportation', M, y);
+  y += 6;
+  if (data.invoiceRef) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 107, 107);
+    doc.text(`Réf. facture commerciale liée : ${data.invoiceRef}`, M, y);
+    y += 5;
+  }
+  y += 3;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(58, 58, 58);
+  doc.text(
+    'Madame, Monsieur, veuillez trouver ci-dessous nos instructions pour l\'acheminement du lot suivant :',
+    M, y, { maxWidth: W - 2 * M },
+  );
+  y += 10;
+
+  // ── Sections numérotées 1 à 7 ──
+  const joinParts = (...p: (string | undefined)[]) => p.filter(Boolean).join(' — ') || DASH;
+  const row = (n: number, label: string, value: string) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${n}. ${label}`, M, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(58, 58, 58);
+    const lines = doc.splitTextToSize(value, W - COL - M) as string[];
+    doc.text(lines, COL, y);
+    y += Math.max(6, lines.length * 4.6) + 1.5;
+  };
+
+  const logistics = [
+    data.packages,
+    data.grossWeightKg != null ? `Poids brut ${data.grossWeightKg.toLocaleString('fr-FR')} kg` : undefined,
+    data.volumeM3 != null ? `Volume ${data.volumeM3.toLocaleString('fr-FR')} m³` : undefined,
+  ].filter(Boolean).join(' · ') || DASH;
+
+  row(1, 'EXPÉDITEUR', joinParts(data.sender?.name, data.sender?.address, data.sender?.contact));
+  row(2, 'DESTINATAIRE', joinParts(data.recipient?.name, data.recipient?.address, data.recipient?.contact));
+  row(3, 'LIEU D\'ENLÈVEMENT', data.pickupLocation || DASH);
+  row(4, 'LIEU DE LIVRAISON', data.deliveryLocation || DASH);
+  row(5, 'INCOTERM', data.incoterm || DASH);
+  row(6, 'MARCHANDISE', data.goodsNature || DASH);
+  row(7, 'LOGISTIQUE', logistics);
+
+  // ── Cases à cocher (8, 9, 10) ──
+  const checkbox = (x: number, yy: number, checked: boolean) => {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(x, yy - 3, 3.4, 3.4);
+    if (checked) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text('X', x + 0.75, yy - 0.35);
+    }
+  };
+  const checkText = (x: number, label: string) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(58, 58, 58);
+    doc.text(label, x, y);
+  };
+  const sectionTitle = (text: string) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(text, M, y);
+    y += 6;
+  };
+
+  y += 2;
+  sectionTitle('8. DOCUMENTS JOINTS');
+  checkbox(M + 4, y, !!data.docInvoice); checkText(M + 10, 'Facture commerciale');
+  checkbox(M + 78, y, !!data.docPackingList); checkText(M + 84, 'Liste de colisage (packing list)');
+  y += 8;
+
+  sectionTitle('9. FORMALITÉS DOUANIÈRES');
+  checkbox(M + 4, y, !!data.customsByAxis); checkText(M + 10, 'Dédouanement export effectué par Axis pour votre compte');
+  y += 6;
+  checkbox(M + 4, y, !data.customsByAxis); checkText(M + 10, 'Dédouanement géré par le client');
+  y += 8;
+
+  sectionTitle('10. ASSURANCE TRANSPORT');
+  checkbox(M + 4, y, !!data.insuranceByAxis); checkText(M + 10, 'Oui — merci de couvrir la marchandise');
+  y += 6;
+  checkbox(M + 4, y, !data.insuranceByAxis); checkText(M + 10, 'Non — assurance souscrite par nos soins');
+  y += 12;
+
+  // ── Clôture + signature ──
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(58, 58, 58);
+  doc.text('Nous restons à votre disposition pour tout complément. Cordialement,', M, y, { maxWidth: W - 2 * M });
+  y += 14;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(data.signatory || data.sender?.name || 'Axis Import SAS', M, y);
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(M, y + 9, M + 62, y + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Signature & cachet de l\'entreprise', M, y + 13);
+
+  // ── Pied de page légal ──
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(M, H - 18, W - M, H - 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Axis Import SAS · SIRET 925 487 312 00018 · TVA FR42 925487312 · 14 rue de la Logistique, 75015 Paris', M, H - 13);
+  doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', M, H - 9);
+
+  labelDownload(doc, `Instructions-transitaire-${data.number}.pdf`);
+}
+
 // ─── Routage type de document → générateur PDF ──────────────────────────────
 
 function parsePackages(text: string) {
@@ -753,6 +1006,37 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         agent: orU(str(values, 'agent')),
         scope: orU(str(values, 'scope')),
         destinationCountry: orU(str(values, 'destinationCountry')),
+      });
+      break;
+
+    case 'shippingInstructions':
+      await generateShippingInstructionsPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        forwarder: orU(str(values, 'forwarder')),
+        invoiceRef: orU(str(values, 'invoiceRef')),
+        sender: {
+          name: orU(str(values, 'senderName')),
+          address: orU(str(values, 'senderAddress')),
+          contact: orU(str(values, 'senderContact')),
+        },
+        recipient: {
+          name: orU(str(values, 'recipientName')),
+          address: orU(str(values, 'recipientAddress')),
+          contact: orU(str(values, 'recipientContact')),
+        },
+        pickupLocation: orU(str(values, 'pickupLocation')),
+        deliveryLocation: orU(str(values, 'deliveryLocation')),
+        incoterm: orU(str(values, 'incoterm')),
+        goodsNature: orU(str(values, 'goodsNature')),
+        packages: orU(str(values, 'packages')),
+        grossWeightKg: numU(values, 'grossWeight'),
+        volumeM3: numU(values, 'volume'),
+        docInvoice: bool(values, 'docInvoice'),
+        docPackingList: bool(values, 'docPackingList'),
+        customsByAxis: bool(values, 'customsByAxis'),
+        insuranceByAxis: bool(values, 'insuranceByAxis'),
+        signatory: orU(str(values, 'signatory')),
       });
       break;
 
