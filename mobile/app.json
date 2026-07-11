@@ -30,7 +30,14 @@
       "baseUrl": "/am/app"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Axis Import accède à vos photos pour joindre l'état des lieux du véhicule et vos documents.",
+          "cameraPermission": "Axis Import utilise l'appareil photo pour l'état des lieux du véhicule (photos obligatoires au départ et à l'arrivée)."
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "https://am-production-80d6.up.railway.app/api/v1"

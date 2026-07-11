@@ -14,6 +14,8 @@ export interface Damage {
   code: DamageCode;
   note?: string;
   photo?: boolean;
+  /** URI de la photo jointe au dommage (preuve en cas de litige). */
+  photoUri?: string;
 }
 
 export const DAMAGE_META: Record<DamageCode, { label: string; color: string }> = {

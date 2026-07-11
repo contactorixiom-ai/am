@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
@@ -13,6 +13,7 @@ import { Surface } from '../components/Surface';
 import { Damage, DamageCode, DAMAGE_META, VehicleDiagram, ViewKey } from '../components/VehicleDiagram';
 import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
+import { capturePhoto } from '../utils/pickImage';
 import { generateContractPdf } from '../utils/pdf';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
@@ -35,6 +36,15 @@ const FUEL_LEVELS = [
 
 const STEPS = ['Véhicule', 'Carrosserie', 'Signatures'];
 
+// Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
+// Servent de preuve horodatée pour la gestion des litiges.
+const VEHICLE_PHOTO_ANGLES: { key: string; label: string }[] = [
+  { key: 'front', label: 'Avant' },
+  { key: 'rear', label: 'Arrière' },
+  { key: 'sideLeft', label: 'Côté gauche' },
+  { key: 'sideRight', label: 'Côté droit' },
+];
+
 // Persistance entre l'état des lieux de DÉPART et d'ARRIVÉE pour pouvoir
 // comparer (km, carburant, dommages déjà signalés au départ).
 interface SavedInspection {
@@ -42,6 +52,7 @@ interface SavedInspection {
   fuel?: number | null;
   damages: Damage[];
   date: string;
+  vehiclePhotos?: Record<string, string>;
 }
 const STORAGE_KEY_PREFIX = 'axis.inspection.v1.';
 const storageKey = (reference: string, phase: 'DÉPART' | 'ARRIVÉE') =>
@@ -65,6 +76,12 @@ export function VehicleInspectionScreen() {
   const [km, setKm] = useState('');
   const [fuel, setFuel] = useState<number | null>(null);
   const [keys, setKeys] = useState('2');
+  const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, string>>({});
+
+  const captureVehiclePhoto = async (key: string) => {
+    const uri = await capturePhoto();
+    if (uri) setVehiclePhotos((p) => ({ ...p, [key]: uri }));
+  };
 
   // Step 2
   const [view, setView] = useState<ViewKey>('top');
@@ -82,11 +99,16 @@ export function VehicleInspectionScreen() {
 
   const addDamage = (x: number, y: number) => setPendingPos({ x, y });
 
-  const confirmDamage = (code: DamageCode, withPhoto: boolean) => {
-    if (!pendingPos) return;
+  const confirmDamage = async (code: DamageCode, withPhoto: boolean) => {
+    const pos = pendingPos;
+    if (!pos) return;
+    let photoUri: string | undefined;
+    if (withPhoto) {
+      photoUri = (await capturePhoto()) ?? undefined;
+    }
     setDamages((prev) => [
       ...prev,
-      { id: `d${Date.now()}`, view, x: pendingPos.x, y: pendingPos.y, code, photo: withPhoto },
+      { id: `d${Date.now()}`, view, x: pos.x, y: pos.y, code, photo: !!photoUri, photoUri },
     ]);
     setPendingPos(null);
   };
@@ -117,7 +139,7 @@ export function VehicleInspectionScreen() {
     // Persiste l'état des lieux pour cette phase (utile pour comparaison).
     await AsyncStorage.setItem(
       storageKey(reference, phase),
-      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr } as SavedInspection),
+      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos } as SavedInspection),
     );
 
     if (isArrival) {
@@ -180,8 +202,9 @@ export function VehicleInspectionScreen() {
     nav.goBack();
   };
 
+  const allVehiclePhotos = VEHICLE_PHOTO_ANGLES.every((a) => vehiclePhotos[a.key]);
   const canNext =
-    step === 0 ? !!km && fuel !== null :
+    step === 0 ? !!km && fuel !== null && allVehiclePhotos :
     step === 1 ? true :
     driverSigned && clientSigned;
 
@@ -261,6 +284,46 @@ export function VehicleInspectionScreen() {
               </View>
               <Field label="Nombre de clés remises" value={keys} onChangeText={setKeys} keyboardType="numeric" />
             </Surface>
+
+            <Surface padded style={{ padding: 16, gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  Photos du véhicule
+                </Text>
+                <Pill tone={allVehiclePhotos ? 'good' : 'warn'}>
+                  {Object.keys(vehiclePhotos).length}/{VEHICLE_PHOTO_ANGLES.length}
+                </Pill>
+              </View>
+              <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 16 }}>
+                Obligatoires — les 4 angles. Preuve horodatée en cas de litige au départ comme à l'arrivée.
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {VEHICLE_PHOTO_ANGLES.map((a) => {
+                  const uri = vehiclePhotos[a.key];
+                  return (
+                    <Pressable
+                      key={a.key}
+                      onPress={() => captureVehiclePhoto(a.key)}
+                      style={{ width: '47%', flexGrow: 1, aspectRatio: 4 / 3, borderRadius: 12, borderWidth: 1.5, borderColor: uri ? theme.good : theme.line, borderStyle: uri ? 'solid' : 'dashed', backgroundColor: theme.surface2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {uri ? (
+                        <>
+                          <Image source={{ uri }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
+                          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 3 }}>
+                            <Text style={{ color: '#fff', fontSize: 11, fontFamily: TYPO.weights.semibold, textAlign: 'center' }}>{a.label} · ✓</Text>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Icons.camera size={22} color={theme.muted} stroke={1.7} />
+                          <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 6 }}>{a.label}</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Surface>
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
               <Icons.shield size={20} color={theme.gold} stroke={1.8} />
               <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
@@ -316,9 +379,12 @@ export function VehicleInspectionScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{DAMAGE_META[d.code].label}</Text>
                       <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                        {VIEWS.find((v) => v.key === d.view)?.label}{d.photo ? ' · 📷 photo' : ''}
+                        {VIEWS.find((v) => v.key === d.view)?.label}{d.photoUri ? ' · 📷 photo jointe' : ''}
                       </Text>
                     </View>
+                    {d.photoUri ? (
+                      <Image source={{ uri: d.photoUri }} style={{ width: 34, height: 34, borderRadius: 8 }} resizeMode="cover" />
+                    ) : null}
                     <Pressable onPress={() => removeDamage(d.id)} style={{ padding: 6 }}>
                       <Icons.x size={15} color={theme.muted} stroke={2} />
                     </Pressable>
