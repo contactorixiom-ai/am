@@ -2,9 +2,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { View } from 'react-native';
 import { CustomTabBar } from '../components/CustomTabBar';
-import { DotLoader } from '../components/DotLoader';
+import { SplashScreen } from '../components/SplashScreen';
 import { BookingConfirmationScreen } from '../screens/BookingConfirmationScreen';
 import { CarRequestScreen } from '../screens/CarRequestScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
@@ -71,6 +70,8 @@ export function RootNavigator() {
   const { user, initializing } = useSession();
   const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
 
+  const [minElapsed, setMinElapsed] = React.useState(false);
+
   React.useEffect(() => {
     // Filet de sécurité : si shouldShowIntroSlides échoue (ex. AsyncStorage
     // bloqué en navigation privée Safari iOS), on saute l'intro pour ne
@@ -78,14 +79,13 @@ export function RootNavigator() {
     shouldShowIntroSlides()
       .then((needs) => setIntroSeen(!needs))
       .catch(() => setIntroSeen(true));
+    // Durée minimale d'affichage du splash pour laisser jouer l'animation.
+    const t = setTimeout(() => setMinElapsed(true), 1500);
+    return () => clearTimeout(t);
   }, []);
 
-  if (initializing || introSeen === null) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
-        <DotLoader size={8} />
-      </View>
-    );
+  if (initializing || introSeen === null || !minElapsed) {
+    return <SplashScreen />;
   }
 
   return (
