@@ -994,10 +994,13 @@ function formBox(
   doc.text(label.toUpperCase(), tx, y + 4, { maxWidth: w - (tx - x) - 2 });
   if (value) {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.2);
+    doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
-    const lines = doc.splitTextToSize(value, w - 4) as string[];
-    doc.text(lines, x + 2, y + 9.5);
+    // Valeur calée sous le libellé et bornée à la hauteur de la case pour
+    // éviter tout débordement sur la case suivante.
+    const maxLines = Math.max(1, Math.floor((h - 6) / 3.4));
+    const lines = (doc.splitTextToSize(value, w - 4) as string[]).slice(0, maxLines);
+    doc.text(lines, x + 2, y + 8);
   }
 }
 
@@ -1256,8 +1259,8 @@ export async function generateCmrPdf(data: CmrData): Promise<void> {
   formBox(doc, M, y, half, 15, '19', 'Conventions particulières', g(data.specialAgreements));
   formBox(doc, M + half, y, half, 15, '20', 'À payer (prix de transport)', g(data.toPay));
   y += 15;
-  formBox(doc, M, y, CW, 9, '21', 'Établi à / le', [g(data.establishedAt), g(data.date)].filter(Boolean).join(', le '));
-  y += 9;
+  formBox(doc, M, y, CW, 12, '21', 'Établi à / le', [g(data.establishedAt), g(data.date)].filter(Boolean).join(', le '));
+  y += 12;
 
   const third = CW / 3;
   formBox(doc, M, y, third, 22, '22', 'Signature & timbre de l\'expéditeur', '');
@@ -1471,8 +1474,8 @@ export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<v
   formBox(doc, M, y, half, 12, null, 'Port de chargement / Port of loading', g(data.portOfLoading));
   formBox(doc, M + half, y, half, 12, null, 'Port de déchargement / of discharge', g(data.portOfDischarge));
   y += 12;
-  formBox(doc, M, y, CW, 9, null, 'Conteneur / N° de plomb', g(data.containerNo));
-  y += 9;
+  formBox(doc, M, y, CW, 12, null, 'Conteneur / N° de plomb', g(data.containerNo));
+  y += 12;
 
   const cols = [
     { l: 'Marques & n°', w: 32 },
@@ -1489,9 +1492,9 @@ export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<v
   cols.forEach((c, i) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(0, 0, 0); doc.text(doc.splitTextToSize(vals[i], c.w - 3) as string[], cx + 1.5, y + 11); cx += c.w; });
   y += rowH;
 
-  formBox(doc, M, y, half, 11, null, 'Fret & frais / Freight', g(data.freightTerms));
-  formBox(doc, M + half, y, half, 11, null, 'Nombre d\'originaux / No. of originals', g(data.numberOfOriginals));
-  y += 11;
+  formBox(doc, M, y, half, 12, null, 'Fret & frais / Freight', g(data.freightTerms));
+  formBox(doc, M + half, y, half, 12, null, 'Nombre d\'originaux / No. of originals', g(data.numberOfOriginals));
+  y += 12;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -1563,8 +1566,8 @@ export async function generateAirWaybillPdf(data: AirWaybillData): Promise<void>
   formBox(doc, M, y, half, 12, null, 'Acheminement / Vol · date', [g(data.routing), g(data.flightDate)].filter(Boolean).join(' · '));
   formBox(doc, M + half, y, half, 12, null, 'Devise & valeurs déclarées (transport / douane)', [data.currency ? 'Devise ' + data.currency : '', data.declaredValueCarriage ? 'Transp. ' + data.declaredValueCarriage : '', data.declaredValueCustoms ? 'Douane ' + data.declaredValueCustoms : ''].filter(Boolean).join(' · '));
   y += 12;
-  formBox(doc, M, y, CW, 9, null, 'Informations de manutention / Handling information', g(data.handlingInfo));
-  y += 9;
+  formBox(doc, M, y, CW, 12, null, 'Informations de manutention / Handling information', g(data.handlingInfo));
+  y += 12;
 
   const cols = [
     { l: 'Nb colis', w: 22 },
@@ -1581,8 +1584,8 @@ export async function generateAirWaybillPdf(data: AirWaybillData): Promise<void>
   cols.forEach((c, i) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(0, 0, 0); doc.text(doc.splitTextToSize(vals[i], c.w - 3) as string[], cx + 1.5, y + 11); cx += c.w; });
   y += rowH;
 
-  formBox(doc, M, y, CW, 9, null, 'Frais / Charges', g(data.chargesTerms));
-  y += 9;
+  formBox(doc, M, y, CW, 12, null, 'Frais / Charges', g(data.chargesTerms));
+  y += 12;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
