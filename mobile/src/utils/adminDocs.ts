@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { AXIS_LOGO_PDF } from './axisLogoPdf';
 import type { IconName } from '../components/Icons';
 import {
   generateCommercialInvoicePdf,
@@ -26,6 +27,9 @@ export type AdminDocTypeId =
   | 'commercialInvoice'
   | 'packingList'
   | 'shippingInstructions'
+  | 'cmr'
+  | 'certificateOfOrigin'
+  | 'deliveryNote'
   | 'contract'
   | 'insurance'
   | 'exportDeclaration'
@@ -345,6 +349,149 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     }),
   },
   {
+    id: 'cmr',
+    label: 'Lettre de voiture CMR',
+    description: 'Contrat de transport routier international (24 cases)',
+    icon: 'truck',
+    activity: 'marchandise',
+    refPrefix: 'CMR',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° CMR', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'senderName', label: '1 · Expéditeur' },
+      { key: 'senderAddress', label: 'Adresse expéditeur' },
+      { key: 'recipientName', label: '2 · Destinataire', required: true },
+      { key: 'recipientAddress', label: 'Adresse destinataire' },
+      { key: 'deliveryPlace', label: '3 · Lieu de livraison' },
+      { key: 'takingOverPlace', label: '4 · Lieu de prise en charge', half: true },
+      { key: 'takingOverDate', label: 'Date de prise en charge', half: true },
+      { key: 'carrierName', label: '16 · Transporteur' },
+      { key: 'plate', label: 'Immatriculation', half: true, placeholder: 'AB-123-CD' },
+      { key: 'documentsAttached', label: '5 · Documents annexés', half: true },
+      { key: 'goods', label: '9 · Nature de la marchandise', required: true },
+      { key: 'packages', label: '7 · Nombre de colis', type: 'number', half: true },
+      { key: 'packaging', label: '8 · Emballage', half: true },
+      { key: 'hsCode', label: '10 · Code SH', half: true, placeholder: '8708.99' },
+      { key: 'grossWeight', label: '11 · Poids brut (kg)', type: 'number', half: true },
+      { key: 'volume', label: '12 · Cubage (m³)', type: 'number', half: true },
+      { key: 'marks', label: '6 · Marques & n°', half: true },
+      { key: 'franking', label: '14 · Affranchissement', type: 'select', options: ['Franco', 'Non franco'] },
+      { key: 'senderInstructions', label: '13 · Instructions expéditeur', type: 'multiline' },
+      { key: 'specialAgreements', label: '19 · Conventions particulières', type: 'multiline' },
+      { key: 'establishedAt', label: '21 · Établi à', half: true, placeholder: 'Paris' },
+      { key: 'toPay', label: '20 · À payer', half: true },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      senderName: 'Axis Import SAS',
+      senderAddress: '14 rue de la Logistique, 75015 Paris, France',
+      recipientName: '',
+      recipientAddress: '',
+      deliveryPlace: '',
+      takingOverPlace: 'Paris, France',
+      takingOverDate: ctx.dateShort,
+      carrierName: 'Axis Import SAS — 14 rue de la Logistique, 75015 Paris',
+      plate: '',
+      documentsAttached: 'Facture commerciale, liste de colisage',
+      goods: '',
+      packages: '',
+      packaging: '',
+      hsCode: '',
+      grossWeight: '',
+      volume: '',
+      marks: '',
+      franking: 'Franco',
+      senderInstructions: '',
+      specialAgreements: '',
+      establishedAt: 'Paris',
+      toPay: '',
+    }),
+  },
+  {
+    id: 'certificateOfOrigin',
+    label: 'Certificat d\'origine',
+    description: 'Atteste l\'origine des marchandises (modèle UE)',
+    icon: 'flag',
+    activity: 'marchandise',
+    refPrefix: 'CO',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N°', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'exporterName', label: 'Expéditeur / Exportateur' },
+      { key: 'exporterAddress', label: 'Adresse exportateur' },
+      { key: 'consigneeName', label: 'Destinataire', required: true },
+      { key: 'consigneeAddress', label: 'Adresse destinataire' },
+      { key: 'originCountry', label: 'Pays d\'origine', half: true },
+      { key: 'transportInfo', label: 'Transport', half: true, placeholder: 'Maritime — Le Havre → Dakar' },
+      { key: 'goods', label: 'Désignation des marchandises', required: true },
+      { key: 'packages', label: 'Marques, nombre et nature des colis' },
+      { key: 'quantity', label: 'Quantité', half: true },
+      { key: 'remarks', label: 'Observations', half: true },
+      { key: 'signatoryPlace', label: 'Fait à', half: true, placeholder: 'Paris' },
+      { key: 'signatory', label: 'Signataire', half: true },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateLong,
+      exporterName: 'Axis Import SAS',
+      exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+      consigneeName: '',
+      consigneeAddress: '',
+      originCountry: 'Union européenne (France)',
+      transportInfo: '',
+      goods: '',
+      packages: '',
+      quantity: '',
+      remarks: '',
+      signatoryPlace: 'Paris',
+      signatory: '',
+    }),
+  },
+  {
+    id: 'deliveryNote',
+    label: 'Bon de livraison (POD)',
+    description: 'Justificatif de livraison signé par le destinataire',
+    icon: 'box',
+    activity: 'colis',
+    refPrefix: 'BL',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N°', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'orderRef', label: 'Commande / référence liée', placeholder: 'AX-2026-8841' },
+      { key: 'senderName', label: 'Expéditeur' },
+      { key: 'senderAddress', label: 'Adresse expéditeur' },
+      { key: 'recipientName', label: 'Destinataire', required: true },
+      { key: 'recipientAddress', label: 'Adresse destinataire' },
+      { key: 'deliveryAddress', label: 'Adresse de livraison' },
+      { key: 'itemsText', label: 'Articles (1 par ligne)', type: 'multiline', required: true, hint: 'Format : désignation ; quantité', placeholder: 'Cartons de vêtements ; 4' },
+      { key: 'carrier', label: 'Transporteur', half: true },
+      { key: 'driverName', label: 'Livré par', half: true },
+      { key: 'deliveryDate', label: 'Date livraison', half: true },
+      { key: 'deliveryTime', label: 'Heure', half: true },
+      { key: 'reserves', label: 'Réserves à la livraison', type: 'multiline' },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      orderRef: '',
+      senderName: 'Axis Import SAS',
+      senderAddress: '14 rue de la Logistique, 75015 Paris',
+      recipientName: '',
+      recipientAddress: '',
+      deliveryAddress: '',
+      itemsText: '',
+      carrier: 'Axis Import',
+      driverName: '',
+      deliveryDate: ctx.dateShort,
+      deliveryTime: '',
+      reserves: '',
+    }),
+  },
+  {
     id: 'contract',
     label: 'Contrat de convoyage',
     description: 'Contrat + état des lieux départ/arrivée (PV)',
@@ -656,6 +803,86 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   labelDownload(doc, `Etiquette-${data.reference}.pdf`);
 }
 
+// ─── Helpers A4 partagés (en-tête avec logo Axis, pied, cases) ──────────────
+
+const A4_M = 16; // marge
+
+/** En-tête officiel avec logo Axis. Renvoie le Y de départ du contenu. */
+function axisLetterhead(doc: jsPDF, title: string, subtitle?: string): number {
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  try {
+    doc.addImage(AXIS_LOGO_PDF, 'PNG', M, 9, 13, 13, undefined, 'FAST');
+  } catch { /* logo indisponible → on continue sans */ }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text('AXIS IMPORT', M + 17, 15.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text('CONVOYAGE · IMPORT-EXPORT EUROPE - AFRIQUE', M + 17, 20);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  doc.text(title.toUpperCase(), W - M, 15, { align: 'right' });
+  if (subtitle) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 107, 107);
+    doc.text(subtitle, W - M, 20, { align: 'right' });
+  }
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.8);
+  doc.line(M, 25, W - M, 25);
+  return 33;
+}
+
+function axisFooter(doc: jsPDF) {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = A4_M;
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(M, H - 18, W - M, H - 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Axis Import SAS · SIRET 925 487 312 00018 · TVA FR42 925487312 · 14 rue de la Logistique, 75015 Paris', M, H - 13);
+  doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', M, H - 9);
+}
+
+/** Case bordée numérotée (style formulaire officiel type CMR). */
+function formBox(
+  doc: jsPDF,
+  x: number, y: number, w: number, h: number,
+  num: string | null, label: string, value?: string,
+) {
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(x, y, w, h);
+  let tx = x + 2;
+  if (num) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(num, x + 1.5, y + 4);
+    tx = x + 6;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.3);
+  doc.setTextColor(90, 90, 90);
+  doc.text(label.toUpperCase(), tx, y + 4, { maxWidth: w - (tx - x) - 2 });
+  if (value) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.2);
+    doc.setTextColor(0, 0, 0);
+    const lines = doc.splitTextToSize(value, w - 4) as string[];
+    doc.text(lines, x + 2, y + 9.5);
+  }
+}
+
 // ─── Lettre d'instructions au transitaire (générée localement) ──────────────
 
 export interface ShippingInstructionsData {
@@ -682,35 +909,11 @@ export interface ShippingInstructionsData {
 export async function generateShippingInstructionsPdf(data: ShippingInstructionsData): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  const M = 16;
+  const M = A4_M;
   const DASH = '—';
   const COL = M + 60; // colonne des valeurs des sections numérotées
 
-  // ── En-tête officiel (noir & blanc, cohérent avec pdf.ts) ──
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.setTextColor(0, 0, 0);
-  doc.text('AXIS IMPORT', M, 16);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(107, 107, 107);
-  doc.text('TRANSPORT · CONVOYAGE · IMPORT-EXPORT', M, 21);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(0, 0, 0);
-  doc.text('INSTRUCTIONS D\'EXPÉDITION', W - M, 16, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(107, 107, 107);
-  doc.text(`N° ${data.number}`, W - M, 21, { align: 'right' });
-
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.8);
-  doc.line(M, 27, W - M, 27);
-
-  let y = 37;
+  let y = axisLetterhead(doc, 'Instructions d\'expédition', `N° ${data.number}`) + 4;
 
   // ── À l'attention de / Date ──
   doc.setFontSize(10);
@@ -838,17 +1041,262 @@ export async function generateShippingInstructionsPdf(data: ShippingInstructions
   doc.setTextColor(107, 107, 107);
   doc.text('Signature & cachet de l\'entreprise', M, y + 13);
 
-  // ── Pied de page légal ──
+  axisFooter(doc);
+  labelDownload(doc, `Instructions-transitaire-${data.number}.pdf`);
+}
+
+// ─── Lettre de voiture CMR (transport international par route) ──────────────
+
+export interface CmrData {
+  number: string;
+  date?: string;
+  sender?: { name?: string; address?: string };
+  recipient?: { name?: string; address?: string };
+  deliveryPlace?: string;
+  takingOverPlace?: string;
+  takingOverDate?: string;
+  carrier?: { name?: string; address?: string };
+  plate?: string;
+  documentsAttached?: string;
+  marks?: string;
+  packages?: string;
+  packaging?: string;
+  goods?: string;
+  hsCode?: string;
+  grossWeightKg?: number;
+  volumeM3?: number;
+  senderInstructions?: string;
+  franking?: string;
+  specialAgreements?: string;
+  toPay?: string;
+  establishedAt?: string;
+}
+
+export async function generateCmrPdf(data: CmrData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Lettre de voiture', `CMR N° ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Transport international de marchandises par route — Convention CMR (Genève, 19 mai 1956, art. 6)', M, y);
+  y += 4;
+
+  const sender = [g(data.sender?.name), g(data.sender?.address)].filter(Boolean).join('\n');
+  const recip = [g(data.recipient?.name), g(data.recipient?.address)].filter(Boolean).join('\n');
+  const carrier = [g(data.carrier?.name), g(data.carrier?.address)].filter(Boolean).join('\n');
+
+  formBox(doc, M, y, half, 20, '1', 'Expéditeur (nom, adresse, pays)', sender);
+  formBox(doc, M + half, y, half, 20, '16', 'Transporteur (nom, adresse, pays)', carrier);
+  y += 20;
+  formBox(doc, M, y, half, 20, '2', 'Destinataire (nom, adresse, pays)', recip);
+  formBox(doc, M + half, y, half, 20, '17', 'Transporteurs successifs', '');
+  y += 20;
+  formBox(doc, M, y, half, 13, '3', 'Lieu prévu pour la livraison', g(data.deliveryPlace));
+  formBox(doc, M + half, y, half, 13, null, 'Immatriculation véhicule', g(data.plate));
+  y += 13;
+  formBox(doc, M, y, half, 13, '4', 'Lieu et date de prise en charge', [g(data.takingOverPlace), g(data.takingOverDate)].filter(Boolean).join(' — '));
+  formBox(doc, M + half, y, half, 13, '5', 'Documents annexés', g(data.documentsAttached));
+  y += 13;
+
+  // Tableau marchandises (cases 6 à 12)
+  const cols = [
+    { n: '6', l: 'Marques & n°', w: 28 },
+    { n: '7', l: 'Nb colis', w: 15 },
+    { n: '8', l: 'Emballage', w: 23 },
+    { n: '9', l: 'Nature de la marchandise', w: 52 },
+    { n: '10', l: 'N° stat. (SH)', w: 18 },
+    { n: '11', l: 'Poids brut kg', w: 22 },
+    { n: '12', l: 'Cubage m³', w: CW - 28 - 15 - 23 - 52 - 18 - 22 },
+  ];
+  const rowH = 22;
+  let cx = M;
+  cols.forEach((c) => { formBox(doc, cx, y, c.w, rowH, c.n, c.l, ''); cx += c.w; });
+  const vals = [
+    g(data.marks), g(data.packages), g(data.packaging), g(data.goods), g(data.hsCode),
+    data.grossWeightKg != null ? String(data.grossWeightKg) : '',
+    data.volumeM3 != null ? String(data.volumeM3) : '',
+  ];
+  cx = M;
+  cols.forEach((c, i) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(0, 0, 0);
+    doc.text(doc.splitTextToSize(vals[i], c.w - 3) as string[], cx + 1.5, y + 10);
+    cx += c.w;
+  });
+  y += rowH;
+
+  formBox(doc, M, y, half, 15, '13', 'Instructions de l\'expéditeur (douane, etc.)', g(data.senderInstructions));
+  formBox(doc, M + half, y, half, 15, '14', 'Prescriptions d\'affranchissement', g(data.franking));
+  y += 15;
+  formBox(doc, M, y, half, 15, '19', 'Conventions particulières', g(data.specialAgreements));
+  formBox(doc, M + half, y, half, 15, '20', 'À payer (prix de transport)', g(data.toPay));
+  y += 15;
+  formBox(doc, M, y, CW, 9, '21', 'Établi à / le', [g(data.establishedAt), g(data.date)].filter(Boolean).join(', le '));
+  y += 9;
+
+  const third = CW / 3;
+  formBox(doc, M, y, third, 22, '22', 'Signature & timbre de l\'expéditeur', '');
+  formBox(doc, M + third, y, third, 22, '23', 'Signature & timbre du transporteur', '');
+  formBox(doc, M + 2 * third, y, third, 22, '24', 'Marchandises reçues (destinataire, date)', '');
+
+  axisFooter(doc);
+  labelDownload(doc, `CMR-${data.number}.pdf`);
+}
+
+// ─── Certificat d'origine (modèle communautaire UE) ─────────────────────────
+
+export interface CertificateOfOriginData {
+  number: string;
+  date?: string;
+  exporter?: { name?: string; address?: string };
+  consignee?: { name?: string; address?: string };
+  originCountry?: string;
+  transportInfo?: string;
+  remarks?: string;
+  packages?: string;
+  goods?: string;
+  quantity?: string;
+  signatoryPlace?: string;
+  signatory?: string;
+}
+
+export async function generateCertificateOfOriginPdf(data: CertificateOfOriginData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Certificat d\'origine', `N° ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Certificat d\'origine des marchandises — modèle communautaire (Union européenne)', M, y);
+  y += 4;
+
+  formBox(doc, M, y, half, 22, '1', 'Expéditeur / Exportateur', [g(data.exporter?.name), g(data.exporter?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 22, '2', 'Destinataire', [g(data.consignee?.name), g(data.consignee?.address)].filter(Boolean).join('\n'));
+  y += 22;
+  formBox(doc, M, y, half, 14, '3', 'Pays d\'origine', g(data.originCountry));
+  formBox(doc, M + half, y, half, 14, '4', 'Renseignements relatifs au transport', g(data.transportInfo));
+  y += 14;
+  formBox(doc, M, y, CW, 12, '5', 'Observations', g(data.remarks));
+  y += 12;
+  formBox(doc, M, y, CW, 42, '6', 'Marques, n°s, nombre et nature des colis — désignation des marchandises', [g(data.packages), g(data.goods)].filter(Boolean).join('\n'));
+  y += 42;
+  formBox(doc, M, y, CW, 12, '7', 'Quantité', g(data.quantity));
+  y += 18;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(doc.splitTextToSize('Le soussigné certifie que les marchandises désignées ci-dessus sont originaires du pays indiqué en case 3.', CW) as string[], M, y);
+  y += 12;
+  doc.text(`Fait à ${g(data.signatoryPlace) || '...'}, le ${g(data.date) || '...'}`, M, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(g(data.signatory) || 'Axis Import SAS', W - M, y, { align: 'right' });
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
-  doc.line(M, H - 18, W - M, H - 18);
+  doc.line(W - M - 62, y + 9, W - M, y + 9);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
-  doc.text('Axis Import SAS · SIRET 925 487 312 00018 · TVA FR42 925487312 · 14 rue de la Logistique, 75015 Paris', M, H - 13);
-  doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', M, H - 9);
+  doc.text('Signature & cachet de l\'entreprise', W - M - 62, y + 13);
 
-  labelDownload(doc, `Instructions-transitaire-${data.number}.pdf`);
+  axisFooter(doc);
+  labelDownload(doc, `Certificat-origine-${data.number}.pdf`);
+}
+
+// ─── Bon de livraison / Justificatif de livraison (POD) ─────────────────────
+
+export interface DeliveryNoteData {
+  number: string;
+  date?: string;
+  orderRef?: string;
+  sender?: { name?: string; address?: string };
+  recipient?: { name?: string; address?: string };
+  deliveryAddress?: string;
+  itemsText?: string;
+  carrier?: string;
+  driverName?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  reserves?: string;
+}
+
+export async function generateDeliveryNotePdf(data: DeliveryNoteData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  let y = axisLetterhead(doc, 'Bon de livraison', `N° ${data.number}`) + 4;
+
+  formBox(doc, M, y, half, 20, null, 'Expéditeur', [data.sender?.name, data.sender?.address].filter(Boolean).join('\n') || '—');
+  formBox(doc, M + half, y, half, 20, null, 'Destinataire', [data.recipient?.name, data.recipient?.address].filter(Boolean).join('\n') || '—');
+  y += 20;
+  formBox(doc, M, y, half, 12, null, 'Adresse de livraison', data.deliveryAddress || '—');
+  formBox(doc, M + half, y, half, 12, null, 'Commande / référence liée', data.orderRef || '—');
+  y += 16;
+
+  // Tableau articles
+  const tableTop = y;
+  const qtyX = W - M - 28;
+  doc.setFillColor(240, 240, 240);
+  doc.rect(M, y, CW, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.text('DÉSIGNATION', M + 2, y + 4.7);
+  doc.text('QUANTITÉ', W - M - 2, y + 4.7, { align: 'right' });
+  y += 7;
+  const items = (data.itemsText || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  if (items.length === 0) {
+    doc.setTextColor(150, 150, 150);
+    doc.text('—', M + 2, y + 5);
+    y += 8;
+    doc.setTextColor(0, 0, 0);
+  }
+  items.forEach((line) => {
+    const parts = line.split(';').map((s) => s.trim());
+    doc.text(doc.splitTextToSize(parts[0] || '', qtyX - M - 4) as string[], M + 2, y + 5);
+    doc.text(parts[1] || '', W - M - 2, y + 5, { align: 'right' });
+    y += 8;
+    doc.setDrawColor(224, 224, 224);
+    doc.setLineWidth(0.2);
+    doc.line(M, y, W - M, y);
+  });
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(M, tableTop, CW, y - tableTop);
+  doc.line(qtyX, tableTop, qtyX, y);
+  y += 6;
+
+  formBox(doc, M, y, CW, 12, null, 'Réserves à la livraison', data.reserves || 'Aucune — marchandise reçue en bon état.');
+  y += 16;
+
+  formBox(doc, M, y, half - 3, 26, null, `Livré par${data.driverName ? ' · ' + data.driverName : ''}`, [data.carrier, data.deliveryDate, data.deliveryTime].filter(Boolean).join(' · '));
+  formBox(doc, M + half + 3, y, half - 3, 26, null, 'Reçu par le destinataire (nom, date, signature)', '');
+  y += 26;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('La signature du destinataire vaut justificatif de livraison (Proof of Delivery — POD).', M, y + 5);
+
+  axisFooter(doc);
+  labelDownload(doc, `Bon-livraison-${data.number}.pdf`);
 }
 
 // ─── Routage type de document → générateur PDF ──────────────────────────────
@@ -1037,6 +1485,67 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         customsByAxis: bool(values, 'customsByAxis'),
         insuranceByAxis: bool(values, 'insuranceByAxis'),
         signatory: orU(str(values, 'signatory')),
+      });
+      break;
+
+    case 'cmr':
+      await generateCmrPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        sender: { name: orU(str(values, 'senderName')), address: orU(str(values, 'senderAddress')) },
+        recipient: { name: orU(str(values, 'recipientName')), address: orU(str(values, 'recipientAddress')) },
+        deliveryPlace: orU(str(values, 'deliveryPlace')),
+        takingOverPlace: orU(str(values, 'takingOverPlace')),
+        takingOverDate: orU(str(values, 'takingOverDate')),
+        carrier: { name: orU(str(values, 'carrierName')) },
+        plate: orU(str(values, 'plate')),
+        documentsAttached: orU(str(values, 'documentsAttached')),
+        marks: orU(str(values, 'marks')),
+        packages: orU(str(values, 'packages')),
+        packaging: orU(str(values, 'packaging')),
+        goods: orU(str(values, 'goods')),
+        hsCode: orU(str(values, 'hsCode')),
+        grossWeightKg: numU(values, 'grossWeight'),
+        volumeM3: numU(values, 'volume'),
+        senderInstructions: orU(str(values, 'senderInstructions')),
+        franking: orU(str(values, 'franking')),
+        specialAgreements: orU(str(values, 'specialAgreements')),
+        toPay: orU(str(values, 'toPay')),
+        establishedAt: orU(str(values, 'establishedAt')),
+      });
+      break;
+
+    case 'certificateOfOrigin':
+      await generateCertificateOfOriginPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        exporter: { name: orU(str(values, 'exporterName')), address: orU(str(values, 'exporterAddress')) },
+        consignee: { name: orU(str(values, 'consigneeName')), address: orU(str(values, 'consigneeAddress')) },
+        originCountry: orU(str(values, 'originCountry')),
+        transportInfo: orU(str(values, 'transportInfo')),
+        remarks: orU(str(values, 'remarks')),
+        packages: orU(str(values, 'packages')),
+        goods: orU(str(values, 'goods')),
+        quantity: orU(str(values, 'quantity')),
+        signatoryPlace: orU(str(values, 'signatoryPlace')),
+        signatory: orU(str(values, 'signatory')),
+      });
+      break;
+
+    case 'deliveryNote':
+      await generateDeliveryNotePdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        orderRef: orU(str(values, 'orderRef')),
+        sender: { name: orU(str(values, 'senderName')), address: orU(str(values, 'senderAddress')) },
+        recipient: { name: orU(str(values, 'recipientName')), address: orU(str(values, 'recipientAddress')) },
+        deliveryAddress: orU(str(values, 'deliveryAddress')),
+        itemsText: orU(str(values, 'itemsText')),
+        carrier: orU(str(values, 'carrier')),
+        driverName: orU(str(values, 'driverName')),
+        deliveryDate: orU(str(values, 'deliveryDate')),
+        deliveryTime: orU(str(values, 'deliveryTime')),
+        reserves: orU(str(values, 'reserves')),
       });
       break;
 
