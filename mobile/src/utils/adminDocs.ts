@@ -28,6 +28,8 @@ export type AdminDocTypeId =
   | 'packingList'
   | 'shippingInstructions'
   | 'cmr'
+  | 'billOfLading'
+  | 'airWaybill'
   | 'certificateOfOrigin'
   | 'deliveryNote'
   | 'contract'
@@ -407,6 +409,122 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       specialAgreements: '',
       establishedAt: 'Paris',
       toPay: '',
+    }),
+  },
+  {
+    id: 'billOfLading',
+    label: 'Connaissement (B/L)',
+    description: 'Bill of Lading — transport maritime, titre de propriété',
+    icon: 'globe',
+    activity: 'marchandise',
+    refPrefix: 'BOL',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° B/L', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'shipperName', label: 'Chargeur / Shipper' },
+      { key: 'shipperAddress', label: 'Adresse chargeur' },
+      { key: 'consigneeName', label: 'Destinataire / Consignee', required: true },
+      { key: 'consigneeAddress', label: 'Adresse destinataire' },
+      { key: 'notifyParty', label: 'Partie à notifier / Notify' },
+      { key: 'carrier', label: 'Transporteur maritime' },
+      { key: 'vessel', label: 'Navire / Vessel', half: true },
+      { key: 'voyageNo', label: 'N° voyage', half: true },
+      { key: 'portOfLoading', label: 'Port de chargement', half: true, placeholder: 'Le Havre' },
+      { key: 'portOfDischarge', label: 'Port de déchargement', half: true, placeholder: 'Dakar' },
+      { key: 'placeOfReceipt', label: 'Lieu de réception', half: true },
+      { key: 'placeOfDelivery', label: 'Lieu de livraison', half: true },
+      { key: 'containerNo', label: 'Conteneur / N° plomb', half: true, placeholder: 'MSKU1234567' },
+      { key: 'marks', label: 'Marques & n°', half: true },
+      { key: 'packages', label: 'Nombre et nature des colis', half: true },
+      { key: 'goods', label: 'Description des marchandises', required: true },
+      { key: 'grossWeight', label: 'Poids brut (kg)', type: 'number', half: true },
+      { key: 'measurement', label: 'Cubage (m³)', type: 'number', half: true },
+      { key: 'freightTerms', label: 'Fret', type: 'select', options: ['Prépayé (Prepaid)', 'Payable à destination (Collect)'] },
+      { key: 'numberOfOriginals', label: 'Nombre d\'originaux', half: true },
+      { key: 'shippedOnBoardDate', label: 'Date embarquement', half: true },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      shipperName: 'Axis Import SAS',
+      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      consigneeName: '',
+      consigneeAddress: '',
+      notifyParty: '',
+      carrier: 'Compagnie maritime (à préciser)',
+      vessel: '',
+      voyageNo: '',
+      portOfLoading: 'Le Havre (FR)',
+      portOfDischarge: 'Dakar (SN)',
+      placeOfReceipt: '',
+      placeOfDelivery: '',
+      containerNo: '',
+      marks: '',
+      packages: '',
+      goods: '',
+      grossWeight: '',
+      measurement: '',
+      freightTerms: 'Prépayé (Prepaid)',
+      numberOfOriginals: '3',
+      shippedOnBoardDate: '',
+    }),
+  },
+  {
+    id: 'airWaybill',
+    label: 'Lettre de transport aérien (LTA)',
+    description: 'Air Waybill (AWB) — transport aérien, format IATA',
+    icon: 'bolt',
+    activity: 'marchandise',
+    refPrefix: 'AWB',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° LTA / AWB', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'shipperName', label: 'Expéditeur / Shipper' },
+      { key: 'shipperAddress', label: 'Adresse expéditeur' },
+      { key: 'consigneeName', label: 'Destinataire / Consignee', required: true },
+      { key: 'consigneeAddress', label: 'Adresse destinataire' },
+      { key: 'issuingAgent', label: 'Agent émetteur' },
+      { key: 'airportDeparture', label: 'Aéroport de départ', half: true, placeholder: 'Paris CDG' },
+      { key: 'airportDestination', label: 'Aéroport de destination', half: true, placeholder: 'Dakar DSS' },
+      { key: 'routing', label: 'Acheminement / Vol', half: true, placeholder: 'AF718' },
+      { key: 'flightDate', label: 'Date de vol', half: true },
+      { key: 'currency', label: 'Devise', half: true, placeholder: 'EUR' },
+      { key: 'declaredValueCarriage', label: 'Valeur décl. transport', half: true },
+      { key: 'declaredValueCustoms', label: 'Valeur décl. douane', half: true },
+      { key: 'handlingInfo', label: 'Informations de manutention', half: true },
+      { key: 'goods', label: 'Nature et quantité des marchandises', required: true },
+      { key: 'pieces', label: 'Nb colis', type: 'number', half: true },
+      { key: 'grossWeight', label: 'Poids brut (kg)', type: 'number', half: true },
+      { key: 'chargeableWeight', label: 'Poids taxable (kg)', type: 'number', half: true },
+      { key: 'volume', label: 'Cubage (m³)', type: 'number', half: true },
+      { key: 'chargesTerms', label: 'Frais', type: 'select', options: ['Prépayé (Prepaid)', 'Port dû (Collect)'] },
+      { key: 'executedPlace', label: 'Émis à', half: true, placeholder: 'Paris' },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      shipperName: 'Axis Import SAS',
+      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      consigneeName: '',
+      consigneeAddress: '',
+      issuingAgent: 'Axis Import SAS',
+      airportDeparture: 'Paris CDG (FR)',
+      airportDestination: 'Dakar DSS (SN)',
+      routing: '',
+      flightDate: '',
+      currency: 'EUR',
+      declaredValueCarriage: '',
+      declaredValueCustoms: '',
+      handlingInfo: '',
+      goods: '',
+      pieces: '',
+      grossWeight: '',
+      chargeableWeight: '',
+      volume: '',
+      chargesTerms: 'Prépayé (Prepaid)',
+      executedPlace: 'Paris',
     }),
   },
   {
@@ -1299,6 +1417,190 @@ export async function generateDeliveryNotePdf(data: DeliveryNoteData): Promise<v
   labelDownload(doc, `Bon-livraison-${data.number}.pdf`);
 }
 
+// ─── Connaissement maritime (Bill of Lading) ───────────────────────────────
+
+export interface BillOfLadingData {
+  number: string;
+  date?: string;
+  placeOfIssue?: string;
+  shipper?: { name?: string; address?: string };
+  consignee?: { name?: string; address?: string };
+  notifyParty?: string;
+  carrier?: string;
+  vessel?: string;
+  voyageNo?: string;
+  portOfLoading?: string;
+  portOfDischarge?: string;
+  placeOfReceipt?: string;
+  placeOfDelivery?: string;
+  containerNo?: string;
+  marks?: string;
+  packages?: string;
+  goods?: string;
+  grossWeightKg?: number;
+  measurementM3?: number;
+  freightTerms?: string;
+  numberOfOriginals?: string;
+  shippedOnBoardDate?: string;
+}
+
+export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Connaissement', `B/L N° ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Connaissement maritime — Bill of Lading (titre de transport et de propriété de la marchandise)', M, y);
+  y += 4;
+
+  formBox(doc, M, y, half, 20, null, 'Chargeur / Shipper', [g(data.shipper?.name), g(data.shipper?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 20, null, 'Transporteur maritime / Carrier', g(data.carrier));
+  y += 20;
+  formBox(doc, M, y, half, 18, null, 'Destinataire / Consignee', [g(data.consignee?.name), g(data.consignee?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 18, null, 'Partie à notifier / Notify party', g(data.notifyParty));
+  y += 18;
+  formBox(doc, M, y, half, 12, null, 'Navire / Vessel · Voyage', [g(data.vessel), data.voyageNo ? 'Voy. ' + data.voyageNo : ''].filter(Boolean).join(' · '));
+  formBox(doc, M + half, y, half, 12, null, 'Lieu de réception → livraison', [g(data.placeOfReceipt), g(data.placeOfDelivery)].filter(Boolean).join(' → '));
+  y += 12;
+  formBox(doc, M, y, half, 12, null, 'Port de chargement / Port of loading', g(data.portOfLoading));
+  formBox(doc, M + half, y, half, 12, null, 'Port de déchargement / of discharge', g(data.portOfDischarge));
+  y += 12;
+  formBox(doc, M, y, CW, 9, null, 'Conteneur / N° de plomb', g(data.containerNo));
+  y += 9;
+
+  const cols = [
+    { l: 'Marques & n°', w: 32 },
+    { l: 'Nombre et nature des colis', w: 46 },
+    { l: 'Description des marchandises', w: CW - 32 - 46 - 26 - 24 },
+    { l: 'Poids brut kg', w: 26 },
+    { l: 'Cubage m³', w: 24 },
+  ];
+  const rowH = 26;
+  let cx = M;
+  cols.forEach((c) => { formBox(doc, cx, y, c.w, rowH, null, c.l, ''); cx += c.w; });
+  const vals = [g(data.marks), g(data.packages), g(data.goods), data.grossWeightKg != null ? String(data.grossWeightKg) : '', data.measurementM3 != null ? String(data.measurementM3) : ''];
+  cx = M;
+  cols.forEach((c, i) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(0, 0, 0); doc.text(doc.splitTextToSize(vals[i], c.w - 3) as string[], cx + 1.5, y + 11); cx += c.w; });
+  y += rowH;
+
+  formBox(doc, M, y, half, 11, null, 'Fret & frais / Freight', g(data.freightTerms));
+  formBox(doc, M + half, y, half, 11, null, 'Nombre d\'originaux / No. of originals', g(data.numberOfOriginals));
+  y += 11;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`SHIPPED ON BOARD / Embarqué : ${g(data.shippedOnBoardDate) || g(data.date) || '...'}`, M, y + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Émis à ${g(data.placeOfIssue) || '...'}, le ${g(data.date) || '...'}`, M, y + 12);
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(W - M - 62, y + 15, W - M, y + 15);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Signature & cachet du transporteur', W - M - 62, y + 19);
+
+  axisFooter(doc);
+  labelDownload(doc, `Connaissement-BL-${data.number}.pdf`);
+}
+
+// ─── Lettre de transport aérien (LTA / Air Waybill, IATA) ───────────────────
+
+export interface AirWaybillData {
+  number: string;
+  date?: string;
+  shipper?: { name?: string; address?: string };
+  consignee?: { name?: string; address?: string };
+  issuingAgent?: string;
+  airportDeparture?: string;
+  airportDestination?: string;
+  routing?: string;
+  flightDate?: string;
+  currency?: string;
+  declaredValueCarriage?: string;
+  declaredValueCustoms?: string;
+  handlingInfo?: string;
+  pieces?: string;
+  grossWeightKg?: number;
+  chargeableWeightKg?: number;
+  goods?: string;
+  volumeM3?: number;
+  chargesTerms?: string;
+  executedPlace?: string;
+}
+
+export async function generateAirWaybillPdf(data: AirWaybillData): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Lettre de transport aérien', `LTA / AWB N° ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Air Waybill (AWB) — contrat de transport aérien, format normalisé IATA', M, y);
+  y += 4;
+
+  formBox(doc, M, y, half, 20, null, 'Expéditeur / Shipper', [g(data.shipper?.name), g(data.shipper?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 20, null, 'Agent émetteur / Issuing carrier\'s agent', g(data.issuingAgent));
+  y += 20;
+  formBox(doc, M, y, CW, 16, null, 'Destinataire / Consignee', [g(data.consignee?.name), g(data.consignee?.address)].filter(Boolean).join('\n'));
+  y += 16;
+  formBox(doc, M, y, half, 12, null, 'Aéroport de départ / of departure', g(data.airportDeparture));
+  formBox(doc, M + half, y, half, 12, null, 'Aéroport de destination', g(data.airportDestination));
+  y += 12;
+  formBox(doc, M, y, half, 12, null, 'Acheminement / Vol · date', [g(data.routing), g(data.flightDate)].filter(Boolean).join(' · '));
+  formBox(doc, M + half, y, half, 12, null, 'Devise & valeurs déclarées (transport / douane)', [data.currency ? 'Devise ' + data.currency : '', data.declaredValueCarriage ? 'Transp. ' + data.declaredValueCarriage : '', data.declaredValueCustoms ? 'Douane ' + data.declaredValueCustoms : ''].filter(Boolean).join(' · '));
+  y += 12;
+  formBox(doc, M, y, CW, 9, null, 'Informations de manutention / Handling information', g(data.handlingInfo));
+  y += 9;
+
+  const cols = [
+    { l: 'Nb colis', w: 22 },
+    { l: 'Poids brut kg', w: 26 },
+    { l: 'Poids taxable kg', w: 28 },
+    { l: 'Cubage m³', w: 22 },
+    { l: 'Nature et quantité des marchandises', w: CW - 22 - 26 - 28 - 22 },
+  ];
+  const rowH = 24;
+  let cx = M;
+  cols.forEach((c) => { formBox(doc, cx, y, c.w, rowH, null, c.l, ''); cx += c.w; });
+  const vals = [g(data.pieces), data.grossWeightKg != null ? String(data.grossWeightKg) : '', data.chargeableWeightKg != null ? String(data.chargeableWeightKg) : '', data.volumeM3 != null ? String(data.volumeM3) : '', g(data.goods)];
+  cx = M;
+  cols.forEach((c, i) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(0, 0, 0); doc.text(doc.splitTextToSize(vals[i], c.w - 3) as string[], cx + 1.5, y + 11); cx += c.w; });
+  y += rowH;
+
+  formBox(doc, M, y, CW, 9, null, 'Frais / Charges', g(data.chargesTerms));
+  y += 9;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Émis à ${g(data.executedPlace) || '...'}, le ${g(data.date) || '...'}`, M, y + 7);
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(M, y + 17, M + 60, y + 17);
+  doc.line(W - M - 62, y + 17, W - M, y + 17);
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Signature de l\'expéditeur', M, y + 21);
+  doc.text('Signature du transporteur / agent émetteur', W - M - 62, y + 21);
+
+  axisFooter(doc);
+  labelDownload(doc, `LTA-AWB-${data.number}.pdf`);
+}
+
 // ─── Routage type de document → générateur PDF ──────────────────────────────
 
 function parsePackages(text: string) {
@@ -1512,6 +1814,58 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         specialAgreements: orU(str(values, 'specialAgreements')),
         toPay: orU(str(values, 'toPay')),
         establishedAt: orU(str(values, 'establishedAt')),
+      });
+      break;
+
+    case 'billOfLading':
+      await generateBillOfLadingPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        placeOfIssue: orU(str(values, 'portOfLoading')),
+        shipper: { name: orU(str(values, 'shipperName')), address: orU(str(values, 'shipperAddress')) },
+        consignee: { name: orU(str(values, 'consigneeName')), address: orU(str(values, 'consigneeAddress')) },
+        notifyParty: orU(str(values, 'notifyParty')),
+        carrier: orU(str(values, 'carrier')),
+        vessel: orU(str(values, 'vessel')),
+        voyageNo: orU(str(values, 'voyageNo')),
+        portOfLoading: orU(str(values, 'portOfLoading')),
+        portOfDischarge: orU(str(values, 'portOfDischarge')),
+        placeOfReceipt: orU(str(values, 'placeOfReceipt')),
+        placeOfDelivery: orU(str(values, 'placeOfDelivery')),
+        containerNo: orU(str(values, 'containerNo')),
+        marks: orU(str(values, 'marks')),
+        packages: orU(str(values, 'packages')),
+        goods: orU(str(values, 'goods')),
+        grossWeightKg: numU(values, 'grossWeight'),
+        measurementM3: numU(values, 'measurement'),
+        freightTerms: orU(str(values, 'freightTerms')),
+        numberOfOriginals: orU(str(values, 'numberOfOriginals')),
+        shippedOnBoardDate: orU(str(values, 'shippedOnBoardDate')),
+      });
+      break;
+
+    case 'airWaybill':
+      await generateAirWaybillPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        shipper: { name: orU(str(values, 'shipperName')), address: orU(str(values, 'shipperAddress')) },
+        consignee: { name: orU(str(values, 'consigneeName')), address: orU(str(values, 'consigneeAddress')) },
+        issuingAgent: orU(str(values, 'issuingAgent')),
+        airportDeparture: orU(str(values, 'airportDeparture')),
+        airportDestination: orU(str(values, 'airportDestination')),
+        routing: orU(str(values, 'routing')),
+        flightDate: orU(str(values, 'flightDate')),
+        currency: orU(str(values, 'currency')),
+        declaredValueCarriage: orU(str(values, 'declaredValueCarriage')),
+        declaredValueCustoms: orU(str(values, 'declaredValueCustoms')),
+        handlingInfo: orU(str(values, 'handlingInfo')),
+        pieces: orU(str(values, 'pieces')),
+        grossWeightKg: numU(values, 'grossWeight'),
+        chargeableWeightKg: numU(values, 'chargeableWeight'),
+        goods: orU(str(values, 'goods')),
+        volumeM3: numU(values, 'volume'),
+        chargesTerms: orU(str(values, 'chargesTerms')),
+        executedPlace: orU(str(values, 'executedPlace')),
       });
       break;
 
