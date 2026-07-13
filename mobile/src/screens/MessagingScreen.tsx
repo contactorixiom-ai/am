@@ -126,7 +126,8 @@ export function MessagingScreen() {
       const r = await listMessages(convId, 1, 50);
       if (!mountedRef.current) return;
       // Le backend renvoie du plus récent au plus ancien → on inverse.
-      const asc = [...r.data].reverse();
+      // Défensif : réponse inattendue (non-tableau) → liste vide, pas de crash.
+      const asc = Array.isArray(r?.data) ? [...r.data].reverse() : [];
       setServerMessages(asc);
 
       // Nouveaux messages entrants depuis le dernier passage → lu + scroll.
@@ -160,7 +161,7 @@ export function MessagingScreen() {
           listMessages(conversationId, 1, 50),
         ]);
         if (cancelled || !mountedRef.current) return;
-        const asc = [...msgs.data].reverse();
+        const asc = Array.isArray(msgs?.data) ? [...msgs.data].reverse() : [];
         setServerMessages(asc);
         knownIdsRef.current = new Set(asc.map((m) => m.id));
         setTitle(params.driverName ?? conversationTitle(conv, myId));

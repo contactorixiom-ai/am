@@ -55,7 +55,9 @@ export function ConversationsScreen() {
     loadingRef.current = true;
     try {
       const r = await listConversations(1, 50);
-      setConvs(r.data);
+      // Défensif : on ne stocke QUE des tableaux (une réponse inattendue —
+      // erreur serveur, HTML, forme différente — ne doit pas casser l'écran).
+      setConvs(Array.isArray(r?.data) ? r.data : []);
       setError(null);
     } catch {
       // Hors-ligne / serveur indisponible : on garde la dernière liste connue,
