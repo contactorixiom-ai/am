@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { Icons } from './Icons';
-import { Pill } from './Pill';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
+import { createCheckoutSession, getPaymentSession } from '../api/payments';
 
-// Faux flux de paiement Stripe / Apple Pay pour la démo.
-// 3 étapes : choix moyen → traitement / 3DS → succès.
+// Flux de paiement Stripe Checkout (cartes + Apple Pay + Google Pay + Link).
+// Le backend crée la session ; en présence d'une clé Stripe (Railway), l'app
+// ouvre la page hébergée Stripe et vérifie le règlement par sondage — la fenêtre
+// principale n'est jamais quittée, l'état de la commande est préservé. Sans clé,
+// le backend répond en mode SIMULATION (aucun débit) et le flux se finalise.
+// 3 étapes : choix moyen → traitement → confirmation.
 
 type Step = 'pick' | 'processing' | 'success';
 type Method = 'card' | 'apple_pay' | 'sepa';
+type Provider = 'stripe' | 'simulation';
 
 interface Props {
   visible: boolean;
@@ -20,16 +25,93 @@ interface Props {
   onPaid: () => void;
 }
 
+function openExternal(url: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener');
+  } else {
+    Linking.openURL(url).catch(() => {});
+  }
+}
+
+function returnUrls(): { successUrl: string; cancelUrl: string } {
+  const base =
+    typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}${window.location.pathname}`
+      : 'https://contactorixiom-ai.github.io/am/app/';
+  return {
+    successUrl: `${base}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${base}?payment=cancel`,
+  };
+}
+
 export function PaymentSheet({ visible, amountEur, reference, description, onClose, onPaid }: Props) {
   const { theme } = useTheme();
   const [step, setStep] = useState<Step>('pick');
   const [method, setMethod] = useState<Method>('apple_pay');
+  const [provider, setProvider] = useState<Provider>('simulation');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const activeRef = useRef(true);
 
-  const reset = () => { setStep('pick'); setMethod('apple_pay'); };
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
+  // Si la feuille est masquée, on stoppe tout sondage en cours.
+  useEffect(() => { if (!visible) activeRef.current = false; else activeRef.current = true; }, [visible]);
 
-  const pay = () => {
+  const reset = () => { setStep('pick'); setMethod('apple_pay'); setError(null); setSessionId(null); };
+
+  // Sonde le statut de la session Stripe jusqu'au règlement (≤ 3 min).
+  const pollPaid = async (id: string): Promise<boolean> => {
+    const deadline = Date.now() + 3 * 60 * 1000;
+    while (Date.now() < deadline && activeRef.current) {
+      await new Promise((r) => setTimeout(r, 2500));
+      if (!activeRef.current) return false;
+      try {
+        const s = await getPaymentSession(id);
+        if (s.paid) return true;
+      } catch {
+        // Erreur réseau ponctuelle : on retente au prochain tour.
+      }
+    }
+    return false;
+  };
+
+  const pay = async () => {
+    setError(null);
     setStep('processing');
-    setTimeout(() => setStep('success'), 2200);
+    try {
+      const { successUrl, cancelUrl } = returnUrls();
+      const session = await createCheckoutSession({
+        amountCents: Math.round(amountEur * 100),
+        currency: 'eur',
+        reference,
+        description,
+        successUrl,
+        cancelUrl,
+      });
+      setProvider(session.provider);
+      setSessionId(session.id);
+
+      if (session.provider === 'stripe' && session.url) {
+        // Stripe réel : on ouvre la page hébergée et on attend la confirmation.
+        openExternal(session.url);
+        const paid = await pollPaid(session.id);
+        if (!activeRef.current) return;
+        if (paid) setStep('success');
+        else { setError('Paiement non confirmé. Tu peux réessayer.'); setStep('pick'); }
+      } else {
+        // Mode simulation (aucune clé Stripe côté serveur) : aucun débit réel.
+        await new Promise((r) => setTimeout(r, 1300));
+        if (!activeRef.current) return;
+        setStep('success');
+      }
+    } catch {
+      if (!activeRef.current) return;
+      setError('Paiement indisponible pour le moment. Réessaie dans un instant.');
+      setStep('pick');
+    }
   };
 
   const finish = () => {
@@ -94,6 +176,13 @@ export function PaymentSheet({ visible, amountEur, reference, description, onClo
                 </Text>
               </View>
 
+              {error ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 10, backgroundColor: theme.bad + '15', borderWidth: 1, borderColor: theme.bad + '40' }}>
+                  <Icons.warn size={14} color={theme.bad} stroke={1.8} />
+                  <Text style={{ flex: 1, fontSize: 12, color: theme.bad, fontFamily: TYPO.weights.semibold }}>{error}</Text>
+                </View>
+              ) : null}
+
               <Pressable
                 onPress={pay}
                 style={({ pressed }) => ({
@@ -125,10 +214,12 @@ export function PaymentSheet({ visible, amountEur, reference, description, onClo
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold }}>
-                  {method === 'apple_pay' ? 'Authentification Face ID…' : method === 'card' ? '3D Secure en cours…' : 'Validation SEPA…'}
+                  {provider === 'stripe' ? 'Paiement sécurisé Stripe…' : 'Traitement du paiement…'}
                 </Text>
                 <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 6, textAlign: 'center', maxWidth: 280 }}>
-                  Confirme l'opération auprès de ta banque{'\n'}sans fermer l'app.
+                  {provider === 'stripe'
+                    ? 'Termine le règlement dans la page Stripe qui vient de s\'ouvrir. On valide automatiquement dès réception.'
+                    : 'Merci de patienter quelques secondes.'}
                 </Text>
               </View>
             </View>
@@ -138,14 +229,24 @@ export function PaymentSheet({ visible, amountEur, reference, description, onClo
                 <Icons.check size={32} color={theme.good} stroke={3} />
               </View>
               <View style={{ alignItems: 'center', gap: 4 }}>
-                <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold, letterSpacing: -0.3 }}>Paiement confirmé</Text>
+                <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold, letterSpacing: -0.3 }}>
+                  {provider === 'stripe' ? 'Paiement confirmé' : 'Commande validée'}
+                </Text>
                 <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium, textAlign: 'center' }}>
-                  {amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € débité{reference ? ` pour ${reference}` : ''}
+                  {provider === 'stripe'
+                    ? `${amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € réglés${reference ? ` pour ${reference}` : ''}`
+                    : `${amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €${reference ? ` · ${reference}` : ''}`}
                 </Text>
               </View>
               <View style={{ width: '100%', padding: 14, borderRadius: 12, backgroundColor: theme.surface2, gap: 6 }}>
-                <RowKv label="Référence Stripe" value={`pi_${Math.random().toString(36).slice(2, 14)}`} />
-                <RowKv label="Moyen" value={method === 'apple_pay' ? 'Apple Pay · Visa ••4242' : method === 'card' ? 'Visa ••4242' : 'SEPA FR76 ••3210'} />
+                {provider === 'stripe' ? (
+                  <>
+                    <RowKv label="Session Stripe" value={sessionId ? `${sessionId.slice(0, 20)}…` : '—'} />
+                    <RowKv label="Statut" value="Réglé" />
+                  </>
+                ) : (
+                  <RowKv label="Mode" value="Démonstration · aucun débit réel" />
+                )}
                 <RowKv label="Date" value={new Date().toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} />
               </View>
               <Pressable onPress={finish} style={({ pressed }) => ({ width: '100%', height: 50, borderRadius: RADII.lg, backgroundColor: pressed ? theme.goldDeep : theme.gold, alignItems: 'center', justifyContent: 'center' })}>

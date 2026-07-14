@@ -10,6 +10,7 @@ import { createVehicle } from '../api/vehicles';
 import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
+import { PaymentSheet } from '../components/PaymentSheet';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
@@ -37,6 +38,7 @@ export function QuoteReviewScreen() {
   const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
 
   const [booking, setBooking] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   // Pour les colis : on pré-sélectionne le transporteur partenaire (tronçon 1)
   // pour informer le client AVANT achat. Numéro de tracking caché à ce stade.
@@ -114,7 +116,8 @@ export function QuoteReviewScreen() {
 
   const handleBook = () => {
     if (isConvoy) {
-      bookConvoy();
+      // Le client règle d'abord le convoyage, puis la mission est créée.
+      setShowPayment(true);
       return;
     }
     if (isParcel) {
@@ -493,6 +496,20 @@ export function QuoteReviewScreen() {
           Modifier le devis
         </Button>
       </View>
+
+      {isConvoy ? (
+        <PaymentSheet
+          visible={showPayment}
+          amountEur={quote.totalCents / 100}
+          reference={quote.reference}
+          description={`Convoyage ${quote.fromCity} → ${quote.toCity}`}
+          onClose={() => setShowPayment(false)}
+          onPaid={() => {
+            setShowPayment(false);
+            bookConvoy();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
