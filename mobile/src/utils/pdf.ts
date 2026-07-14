@@ -4,6 +4,12 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
+import {
+  VEHICLE_SKETCH_CAR,
+  VEHICLE_SKETCH_CAR_RATIO,
+  VEHICLE_SKETCH_VAN,
+  VEHICLE_SKETCH_VAN_RATIO,
+} from './vehicleSketches';
 
 // Palette neutre noir & blanc pour des documents officiels institutionnels
 // (style transporteur classique). Plus aucun navy/doré dans les PDF — le
@@ -502,10 +508,6 @@ export interface PdfDamage {
   code: 'R' | 'F' | 'E' | 'C' | 'M';
 }
 
-const DAMAGE_COLOR: Record<string, string> = {
-  R: '#C9A55C', F: '#E0A04D', E: '#D97A4E', C: '#C0524B', M: '#8E5BAE',
-};
-
 const VEHICLE_CATEGORIES = [
   'Citadine', 'Berline', 'Break', 'Coupé', 'Monospace', 'SUV', '4×4', 'Utilitaire',
   'Camping-car', 'Poids lourd', 'Moto', 'Élec.', 'Hybride', 'Luxe', 'Collection',
@@ -768,108 +770,30 @@ function formatDateLine(date: string, time?: string): string {
 // dommages positionnés en coordonnées normalisées (0..1) de la zone donnée.
 type VehicleKind = 'car' | 'van' | 'truck' | 'moto';
 
-// Croquis véhicule multi-vues (modèle « état des lieux ») : Dessus + Avant +
-// Arrière + Côté gauche + Côté droit, avec report des dommages sur chaque vue.
-// Silhouettes vectorielles adaptées au type (voiture / utilitaire / camion / moto).
-function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: number, kind: VehicleKind, damages: PdfDamage[]) {
-  const topH = h * 0.46;
-  drawVehicleView(doc, 'top', kind, x, y, w, topH, 'Dessus', damages);
-  const rowY = y + topH + 1;
-  const rowH = h - topH - 1;
-  const cols: { v: PdfDamage['view']; l: string }[] = [
-    { v: 'front', l: 'Avant' },
-    { v: 'rear', l: 'Arrière' },
-    { v: 'left', l: 'Gauche' },
-    { v: 'right', l: 'Droite' },
-  ];
-  const cw = w / cols.length;
-  cols.forEach((c, i) => drawVehicleView(doc, c.v, kind, x + i * cw, rowY, cw, rowH, c.l, damages));
-}
+// Croquis véhicule multi-vues (modèle « état des lieux ») : schéma professionnel
+// (Dessus + Avant + Arrière + Côtés + habitacle) intégré depuis un visuel JPEG.
+// La voiture et l'utilitaire disposent chacun de leur propre planche ; les
+// dommages relevés lors de l'inspection sont consignés dans les OBSERVATIONS.
+function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: number, kind: VehicleKind) {
+  const isVan = kind === 'van' || kind === 'truck';
+  const img = isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
+  const ratio = isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
 
-function drawVehicleView(doc: jsPDF, view: PdfDamage['view'], kind: VehicleKind, bx: number, by: number, bw: number, bh: number, label: string, damages: PdfDamage[]) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5);
-  setColor(doc, MUTED, 'text');
-  doc.text(label.toUpperCase(), bx + bw / 2, by + 2.4, { align: 'center' });
+  // Ajustement « contain » : on préserve les proportions de la planche et on
+  // centre le visuel dans le cadre réservé.
+  let iw = w;
+  let ih = w / ratio;
+  if (ih > h) { ih = h; iw = h * ratio; }
+  const ix = x + (w - iw) / 2;
+  const iy = y + (h - ih) / 2;
 
-  const ix = bx + 1.5;
-  const iy = by + 3.5;
-  const iw = bw - 3;
-  const ih = bh - 5;
-  drawVehicleOutline(doc, view, kind, ix, iy, iw, ih);
-
-  damages.filter((d) => d.view === view).forEach((dmg) => {
-    const px = ix + Math.min(1, Math.max(0, dmg.x)) * iw;
-    const py = iy + Math.min(1, Math.max(0, dmg.y)) * ih;
-    setColor(doc, DAMAGE_COLOR[dmg.code] ?? INK, 'fill');
-    doc.circle(px, py, 1.9, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(4.5);
-    doc.text(dmg.code, px, py + 0.9, { align: 'center' });
-  });
-}
-
-function drawVehicleOutline(doc: jsPDF, view: PdfDamage['view'], kind: VehicleKind, x: number, y: number, w: number, h: number) {
-  setColor(doc, INK, 'draw');
-  doc.setLineWidth(0.4);
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const R = (rx: number, ry: number, rw: number, rh: number, r: number) => doc.roundedRect(rx, ry, rw, rh, r, r, 'S');
-  const C = (ccx: number, ccy: number, r: number) => doc.circle(ccx, ccy, r, 'S');
-
-  if (view === 'top') {
-    const bw = Math.min(w * 0.92, h * 3.4);
-    const bh = Math.min(h * 0.62, bw * 0.42);
-    const lx = cx - bw / 2;
-    const ty = cy - bh / 2;
-    if (kind === 'moto') {
-      R(lx + bw * 0.2, cy - bh * 0.16, bw * 0.6, bh * 0.32, bh * 0.16);
-      C(lx + bw * 0.12, cy, bh * 0.13); C(lx + bw * 0.88, cy, bh * 0.13);
-    } else if (kind === 'truck') {
-      R(lx, ty, bw * 0.26, bh, 1);
-      R(lx + bw * 0.29, ty, bw * 0.71, bh, 0.8);
-    } else {
-      R(lx, ty, bw, bh, bh * 0.3);
-      R(lx + bw * 0.24, ty + bh * 0.16, bw * (kind === 'van' ? 0.6 : 0.5), bh * 0.68, bh * 0.14);
-      if (kind === 'van') doc.line(lx + bw * 0.62, ty + 0.6, lx + bw * 0.62, ty + bh - 0.6);
-    }
-  } else if (view === 'left' || view === 'right') {
-    const bw = w * 0.9;
-    const bh = Math.min(h * 0.44, bw * 0.5);
-    const lx = cx - bw / 2;
-    const ty = cy - bh * 0.1;
-    const wr = bh * 0.26;
-    if (kind === 'moto') {
-      C(lx + bw * 0.2, ty + bh * 0.55, bh * 0.5); C(lx + bw * 0.8, ty + bh * 0.55, bh * 0.5);
-      doc.line(lx + bw * 0.2, ty + bh * 0.55, lx + bw * 0.52, ty);
-      doc.line(lx + bw * 0.52, ty, lx + bw * 0.8, ty + bh * 0.55);
-    } else if (kind === 'truck') {
-      R(lx, ty - bh * 0.35, bw * 0.24, bh * 0.85, 0.8);
-      R(lx + bw * 0.26, ty - bh * 0.6, bw * 0.74, bh * 1.1, 0.8);
-      C(lx + bw * 0.15, ty + bh * 0.55, wr); C(lx + bw * 0.6, ty + bh * 0.55, wr); C(lx + bw * 0.84, ty + bh * 0.55, wr);
-    } else {
-      R(lx, ty, bw, bh * 0.55, bh * 0.18);
-      if (kind === 'van') R(lx + bw * 0.08, ty - bh * 0.5, bw * 0.84, bh * 0.6, 1);
-      else R(lx + bw * 0.26, ty - bh * 0.4, bw * 0.46, bh * 0.5, bh * 0.18);
-      C(lx + bw * 0.22, ty + bh * 0.55, wr); C(lx + bw * 0.78, ty + bh * 0.55, wr);
-    }
-  } else {
-    // front / rear
-    const bw = Math.min(w * 0.66, h * 0.5);
-    const bh = Math.min(h * 0.66, bw * 1.1);
-    const lx = cx - bw / 2;
-    const ty = cy - bh / 2;
-    if (kind === 'moto') {
-      C(cx, ty + bh * 0.62, bh * 0.34);
-      doc.line(cx - bw * 0.34, ty + bh * 0.16, cx + bw * 0.34, ty + bh * 0.16);
-      doc.line(cx, ty + bh * 0.16, cx, ty + bh * 0.5);
-    } else {
-      R(lx, ty + bh * 0.34, bw, bh * 0.66, bh * 0.12);
-      R(lx + bw * 0.12, ty, bw * 0.76, bh * 0.5, bh * 0.12);
-      const ly = ty + bh * 0.82;
-      C(lx + bw * 0.16, ly, bh * 0.06); C(lx + bw * 0.84, ly, bh * 0.06);
-    }
+  try {
+    doc.addImage(img, 'JPEG', ix, iy, iw, ih, undefined, 'FAST');
+  } catch {
+    // Repli : simple cadre si le visuel ne peut être décodé.
+    setColor(doc, LINE, 'draw');
+    doc.setLineWidth(0.4);
+    doc.roundedRect(ix, iy, iw, ih, 2, 2, 'S');
   }
 }
 
@@ -910,8 +834,8 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.rect(M, y, leftW, blockH);
   doc.rect(M + leftW, y, rightW, blockH);
 
-  // Croquis véhicule multi-vues + report des dommages
-  drawVehicleSchematic(doc, M + 4, y + 4, leftW - 8, blockH - 8, kind, d.damages ?? []);
+  // Croquis véhicule multi-vues (planche professionnelle voiture / utilitaire)
+  drawVehicleSchematic(doc, M + 4, y + 4, leftW - 8, blockH - 8, kind);
 
   // Colonne droite : champs
   const rx = M + leftW + 3;
