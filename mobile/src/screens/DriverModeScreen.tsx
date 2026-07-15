@@ -1,7 +1,10 @@
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { listMissions, MissionSummary } from '../api/missions';
 import { trackPosition, TrackPositionInput } from '../api/gps';
+import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -69,6 +72,7 @@ function hasPhoneGeolocation(): boolean {
 export function DriverModeScreen() {
   const { theme } = useTheme();
   const toast = useToast();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // ─── Mission en cours ────────────────────────────────────────────────────
   const [mission, setMission] = useState<MissionSummary | null>(null);
@@ -79,8 +83,11 @@ export function DriverModeScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await listMissions();
+        const res = await listMissions();
         if (cancelled) return;
+        // Défensif : une réponse inattendue (erreur serveur, forme différente)
+        // ne doit pas planter l'écran — on retombe alors sur le mode démo.
+        const data = Array.isArray(res?.data) ? res.data : [];
         const active =
           data.find((m) => m.status === 'IN_PROGRESS')
           ?? data.find((m) => m.status === 'ACCEPTED');
@@ -389,6 +396,18 @@ export function DriverModeScreen() {
     ? `${Math.round(lastPosition.speedKmh)}`
     : '—';
 
+  // ─── État des lieux (départ / arrivée) rattachés à la mission courante ─────
+  const inspectionReference = mission?.reference ?? 'AX-DEMO';
+  const inspectionVehicleLabel = mission
+    ? `${mission.vehicle.make} ${mission.vehicle.model}${mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}`
+    : 'Véhicule';
+  const openInspection = (phase: 'DÉPART' | 'ARRIVÉE') =>
+    nav.navigate('VehicleInspection', {
+      phase,
+      reference: inspectionReference,
+      vehicleLabel: inspectionVehicleLabel,
+    });
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
@@ -428,6 +447,37 @@ export function DriverModeScreen() {
             message="Aucune mission active trouvée (ou hors-ligne). Le suivi fonctionne mais aucune position n'est envoyée au serveur."
           />
         ) : null}
+
+        {/* État des lieux — départ (à la prise en charge) et arrivée (livraison).
+            Génère le PV/contrat signé avec le croquis véhicule et les photos. */}
+        <Surface padded>
+          <Text style={{ fontSize: TYPO.sizes.label, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+            État des lieux
+          </Text>
+          <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 4, lineHeight: 17 }}>
+            À faire signer au départ (prise en charge) puis à l'arrivée (livraison). Le contrat est généré automatiquement.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <Button
+              kind="primary"
+              size="md"
+              style={{ flex: 1 }}
+              leftIcon={<Icons.sig size={17} color="#fff" stroke={1.9} />}
+              onPress={() => openInspection('DÉPART')}
+            >
+              Départ
+            </Button>
+            <Button
+              kind="gold"
+              size="md"
+              style={{ flex: 1 }}
+              leftIcon={<Icons.check size={17} color={theme.navy} stroke={2} />}
+              onPress={() => openInspection('ARRIVÉE')}
+            >
+              Arrivée
+            </Button>
+          </View>
+        </Surface>
 
         {geoError ? (
           <Banner
