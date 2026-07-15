@@ -585,16 +585,16 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   const col2 = VEHICLE_CATEGORIES.slice(8, 15);
   const colW = (W - 2 * M) / 8;
   col1.forEach((cat, i) => {
-    drawCheckbox(doc, M + i * colW, y - 2.5, 2.5, cat === data.vehicleCategory);
+    drawCheckbox(doc, M + i * colW, y - 2.15, 2.5, cat === data.vehicleCategory);
     doc.text(cat, M + i * colW + 4, y);
   });
   y += 4;
   col2.forEach((cat, i) => {
-    drawCheckbox(doc, M + i * colW, y - 2.5, 2.5, cat === data.vehicleCategory);
+    drawCheckbox(doc, M + i * colW, y - 2.15, 2.5, cat === data.vehicleCategory);
     doc.text(cat, M + i * colW + 4, y);
   });
   y += 4;
-  drawCheckbox(doc, M, y - 2.5, 2.5, false);
+  drawCheckbox(doc, M, y - 2.15, 2.5, false);
   doc.text('Autre :', M + 4, y);
   doc.setDrawColor(180);
   doc.setLineWidth(0.2);
@@ -968,28 +968,24 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
 }
 
 function drawFuelGauge(doc: jsPDF, x: number, y: number, level?: number) {
-  // Affichage type "0 ☐ ¼ ☐ ½ ☐ ¾ ☐ 1" avec celui correspondant rempli
+  // Rangée de 5 cases régulièrement espacées : 0 · ¼ · ½ · ¾ · 1.
+  // Chaque libellé est centré exactement sous sa case → aucun décalage.
   const labels = ['0', '¼', '½', '¾', '1'];
   const values = [0, 0.25, 0.5, 0.75, 1];
-  let cx = x;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  setColor(doc, INK, 'text');
+  const box = 2.6;
+  const step = 7;
   labels.forEach((label, i) => {
-    if (i === 0 || i === labels.length - 1) {
-      doc.text(label, cx, y + 4);
-      cx += 4;
-    }
-    drawCheckbox(doc, cx, y + 1, 2.5, level === values[i]);
-    cx += 5;
-    if (i !== 0 && i !== labels.length - 1) {
-      doc.text(label, cx - 4, y + 4);
-    }
+    const bx = x + i * step;
+    drawCheckbox(doc, bx, y + 1, box, level === values[i]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    setColor(doc, INK, 'text');
+    doc.text(label, bx + box / 2, y + 7.4, { align: 'center' });
   });
-  // Ligne sous-jacente
+  // Ligne de base sous la rangée
   setColor(doc, INK, 'draw');
   doc.setLineWidth(0.2);
-  doc.line(x, y + 6, x + 32, y + 6);
+  doc.line(x, y + 8.8, x + (labels.length - 1) * step + box, y + 8.8);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
