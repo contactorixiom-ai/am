@@ -34,6 +34,16 @@ const FUEL_LEVELS = [
   { v: 1, label: '1' },
 ];
 
+// Type de véhicule convoyé — détermine le croquis d'état des lieux du contrat
+// (voiture / utilitaire / poids lourd / moto). Les clés correspondent aux
+// catégories reconnues par le générateur PDF (generateContractPdf).
+const VEHICLE_TYPES: { key: string; label: string }[] = [
+  { key: 'Berline', label: 'Voiture' },
+  { key: 'Utilitaire', label: 'Utilitaire' },
+  { key: 'Poids lourd', label: 'Poids lourd' },
+  { key: 'Moto', label: 'Moto' },
+];
+
 const STEPS = ['Véhicule', 'Carrosserie', 'Signatures'];
 
 // Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
@@ -53,6 +63,7 @@ interface SavedInspection {
   damages: Damage[];
   date: string;
   vehiclePhotos?: Record<string, string>;
+  vehicleCategory?: string;
 }
 const STORAGE_KEY_PREFIX = 'axis.inspection.v1.';
 const storageKey = (reference: string, phase: 'DÉPART' | 'ARRIVÉE') =>
@@ -73,6 +84,7 @@ export function VehicleInspectionScreen() {
   const [departureRef, setDepartureRef] = useState<SavedInspection | null>(null);
 
   // Step 1
+  const [vehicleCategory, setVehicleCategory] = useState<string>('Berline');
   const [km, setKm] = useState('');
   const [fuel, setFuel] = useState<number | null>(null);
   const [keys, setKeys] = useState('2');
@@ -123,7 +135,12 @@ export function VehicleInspectionScreen() {
     if (!isArrival) return;
     AsyncStorage.getItem(storageKey(reference, 'DÉPART')).then((raw) => {
       if (!raw) return;
-      try { setDepartureRef(JSON.parse(raw) as SavedInspection); } catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(raw) as SavedInspection;
+        setDepartureRef(parsed);
+        // Reprend le type de véhicule choisi au départ (même croquis à l'arrivée).
+        if (parsed.vehicleCategory) setVehicleCategory(parsed.vehicleCategory);
+      } catch { /* ignore */ }
     });
   }, [isArrival, reference]);
 
@@ -139,7 +156,7 @@ export function VehicleInspectionScreen() {
     // Persiste l'état des lieux pour cette phase (utile pour comparaison).
     await AsyncStorage.setItem(
       storageKey(reference, phase),
-      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos } as SavedInspection),
+      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos, vehicleCategory } as SavedInspection),
     );
 
     if (isArrival) {
@@ -147,7 +164,7 @@ export function VehicleInspectionScreen() {
       await generateContractPdf({
         reference,
         copyLabel: 'EXEMPLAIRE\nCLIENT',
-        vehicleCategory: 'Berline',
+        vehicleCategory,
         driverName: 'Karim Diallo',
         clientName: 'Client Axis Import',
         vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
@@ -181,7 +198,7 @@ export function VehicleInspectionScreen() {
       await generateContractPdf({
         reference,
         copyLabel: 'EXEMPLAIRE\nCLIENT',
-        vehicleCategory: 'Berline',
+        vehicleCategory,
         driverName: 'Karim Diallo',
         clientName: 'Client Axis Import',
         vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
@@ -262,6 +279,28 @@ export function VehicleInspectionScreen() {
         {step === 0 ? (
           <>
             <Surface padded style={{ padding: 16, gap: 14 }}>
+              <View>
+                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+                  Type de véhicule
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {VEHICLE_TYPES.map((t) => {
+                    const on = vehicleCategory === t.key;
+                    return (
+                      <Pressable
+                        key={t.key}
+                        onPress={() => setVehicleCategory(t.key)}
+                        style={{ flexGrow: 1, minWidth: '46%', height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Text style={{ fontSize: 14, color: on ? '#F5F1E8' : theme.ink, fontFamily: on ? TYPO.weights.bold : TYPO.weights.semibold }}>{t.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 6 }}>
+                  Détermine le croquis d'état des lieux sur le contrat.
+                </Text>
+              </View>
               <Field label="Kilométrage" value={km} onChangeText={setKm} keyboardType="numeric" placeholder="48 230" hint="Relevé au compteur" />
               <View>
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
