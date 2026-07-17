@@ -567,9 +567,10 @@ export function DriverModeScreen() {
               size="lg"
               fullWidth
               style={{ minHeight: 56, borderRadius: RADII.xl }}
-              onPress={stopTracking}
+              leftIcon={<Icons.check size={18} color="#fff" stroke={2} />}
+              onPress={() => { stopTracking(); openInspection('ARRIVÉE'); }}
             >
-              Terminer
+              Terminer & état des lieux d'arrivée
             </Button>
           </View>
         )}
