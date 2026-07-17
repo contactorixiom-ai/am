@@ -6,7 +6,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { listMissions, MissionSummary } from '../api/missions';
-import { listParcels, ParcelSummary } from '../api/parcels';
+import { addParcelEvent, listParcels, ParcelStatus, ParcelSummary } from '../api/parcels';
+import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
@@ -51,6 +52,22 @@ const ACTIVITY_LABEL: Record<AdminActivity, string> = {
   colis: 'Colis',
   marchandise: 'Marchandise',
 };
+
+// Pipeline colis/marchandise que Roger fait avancer à la main (import-export).
+const PARCEL_PIPELINE: { status: ParcelStatus; label: string; hint: string }[] = [
+  { status: 'AWAITING_DROP_OFF', label: 'À déposer / enlever', hint: 'En attente de prise en charge' },
+  { status: 'RECEIVED', label: 'Reçu au hub', hint: 'Colis réceptionné' },
+  { status: 'IN_TRANSIT', label: 'En transit', hint: 'Acheminement vers destination' },
+  { status: 'CUSTOMS', label: 'En douane', hint: 'Formalités douanières en cours' },
+  { status: 'OUT_FOR_DELIVERY', label: 'En livraison', hint: 'Dernier kilomètre' },
+  { status: 'DELIVERED', label: 'Livré', hint: 'Remis au destinataire' },
+];
+const PARCEL_EXCEPTIONS: { status: ParcelStatus; label: string; hint: string }[] = [
+  { status: 'CANCELLED', label: 'Annulé', hint: 'Envoi annulé' },
+  { status: 'LOST', label: 'Perdu', hint: 'Colis égaré' },
+];
+const parcelStatusLabel = (status: string): string =>
+  [...PARCEL_PIPELINE, ...PARCEL_EXCEPTIONS].find((s) => s.status === status)?.label ?? status;
 
 // ─── Repli démo (hors-ligne) pour l'onglet Envois ───────────────────────────
 
@@ -113,6 +130,10 @@ export function AdminScreen() {
   const [shipmentsLoading, setShipmentsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
+
+  // Avancement de statut d'un colis (modale)
+  const [statusParcel, setStatusParcel] = useState<ParcelSummary | null>(null);
+  const [advancing, setAdvancing] = useState(false);
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -199,6 +220,26 @@ export function AdminScreen() {
       notify('Échec de la régénération', 'Le PDF n\'a pas pu être recréé.');
     }
   }, []);
+
+  // ─── Faire avancer le statut d'un colis (import-export) ────────────────────
+  const advanceParcel = useCallback(async (parcel: ParcelSummary, status: ParcelStatus) => {
+    if (parcel.status === status) { setStatusParcel(null); return; }
+    setAdvancing(true);
+    try {
+      // En mode démo (hors-ligne) on met simplement à jour l'état local pour que
+      // Roger puisse dérouler le flux ; sinon on notifie le backend (admin only).
+      if (!offline && parcel.id && !parcel.id.startsWith('demo')) {
+        await addParcelEvent(parcel.id, { status });
+      }
+      setParcels((prev) => prev.map((p) => (p.id === parcel.id ? { ...p, status } : p)));
+      setStatusParcel(null);
+      notify('Statut mis à jour', `${parcel.reference} → ${parcelStatusLabel(status)}`);
+    } catch {
+      notify('Échec de la mise à jour', 'Le statut n\'a pas pu être enregistré. Vérifie ta connexion et tes droits.');
+    } finally {
+      setAdvancing(false);
+    }
+  }, [offline]);
 
   // ─── Actions rapides sur un envoi ──────────────────────────────────────────
   const invoiceFromMission = (m: MissionSummary) => {
@@ -325,8 +366,74 @@ export function AdminScreen() {
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
       </ScrollView>
+
+      {renderStatusModal()}
     </SafeAreaView>
   );
+
+  // ─── Modale : faire avancer le statut d'un colis ───────────────────────────
+  function renderStatusModal() {
+    const p = statusParcel;
+    return (
+      <Modal visible={!!p} transparent animationType="slide" onRequestClose={() => setStatusParcel(null)}>
+        <Pressable onPress={() => setStatusParcel(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 12 }}>
+            {p ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                      Statut de l'envoi
+                    </Text>
+                    <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }} numberOfLines={1}>
+                      {p.reference}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                      {p.originCity} → {p.destinationCity} ({p.destinationCountry})
+                    </Text>
+                  </View>
+                  <StatusBadge status={p.status} />
+                </View>
+
+                <View style={{ gap: 6 }}>
+                  {PARCEL_PIPELINE.map((s, i) => {
+                    const current = p.status === s.status;
+                    const idx = PARCEL_PIPELINE.findIndex((x) => x.status === p.status);
+                    const done = idx >= 0 && i < idx;
+                    return (
+                      <Pressable
+                        key={s.status}
+                        disabled={advancing || current}
+                        onPress={() => advanceParcel(p, s.status)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: current ? theme.gold : theme.line, backgroundColor: current ? theme.gold + '18' : theme.surface, opacity: advancing ? 0.6 : 1 }}
+                      >
+                        <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: current ? theme.gold : done ? theme.good : theme.bgSoft }}>
+                          {done ? <Icons.check size={14} color="#fff" stroke={3} /> : <Text style={{ fontSize: 12, color: current ? theme.navy : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, color: theme.ink, fontFamily: current ? TYPO.weights.bold : TYPO.weights.semibold }}>{s.label}</Text>
+                          <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{s.hint}</Text>
+                        </View>
+                        {current ? <Pill tone="gold">Actuel</Pill> : <Icons.arrow size={16} color={theme.muted} stroke={1.8} />}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+                  {PARCEL_EXCEPTIONS.map((s) => (
+                    <Button key={s.status} kind="outline" size="sm" style={{ flex: 1 }} disabled={advancing || p.status === s.status} onPress={() => advanceParcel(p, s.status)}>
+                      {s.label}
+                    </Button>
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
 
   // ─── Onglet 0 : Tableau de bord (poste de commande de Roger) ───────────────
   function renderDashboardTab() {
@@ -406,7 +513,7 @@ export function AdminScreen() {
             <SectionHead title="À traiter en priorité" style={{ marginTop: 8 }} />
             <View style={{ gap: 8 }}>
               {priorityParcels.map((p) => (
-                <Pressable key={`prio-${p.id}`} onPress={() => setTab('shipments')}>
+                <Pressable key={`prio-${p.id}`} onPress={() => setStatusParcel(p)}>
                   <Surface padded flat style={{ padding: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: p.status === 'CUSTOMS' ? theme.warn + '22' : theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
@@ -607,6 +714,9 @@ export function AdminScreen() {
                   {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {p.weightKg} kg
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => setStatusParcel(p)}>
+                    Statut
+                  </Button>
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromParcel(p)}>
                     Facture
                   </Button>

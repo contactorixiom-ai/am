@@ -62,3 +62,11 @@ export async function listParcels(): Promise<{ data: ParcelSummary[]; meta: { to
 export async function trackParcel(reference: string): Promise<ParcelSummary> {
   return apiFetch<ParcelSummary>(`/parcels/track/${reference}`, { skipAuth: true });
 }
+
+// Admin (Roger) : ajoute un événement de suivi et fait avancer le statut du colis.
+export async function addParcelEvent(
+  id: string,
+  input: { status: ParcelStatus; location?: string; notes?: string },
+): Promise<ParcelSummary> {
+  return apiFetch<ParcelSummary>(`/parcels/${id}/events`, { method: 'POST', body: input });
+}
