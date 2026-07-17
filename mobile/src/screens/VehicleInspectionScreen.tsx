@@ -44,7 +44,7 @@ const VEHICLE_TYPES: { key: string; label: string }[] = [
   { key: 'Moto', label: 'Moto' },
 ];
 
-const STEPS = ['Véhicule', 'Carrosserie', 'Signatures'];
+const STEPS = ['Véhicule', 'Carrosserie', 'Validation', 'Signatures'];
 
 // Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
 // Servent de preuve horodatée pour la gestion des litiges.
@@ -101,7 +101,10 @@ export function VehicleInspectionScreen() {
   const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState<Damage | null>(null);
 
-  // Step 3
+  // Step 3 (Validation client)
+  const [clientAccepted, setClientAccepted] = useState(false);
+
+  // Step 4 (Signatures)
   const [driverSigned, setDriverSigned] = useState(false);
   const [clientSigned, setClientSigned] = useState(false);
   const driverPad = useRef<SignaturePadHandle>(null);
@@ -152,6 +155,9 @@ export function VehicleInspectionScreen() {
     const fuelV = (fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined;
     const obsText = summarizeDamages(damages);
     const damagePoints = damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code }));
+    // Signatures manuscrites captées sur le pad (rendu vectoriel dans le PDF).
+    const driverSig = driverPad.current?.toPaths() ?? undefined;
+    const clientSig = clientPad.current?.toPaths() ?? undefined;
 
     // Persiste l'état des lieux pour cette phase (utile pour comparaison).
     await AsyncStorage.setItem(
@@ -191,6 +197,8 @@ export function VehicleInspectionScreen() {
         arrivalClientSignedDate: dateStr,
         arrivalDriverSigned: driverSigned,
         arrivalDamages: damagePoints,
+        arrivalDriverSignature: driverSig,
+        arrivalClientSignature: clientSig,
       });
       notify('PV de livraison finalisé', 'Le contrat avec les deux états des lieux est généré et envoyé au client.');
     } else {
@@ -213,6 +221,8 @@ export function VehicleInspectionScreen() {
         departureClientSignedDate: dateStr,
         departureDriverSigned: driverSigned,
         departureDamages: damagePoints,
+        departureDriverSignature: driverSig,
+        departureClientSignature: clientSig,
       });
       notify('PV de prise en charge finalisé', 'Le contrat est généré. L\'état des lieux d\'arrivée sera signé à la livraison.');
     }
@@ -223,6 +233,7 @@ export function VehicleInspectionScreen() {
   const canNext =
     step === 0 ? !!km && fuel !== null && allVehiclePhotos :
     step === 1 ? true :
+    step === 2 ? clientAccepted :
     driverSigned && clientSigned;
 
   return (
@@ -439,6 +450,67 @@ export function VehicleInspectionScreen() {
                 </Text>
               </Surface>
             )}
+          </>
+        ) : step === 2 ? (
+          <>
+            {/* Remise du téléphone au client pour vérification (moDel étape 4-5) */}
+            <Surface padded flat style={{ padding: 14, backgroundColor: theme.navy, borderColor: theme.navy, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(201,165,92,0.25)', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.phone size={20} color={theme.gold} stroke={1.9} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, color: '#F5F1E8', fontFamily: TYPO.weights.bold }}>Remets le téléphone au client</Text>
+                <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.75)', fontFamily: TYPO.weights.medium, marginTop: 2, lineHeight: 16 }}>
+                  Le client vérifie l'état relevé avant de signer.
+                </Text>
+              </View>
+            </Surface>
+
+            {/* Récapitulatif de ce que le chauffeur a relevé */}
+            <Surface padded style={{ padding: 16, gap: 10 }}>
+              <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                Récapitulatif — {isArrival ? 'arrivée' : 'départ'}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                <RefKv label="Véhicule" value={vehicleCategory} />
+                <RefKv label="Kilométrage" value={km ? `${parseInt(km, 10).toLocaleString('fr-FR')} km` : '—'} />
+                <RefKv label="Carburant" value={fuelLabel(fuel)} />
+                <RefKv label="Dommages" value={`${damages.length}`} />
+                <RefKv label="Photos" value={`${Object.keys(vehiclePhotos).length}/${VEHICLE_PHOTO_ANGLES.length}`} />
+              </View>
+              {damages.length > 0 ? (
+                <View style={{ gap: 6, marginTop: 2 }}>
+                  {damages.map((d) => (
+                    <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: DAMAGE_META[d.code].color, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{d.code}</Text>
+                      </View>
+                      <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
+                        {DAMAGE_META[d.code].label} · {VIEWS.find((v) => v.key === d.view)?.label}{d.photoUri ? ' · 📷' : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={{ fontSize: 12.5, color: theme.good, fontFamily: TYPO.weights.semibold }}>
+                  Aucun dommage constaté — véhicule en bon état.
+                </Text>
+              )}
+            </Surface>
+
+            {/* Validation client (case à cocher, moDel étape 8) */}
+            <Pressable
+              onPress={() => setClientAccepted((v) => !v)}
+              style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14, borderRadius: RADII.lg, borderWidth: 1.5, borderColor: clientAccepted ? theme.good : theme.line, backgroundColor: clientAccepted ? theme.good + '12' : theme.surface }}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: clientAccepted ? theme.good : theme.line, backgroundColor: clientAccepted ? theme.good : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+                {clientAccepted ? <Icons.check size={15} color="#fff" stroke={3} /> : null}
+              </View>
+              <Text style={{ flex: 1, fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>
+                Le client confirme avoir vérifié l'état du véhicule (extérieur et intérieur) et
+                <Text style={{ fontFamily: TYPO.weights.bold }}> accepte cet état des lieux</Text>.
+              </Text>
+            </Pressable>
           </>
         ) : (
           <>

@@ -479,6 +479,8 @@ export interface ContractPdfData {
   departureClientSignedDate?: string;
   departureDriverSigned?: boolean;
   departureDamages?: PdfDamage[];
+  departureDriverSignature?: PdfSignature;
+  departureClientSignature?: PdfSignature;
 
   arrivalKm?: number;
   arrivalFuel?: 0 | 0.25 | 0.5 | 0.75 | 1;
@@ -489,6 +491,8 @@ export interface ContractPdfData {
   arrivalClientSignedDate?: string;
   arrivalDriverSigned?: boolean;
   arrivalDamages?: PdfDamage[];
+  arrivalDriverSignature?: PdfSignature;
+  arrivalClientSignature?: PdfSignature;
 
   // Compat ancienne API (peuvent être ignorés ici)
   title?: string;
@@ -506,6 +510,14 @@ export interface PdfDamage {
   x: number; // 0..1
   y: number; // 0..1
   code: 'R' | 'F' | 'E' | 'C' | 'M';
+}
+
+// Signature électronique manuscrite : tracés SVG bruts (« Mx,y Lx,y … ») captés
+// sur le pad tactile + dimensions du pad, redessinés en vectoriel dans le PDF.
+export interface PdfSignature {
+  paths: string[];
+  w: number;
+  h: number;
 }
 
 const VEHICLE_CATEGORIES = [
@@ -692,6 +704,8 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
     clientSignedDate: data.departureClientSignedDate ?? data.signedDate,
     driverSigned: data.departureDriverSigned,
     damages: data.departureDamages,
+    driverSignature: data.departureDriverSignature,
+    clientSignature: data.departureClientSignature,
   });
 
   // ─── ÉTAT DES LIEUX — ARRIVÉE ───────────────────────────────────────────
@@ -705,6 +719,8 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
     clientSignedDate: data.arrivalClientSignedDate,
     driverSigned: data.arrivalDriverSigned,
     damages: data.arrivalDamages,
+    driverSignature: data.arrivalDriverSignature,
+    clientSignature: data.arrivalClientSignature,
   });
 
   // ─── FOOTER ─────────────────────────────────────────────────────────────
@@ -807,6 +823,34 @@ interface EtatDesLieux {
   clientSignedDate?: string;
   driverSigned?: boolean;
   damages?: PdfDamage[];
+  driverSignature?: PdfSignature;
+  clientSignature?: PdfSignature;
+}
+
+// Redessine une signature manuscrite (tracés SVG « Mx,y Lx,y … ») en vectoriel,
+// mise à l'échelle pour tenir dans le cadre (x, y, w, h) du PDF.
+function drawSignature(doc: jsPDF, sig: PdfSignature, x: number, y: number, w: number, h: number) {
+  if (!sig.paths.length || sig.w <= 0 || sig.h <= 0) return;
+  const pad = 1.2;
+  const scale = Math.min((w - pad * 2) / sig.w, (h - pad * 2) / sig.h);
+  const ox = x + (w - sig.w * scale) / 2;
+  const oy = y + (h - sig.h * scale) / 2;
+  setColor(doc, INK, 'draw');
+  doc.setLineWidth(0.35);
+  for (const d of sig.paths) {
+    // Chaque tracé : « M x,y L x,y L x,y … » — on relie les points successifs.
+    const pts: { x: number; y: number }[] = [];
+    const re = /[ML]\s*(-?\d+(?:\.\d+)?)[ ,](-?\d+(?:\.\d+)?)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(d)) !== null) {
+      pts.push({ x: ox + parseFloat(m[1]) * scale, y: oy + parseFloat(m[2]) * scale });
+    }
+    for (let i = 1; i < pts.length; i += 1) {
+      doc.line(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+    }
+    // Point isolé (simple tap) : petit rond pour ne pas perdre le trait.
+    if (pts.length === 1) doc.circle(pts[0].x, pts[0].y, 0.3, 'F');
+  }
 }
 
 function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', kind: VehicleKind, d: EtatDesLieux): number {
@@ -914,14 +958,18 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.rect(rx, sy + 2, rightW / 2 - 4, 12);
   doc.rect(rx + rightW / 2, sy + 2, rightW / 2 - 6, 12);
 
-  // Tampon signé
-  if (d.driverSigned) {
+  // Signature manuscrite (vectorielle) si captée, sinon tampon « ✓ Signé ».
+  if (d.driverSignature) {
+    drawSignature(doc, d.driverSignature, rx, sy + 2, rightW / 2 - 4, 12);
+  } else if (d.driverSigned) {
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
     doc.setTextColor(46, 125, 50);
     doc.text('✓ Signé', rx + 2, sy + 9);
   }
-  if (d.clientSigned) {
+  if (d.clientSignature) {
+    drawSignature(doc, d.clientSignature, rx + rightW / 2, sy + 2, rightW / 2 - 6, 12);
+  } else if (d.clientSigned) {
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
     doc.setTextColor(46, 125, 50);

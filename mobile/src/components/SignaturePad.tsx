@@ -14,6 +14,8 @@ export interface SignaturePadHandle {
   isEmpty: () => boolean;
   /** Renvoie la signature sous forme de data URL SVG (image vectorielle). */
   toDataUrl: () => string | null;
+  /** Renvoie les tracés bruts + dimensions du pad (pour un rendu vectoriel PDF). */
+  toPaths: () => { paths: string[]; w: number; h: number } | null;
 }
 
 // Pad de signature tactile, multiplateforme (web + natif) via PanResponder
@@ -50,6 +52,11 @@ export const SignaturePad = forwardRef<SignaturePadHandle, Props>(function Signa
         `</svg>`;
       // encodeURIComponent pour rester ASCII-safe dans une data URL
       return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    },
+    toPaths: () => {
+      const all = pathsRef.current;
+      if (all.length === 0) return null;
+      return { paths: [...all], w: size.w, h: size.h };
     },
   }));
 
