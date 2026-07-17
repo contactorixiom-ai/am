@@ -37,9 +37,10 @@ import { notify } from '../utils/notify';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'generate' | 'shipments' | 'documents';
+type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents';
 
 const TABS: { id: TabId; label: string }[] = [
+  { id: 'dashboard', label: 'Tableau' },
   { id: 'generate', label: 'Générer' },
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
@@ -95,7 +96,7 @@ const DEMO_PARCELS: ParcelSummary[] = [
 
 export function AdminScreen() {
   const { theme } = useTheme();
-  const [tab, setTab] = useState<TabId>('generate');
+  const [tab, setTab] = useState<TabId>('dashboard');
 
   // Onglet Générer
   const [selectedType, setSelectedType] = useState<AdminDocType | null>(null);
@@ -308,7 +309,7 @@ export function AdminScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 12 }}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          tab === 'shipments'
+          tab === 'shipments' || tab === 'dashboard'
             ? (
               <RefreshControl
                 refreshing={refreshing}
@@ -319,12 +320,127 @@ export function AdminScreen() {
             : undefined
         }
       >
+        {tab === 'dashboard' && renderDashboardTab()}
         {tab === 'generate' && renderGenerateTab()}
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
       </ScrollView>
     </SafeAreaView>
   );
+
+  // ─── Onglet 0 : Tableau de bord (poste de commande de Roger) ───────────────
+  function renderDashboardTab() {
+    const now = new Date();
+    const sameMonth = (iso: string) => {
+      const d = new Date(iso);
+      return !Number.isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    };
+    const parseAmt = (v: unknown): number => {
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      if (typeof v !== 'string' || !v) return 0;
+      const n = parseFloat(v.replace(/\s/g, '').replace(',', '.').replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    };
+    const isPaid = (v: unknown) => v === true || v === 'true';
+
+    const invoices = history.filter((h) => h.typeId === 'invoice');
+    const caMonth = invoices.filter((h) => sameMonth(h.dateISO)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
+    const toCollect = invoices.filter((h) => !isPaid(h.values.paid)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
+    const inCustoms = parcels.filter((p) => p.status === 'CUSTOMS').length;
+    const activeConvoys = missions.filter((m) => m.status === 'IN_PROGRESS').length;
+    const toProcess = missions.length + parcels.length;
+    const docsMonth = history.filter((h) => sameMonth(h.dateISO)).length;
+
+    const fmtEuro = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
+
+    // File prioritaire : colis en douane (formalités à faire) puis convoyages actifs.
+    const priorityParcels = parcels.filter((p) => p.status === 'CUSTOMS' || p.status === 'IN_TRANSIT').slice(0, 4);
+
+    // Documents les plus utilisés au quotidien.
+    const quickDocs = ['invoice', 'contract', 'cmr', 'commercialInvoice', 'shippingLabel']
+      .map((id) => adminDocTypeById(id))
+      .filter((t): t is AdminDocType => !!t);
+
+    return (
+      <>
+        {offline ? (
+          <Banner
+            tone="warn"
+            title="Hors ligne — données de démonstration"
+            message="Le serveur est injoignable. Les chiffres ci-dessous s'appuient sur des exemples."
+            action={{ label: 'Réessayer', onPress: () => { setRefreshing(true); loadShipments(); } }}
+          />
+        ) : null}
+
+        {/* Chiffres clés */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <DashTile theme={theme} label="Envois à traiter" value={String(toProcess)} tone="navy" onPress={() => setTab('shipments')} />
+          <DashTile theme={theme} label="En douane" value={String(inCustoms)} tone={inCustoms > 0 ? 'warn' : 'plain'} onPress={() => setTab('shipments')} />
+          <DashTile theme={theme} label="CA facturé (mois)" value={fmtEuro(caMonth)} tone="gold" />
+          <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <DashMini theme={theme} label="Convoyages actifs" value={String(activeConvoys)} icon={<Icons.truck size={15} color={theme.muted} stroke={1.7} />} />
+          <DashMini theme={theme} label="Documents (mois)" value={String(docsMonth)} icon={<Icons.doc size={15} color={theme.muted} stroke={1.7} />} />
+        </View>
+
+        {/* Génération rapide */}
+        <SectionHead title="Générer rapidement" style={{ marginTop: 6 }} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {quickDocs.map((t) => (
+            <Pressable
+              key={t.id}
+              onPress={() => openDocForm(t)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9, paddingHorizontal: 13, borderRadius: RADII.pill, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface }}
+            >
+              {renderTypeIcon(t, 15, theme.goldDeep)}
+              <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* À traiter en priorité */}
+        {priorityParcels.length > 0 ? (
+          <>
+            <SectionHead title="À traiter en priorité" style={{ marginTop: 8 }} />
+            <View style={{ gap: 8 }}>
+              {priorityParcels.map((p) => (
+                <Pressable key={`prio-${p.id}`} onPress={() => setTab('shipments')}>
+                  <Surface padded flat style={{ padding: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: p.status === 'CUSTOMS' ? theme.warn + '22' : theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+                        <Icons.box size={16} color={p.status === 'CUSTOMS' ? theme.warn : theme.inkSoft} stroke={1.7} />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                          {p.reference} · {p.originCity} → {p.destinationCity}
+                        </Text>
+                        <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
+                          {p.status === 'CUSTOMS' ? 'Dédouanement à préparer' : 'En transit'} · {p.weightKg} kg
+                        </Text>
+                      </View>
+                      <StatusBadge status={p.status} />
+                    </View>
+                  </Surface>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {/* Activité récente */}
+        {history.length > 0 ? (
+          <>
+            <SectionHead title="Activité récente" style={{ marginTop: 8 }} />
+            <View style={{ gap: 8 }}>
+              {history.slice(0, 4).map((entry) => renderHistoryRow(entry))}
+            </View>
+          </>
+        ) : null}
+      </>
+    );
+  }
 
   // ─── Onglet 1 : Générer ────────────────────────────────────────────────────
   function renderGenerateTab() {
@@ -613,4 +729,78 @@ export function AdminScreen() {
     const IconComp = Icons[type.icon];
     return <IconComp size={size} color={color} stroke={1.7} />;
   }
+}
+
+// ─── Tuiles du tableau de bord ───────────────────────────────────────────────
+
+type DashTone = 'navy' | 'gold' | 'warn' | 'plain';
+
+function DashTile({
+  theme,
+  label,
+  value,
+  tone,
+  onPress,
+}: {
+  theme: ReturnType<typeof useTheme>['theme'];
+  label: string;
+  value: string;
+  tone: DashTone;
+  onPress?: () => void;
+}) {
+  const bg =
+    tone === 'navy' ? theme.navy
+      : tone === 'gold' ? theme.gold
+        : tone === 'warn' ? theme.warn + '18'
+          : theme.surface;
+  const fg =
+    tone === 'navy' ? '#F1ECDC'
+      : tone === 'gold' ? theme.navy
+        : tone === 'warn' ? theme.warn
+          : theme.ink;
+  const sub = tone === 'navy' ? 'rgba(241,236,220,0.7)' : tone === 'gold' ? 'rgba(11,37,69,0.7)' : theme.muted;
+  const Container: React.ComponentType<any> = onPress ? Pressable : View;
+  return (
+    <Container
+      onPress={onPress}
+      style={{
+        width: '47%',
+        flexGrow: 1,
+        padding: 14,
+        borderRadius: RADII.lg,
+        backgroundColor: bg,
+        borderWidth: tone === 'plain' || tone === 'warn' ? 1 : 0,
+        borderColor: tone === 'warn' ? theme.warn + '40' : theme.line,
+      }}
+    >
+      <Text style={{ fontSize: 10.5, color: sub, letterSpacing: 0.6, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 24, color: fg, fontFamily: TYPO.weights.bold, marginTop: 6, letterSpacing: -0.5 }} numberOfLines={1}>
+        {value}
+      </Text>
+    </Container>
+  );
+}
+
+function DashMini({
+  theme,
+  label,
+  value,
+  icon,
+}: {
+  theme: ReturnType<typeof useTheme>['theme'];
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: RADII.md, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface }}>
+      {icon}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold }}>{value}</Text>
+        <Text style={{ fontSize: 10.5, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>{label}</Text>
+      </View>
+    </View>
+  );
 }
