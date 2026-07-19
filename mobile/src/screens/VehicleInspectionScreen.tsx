@@ -15,6 +15,7 @@ import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
 import { capturePhoto } from '../utils/pickImage';
 import { generateContractPdf } from '../utils/pdf';
+import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
@@ -64,6 +65,7 @@ interface SavedInspection {
   date: string;
   vehiclePhotos?: Record<string, string>;
   vehicleCategory?: string;
+  clientName?: string;
 }
 const STORAGE_KEY_PREFIX = 'axis.inspection.v1.';
 const storageKey = (reference: string, phase: 'DÉPART' | 'ARRIVÉE') =>
@@ -71,8 +73,10 @@ const storageKey = (reference: string, phase: 'DÉPART' | 'ARRIVÉE') =>
 
 export function VehicleInspectionScreen() {
   const { theme } = useTheme();
+  const { user } = useSession();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'VehicleInspection'>>();
+  const driverName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Chauffeur Axis';
   const phase = route.params?.phase ?? 'DÉPART';
   const reference = route.params?.reference ?? '2026-2847-FE12';
   const vehicleLabel = route.params?.vehicleLabel ?? 'BMW Série 3 · AX-2847';
@@ -85,6 +89,7 @@ export function VehicleInspectionScreen() {
 
   // Step 1
   const [vehicleCategory, setVehicleCategory] = useState<string>('Berline');
+  const [clientName, setClientName] = useState<string>(route.params?.clientName ?? 'Client Axis Import');
   const [km, setKm] = useState('');
   const [fuel, setFuel] = useState<number | null>(null);
   const [keys, setKeys] = useState('2');
@@ -143,6 +148,8 @@ export function VehicleInspectionScreen() {
         setDepartureRef(parsed);
         // Reprend le type de véhicule choisi au départ (même croquis à l'arrivée).
         if (parsed.vehicleCategory) setVehicleCategory(parsed.vehicleCategory);
+        // Reprend le nom du client si l'arrivée est ouverte sans paramètre.
+        if (!route.params?.clientName && parsed.clientName) setClientName(parsed.clientName);
       } catch { /* ignore */ }
     });
   }, [isArrival, reference]);
@@ -162,7 +169,7 @@ export function VehicleInspectionScreen() {
     // Persiste l'état des lieux pour cette phase (utile pour comparaison).
     await AsyncStorage.setItem(
       storageKey(reference, phase),
-      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos, vehicleCategory } as SavedInspection),
+      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos, vehicleCategory, clientName } as SavedInspection),
     );
 
     if (isArrival) {
@@ -171,8 +178,8 @@ export function VehicleInspectionScreen() {
         reference,
         copyLabel: 'EXEMPLAIRE\nCLIENT',
         vehicleCategory,
-        driverName: 'Karim Diallo',
-        clientName: 'Client Axis Import',
+        driverName,
+        clientName,
         vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
         plate: vehicleLabel.split('·')[1]?.trim(),
         pickupDate: departureRef?.date ?? dateStr,
@@ -207,8 +214,8 @@ export function VehicleInspectionScreen() {
         reference,
         copyLabel: 'EXEMPLAIRE\nCLIENT',
         vehicleCategory,
-        driverName: 'Karim Diallo',
-        clientName: 'Client Axis Import',
+        driverName,
+        clientName,
         vehicleBrandModel: vehicleLabel.split('·')[0].trim(),
         plate: vehicleLabel.split('·')[1]?.trim(),
         pickupDate: dateStr,
@@ -514,7 +521,7 @@ export function VehicleInspectionScreen() {
           </>
         ) : (
           <>
-            <SignatureBlock title="Signature du conducteur" who="Karim Diallo" padRef={driverPad} onSign={setDriverSigned} signed={driverSigned} />
+            <SignatureBlock title="Signature du conducteur" who={driverName} padRef={driverPad} onSign={setDriverSigned} signed={driverSigned} />
             <SignatureBlock title={isArrival ? 'Signature du destinataire' : 'Signature du client'} who={isArrival ? 'Personne qui réceptionne le véhicule' : 'À faire signer au client'} padRef={clientPad} onSign={setClientSigned} signed={clientSigned} />
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
               <Icons.warn size={18} color={theme.gold} stroke={1.8} />

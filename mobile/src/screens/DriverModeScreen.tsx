@@ -401,11 +401,15 @@ export function DriverModeScreen() {
   const inspectionVehicleLabel = mission
     ? `${mission.vehicle.make} ${mission.vehicle.model}${mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}`
     : 'Véhicule';
+  const inspectionClientName = mission?.client
+    ? `${mission.client.firstName} ${mission.client.lastName}`.trim()
+    : undefined;
   const openInspection = (phase: 'DÉPART' | 'ARRIVÉE') =>
     nav.navigate('VehicleInspection', {
       phase,
       reference: inspectionReference,
       vehicleLabel: inspectionVehicleLabel,
+      clientName: inspectionClientName,
     });
 
   return (

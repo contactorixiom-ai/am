@@ -16,6 +16,7 @@ export interface MissionSummary {
   deliveryCountry: string;
   vehicle: { make: string; model: string; year: number; licensePlate?: string };
   driver?: { firstName: string; lastName: string } | null;
+  client?: { firstName: string; lastName: string } | null;
 }
 
 export interface CreateMissionInput {
