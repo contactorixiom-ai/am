@@ -47,6 +47,21 @@ const VEHICLE_TYPES: { key: string; label: string }[] = [
 
 const STEPS = ['Véhicule', 'Carrosserie', 'Validation', 'Signatures'];
 
+// Contrôles Oui/Non que le client valide (inspiré du flux moDel — étape 8).
+// Adaptés à la phase : prise en charge (départ) vs restitution (arrivée).
+const CONTROL_QUESTIONS: Record<'DÉPART' | 'ARRIVÉE', { key: string; label: string; short: string }[]> = {
+  'DÉPART': [
+    { key: 'clean', label: 'Véhicule propre et présentable', short: 'propreté' },
+    { key: 'docs', label: 'Documents de bord présents (carte grise, assurance)', short: 'docs' },
+    { key: 'equip', label: 'Équipements présents (roue de secours, gilet, triangle)', short: 'équip.' },
+  ],
+  'ARRIVÉE': [
+    { key: 'cleanInt', label: 'Propre et exempt de dommages intérieurs', short: 'int.' },
+    { key: 'cleanExt', label: 'Propre et exempt de dommages extérieurs', short: 'ext.' },
+    { key: 'place', label: 'Livré au bon endroit et au bon moment', short: 'lieu' },
+  ],
+};
+
 // Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
 // Servent de preuve horodatée pour la gestion des litiges.
 const VEHICLE_PHOTO_ANGLES: { key: string; label: string }[] = [
@@ -106,8 +121,10 @@ export function VehicleInspectionScreen() {
   const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState<Damage | null>(null);
 
-  // Step 3 (Validation client)
+  // Step 3 (Validation client) — réponses Oui/Non aux contrôles + acceptation.
+  const [controls, setControls] = useState<Record<string, boolean>>({});
   const [clientAccepted, setClientAccepted] = useState(false);
+  const controlQuestions = CONTROL_QUESTIONS[phase];
 
   // Step 4 (Signatures)
   const [driverSigned, setDriverSigned] = useState(false);
@@ -161,6 +178,12 @@ export function VehicleInspectionScreen() {
     const kmNum = km ? parseInt(km, 10) : undefined;
     const fuelV = (fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined;
     const obsText = summarizeDamages(damages);
+    // Synthèse des contrôles client Oui/Non → ajoutée aux observations du PV.
+    const answered = controlQuestions.filter((q) => controls[q.key] !== undefined);
+    const controlSummary = answered.length
+      ? `Contrôle client : ${answered.map((q) => `${q.short} ${controls[q.key] ? 'OK' : 'NON'}`).join(' · ')}.`
+      : '';
+    const finalObs = [controlSummary, obsText].filter(Boolean).join(' ');
     const damagePoints = damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code }));
     // Signatures manuscrites captées sur le pad (rendu vectoriel dans le PDF).
     const driverSig = driverPad.current?.toPaths() ?? undefined;
@@ -199,7 +222,7 @@ export function VehicleInspectionScreen() {
         arrivalFuel: fuelV,
         arrivalDate: dateStr,
         arrivalTime: timeStr,
-        arrivalObservations: obsText,
+        arrivalObservations: finalObs,
         arrivalClientSigned: clientSigned,
         arrivalClientSignedDate: dateStr,
         arrivalDriverSigned: driverSigned,
@@ -223,7 +246,7 @@ export function VehicleInspectionScreen() {
         departureFuel: fuelV,
         departureDate: dateStr,
         departureTime: timeStr,
-        departureObservations: obsText,
+        departureObservations: finalObs,
         departureClientSigned: clientSigned,
         departureClientSignedDate: dateStr,
         departureDriverSigned: driverSigned,
@@ -503,6 +526,35 @@ export function VehicleInspectionScreen() {
                   Aucun dommage constaté — véhicule en bon état.
                 </Text>
               )}
+            </Surface>
+
+            {/* Contrôles Oui/Non vérifiés par le client (moDel étape 8) */}
+            <Surface padded style={{ padding: 16, gap: 12 }}>
+              <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                Contrôles du client
+              </Text>
+              {controlQuestions.map((q) => {
+                const val = controls[q.key];
+                return (
+                  <View key={q.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Text style={{ flex: 1, fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>{q.label}</Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <Pressable
+                        onPress={() => setControls((c) => ({ ...c, [q.key]: true }))}
+                        style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1.5, borderColor: val === true ? theme.good : theme.line, backgroundColor: val === true ? theme.good : theme.surface }}
+                      >
+                        <Text style={{ fontSize: 12.5, color: val === true ? '#fff' : theme.ink, fontFamily: TYPO.weights.bold }}>Oui</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setControls((c) => ({ ...c, [q.key]: false }))}
+                        style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1.5, borderColor: val === false ? theme.bad : theme.line, backgroundColor: val === false ? theme.bad : theme.surface }}
+                      >
+                        <Text style={{ fontSize: 12.5, color: val === false ? '#fff' : theme.ink, fontFamily: TYPO.weights.bold }}>Non</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
             </Surface>
 
             {/* Validation client (case à cocher, moDel étape 8) */}
