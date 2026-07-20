@@ -186,9 +186,17 @@ export function ProfileScreen() {
           </MenuSection>
 
           <MenuSection label="Axis">
-            <MenuRow iconKey="sliders" label="Espace admin" sub="Générateur de documents · envois" onPress={() => nav.navigate('Admin')} />
-            <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, pause, alertes" onPress={() => nav.navigate('DriverMode')} />
-            <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" onPress={() => nav.navigate('KycVerification')} />
+            {/* Espace admin réservé à Roger (rôle ADMIN) */}
+            {user?.role === 'ADMIN' ? (
+              <MenuRow iconKey="sliders" label="Espace admin" sub="Tableau de bord · documents · envois" onPress={() => nav.navigate('Admin')} />
+            ) : null}
+            {/* Mode chauffeur : convoyeurs (et admin) uniquement */}
+            {user?.role === 'DRIVER' || user?.role === 'ADMIN' ? (
+              <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, état des lieux, contrat" onPress={() => nav.navigate('DriverMode')} />
+            ) : null}
+            {user?.role === 'CLIENT' ? (
+              <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" onPress={() => nav.navigate('KycVerification')} />
+            ) : null}
             <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" onPress={() => notify('Parrainage', 'Le programme de parrainage ouvre au lancement officiel.')} />
             <MenuRow iconKey="shield" label="Centre d'aide" onPress={() => nav.navigate('Conversations')} />
           </MenuSection>

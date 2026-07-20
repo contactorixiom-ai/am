@@ -13,6 +13,7 @@ import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
+import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
@@ -136,6 +137,9 @@ export function AdminScreen() {
   const [advancing, setAdvancing] = useState(false);
   // Journal de suivi du colis ouvert dans la modale (null = en cours de chargement).
   const [statusEvents, setStatusEvents] = useState<ParcelTrackingEvent[] | null>(null);
+  // Lieu / note optionnels ajoutés au prochain changement de statut.
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventNote, setEventNote] = useState('');
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -226,24 +230,28 @@ export function AdminScreen() {
   // ─── Faire avancer le statut d'un colis (import-export) ────────────────────
   const advanceParcel = useCallback(async (parcel: ParcelSummary, status: ParcelStatus) => {
     if (parcel.status === status) return;
+    const location = eventLocation.trim() || undefined;
+    const notes = eventNote.trim() || undefined;
     setAdvancing(true);
     try {
       // En mode démo (hors-ligne) on met simplement à jour l'état local pour que
       // Roger puisse dérouler le flux ; sinon on notifie le backend (admin only).
       if (!offline && parcel.id && !parcel.id.startsWith('demo')) {
-        await addParcelEvent(parcel.id, { status });
+        await addParcelEvent(parcel.id, { status, location, notes });
       }
       setParcels((prev) => prev.map((p) => (p.id === parcel.id ? { ...p, status } : p)));
       // Modale maintenue ouverte : on met à jour l'étape courante et le journal.
       setStatusParcel((cur) => (cur && cur.id === parcel.id ? { ...cur, status } : cur));
-      setStatusEvents((prev) => [...(prev ?? []), { status, occurredAt: new Date().toISOString() }]);
+      setStatusEvents((prev) => [...(prev ?? []), { status, location, notes, occurredAt: new Date().toISOString() }]);
+      setEventLocation('');
+      setEventNote('');
       notify('Statut mis à jour', `${parcel.reference} → ${parcelStatusLabel(status)}`);
     } catch {
       notify('Échec de la mise à jour', 'Le statut n\'a pas pu être enregistré. Vérifie ta connexion et tes droits.');
     } finally {
       setAdvancing(false);
     }
-  }, [offline]);
+  }, [offline, eventLocation, eventNote]);
 
   // Charge le journal de suivi du colis ouvert dans la modale.
   useEffect(() => {
@@ -251,6 +259,8 @@ export function AdminScreen() {
     const p = statusParcel;
     let cancelled = false;
     setStatusEvents(null);
+    setEventLocation('');
+    setEventNote('');
     (async () => {
       if (offline || !p.id || p.id.startsWith('demo')) {
         if (!cancelled) setStatusEvents(p.trackingEvents ?? []);
@@ -421,6 +431,16 @@ export function AdminScreen() {
                     </Text>
                   </View>
                   <StatusBadge status={p.status} />
+                </View>
+
+                {/* Lieu / note ajoutés au prochain changement de statut (facultatif) */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Field label="Lieu (option.)" value={eventLocation} onChangeText={setEventLocation} placeholder="Ex. Hub Marseille" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Field label="Note (option.)" value={eventNote} onChangeText={setEventNote} placeholder="Ex. Dédouané" />
+                  </View>
                 </View>
 
                 <View style={{ gap: 6 }}>
