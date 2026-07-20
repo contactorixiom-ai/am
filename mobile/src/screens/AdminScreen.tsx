@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { listMissions, MissionSummary } from '../api/missions';
-import { addParcelEvent, listParcels, ParcelStatus, ParcelSummary } from '../api/parcels';
+import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
@@ -134,6 +134,8 @@ export function AdminScreen() {
   // Avancement de statut d'un colis (modale)
   const [statusParcel, setStatusParcel] = useState<ParcelSummary | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  // Journal de suivi du colis ouvert dans la modale (null = en cours de chargement).
+  const [statusEvents, setStatusEvents] = useState<ParcelTrackingEvent[] | null>(null);
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -223,7 +225,7 @@ export function AdminScreen() {
 
   // ─── Faire avancer le statut d'un colis (import-export) ────────────────────
   const advanceParcel = useCallback(async (parcel: ParcelSummary, status: ParcelStatus) => {
-    if (parcel.status === status) { setStatusParcel(null); return; }
+    if (parcel.status === status) return;
     setAdvancing(true);
     try {
       // En mode démo (hors-ligne) on met simplement à jour l'état local pour que
@@ -232,7 +234,9 @@ export function AdminScreen() {
         await addParcelEvent(parcel.id, { status });
       }
       setParcels((prev) => prev.map((p) => (p.id === parcel.id ? { ...p, status } : p)));
-      setStatusParcel(null);
+      // Modale maintenue ouverte : on met à jour l'étape courante et le journal.
+      setStatusParcel((cur) => (cur && cur.id === parcel.id ? { ...cur, status } : cur));
+      setStatusEvents((prev) => [...(prev ?? []), { status, occurredAt: new Date().toISOString() }]);
       notify('Statut mis à jour', `${parcel.reference} → ${parcelStatusLabel(status)}`);
     } catch {
       notify('Échec de la mise à jour', 'Le statut n\'a pas pu être enregistré. Vérifie ta connexion et tes droits.');
@@ -240,6 +244,30 @@ export function AdminScreen() {
       setAdvancing(false);
     }
   }, [offline]);
+
+  // Charge le journal de suivi du colis ouvert dans la modale.
+  useEffect(() => {
+    if (!statusParcel) { setStatusEvents(null); return; }
+    const p = statusParcel;
+    let cancelled = false;
+    setStatusEvents(null);
+    (async () => {
+      if (offline || !p.id || p.id.startsWith('demo')) {
+        if (!cancelled) setStatusEvents(p.trackingEvents ?? []);
+        return;
+      }
+      try {
+        const full = await getParcel(p.id);
+        if (!cancelled) setStatusEvents(full.trackingEvents ?? []);
+      } catch {
+        if (!cancelled) setStatusEvents(p.trackingEvents ?? []);
+      }
+    })();
+    return () => { cancelled = true; };
+  // On ne dépend que de l'id : rafraîchir sur chaque changement de statut ferait
+  // clignoter le journal (déjà mis à jour de façon optimiste par advanceParcel).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusParcel?.id, offline]);
 
   // ─── Actions rapides sur un envoi ──────────────────────────────────────────
   const invoiceFromMission = (m: MissionSummary) => {
@@ -377,9 +405,9 @@ export function AdminScreen() {
     return (
       <Modal visible={!!p} transparent animationType="slide" onRequestClose={() => setStatusParcel(null)}>
         <Pressable onPress={() => setStatusParcel(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
-          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 12 }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '90%' }}>
             {p ? (
-              <>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
@@ -427,7 +455,51 @@ export function AdminScreen() {
                     </Button>
                   ))}
                 </View>
-              </>
+
+                {/* Journal de suivi (ce que le client voit aussi) */}
+                <View style={{ marginTop: 6, gap: 8 }}>
+                  <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                    Journal de suivi
+                  </Text>
+                  {statusEvents === null ? (
+                    <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>Chargement…</Text>
+                  ) : statusEvents.length === 0 ? (
+                    <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                      Aucun événement pour l'instant. Fais avancer le statut pour créer le premier.
+                    </Text>
+                  ) : (
+                    <View style={{ gap: 0 }}>
+                      {[...statusEvents].reverse().map((ev, i, arr) => {
+                        const when = new Date(ev.occurredAt);
+                        const dateLabel = Number.isNaN(when.getTime())
+                          ? ''
+                          : when.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) + ' · ' + when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                        const latest = i === 0;
+                        return (
+                          <View key={`${ev.occurredAt}-${i}`} style={{ flexDirection: 'row', gap: 10 }}>
+                            <View style={{ alignItems: 'center', width: 14 }}>
+                              <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: latest ? theme.gold : theme.line, marginTop: 3 }} />
+                              {i < arr.length - 1 ? <View style={{ flex: 1, width: 1.5, backgroundColor: theme.line, marginVertical: 2 }} /> : null}
+                            </View>
+                            <View style={{ flex: 1, paddingBottom: 10 }}>
+                              <Text style={{ fontSize: 13, color: theme.ink, fontFamily: latest ? TYPO.weights.bold : TYPO.weights.semibold }}>
+                                {parcelStatusLabel(ev.status)}
+                              </Text>
+                              <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                                {dateLabel}{ev.location ? ` · ${ev.location}` : ''}{ev.notes ? ` — ${ev.notes}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+
+                <Button kind="ghost" size="md" fullWidth onPress={() => setStatusParcel(null)}>
+                  Fermer
+                </Button>
+              </ScrollView>
             ) : null}
           </Pressable>
         </Pressable>
