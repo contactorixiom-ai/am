@@ -19,10 +19,10 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
 const OPTIONS: { kind: QuoteOptionKind; label: string; hint: string }[] = [
-  { kind: 'EXPRESS',           label: 'Express 24h',           hint: '+22 %' },
-  { kind: 'PREMIUM_INSURANCE', label: 'Assurance Premium',     hint: '+35 € · plafond 500 k€' },
-  { kind: 'DOOR_TO_DOOR',      label: 'Porte-à-porte',         hint: '+15 %' },
-  { kind: 'WEEKEND_PICKUP',    label: 'Enlèvement weekend',    hint: '+40 €' },
+  { kind: 'EXPRESS',           label: 'Express 24h',           hint: '+15 %' },
+  { kind: 'PREMIUM_INSURANCE', label: 'Assurance Premium',     hint: '+29,61 € · plafond 350 k€' },
+  { kind: 'DOOR_TO_DOOR',      label: 'Porte-à-porte',         hint: 'Gratuit' },
+  { kind: 'WEEKEND_PICKUP',    label: 'Enlèvement weekend',    hint: '+60 €' },
 ];
 
 // Catégories de la grille tarifaire Convoyage 2026 (tarif €/km HT).

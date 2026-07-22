@@ -108,27 +108,27 @@ export const PICKUP_PRICING: Record<PickupMode, { baseCents: number; perKgCents:
     label: 'Dépôt au hub Axis',
   },
   RELAY_DROP_OFF: {
-    baseCents: 400, perKgCents: 25, minCents: 500,
-    label: 'Dépôt en point relais',
+    baseCents: 500, perKgCents: 0, minCents: 500,
+    label: 'Enlèvement en point relais',
   },
   HOME_PICKUP: {
-    baseCents: 1500, perKgCents: 60, minCents: 2000,
-    label: 'Enlèvement à domicile',
+    baseCents: 2500, perKgCents: 0, minCents: 2500,
+    label: 'Récupération du colis (domicile)',
   },
 };
 
-// Supplément enlèvement à domicile : 0,75 €/km TTC = 0,625 €/km HT → 63 cents HT.
-export const HOME_PICKUP_PER_KM_CENTS_HT = 63;
+// Enlèvement à domicile facturé au forfait (25 €) — pas de supplément kilométrique.
+export const HOME_PICKUP_PER_KM_CENTS_HT = 0;
 
 // ─────────────────────────────────────────────────────────────────────
 // ADD-ONS / OPTIONS
 // ─────────────────────────────────────────────────────────────────────
 export const OPTIONS_CATALOG: Record<QuoteOptionKind, { label: string; flatCents: number; pctOfSubtotal: number }> = {
-  EXPRESS:           { label: 'Express 24h',               flatCents: 0,     pctOfSubtotal: 22 },
-  PREMIUM_INSURANCE: { label: 'Assurance Premium (500k€)', flatCents: 3500,  pctOfSubtotal: 0 },
-  WEEKEND_PICKUP:    { label: 'Enlèvement weekend',         flatCents: 4000,  pctOfSubtotal: 0 },
+  EXPRESS:           { label: 'Express 24h',               flatCents: 0,     pctOfSubtotal: 15 },
+  PREMIUM_INSURANCE: { label: 'Assurance Premium (350k€)', flatCents: 2961,  pctOfSubtotal: 0 },
+  WEEKEND_PICKUP:    { label: 'Enlèvement weekend',         flatCents: 6000,  pctOfSubtotal: 0 },
   EXTRA_DRIVER:      { label: 'Convoyeur supplémentaire',   flatCents: 12000, pctOfSubtotal: 0 },
-  DOOR_TO_DOOR:      { label: 'Porte-à-porte',              flatCents: 0,     pctOfSubtotal: 15 },
+  DOOR_TO_DOOR:      { label: 'Porte-à-porte',              flatCents: 0,     pctOfSubtotal: 0 },
   CUSTOMS_HANDLING:  { label: 'Démarches douanières',       flatCents: 6000,  pctOfSubtotal: 0 },
 };
 
@@ -341,7 +341,7 @@ function computeHints(input: HintInput): QuoteHint[] {
     hints.push({
       kind: 'CHEAPER_AT_RELAY',
       label: 'Dépose au point relais et économise',
-      detail: 'L\'enlèvement à domicile coûte 10-15 € de plus. Pour un colis < 15 kg, un point relais est largement suffisant.',
+      detail: 'L\'enlèvement à domicile (25 €) coûte 20 € de plus que le point relais (5 €). Pour un colis < 15 kg, le point relais suffit largement.',
     });
   }
 
@@ -350,7 +350,7 @@ function computeHints(input: HintInput): QuoteHint[] {
     hints.push({
       kind: 'INSURANCE_RECOMMENDED',
       label: 'Assurance Premium recommandée',
-      detail: 'Pour 35 € seulement, tu couvres ton colis jusqu\'à 500 000 €. Recommandé au-delà de 150 € de valeur.',
+      detail: 'Pour 29,61 € seulement, tu couvres ton colis jusqu\'à 350 000 €. Recommandé au-delà de 150 € de valeur.',
     });
   }
 

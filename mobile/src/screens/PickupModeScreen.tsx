@@ -41,7 +41,7 @@ const MODES: ModeMeta[] = [
     emoji: '🏪',
     title: 'Je dépose en point relais',
     subtitle: 'Mondial Relay · Chronopost · DPD · La Poste',
-    perKgHint: 'Dès 5 € + 0,25 €/kg',
+    perKgHint: 'Forfait 5 €',
     badge: 'POPULAIRE',
     details: ['Plus de 20 000 points en Europe', 'Dépôt sous 7 j avec QR code', 'Ouvert le samedi'],
   },
@@ -50,7 +50,7 @@ const MODES: ModeMeta[] = [
     emoji: '🚪',
     title: 'On vient chercher chez moi',
     subtitle: 'Enlèvement à domicile sur créneau de 2h',
-    perKgHint: 'Dès 20 € + 0,60 €/kg',
+    perKgHint: 'Forfait 25 €',
     badge: 'PREMIUM',
     details: ['Créneau de 2h le lendemain', 'Étiquette imprimée par le transporteur', 'Notification SMS 30 min avant'],
   },
@@ -245,7 +245,7 @@ export function PickupModeScreen() {
                 Notre conseil
               </Text>
               <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 4 }}>
-                Le point relais est l'option la plus économique pour les colis &lt; 15 kg. L'enlèvement à domicile est pratique mais coûte 10-15 € de plus.
+                Le point relais est l'option la plus économique pour les colis &lt; 15 kg. L'enlèvement à domicile (25 €) est pratique ; le point relais (5 €) est plus économique.
               </Text>
             </View>
           </View>
