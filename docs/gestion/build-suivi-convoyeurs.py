@@ -111,7 +111,7 @@ acc["B2"] = "AXIS IMPORT — GESTION DES CONVOYAGES"
 acc["B2"].font = font(20, True, NAVY)
 acc["B2"].alignment = left()
 acc.merge_cells("B4:H4")
-acc["B4"] = "Suivi d'activité des convoyeurs · France & Europe · Version 1 (base de données)"
+acc["B4"] = "Suivi d'activité des convoyeurs · France & Europe · Version 2 (tableau de bord & graphiques)"
 acc["B4"].font = font(11, False, MUTED)
 
 def section(cell, text):
@@ -122,6 +122,7 @@ def section(cell, text):
 
 acc.merge_cells("B6:H6"); section("B6", "  Contenu du classeur")
 sheets_info = [
+    ("Tableau de bord", "Vue d'ensemble : indicateurs clés, moyennes et graphiques (bénéfice/mois, CA/convoyeur, charges)."),
     ("Convoyages", "Saisie de chaque trajet : date, convoyeur, lieux, distance, montant, charges, TVA, bénéfice."),
     ("Synthèse", "Totaux automatiques par mois, par année et par convoyeur (nb, distance, CA, bénéfice)."),
     ("Convoyeurs", "Liste des convoyeurs — alimente le menu déroulant. Ajoute une ligne pour un nouveau convoyeur."),
@@ -165,8 +166,8 @@ r += 1
 acc.merge_cells(f"B{r}:H{r}"); section(f"B{r}", "  Feuille de route")
 r += 1
 roadmap = [
-    ("V1 — Base de données", "Sheets, listes déroulantes, calculs TVA/TTC/bénéfice, mise en forme.  (cette version)"),
-    ("V2 — Tableau de bord", "Statistiques jour/mois/année, graphiques, classement des convoyeurs."),
+    ("V1 — Base de données", "Sheets, listes déroulantes, calculs TVA/TTC/bénéfice, mise en forme.  (fait)"),
+    ("V2 — Tableau de bord", "Statistiques mois/année, graphiques, classement des convoyeurs.  (cette version)"),
     ("V3 — Formulaires VBA", "Boutons Ajouter/Modifier/Supprimer, recherche instantanée, calendrier intégré."),
     ("V4 — Facturation", "Facturation automatique, export PDF, numérotation, gestion TVA."),
 ]
@@ -473,8 +474,112 @@ sy.cell(hr+1+len(CONVOYEURS)+1,1,
 
 sy.freeze_panes = "A7"
 
+# ════════════════════════════════════════════════════════════════════
+# Feuille TABLEAU DE BORD (V2) — KPIs + graphiques + classement
+# ════════════════════════════════════════════════════════════════════
+from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart.label import DataLabelList
+
+# Repères de lignes de la Synthèse (calculés plus haut)
+MONTH_HDR = 6                       # en-tête tableau mensuel
+MONTH_R1, MONTH_R12 = 7, 18         # 12 mois
+CONV_HDR = hr                       # en-tête classement convoyeurs
+CONV_R1 = hr + 1
+CONV_R2 = hr + len(CONVOYEURS)
+
+db = wb.create_sheet("Tableau de bord")
+db.sheet_view.showGridLines = False
+for c in "ABCDEFGHIJKLMN":
+    db.column_dimensions[c].width = 12
+
+db.merge_cells("A1:N1")
+db["A1"] = "TABLEAU DE BORD — CONVOYAGES"
+db["A1"].font = font(18, True, NAVY)
+db.merge_cells("A2:N2")
+db["A2"] = "Chiffres toutes périodes · graphiques mensuels sur l'année choisie dans l'onglet Synthèse."
+db["A2"].font = font(10, False, MUTED)
+
+# ── Cartes KPI (toutes périodes) ─────────────────────────────────────
+CG = "Convoyages"
+kpis = [
+    ("Convoyages", f"=COUNT('{CG}'!$A$4:$A${DATA_END})", "0", NAVY, WHITE),
+    ("Distance totale (km)", f"=SUM('{CG}'!$G$4:$G${DATA_END})", '#,##0', "23405f", WHITE),
+    ("CA HT (€)", f"=SUM('{CG}'!$H$4:$H${DATA_END})", '#,##0 €', GOLD, NAVY),
+    ("Bénéfice (€)", f"=SUM('{CG}'!$O$4:$O${DATA_END})", '#,##0 €', "1E7A46", WHITE),
+    ("TVA nette à payer (€)", f"=SUM('{CG}'!$I$4:$I${DATA_END})-SUM('{CG}'!$N$4:$N${DATA_END})", '#,##0 €', "8A6D2B", WHITE),
+]
+col = 1
+for label, formula, numfmt, bg, fg in kpis:
+    db.merge_cells(start_row=4, start_column=col, end_row=4, end_column=col+1)
+    db.merge_cells(start_row=5, start_column=col, end_row=6, end_column=col+1)
+    lc = db.cell(4, col, label); lc.font = font(9.5, True, fg); lc.fill = fill(bg)
+    lc.alignment = center(wrap=True)
+    vc = db.cell(5, col, formula); vc.font = font(20, True, fg); vc.fill = fill(bg)
+    vc.alignment = center(); vc.number_format = numfmt
+    # bordure des cartes
+    for rr in (4, 5, 6):
+        for cc in (col, col+1):
+            db.cell(rr, cc).border = border
+            if db.cell(rr, cc).fill.fgColor.rgb in (None, "00000000"):
+                db.cell(rr, cc).fill = fill(bg)
+    col += 3
+
+# ── Moyennes (par convoyage) ─────────────────────────────────────────
+db["A8"] = "Moyennes par convoyage :"; db["A8"].font = font(10, True, NAVY)
+db.merge_cells("A8:C8")
+db["D8"] = f"=IFERROR(SUM('{CG}'!$H$4:$H${DATA_END})/COUNT('{CG}'!$A$4:$A${DATA_END}),0)"
+db["D8"].number_format = '#,##0 € "CA"'; db["D8"].font = font(10, True, INK)
+db["F8"] = f"=IFERROR(SUM('{CG}'!$O$4:$O${DATA_END})/COUNT('{CG}'!$A$4:$A${DATA_END}),0)"
+db["F8"].number_format = '#,##0 € "bénéf."'; db["F8"].font = font(10, True, INK)
+db["H8"] = f"=IFERROR(SUM('{CG}'!$G$4:$G${DATA_END})/COUNT('{CG}'!$A$4:$A${DATA_END}),0)"
+db["H8"].number_format = '#,##0 "km"'; db["H8"].font = font(10, True, INK)
+
+# ── Données auxiliaires pour le camembert des charges (colonnes masquées) ──
+db["P4"] = "Charges"; db["P4"].font = font(9, True, MUTED)
+db["P5"] = "Carburant"; db["P6"] = "Péages"; db["P7"] = "Nourriture"
+db["Q5"] = f"=SUM('{CG}'!$K$4:$K${DATA_END})"
+db["Q6"] = f"=SUM('{CG}'!$L$4:$L${DATA_END})"
+db["Q7"] = f"=SUM('{CG}'!$M$4:$M${DATA_END})"
+for rr in (5,6,7):
+    db.cell(rr,16).font = font(9, False, INK)
+    db.cell(rr,17).number_format = '#,##0 €'; db.cell(rr,17).font = font(9, False, INK)
+db.column_dimensions["P"].hidden = True
+db.column_dimensions["Q"].hidden = True
+
+# ── Graphique 1 : Bénéfice par mois ──────────────────────────────────
+ch1 = BarChart(); ch1.type = "col"; ch1.style = 10
+ch1.title = "Bénéfice par mois (année choisie)"
+ch1.y_axis.title = "€"; ch1.legend = None
+d1 = Reference(sy, min_col=10, min_row=MONTH_HDR, max_row=MONTH_R12)   # J6:J18
+c1 = Reference(sy, min_col=1, min_row=MONTH_R1, max_row=MONTH_R12)     # A7:A18
+ch1.add_data(d1, titles_from_data=True); ch1.set_categories(c1)
+ch1.height = 8.5; ch1.width = 17
+db.add_chart(ch1, "A10")
+
+# ── Graphique 2 : CA HT par convoyeur (classement) ───────────────────
+ch2 = BarChart(); ch2.type = "bar"; ch2.style = 12
+ch2.title = "CA HT par convoyeur"
+ch2.x_axis.title = "€"; ch2.legend = None
+d2 = Reference(sy, min_col=4, min_row=CONV_HDR, max_row=CONV_R2)       # D(hdr..last)
+c2 = Reference(sy, min_col=1, min_row=CONV_R1, max_row=CONV_R2)
+ch2.add_data(d2, titles_from_data=True); ch2.set_categories(c2)
+ch2.height = 8.5; ch2.width = 17
+db.add_chart(ch2, "H10")
+
+# ── Graphique 3 : Répartition des charges (camembert) ────────────────
+ch3 = PieChart(); ch3.title = "Répartition des charges"
+d3 = Reference(db, min_col=17, min_row=5, max_row=7)   # Q5:Q7
+c3 = Reference(db, min_col=16, min_row=5, max_row=7)   # P5:P7
+ch3.add_data(d3, titles_from_data=False); ch3.set_categories(c3)
+ch3.dataLabels = DataLabelList(); ch3.dataLabels.showPercent = True
+ch3.height = 8.5; ch3.width = 12
+db.add_chart(ch3, "A28")
+
+db["A27"] = "Classement, moyennes et graphiques se mettent à jour automatiquement dès que tu saisis des convoyages."
+db["A27"].font = font(9, False, MUTED); db.merge_cells("A27:N27")
+
 # ── ordre des onglets ────────────────────────────────────────────────
-order = ["Accueil","Convoyages","Synthèse","Convoyeurs","Clients","Véhicules","Lieux","Paramètres"]
+order = ["Accueil","Tableau de bord","Convoyages","Synthèse","Convoyeurs","Clients","Véhicules","Lieux","Paramètres"]
 wb._sheets.sort(key=lambda s: order.index(s.title))
 
 # Force Excel/LibreOffice à tout recalculer à l'ouverture (aucune valeur mise en
