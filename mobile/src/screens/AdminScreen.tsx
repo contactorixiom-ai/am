@@ -36,6 +36,7 @@ import {
   readAdminHistory,
 } from '../utils/adminDocs';
 import { notify } from '../utils/notify';
+import { downloadCsv } from '../utils/csv';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
@@ -278,6 +279,41 @@ export function AdminScreen() {
   // clignoter le journal (déjà mis à jour de façon optimiste par advanceParcel).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusParcel?.id, offline]);
+
+  // ─── Export CSV (ouvrable dans le classeur Excel de suivi) ─────────────────
+  const exportConvoyages = () => {
+    const headers = ['Date', 'Référence', 'Convoyeur', 'Client', 'Véhicule', 'Départ', 'Arrivée', 'Statut'];
+    const rows = missions.map((m) => [
+      m.pickupAt ? new Date(m.pickupAt).toLocaleDateString('fr-FR') : '',
+      m.reference,
+      m.driver ? `${m.driver.firstName} ${m.driver.lastName}` : '',
+      m.client ? `${m.client.firstName} ${m.client.lastName}` : '',
+      `${m.vehicle.make} ${m.vehicle.model}${m.vehicle.licensePlate ? ` (${m.vehicle.licensePlate})` : ''}`,
+      `${m.pickupCity} (${m.pickupCountry})`,
+      `${m.deliveryCity} (${m.deliveryCountry})`,
+      m.status,
+    ]);
+    const ok = downloadCsv(`convoyages-axis-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    notify(ok ? 'Export CSV' : 'Export indisponible',
+      ok ? `${missions.length} convoyage(s) exporté(s). Ouvre le fichier dans Excel.`
+         : 'L\'export CSV est disponible sur la version web / bureau.');
+  };
+
+  const exportColis = () => {
+    const headers = ['Référence', 'Statut', 'Origine', 'Destination', 'Pays destination', 'Poids (kg)'];
+    const rows = parcels.map((p) => [
+      p.reference,
+      parcelStatusLabel(p.status),
+      p.originCity,
+      p.destinationCity,
+      p.destinationCountry,
+      p.weightKg,
+    ]);
+    const ok = downloadCsv(`colis-axis-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    notify(ok ? 'Export CSV' : 'Export indisponible',
+      ok ? `${parcels.length} colis exporté(s). Ouvre le fichier dans Excel.`
+         : 'L\'export CSV est disponible sur la version web / bureau.');
+  };
 
   // ─── Actions rapides sur un envoi ──────────────────────────────────────────
   const invoiceFromMission = (m: MissionSummary) => {
@@ -597,6 +633,17 @@ export function AdminScreen() {
               <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{t.label}</Text>
             </Pressable>
           ))}
+        </View>
+
+        {/* Export des données (à ouvrir dans le classeur Excel de suivi) */}
+        <SectionHead title="Exporter les données" style={{ marginTop: 8 }} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.truck size={15} color={theme.navy} stroke={1.8} />} onPress={exportConvoyages}>
+            Convoyages (CSV)
+          </Button>
+          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.box size={15} color={theme.navy} stroke={1.8} />} onPress={exportColis}>
+            Colis (CSV)
+          </Button>
         </View>
 
         {/* À traiter en priorité */}
