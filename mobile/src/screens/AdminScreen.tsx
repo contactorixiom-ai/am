@@ -596,6 +596,18 @@ export function AdminScreen() {
       .map((id) => adminDocTypeById(id))
       .filter((t): t is AdminDocType => !!t);
 
+    // Activité par convoyeur (agrégée depuis les missions chargées).
+    const driverMap = new Map<string, { total: number; active: number; done: number }>();
+    missions.forEach((m) => {
+      const name = m.driver ? `${m.driver.firstName} ${m.driver.lastName}`.trim() : 'Non affecté';
+      const cur = driverMap.get(name) ?? { total: 0, active: 0, done: 0 };
+      cur.total += 1;
+      if (m.status === 'IN_PROGRESS' || m.status === 'ACCEPTED') cur.active += 1;
+      if (m.status === 'DELIVERED' || m.status === 'COMPLETED') cur.done += 1;
+      driverMap.set(name, cur);
+    });
+    const drivers = Array.from(driverMap.entries()).sort((a, b) => b[1].total - a[1].total);
+
     return (
       <>
         {offline ? (
@@ -670,6 +682,34 @@ export function AdminScreen() {
                     </View>
                   </Surface>
                 </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {/* Activité des convoyeurs */}
+        {drivers.length > 0 ? (
+          <>
+            <SectionHead title="Activité des convoyeurs" style={{ marginTop: 8 }} />
+            <View style={{ gap: 8 }}>
+              {drivers.map(([name, s], i) => (
+                <Surface key={`drv-${name}`} padded flat style={{ padding: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: i === 0 ? theme.gold : theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 12, color: i === 0 ? theme.navy : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{name}</Text>
+                      <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+                        {s.active} en cours · {s.done} livré{s.done > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 18, color: theme.ink, fontFamily: TYPO.weights.bold }}>{s.total}</Text>
+                      <Text style={{ fontSize: 10, color: theme.muted, fontFamily: TYPO.weights.medium, textTransform: 'uppercase', letterSpacing: 0.5 }}>convoyages</Text>
+                    </View>
+                  </View>
+                </Surface>
               ))}
             </View>
           </>
