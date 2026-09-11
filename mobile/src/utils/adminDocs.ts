@@ -389,6 +389,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'volume', label: '12 · Cubage (m³)', type: 'number', half: true },
       { key: 'marks', label: '6 · Marques & n°', half: true },
       { key: 'franking', label: '14 · Affranchissement', type: 'select', options: ['Franco', 'Non franco'] },
+      { key: 'cashOnDelivery', label: '15 · Remboursement', half: true, placeholder: 'Néant' },
+      { key: 'carrierReservations', label: '18 · Réserves du transporteur', type: 'multiline', hint: 'Constat à l\'enlèvement — fait foi en cas de litige' },
       { key: 'senderInstructions', label: '13 · Instructions expéditeur', type: 'multiline' },
       { key: 'specialAgreements', label: '19 · Conventions particulières', type: 'multiline' },
       { key: 'establishedAt', label: '21 · Établi à', half: true, placeholder: 'Paris' },
@@ -1301,6 +1303,8 @@ export interface CmrData {
   volumeM3?: number;
   senderInstructions?: string;
   franking?: string;
+  cashOnDelivery?: string;        // case 15 — remboursement
+  carrierReservations?: string;   // case 18 — réserves et observations du transporteur
   specialAgreements?: string;
   toPay?: string;
   establishedAt?: string;
@@ -1369,6 +1373,13 @@ export async function generateCmrPdf(data: CmrData): Promise<void> {
   formBox(doc, M, y, half, 15, '13', 'Instructions de l\'expéditeur (douane, etc.)', g(data.senderInstructions));
   formBox(doc, M + half, y, half, 15, '14', 'Prescriptions d\'affranchissement', g(data.franking));
   y += 15;
+  // Case 15 (remboursement) et case 18 (réserves du transporteur) — la 18 est
+  // celle qui fait foi en cas de litige sur l'état de la marchandise.
+  const t3 = CW / 3;
+  formBox(doc, M, y, t3, 16, '15', 'Remboursement', g(data.cashOnDelivery));
+  formBox(doc, M + t3, y, CW - t3, 16, '18', 'Réserves et observations du transporteur', g(data.carrierReservations));
+  y += 16;
+
   formBox(doc, M, y, half, 15, '19', 'Conventions particulières', g(data.specialAgreements));
   formBox(doc, M + half, y, half, 15, '20', 'À payer (prix de transport)', g(data.toPay));
   y += 15;
@@ -1935,6 +1946,8 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         volumeM3: numU(values, 'volume'),
         senderInstructions: orU(str(values, 'senderInstructions')),
         franking: orU(str(values, 'franking')),
+        cashOnDelivery: orU(str(values, 'cashOnDelivery')),
+        carrierReservations: orU(str(values, 'carrierReservations')),
         specialAgreements: orU(str(values, 'specialAgreements')),
         toPay: orU(str(values, 'toPay')),
         establishedAt: orU(str(values, 'establishedAt')),

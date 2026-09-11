@@ -113,6 +113,71 @@ const DEMO_PARCELS: ParcelSummary[] = [
   },
 ];
 
+
+// ─── Pré-remplissage d'une liasse depuis un envoi réel ───────────────────────
+// Les clés couvrent l'ensemble des types de documents : chaque formulaire ne
+// retient que les champs qu'il déclare, les autres sont simplement ignorés.
+const AXIS_SENDER = {
+  senderName: 'Axis Import SAS',
+  senderAddress: '14 rue de la Logistique, 75015 Paris, France',
+  shipperName: 'Axis Import SAS',
+  shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+  exporterName: 'Axis Import SAS',
+  exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+};
+
+function prefillFromParcel(p: ParcelSummary): AdminValues {
+  const weight = p.weightKg != null ? String(p.weightKg) : '';
+  return {
+    ...AXIS_SENDER,
+    reference: p.reference,
+    orderRef: p.reference,
+    originCountry: p.originCity ? `${p.originCity}, ${p.originCountry}` : p.originCountry,
+    originCity: p.originCity,
+    destinationCountry: p.destinationCountry,
+    destinationCity: p.destinationCity,
+    deliveryLocation: `${p.destinationCity} (${p.destinationCountry})`,
+    // Amorce d'adresse destinataire : Roger complète le nom et la rue.
+    recipientAddress: `${p.destinationCity}, ${p.destinationCountry}`,
+    consigneeAddress: `${p.destinationCity}, ${p.destinationCountry}`,
+    portOfDischarge: p.destinationCity,
+    airportDestination: p.destinationCity,
+    weightKg: weight,
+    grossWeight: weight,
+    transportInfo: `${p.originCity} - ${p.destinationCity}`,
+    route: `${p.originCity} (${p.originCountry}) - ${p.destinationCity} (${p.destinationCountry})`,
+  };
+}
+
+function prefillFromMission(m: MissionSummary): AdminValues {
+  const client = m.client ? `${m.client.firstName} ${m.client.lastName}`.trim() : '';
+  const driver = m.driver ? `${m.driver.firstName} ${m.driver.lastName}`.trim() : '';
+  const pickup = `${m.pickupCity}, ${m.pickupCountry}`;
+  const delivery = `${m.deliveryCity}, ${m.deliveryCountry}`;
+  return {
+    ...AXIS_SENDER,
+    reference: m.reference,
+    orderRef: m.reference,
+    clientName: client,
+    recipientName: client,
+    consigneeName: client,
+    driverName: driver,
+    carrierName: 'Axis Import SAS',
+    plate: m.vehicle?.licensePlate ?? '',
+    vehicleBrandModel: [m.vehicle?.make, m.vehicle?.model].filter(Boolean).join(' '),
+    pickupAddress: pickup,
+    deliveryAddress: delivery,
+    takingOverPlace: m.pickupCity,
+    deliveryPlace: m.deliveryCity,
+    pickupLocation: pickup,
+    deliveryLocation: delivery,
+    pickupDate: m.pickupAt ? new Date(m.pickupAt).toLocaleDateString('fr-FR') : '',
+    takingOverDate: m.pickupAt ? new Date(m.pickupAt).toLocaleDateString('fr-FR') : '',
+    description: `Convoyage ${m.pickupCity} - ${m.deliveryCity}`,
+    route: `${m.pickupCity} - ${m.deliveryCity}`,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AdminScreen() {
@@ -125,8 +190,9 @@ export function AdminScreen() {
   const [formActivity, setFormActivity] = useState<AdminActivity | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  // Liasse documentaire ouverte (onglet Générer)
+  // Liasse documentaire ouverte (onglet Générer) + envoi auquel elle est rattachée
   const [selectedPack, setSelectedPack] = useState<DocPack | null>(null);
+  const [packShipment, setPackShipment] = useState<{ kind: 'parcel' | 'mission'; id: string } | null>(null);
 
   // Historique (partagé Générer + Documents)
   const [history, setHistory] = useState<AdminHistoryEntry[]>([]);
@@ -789,6 +855,18 @@ export function AdminScreen() {
       const pack = selectedPack;
       const doneIds = new Set(history.map((h) => h.typeId));
       const doneCount = pack.items.filter((i) => doneIds.has(i.typeId)).length;
+
+      // Envois proposés : missions pour le convoyage, colis pour le reste.
+      const isConvoy = pack.activity === 'convoyage';
+      const shipmentOptions = isConvoy
+        ? missions.map((m) => ({ kind: 'mission' as const, id: m.id, ref: m.reference, route: `${m.pickupCity} - ${m.deliveryCity}` }))
+        : parcels.map((p) => ({ kind: 'parcel' as const, id: p.id, ref: p.reference, route: `${p.originCity} - ${p.destinationCity}` }));
+      const chosen = packShipment && shipmentOptions.find((o) => o.id === packShipment.id) ? packShipment : null;
+      const packPrefill: AdminValues | undefined = chosen
+        ? (chosen.kind === 'mission'
+            ? (() => { const m = missions.find((x) => x.id === chosen.id); return m ? prefillFromMission(m) : undefined; })()
+            : (() => { const p2 = parcels.find((x) => x.id === chosen.id); return p2 ? prefillFromParcel(p2) : undefined; })())
+        : undefined;
       return (
         <>
           <Pressable
@@ -814,6 +892,32 @@ export function AdminScreen() {
             </View>
           </Surface>
 
+          {shipmentOptions.length > 0 ? (
+            <>
+              <SectionHead title="Rattacher à un envoi" style={{ marginTop: 6 }} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                {shipmentOptions.map((o) => {
+                  const on = chosen?.id === o.id;
+                  return (
+                    <Pressable
+                      key={o.id}
+                      onPress={() => setPackShipment(on ? null : { kind: o.kind, id: o.id })}
+                      style={{ paddingVertical: 9, paddingHorizontal: 13, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface }}
+                    >
+                      <Text style={{ fontSize: 12.5, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.ref}</Text>
+                      <Text style={{ fontSize: 10.5, color: on ? 'rgba(245,241,232,0.75)' : theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{o.route}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Text style={{ fontSize: 11.5, color: chosen ? theme.good : theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
+                {chosen
+                  ? 'Les documents de cette liasse seront pré-remplis avec cet envoi.'
+                  : 'Choisis un envoi pour pré-remplir automatiquement tous les documents.'}
+              </Text>
+            </>
+          ) : null}
+
           <SectionHead title="Documents de la liasse" style={{ marginTop: 6 }} />
           <View style={{ gap: 8 }}>
             {pack.items.map((item) => {
@@ -821,7 +925,7 @@ export function AdminScreen() {
               if (!t) return null;
               const done = doneIds.has(item.typeId);
               return (
-                <Pressable key={item.typeId} onPress={() => openDocForm(t, undefined, pack.activity)}>
+                <Pressable key={item.typeId} onPress={() => openDocForm(t, packPrefill, pack.activity)}>
                   <Surface padded flat style={{ padding: 13 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
                       <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: done ? theme.good + '22' : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
