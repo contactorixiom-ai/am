@@ -16,7 +16,7 @@ import {
   generateInsuranceCertificatePdf,
   generateInvoicePdf,
   generatePackingListPdf,
-} from './pdf';
+  patchDoc,} from './pdf';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -201,7 +201,12 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'number', label: 'N° de facture', half: true, required: true },
       { key: 'date', label: 'Date', half: true },
       { key: 'clientName', label: 'Client', required: true, placeholder: 'Nom du client' },
-      { key: 'clientEmail', label: 'Email client', placeholder: 'client@exemple.com' },
+      { key: 'clientAddress', label: 'Adresse du client', required: true, placeholder: '12 rue…, 75000 Paris' },
+      { key: 'clientEmail', label: 'Email client', half: true, placeholder: 'client@exemple.com' },
+      { key: 'clientSiren', label: 'SIREN client (si pro)', half: true, placeholder: '925487312' },
+      { key: 'serviceDate', label: 'Date de la prestation', half: true },
+      { key: 'dueDate', label: 'Échéance de paiement', half: true },
+      { key: 'operationCategory', label: 'Nature de l\'opération', type: 'select', options: ['Prestation de services', 'Livraison de biens', 'Mixte (biens et services)'], half: true },
       { key: 'description', label: 'Description', required: true, placeholder: 'Convoyage Paris → Lisbonne' },
       { key: 'amountEur', label: 'Montant TTC (€)', type: 'number', half: true, required: true },
       { key: 'paid', label: 'Facture payée', type: 'boolean', half: true },
@@ -210,7 +215,12 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       number: ctx.reference,
       date: ctx.dateLong,
       clientName: '',
+      clientAddress: '',
       clientEmail: '',
+      clientSiren: '',
+      serviceDate: ctx.dateShort ?? '',
+      dueDate: '',
+      operationCategory: 'Prestation de services',
       description: '',
       amountEur: '',
       paid: false,
@@ -739,7 +749,10 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'date', label: 'Date', half: true },
       { key: 'principalName', label: 'Mandant (client)', required: true },
       { key: 'principalAddress', label: 'Adresse du mandant' },
+      { key: 'principalEori', label: 'N° EORI du mandant', half: true, placeholder: 'FR89412356700024' },
       { key: 'agent', label: 'Mandataire' },
+      { key: 'agentRegistration', label: 'N° représentant en douane enregistré (RDE)', half: true, hint: 'Laisser vide si non détenu' },
+      { key: 'representation', label: 'Nature de la représentation', type: 'select', options: ['directe', 'indirecte'], half: true },
       { key: 'destinationCountry', label: 'Pays de destination', half: true },
       { key: 'scope', label: 'Étendue du mandat (optionnel)', type: 'multiline', hint: 'Vide = clause standard' },
     ],
@@ -748,7 +761,10 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       date: ctx.dateLong,
       principalName: '',
       principalAddress: '',
-      agent: 'Axis Import SAS — commissionnaire en douane agréé',
+      principalEori: '',
+      agent: 'Axis Import SAS',
+      agentRegistration: '',
+      representation: 'directe',
       destinationCountry: 'Sénégal',
       scope: '',
     }),
@@ -828,7 +844,7 @@ function labelDownload(doc: jsPDF, filename: string) {
 
 export async function generateShippingLabelPdf(data: ShippingLabelData): Promise<void> {
   // A6 portrait (105 × 148 mm) : format standard d'étiquette d'expédition.
-  const doc = new jsPDF({ unit: 'mm', format: 'a6' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a6' }));
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 6;
@@ -1028,7 +1044,7 @@ export interface ShippingInstructionsData {
 }
 
 export async function generateShippingInstructionsPdf(data: ShippingInstructionsData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const DASH = '—';
@@ -1194,7 +1210,7 @@ export interface CmrData {
 }
 
 export async function generateCmrPdf(data: CmrData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const CW = W - 2 * M;
@@ -1289,7 +1305,7 @@ export interface CertificateOfOriginData {
 }
 
 export async function generateCertificateOfOriginPdf(data: CertificateOfOriginData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const CW = W - 2 * M;
@@ -1354,7 +1370,7 @@ export interface DeliveryNoteData {
 }
 
 export async function generateDeliveryNotePdf(data: DeliveryNoteData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const CW = W - 2 * M;
@@ -1448,7 +1464,7 @@ export interface BillOfLadingData {
 }
 
 export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const CW = W - 2 * M;
@@ -1541,7 +1557,7 @@ export interface AirWaybillData {
 }
 
 export async function generateAirWaybillPdf(data: AirWaybillData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = A4_M;
   const CW = W - 2 * M;
@@ -1641,7 +1657,12 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         paid: bool(values, 'paid'),
         description: str(values, 'description') || 'Prestation de transport',
         clientName: str(values, 'clientName') || 'Client Axis',
+        clientAddress: orU(str(values, 'clientAddress')),
         clientEmail: orU(str(values, 'clientEmail')),
+        clientSiren: orU(str(values, 'clientSiren')),
+        serviceDate: orU(str(values, 'serviceDate')),
+        dueDate: orU(str(values, 'dueDate')),
+        operationCategory: orU(str(values, 'operationCategory')),
       });
       break;
 
@@ -1756,7 +1777,10 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
           name: orU(str(values, 'principalName')),
           address: orU(str(values, 'principalAddress')),
         },
+        principalEori: orU(str(values, 'principalEori')),
         agent: orU(str(values, 'agent')),
+        agentRegistration: orU(str(values, 'agentRegistration')),
+        representation: str(values, 'representation') === 'indirecte' ? 'indirecte' : 'directe',
         scope: orU(str(values, 'scope')),
         destinationCountry: orU(str(values, 'destinationCountry')),
       });

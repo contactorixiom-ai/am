@@ -49,6 +49,37 @@ function triggerDownload(doc: jsPDF, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+// ─── Sécurité typographique PDF ────────────────────────────────────────────
+// jsPDF utilise les polices standard (Helvetica) encodées en WinAnsi/CP1252.
+// Tout caractère hors de cette table (flèches, coches, emoji…) s'imprime en
+// caractère parasite. On translittère donc AVANT écriture — y compris le texte
+// saisi par l'utilisateur, qui peut contenir n'importe quel caractère.
+const CP1252_EXTRA = '\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178';
+
+export function safeText(value: unknown): string {
+  let s = value === null || value === undefined ? '' : String(value);
+  s = s
+    .replace(/[\u2192\u21D2\u2794\u27A1]/g, '-')   // flèches droite
+    .replace(/[\u2190\u21D0]/g, '-')                 // flèches gauche
+    .replace(/[\u2713\u2714]/g, '')                  // coches
+    .replace(/[\u2717\u2718\u2715\u00D7]/g, 'x')   // croix
+    .replace(/[\u00A0\u202F\u2009\u2007]/g, ' ')   // espaces insécables
+    .replace(/[\u2264]/g, '<=').replace(/[\u2265]/g, '>=')
+    .replace(/[\u2248]/g, '~');
+  // Supprime tout ce qui reste hors WinAnsi (emoji, symboles exotiques…)
+  s = s.replace(/[\u0100-\uFFFF]/g, (c) => (CP1252_EXTRA.indexOf(c) >= 0 ? c : ''));
+  return s;
+}
+
+// Applique safeText à toutes les écritures d'un document jsPDF.
+export function patchDoc(doc: jsPDF): jsPDF {
+  const orig = doc.text.bind(doc);
+  (doc as unknown as { text: unknown }).text = (
+    text: string | string[], x: number, y: number, options?: unknown,
+  ) => orig(Array.isArray(text) ? text.map(safeText) : safeText(text) as never, x, y, options as never);
+  return doc;
+}
+
 function setColor(doc: jsPDF, hex: string, kind: 'fill' | 'text' | 'draw') {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -204,11 +235,16 @@ export interface InvoicePdfData {
   description: string;
   clientName: string;
   clientEmail?: string;
+  clientAddress?: string;      // obligatoire sur facture B2B
+  clientSiren?: string;        // nouveauté 2026 (client assujetti)
+  serviceDate?: string;        // date de la prestation (distincte de l'émission)
+  dueDate?: string;            // date d'échéance
+  operationCategory?: string;  // nouveauté 2026 : biens / services / mixte
   vatRate?: number;
 }
 
 export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const w = doc.internal.pageSize.getWidth();
   const vatRate = data.vatRate ?? 0.2;
   const ttc = data.amountEur;
@@ -235,10 +271,29 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   setColor(doc, INK, 'text');
   doc.text('Axis Import SAS', 14, y);
   doc.text(data.clientName, w / 2 + 4, y);
-  doc.text('14 rue de la Logistique', 14, y + 4);
-  if (data.clientEmail) doc.text(data.clientEmail, w / 2 + 4, y + 4);
-  doc.text('75015 Paris, France', 14, y + 8);
-  doc.text('TVA intracom : FR42 925487312', 14, y + 12);
+  doc.text('SAS au capital de 10 000 EUR', 14, y + 4);
+  // Destinataire : adresse puis email (l'adresse est une mention obligatoire)
+  let cy = y + 4;
+  if (data.clientAddress) {
+    const addr = doc.splitTextToSize(data.clientAddress, w / 2 - 20).slice(0, 2) as string[];
+    doc.text(addr, w / 2 + 4, cy);
+    cy += addr.length * 4;
+  }
+  if (data.clientEmail) { doc.text(data.clientEmail, w / 2 + 4, cy); cy += 4; }
+  if (data.clientSiren) doc.text(`SIREN : ${data.clientSiren}`, w / 2 + 4, cy);
+  doc.text('14 rue de la Logistique, 75015 Paris, France', 14, y + 8);
+  doc.text('RCS Paris 925 487 312 · SIRET 925 487 312 00018', 14, y + 12);
+  doc.text('TVA intracom : FR42 925487312', 14, y + 16);
+
+  // Dates légales (prestation + échéance)
+  doc.setFontSize(8);
+  setColor(doc, MUTED, 'text');
+  let dy = y + 22;
+  if (data.serviceDate) { doc.text(`Date de la prestation : ${data.serviceDate}`, 14, dy); dy += 4; }
+  if (data.dueDate) { doc.text(`Échéance de paiement : ${data.dueDate}`, 14, dy); dy += 4; }
+  if (data.operationCategory) doc.text(`Nature de l'opération : ${data.operationCategory}`, 14, dy);
+  doc.setFontSize(9);
+  setColor(doc, INK, 'text');
 
   // Tampon
   if (data.paid) {
@@ -269,12 +324,15 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   setColor(doc, INK, 'text');
-  doc.text(data.description, 18, y);
+  // La description est contrainte à sa colonne (jusqu'à 3 lignes) pour ne
+  // jamais déborder sur Quantité / PU HT.
+  const descLines = doc.splitTextToSize(data.description, 84).slice(0, 3);
+  doc.text(descLines, 18, y);
   doc.text('1', 110, y, { align: 'right' });
   doc.text(`${ht.toFixed(2).replace('.', ',')} €`, 145, y, { align: 'right' });
   doc.text(`${ht.toFixed(2).replace('.', ',')} €`, w - 18, y, { align: 'right' });
 
-  y += 5;
+  y += 5 + Math.max(0, descLines.length - 1) * 4.4;
   setColor(doc, LINE, 'draw');
   doc.line(14, y, w - 14, y);
 
@@ -312,7 +370,7 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   setColor(doc, MUTED, 'text');
   const mention = data.paid
     ? `Facture réglée le ${data.date}. Conservez ce document pendant 10 ans (art. L123-22 C. com.).`
-    : 'Paiement à 30 jours fin de mois. Pénalités de retard (3 fois le taux légal) et indemnité forfaitaire de 40 € (art. L441-10 C. com.).';
+    : 'Paiement à 30 jours fin de mois. En cas de retard : pénalités au taux de 3 fois le taux d\'intérêt légal et indemnité forfaitaire de recouvrement de 40 € (art. L441-10 et D441-5 C. com.). Pas d\'escompte pour paiement anticipé.';
   doc.text(mention, 14, y, { maxWidth: w - 28 });
 
   await drawVerificationBlock(doc, data.number, 'invoice');
@@ -342,7 +400,7 @@ export interface CustomsChecklistData {
 }
 
 export async function generateCustomsChecklistPdf(data: CustomsChecklistData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const w = doc.internal.pageSize.getWidth();
 
   invoiceHeader(doc, 'Checklist douanière', `${data.countryName} · ${data.countryCode}`);
@@ -526,7 +584,7 @@ const VEHICLE_CATEGORIES = [
 ];
 
 export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 8; // marge
@@ -1179,7 +1237,7 @@ export interface CommercialInvoicePdfData {
 }
 
 export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1303,7 +1361,7 @@ export interface PackingListPdfData {
 }
 
 export async function generatePackingListPdf(data: PackingListPdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1398,7 +1456,7 @@ export interface ExportDeclarationPdfData {
 }
 
 export async function generateExportDeclarationPdf(data: ExportDeclarationPdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1499,7 +1557,7 @@ export interface InsuranceCertificatePdfData {
 }
 
 export async function generateInsuranceCertificatePdf(data: InsuranceCertificatePdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1568,6 +1626,9 @@ export interface CustomsMandatePdfData {
   date?: string;
   principal?: { name?: string; address?: string };   // mandant = client
   agent?: string;                                     // mandataire = Axis / commissionnaire
+  agentRegistration?: string;                         // n° RDE / agrément (si détenu)
+  principalEori?: string;                             // EORI du mandant
+  representation?: 'directe' | 'indirecte';           // art. 18 CDU — obligatoire
   scope?: string;                                     // étendue du mandat
   destinationCountry?: string;
   signatureDataUrl?: string;                          // signature client (data URL)
@@ -1575,7 +1636,7 @@ export interface CustomsMandatePdfData {
 }
 
 export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sharedDoc?: jsPDF): Promise<void> {
-  const doc = sharedDoc ?? new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = sharedDoc ?? patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
 
@@ -1596,9 +1657,31 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   blockLabel(doc, 'DONNE MANDAT À', M, y);
   y += 6;
   y = textLines(doc, [
-    data.agent ?? 'Axis Import SAS — commissionnaire en douane agréé',
-    '14 rue de la Logistique, 75015 Paris · agrément n° FR-OEA-2025-1182',
+    data.agent ?? 'Axis Import SAS',
+    data.agentRegistration
+      ? `14 rue de la Logistique, 75015 Paris · représentant en douane enregistré n° ${data.agentRegistration}`
+      : '14 rue de la Logistique, 75015 Paris',
   ], M, y);
+
+  // Mandant : EORI (requis pour les formalités douanières)
+  if (data.principalEori) {
+    y = textLines(doc, [`N° EORI du mandant : ${data.principalEori}`], M, y);
+  }
+
+  // ── Nature de la représentation (art. 18 du Code des douanes de l'Union) ──
+  y += 5;
+  blockLabel(doc, 'NATURE DE LA REPRÉSENTATION', M, y);
+  y += 6;
+  const rep = data.representation ?? 'directe';
+  drawCheckbox(doc, M, y - 2.15, 2.6, rep === 'directe');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  setColor(doc, INK, 'text');
+  doc.text("Représentation DIRECTE — le mandataire agit au nom et pour le compte du mandant", M + 5, y);
+  y += 5.5;
+  drawCheckbox(doc, M, y - 2.15, 2.6, rep === 'indirecte');
+  doc.text("Représentation INDIRECTE — le mandataire agit en son nom propre, pour le compte du mandant", M + 5, y);
+  y += 2;
 
   // Étendue
   y += 6;
@@ -1609,7 +1692,7 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   setColor(doc, INK, 'text');
   doc.text(doc.splitTextToSize(
     data.scope
-      ?? `Le mandant autorise le mandataire à accomplir en son nom et pour son compte l'ensemble des formalités douanières (déclaration, paiement des droits et taxes, enlèvement) relatives à l'opération à destination de ${data.destinationCountry ?? 'Sénégal'}, ainsi qu'à le représenter auprès de l'administration des douanes.`,
+      ?? `Le mandant autorise le mandataire à accomplir ${(data.representation ?? 'directe') === 'directe' ? "au nom et pour le compte du mandant" : "en son nom propre, pour le compte du mandant"} l'ensemble des formalités douanières (déclaration en douane, paiement des droits et taxes, enlèvement des marchandises) relatives à l'opération à destination de ${data.destinationCountry ?? 'Sénégal'}, ainsi qu'à le représenter auprès de l'administration des douanes. Mandat établi conformément aux articles 18 et 19 du Code des douanes de l'Union (règlement UE n° 952/2013).`,
     W - 2 * M,
   ), M, y);
 
@@ -1630,7 +1713,7 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   doc.line(M, y - 4, W - M, y - 4);
 
   const halfW = (W - 2 * M - 10) / 2;
-  signatureBox(doc, 'POUR AXIS IMPORT (MANDATAIRE)', M, y, halfW, '✓ Signé');
+  signatureBox(doc, 'POUR AXIS IMPORT (MANDATAIRE)', M, y, halfW, 'Signé');
 
   // Signature client (image si fournie)
   doc.setFont('helvetica', 'bold');
@@ -1715,7 +1798,7 @@ export async function generateDossierPdf(
   onProgress?: (done: number, total: number) => void,
 ): Promise<number> {
   if (items.length === 0) return 0;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   let rendered = 0;
   for (let i = 0; i < items.length; i += 1) {
     if (i > 0) doc.addPage();
@@ -1750,7 +1833,7 @@ export interface ShippingLabelData {
 }
 
 export async function generateShippingLabelPdf(data: ShippingLabelData): Promise<void> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
   const M = 20;
   const labelW = W - 2 * M;
