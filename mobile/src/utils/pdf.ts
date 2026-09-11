@@ -1244,13 +1244,10 @@ export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfDat
   const number = data.number ?? `FC-${new Date().getFullYear()}-0001`;
   const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const currency = data.currency ?? 'EUR';
-  const incoterm = data.incoterm ?? 'FOB Le Havre';
-  const lines: CommercialInvoiceLine[] = data.lines?.length
-    ? data.lines
-    : [
-        { designation: 'Pièces détachées automobiles (lot)', hsCode: '8708.99', quantity: 12, unitPrice: 145 },
-        { designation: 'Groupe électrogène 5 kVA', hsCode: '8502.11', quantity: 2, unitPrice: 820 },
-      ];
+  const incoterm = data.incoterm ?? '';
+  // Jamais de marchandise fictive sur un document douanier : si rien n'est
+  // saisi, le tableau reste vide (à compléter à la main).
+  const lines: CommercialInvoiceLine[] = data.lines?.length ? data.lines : [];
 
   invoiceHeader(doc, 'Facture commerciale', `${number} · ${date}`);
 
@@ -1267,7 +1264,7 @@ export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfDat
     `TVA : ${s.vat ?? 'FR42 925487312'}`,
   ], M, y);
   textLines(doc, [
-    r.name ?? 'Sahel Trading SARL',
+    r.name ?? '',
     r.address ?? 'Zone portuaire, Dakar',
     `Pays : ${r.country ?? data.destinationCountry ?? 'Sénégal'}`,
   ], W / 2 + 4, y);
@@ -1321,7 +1318,7 @@ export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfDat
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   setColor(doc, INK, 'text');
-  doc.text(`Valeur FOB`, tx, y);
+  doc.text(`Valeur ${(incoterm.split(' ')[0] || 'totale').toUpperCase()}`, tx, y);
   doc.text(`${EURO(fob)} ${currency}`, W - M, y, { align: 'right' });
   setColor(doc, INK, 'draw');
   doc.setLineWidth(0.5);
@@ -1367,13 +1364,7 @@ export async function generatePackingListPdf(data: PackingListPdfData, sharedDoc
 
   const number = data.number ?? `LC-${new Date().getFullYear()}-0001`;
   const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const pkgs: PackingListPackage[] = data.packages?.length
-    ? data.packages
-    : [
-        { contents: 'Pièces détachées (cartons)', dimensions: '120×80×100', grossKg: 320, netKg: 295 },
-        { contents: 'Groupe électrogène', dimensions: '90×60×80', grossKg: 145, netKg: 138 },
-        { contents: 'Accessoires divers', dimensions: '60×40×40', grossKg: 48, netKg: 42 },
-      ];
+  const pkgs: PackingListPackage[] = data.packages?.length ? data.packages : [];
 
   invoiceHeader(doc, 'Liste de colisage', `${number} · ${date}`);
 
@@ -1386,7 +1377,7 @@ export async function generatePackingListPdf(data: PackingListPdfData, sharedDoc
     data.sender?.address ?? '14 rue de la Logistique, 75015 Paris',
   ], M, y);
   textLines(doc, [
-    data.recipient?.name ?? 'Sahel Trading SARL',
+    data.recipient?.name ?? '',
     data.recipient?.address ?? 'Zone portuaire, Dakar',
   ], W / 2 + 4, y);
 
@@ -1476,7 +1467,7 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
     `EORI : ${data.exporter?.eori ?? 'FR92548731200018'}`,
   ], M, y);
   textLines(doc, [
-    data.recipient?.name ?? 'Sahel Trading SARL',
+    data.recipient?.name ?? '',
     data.recipient?.address ?? 'Zone portuaire, Dakar',
     `Pays : ${data.recipient?.country ?? data.destinationCountry ?? 'Sénégal'}`,
   ], W / 2 + 4, y);
@@ -1507,7 +1498,7 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   setColor(doc, INK, 'text');
-  doc.text(doc.splitTextToSize(data.goods ?? 'Pièces détachées automobiles et groupe électrogène', W - 2 * M), M, y);
+  doc.text(doc.splitTextToSize(data.goods ?? '', W - 2 * M), M, y);
 
   y += 10;
   const tx = M;
@@ -1588,7 +1579,7 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
   row('Assureur', data.insurer ?? 'AXA Transport & Logistique');
   row('N° de police', data.policyNumber ?? 'TRP-2026-44821');
   row('Assuré', data.insured ?? 'Axis Import SAS pour le compte de qui il appartiendra');
-  row('Marchandise assurée', data.goods ?? 'Pièces détachées et matériel — 513 kg');
+  row('Marchandise assurée', data.goods ?? '');
   row('Trajet couvert', data.route ?? 'Le Havre (FR) → Dakar (SN), maritime');
   row('Validité', `${data.validFrom ?? date} au ${data.validTo ?? '31 décembre 2026'}`);
 
@@ -1649,7 +1640,7 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   blockLabel(doc, 'LE MANDANT (CLIENT)', M, y);
   y += 6;
   y = textLines(doc, [
-    data.principal?.name ?? 'Sahel Trading SARL',
+    data.principal?.name ?? '',
     data.principal?.address ?? 'Zone portuaire, Dakar',
   ], M, y);
 
