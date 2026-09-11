@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+(function(){
+  try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
+  window.__nativeFetchReady = true;
+  if (navigator && navigator.serviceWorker) {
+    try { navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ try { r.unregister(); } catch(e){} }); }).catch(function(){}); } catch(e) {}
+  }
+  if (typeof caches !== 'undefined' && caches.keys) {
+    try { caches.keys().then(function(names){ names.forEach(function(n){ try { caches.delete(n); } catch(e){} }); }).catch(function(){}); } catch(e) {}
+  }
+})();
+</script>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Axis Import</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  <script src="/am/app/_expo/static/js/web/AppEntry-469b4af37f8493c89f03dea898bf7064.js" defer></script>
+</body>
+</html>
