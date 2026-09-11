@@ -1,0 +1,24 @@
+# Configuration Nixpacks pour Railway.
+# Node 22 + nettoyage agressif avant npm install.
+# --include=dev pour installer @nestjs/cli (devDep) nécessaire à `nest build`
+# même quand NODE_ENV=production.
+
+[phases.setup]
+nixPkgs = ["nodejs_22", "openssl"]
+
+[phases.install]
+cmds = [
+  "rm -rf node_modules /tmp/.npm-cache",
+  "mkdir -p /tmp/.npm-cache",
+  "npm config set cache /tmp/.npm-cache",
+  "npm install --include=dev --no-audit --no-fund --prefer-offline"
+]
+
+[phases.build]
+cmds = [
+  "npx prisma generate",
+  "npm run build"
+]
+
+[start]
+cmd = "npx prisma db push --accept-data-loss --skip-generate && node dist/main"
