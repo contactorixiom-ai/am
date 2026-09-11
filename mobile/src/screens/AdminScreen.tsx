@@ -29,6 +29,8 @@ import {
   AdminHistoryEntry,
   AdminValues,
   adminDocTypeById,
+  DOC_PACKS,
+  DocPack,
   buildDefaults,
   commitReference,
   generateAdminDocument,
@@ -122,6 +124,9 @@ export function AdminScreen() {
   const [formInitial, setFormInitial] = useState<AdminValues | null>(null);
   const [formActivity, setFormActivity] = useState<AdminActivity | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  // Liasse documentaire ouverte (onglet Générer)
+  const [selectedPack, setSelectedPack] = useState<DocPack | null>(null);
 
   // Historique (partagé Générer + Documents)
   const [history, setHistory] = useState<AdminHistoryEntry[]>([]);
@@ -739,7 +744,7 @@ export function AdminScreen() {
           >
             <Icons.arrowL size={15} color={theme.muted} stroke={1.8} />
             <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-              Tous les types de documents
+              {selectedPack ? selectedPack.label : 'Tous les types de documents'}
             </Text>
           </Pressable>
 
@@ -779,9 +784,133 @@ export function AdminScreen() {
       );
     }
 
+    // ── Détail d'une liasse : checklist des documents du corridor ──
+    if (selectedPack) {
+      const pack = selectedPack;
+      const doneIds = new Set(history.map((h) => h.typeId));
+      const doneCount = pack.items.filter((i) => doneIds.has(i.typeId)).length;
+      return (
+        <>
+          <Pressable
+            onPress={() => setSelectedPack(null)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 }}
+          >
+            <Icons.arrowL size={15} color={theme.muted} stroke={1.8} />
+            <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+              Toutes les liasses
+            </Text>
+          </Pressable>
+
+          <Surface padded style={{ padding: 16, gap: 6 }}>
+            <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold }}>{pack.label}</Text>
+            <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{pack.subtitle}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: theme.bgSoft, overflow: 'hidden' }}>
+                <View style={{ width: `${Math.round((doneCount / pack.items.length) * 100)}%`, height: 6, backgroundColor: theme.gold }} />
+              </View>
+              <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
+                {doneCount}/{pack.items.length}
+              </Text>
+            </View>
+          </Surface>
+
+          <SectionHead title="Documents de la liasse" style={{ marginTop: 6 }} />
+          <View style={{ gap: 8 }}>
+            {pack.items.map((item) => {
+              const t = adminDocTypeById(item.typeId);
+              if (!t) return null;
+              const done = doneIds.has(item.typeId);
+              return (
+                <Pressable key={item.typeId} onPress={() => openDocForm(t, undefined, pack.activity)}>
+                  <Surface padded flat style={{ padding: 13 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: done ? theme.good + '22' : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+                        {done
+                          ? <Icons.check size={16} color={theme.good} stroke={2.6} />
+                          : renderTypeIcon(t, 16, theme.goldDeep)}
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                          <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                            {t.label}
+                          </Text>
+                          {item.required
+                            ? <Pill tone="gold">Requis</Pill>
+                            : <Pill tone="ghost">Optionnel</Pill>}
+                        </View>
+                        <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={2}>
+                          {item.note ?? t.description}
+                        </Text>
+                      </View>
+                      <Icons.arrow size={16} color={theme.muted} stroke={1.8} />
+                    </View>
+                  </Surface>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {pack.externalSteps?.length ? (
+            <>
+              <SectionHead title="À obtenir en dehors de l'app" style={{ marginTop: 8 }} />
+              {pack.externalSteps.map((st) => (
+                <Surface key={st.label} padded flat style={{ padding: 14, backgroundColor: theme.warn + '14', borderColor: theme.warn + '44', borderWidth: 1 }}>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <Icons.warn size={17} color={theme.warn} stroke={1.9} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.bold }}>{st.label}</Text>
+                      <Text style={{ fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 3, lineHeight: 16.5 }}>
+                        {st.note}
+                      </Text>
+                      {st.url ? (
+                        <Text style={{ fontSize: 11.5, color: theme.goldDeep, fontFamily: TYPO.weights.semibold, marginTop: 4 }}>
+                          {st.url}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </Surface>
+              ))}
+            </>
+          ) : null}
+        </>
+      );
+    }
+
     return (
       <>
-        <SectionHead title="Type de document" />
+        <SectionHead title="Liasses — par type d'opération" />
+        <View style={{ gap: 8 }}>
+          {DOC_PACKS.map((pack) => {
+            const doneIds = new Set(history.map((h) => h.typeId));
+            const done = pack.items.filter((i) => doneIds.has(i.typeId)).length;
+            return (
+              <Pressable key={pack.id} onPress={() => setSelectedPack(pack)}>
+                <Surface padded flat style={{ padding: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: RADII.md, backgroundColor: theme.navy, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icons.doc size={18} color={theme.gold} stroke={1.8} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                        {pack.label}
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }} numberOfLines={1}>
+                        {pack.subtitle}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
+                      {done}/{pack.items.length}
+                    </Text>
+                    <Icons.arrow size={16} color={theme.muted} stroke={1.8} />
+                  </View>
+                </Surface>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <SectionHead title="Tous les documents" style={{ marginTop: 8 }} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {ADMIN_DOC_TYPES.map((t) => (
             <Pressable

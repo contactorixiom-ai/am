@@ -800,6 +800,103 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LIASSES DOCUMENTAIRES — ce qu'il faut réellement fournir par type d'opération
+// Roger ne pense pas « facture n° 42 » mais « mon envoi maritime vers Dakar ».
+// Chaque liasse liste les documents exigés pour ce corridor, plus les
+// démarches externes que l'app ne peut pas émettre (BSC, visa CCI…).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface DocPackItem {
+  typeId: AdminDocTypeId;
+  required: boolean;
+  note?: string;
+}
+
+export interface DocPackExternalStep {
+  label: string;
+  note: string;
+  url?: string;
+}
+
+export interface DocPack {
+  id: string;
+  label: string;
+  subtitle: string;
+  activity: AdminActivity;
+  items: DocPackItem[];
+  externalSteps?: DocPackExternalStep[];
+}
+
+export const DOC_PACKS: DocPack[] = [
+  {
+    id: 'exportSeaAfrica',
+    label: 'Export maritime — Afrique de l\'Ouest',
+    subtitle: 'Conteneur / palettes vers Dakar, Abidjan…',
+    activity: 'marchandise',
+    items: [
+      { typeId: 'commercialInvoice', required: true, note: 'Base du calcul des droits de douane' },
+      { typeId: 'packingList', required: true },
+      { typeId: 'certificateOfOrigin', required: true, note: 'À faire viser par la CCI' },
+      { typeId: 'billOfLading', required: true, note: 'Émis par la compagnie maritime' },
+      { typeId: 'exportDeclaration', required: true, note: 'Déclaration réelle via DELTA' },
+      { typeId: 'customsMandate', required: true, note: 'Si Axis dédouane pour le client' },
+      { typeId: 'insurance', required: false },
+      { typeId: 'shippingInstructions', required: false },
+    ],
+    externalSteps: [
+      {
+        label: 'BSC / BESC — Bordereau de suivi des cargaisons',
+        note: 'OBLIGATOIRE pour le Sénégal et la Côte d\'Ivoire. À obtenir sur le portail officiel AVANT l\'embarquement. Sans lui : marchandise bloquée au port + pénalité de 30 à 50 % de la valeur CIF.',
+        url: 'https://cosec.besc-senegal.net',
+      },
+    ],
+  },
+  {
+    id: 'exportAirAfrica',
+    label: 'Export aérien — Afrique',
+    subtitle: 'Colis et marchandises par avion',
+    activity: 'marchandise',
+    items: [
+      { typeId: 'commercialInvoice', required: true },
+      { typeId: 'packingList', required: true },
+      { typeId: 'airWaybill', required: true, note: 'Émise par la compagnie / l\'agent IATA' },
+      { typeId: 'certificateOfOrigin', required: false },
+      { typeId: 'exportDeclaration', required: true },
+      { typeId: 'customsMandate', required: false },
+      { typeId: 'insurance', required: false },
+    ],
+  },
+  {
+    id: 'convoyEurope',
+    label: 'Convoyage véhicule — Europe',
+    subtitle: 'Mission de convoyage France / Europe',
+    activity: 'convoyage',
+    items: [
+      { typeId: 'contract', required: true, note: 'Contrat + état des lieux départ/arrivée' },
+      { typeId: 'invoice', required: true },
+      { typeId: 'insurance', required: false },
+      { typeId: 'deliveryNote', required: false, note: 'Preuve de remise du véhicule' },
+    ],
+  },
+  {
+    id: 'parcelDiaspora',
+    label: 'Colis diaspora',
+    subtitle: 'Envoi de colis France → Afrique',
+    activity: 'colis',
+    items: [
+      { typeId: 'shippingLabel', required: true },
+      { typeId: 'invoice', required: true },
+      { typeId: 'deliveryNote', required: false },
+      { typeId: 'commercialInvoice', required: false, note: 'Si contenu commercial' },
+    ],
+  },
+];
+
+export function docPackById(id: string): DocPack | undefined {
+  return DOC_PACKS.find((p) => p.id === id);
+}
+
 export function adminDocTypeById(id: AdminDocTypeId | string): AdminDocType | undefined {
   return ADMIN_DOC_TYPES.find((t) => t.id === id);
 }
