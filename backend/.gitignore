@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+uploads/
+.idea/
+.vscode/
+*.tsbuildinfo
+prisma/seed.js
+prisma/seed.d.ts
+prisma/seed.js.map
