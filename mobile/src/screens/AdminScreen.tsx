@@ -731,10 +731,10 @@ export function AdminScreen() {
                 {/* Lieu / note ajoutés au prochain changement de statut (facultatif) */}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <Field label="Lieu (option.)" value={eventLocation} onChangeText={setEventLocation} placeholder="Ex. Hub Marseille" />
+                    <Field label="Lieu (facultatif)" value={eventLocation} onChangeText={setEventLocation} placeholder="Ex. Hub Marseille" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Field label="Note (option.)" value={eventNote} onChangeText={setEventNote} placeholder="Ex. Dédouané" />
+                    <Field label="Note (facultatif)" value={eventNote} onChangeText={setEventNote} placeholder="Ex. Dédouané" />
                   </View>
                 </View>
 
@@ -1039,7 +1039,7 @@ export function AdminScreen() {
                   );
                 })}
               </View>
-              <Field label="Consignes (option.)" value={order.notes} onChangeText={setOrderField('notes')} placeholder="Remise des clés à l'accueil" multiline />
+              <Field label="Consignes (facultatif)" value={order.notes} onChangeText={setOrderField('notes')} placeholder="Remise des clés à l'accueil" multiline />
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                 <Button kind="ghost" size="md" style={{ flex: 1 }} onPress={() => setOrderOpen(false)}>
@@ -1353,6 +1353,10 @@ export function AdminScreen() {
           ) : null}
 
           <SectionHead title="Documents de la liasse" style={{ marginTop: 6 }} />
+          <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: -2, marginBottom: 2, lineHeight: 16 }}>
+            Touche un document pour le générer. « Obligatoire » = exigé par la douane
+            ou le transporteur pour cette opération ; « Facultatif » = utile mais non exigé.
+          </Text>
           <View style={{ gap: 8 }}>
             {pack.items.map((item) => {
               const t = adminDocTypeById(item.typeId);
@@ -1372,9 +1376,11 @@ export function AdminScreen() {
                           <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
                             {t.label}
                           </Text>
+                          {/* Badge d'information, pas un bouton : il dit si la
+                              douane exige ce document pour ce type d'opération. */}
                           {item.required
-                            ? <Pill tone="gold">Requis</Pill>
-                            : <Pill tone="ghost">Optionnel</Pill>}
+                            ? <Pill tone="warn">Obligatoire</Pill>
+                            : <Pill tone="ghost">Facultatif</Pill>}
                         </View>
                         <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={2}>
                           {item.note ?? t.description}

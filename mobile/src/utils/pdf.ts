@@ -59,10 +59,12 @@ const CP1252_EXTRA = '\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u01
 export function safeText(value: unknown): string {
   let s = value === null || value === undefined ? '' : String(value);
   s = s
-    .replace(/[\u2192\u21D2\u2794\u27A1]/g, '-')   // flèches droite
-    .replace(/[\u2190\u21D0]/g, '-')                 // flèches gauche
+    // Le tiret demi-cadratin est dans CP1252 : il survit à l'encodage WinAnsi
+    // et reste la bonne typographie française pour un trajet (Paris–Dakar).
+    .replace(/[\u2192\u21D2\u2794\u27A1]/g, '\u2013')  // flèches droite
+    .replace(/[\u2190\u21D0]/g, '\u2013')                 // flèches gauche
     .replace(/[\u2713\u2714]/g, '')                  // coches
-    .replace(/[\u2717\u2718\u2715\u00D7]/g, 'x')   // croix
+    .replace(/[\u2717\u2718\u2715]/g, 'x')   // croix
     .replace(/[\u00A0\u202F\u2009\u2007]/g, ' ')   // espaces insécables
     .replace(/[\u2264]/g, '<=').replace(/[\u2265]/g, '>=')
     .replace(/[\u2248]/g, '~');
@@ -189,7 +191,8 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     setColor(doc, INK, 'text');
-    doc.text('✓ Document à valeur légale · eIDAS', tx, blockY + 4);
+    drawTick(doc, tx, blockY + 4, 2.4, INK);
+    doc.text('Document à valeur légale · eIDAS', tx + 3.6, blockY + 4);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     setColor(doc, MUTED, 'text');
@@ -199,12 +202,13 @@ async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoi
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     setColor(doc, INK, 'text');
-    doc.text('✓ Document à valeur légale', tx, blockY + 4);
+    drawTick(doc, tx, blockY + 4, 2.7, INK);
+    doc.text('Document à valeur légale', tx + 4, blockY + 4);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     setColor(doc, MUTED, 'text');
-    doc.text('Facture conforme art. 289 CGI · conservée 10 ans', tx, blockY + 8);
+    doc.text('Facture conforme à l\'art. 289 du CGI · conservée 10 ans', tx, blockY + 8);
     doc.text(`Horodaté le ${ts}`, tx, blockY + 12);
     doc.text(`Empreinte SHA · ${hash.toUpperCase()}`, tx, blockY + 15.5);
     doc.text('Scanner le QR code pour vérifier l\'authenticité sur', tx, blockY + 20);
@@ -283,7 +287,7 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   if (data.clientSiren) doc.text(`SIREN : ${data.clientSiren}`, w / 2 + 4, cy);
   doc.text('14 rue de la Logistique, 75015 Paris, France', 14, y + 8);
   doc.text('RCS Paris 925 487 312 · SIRET 925 487 312 00018', 14, y + 12);
-  doc.text('TVA intracom : FR42 925487312', 14, y + 16);
+  doc.text('TVA intracommunautaire : FR42 925487312', 14, y + 16);
 
   // Dates légales (prestation + échéance)
   doc.setFontSize(8);
@@ -414,7 +418,7 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData, sh
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     setColor(doc, INK, 'text');
-    doc.text('BORDEREAU DE SUIVI DE CARGAISON REQUIS', 18, y + 6);
+    doc.text('BORDEREAU DE SUIVI DES CARGAISONS REQUIS', 18, y + 6);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(255, 255, 255);
@@ -460,7 +464,12 @@ export async function generateCustomsChecklistPdf(data: CustomsChecklistData, sh
     doc.setFontSize(8.5);
     if (provided) doc.setTextColor(31, 138, 91);
     else setColor(doc, item.mandatory ? '#B7791F' : MUTED, 'text');
-    doc.text(provided ? '✓ Fourni' : 'Manquant', w - 18, y, { align: 'right' });
+    const statusLabel = provided ? 'Fourni' : 'Manquant';
+    doc.text(statusLabel, w - 18, y, { align: 'right' });
+    if (provided) {
+      // Coche placée juste à gauche du mot, qui est aligné à droite.
+      drawTick(doc, w - 18 - doc.getTextWidth(statusLabel) - 4, y, 2.6);
+    }
 
     if (item.note) {
       y += 4;
@@ -617,11 +626,18 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   // N° encadré
   setColor(doc, INK, 'draw');
   doc.setLineWidth(0.4);
-  const num = `N° ${data.reference || '2026-XXXX-XXXX'}`;
-  const numW = doc.getTextWidth(num) + 6;
-  doc.rect(W / 2 - numW / 2, M + 10, numW, 5);
+  // Le prix convenu est une mention contractuelle : il tient dans le cartouche
+  // de référence, ce qui évite de décaler l'état des lieux (page calibrée au mm).
+  const priceLabel =
+    data.priceEur != null && data.priceEur > 0
+      ? ` · ${data.priceEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR TTC`
+      : '';
+  const num = `N° ${data.reference || '2026-XXXX-XXXX'}${priceLabel}`;
+  // La police doit être posée AVANT la mesure, sinon le cadre est trop étroit.
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
+  const numW = doc.getTextWidth(num) + 7;
+  doc.rect(W / 2 - numW / 2, M + 10, numW, 5);
   setColor(doc, INK, 'text');
   doc.text(num, W / 2, M + 13.5, { align: 'center' });
 
@@ -794,6 +810,24 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
 }
 
 // ─── Sous-blocs ───────────────────────────────────────────────────────────
+
+// Coche vectorielle. Le caractère « ✓ » (U+2713) n'existe pas dans l'encodage
+// WinAnsi des polices jsPDF : safeText le retire, ce qui laissait une espace
+// parasite en tête de ligne (et décalait les textes alignés à droite).
+// On la trace donc en vectoriel, alignée sur la ligne de base du texte.
+function drawTick(doc: jsPDF, x: number, baselineY: number, size = 2.6, color = '#2E7D32') {
+  setColor(doc, color, 'draw');
+  doc.setLineWidth(size / 4.5);
+  doc.setLineCap('round');
+  doc.setLineJoin('round');
+  doc.lines(
+    [[size * 0.38, size * 0.42], [size * 0.72, -size * 1.02]],
+    x,
+    baselineY - size * 0.42,
+  );
+  doc.setLineCap('butt');
+  doc.setLineJoin('miter');
+}
 
 function drawCheckbox(doc: jsPDF, x: number, y: number, size: number, checked: boolean) {
   setColor(doc, INK, 'draw');
@@ -1023,7 +1057,8 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
     doc.setTextColor(46, 125, 50);
-    doc.text('✓ Signé', rx + 2, sy + 9);
+    drawTick(doc, rx + 2, sy + 9, 2.8);
+    doc.text('Signé', rx + 6.2, sy + 9);
   }
   if (d.clientSignature) {
     drawSignature(doc, d.clientSignature, rx + rightW / 2, sy + 2, rightW / 2 - 6, 12);
@@ -1031,7 +1066,8 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
     doc.setTextColor(46, 125, 50);
-    doc.text('✓ Signé électroniquement', rx + rightW / 2 + 2, sy + 8);
+    drawTick(doc, rx + rightW / 2 + 2, sy + 8, 2.8);
+    doc.text('Signé électroniquement', rx + rightW / 2 + 6.2, sy + 8);
     if (d.clientSignedDate) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
@@ -1683,7 +1719,7 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   setColor(doc, INK, 'text');
   doc.text(doc.splitTextToSize(
     data.scope
-      ?? `Le mandant autorise le mandataire à accomplir ${(data.representation ?? 'directe') === 'directe' ? "au nom et pour le compte du mandant" : "en son nom propre, pour le compte du mandant"} l'ensemble des formalités douanières (déclaration en douane, paiement des droits et taxes, enlèvement des marchandises) relatives à l'opération à destination de ${data.destinationCountry ?? 'Sénégal'}, ainsi qu'à le représenter auprès de l'administration des douanes. Mandat établi conformément aux articles 18 et 19 du Code des douanes de l'Union (règlement UE n° 952/2013).`,
+      ?? `Le mandant autorise le mandataire à accomplir ${(data.representation ?? 'directe') === 'directe' ? "au nom et pour le compte du mandant" : "en son nom propre, pour le compte du mandant"} l'ensemble des formalités douanières (déclaration en douane, paiement des droits et taxes, enlèvement des marchandises) relatives à l'opération d'exportation (pays de destination : ${data.destinationCountry ?? '...'}), ainsi qu'à le représenter auprès de l'administration des douanes. Mandat établi conformément aux articles 18 et 19 du Code des douanes de l'Union (règlement UE n° 952/2013).`,
     W - 2 * M,
   ), M, y);
 

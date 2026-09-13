@@ -756,7 +756,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'agentRegistration', label: 'N° représentant en douane enregistré (RDE)', half: true, hint: 'Laisser vide si non détenu' },
       { key: 'representation', label: 'Nature de la représentation', type: 'select', options: ['directe', 'indirecte'], half: true },
       { key: 'destinationCountry', label: 'Pays de destination', half: true },
-      { key: 'scope', label: 'Étendue du mandat (optionnel)', type: 'multiline', hint: 'Vide = clause standard' },
+      { key: 'scope', label: 'Étendue du mandat (facultatif)', type: 'multiline', hint: 'Vide = clause standard' },
     ],
     defaults: (ctx) => ({
       number: ctx.reference,
@@ -986,7 +986,7 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   const dest = [data.destinationCity, data.destinationCountry].filter(Boolean).join(', ');
-  doc.text(`${data.originCity || '—'}  →  ${dest || '—'}`, M + 3, y, { maxWidth: W - 2 * M - 6 });
+  doc.text(`${data.originCity || '—'} → ${dest || '—'}`, M + 3, y, { maxWidth: W - 2 * M - 6 });
 
   // Destinataire + poids
   y += 9;
@@ -1023,7 +1023,8 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   doc.setFontSize(7);
   doc.text('SUIVI EN LIGNE', M + qrSize + 7, qrY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  // 7 pt : l'URL de suivi tient sur une seule ligne, la référence n'est pas coupée.
+  doc.setFontSize(7);
   doc.text(doc.splitTextToSize(trackUrl, W - M - (M + qrSize + 7) - 3), M + qrSize + 7, qrY + 10);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
@@ -1054,7 +1055,7 @@ function axisLetterhead(doc: jsPDF, title: string, subtitle?: string): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.3);
   doc.setTextColor(107, 107, 107);
-  doc.text('CONVOYAGE · IMPORT-EXPORT EUROPE - AFRIQUE', M + 17, 20);
+  doc.text('CONVOYAGE · IMPORT-EXPORT EUROPE \u2013 AFRIQUE', M + 17, 20);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
@@ -1412,6 +1413,16 @@ export interface CertificateOfOriginData {
   signatory?: string;
 }
 
+// « Émis à Le Havre » est fautif : l'article se contracte. Ce helper produit
+// « au Havre », « aux Sables-d'Olonne », et « à Paris » dans tous les autres cas.
+function atPlace(place: string): string {
+  const p = place.trim();
+  if (!p) return 'à ...';
+  if (/^le\s+/i.test(p)) return `au ${p.slice(3).trim()}`;
+  if (/^les\s+/i.test(p)) return `aux ${p.slice(4).trim()}`;
+  return `à ${p}`;
+}
+
 export async function generateCertificateOfOriginPdf(data: CertificateOfOriginData): Promise<void> {
   const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
   const W = doc.internal.pageSize.getWidth();
@@ -1435,7 +1446,7 @@ export async function generateCertificateOfOriginPdf(data: CertificateOfOriginDa
   y += 14;
   formBox(doc, M, y, CW, 12, '5', 'Observations', g(data.remarks));
   y += 12;
-  formBox(doc, M, y, CW, 42, '6', 'Marques, n°s, nombre et nature des colis — désignation des marchandises', [g(data.packages), g(data.goods)].filter(Boolean).join('\n'));
+  formBox(doc, M, y, CW, 42, '6', 'Marques, numéros, nombre et nature des colis — désignation des marchandises', [g(data.packages), g(data.goods)].filter(Boolean).join('\n'));
   y += 42;
   formBox(doc, M, y, CW, 12, '7', 'Quantité', g(data.quantity));
   y += 18;
@@ -1445,7 +1456,7 @@ export async function generateCertificateOfOriginPdf(data: CertificateOfOriginDa
   doc.setTextColor(0, 0, 0);
   doc.text(doc.splitTextToSize('Le soussigné certifie que les marchandises désignées ci-dessus sont originaires du pays indiqué en case 3.', CW) as string[], M, y);
   y += 12;
-  doc.text(`Fait à ${g(data.signatoryPlace) || '...'}, le ${g(data.date) || '...'}`, M, y);
+  doc.text(`Fait ${atPlace(g(data.signatoryPlace))}, le ${g(data.date) || '...'}`, M, y);
   doc.setFont('helvetica', 'bold');
   doc.text(g(data.signatory) || 'Axis Import SAS', W - M, y, { align: 'right' });
   doc.setDrawColor(204, 204, 204);
@@ -1593,10 +1604,10 @@ export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<v
   formBox(doc, M + half, y, half, 18, null, 'Partie à notifier / Notify party', g(data.notifyParty));
   y += 18;
   formBox(doc, M, y, half, 12, null, 'Navire / Vessel · Voyage', [g(data.vessel), data.voyageNo ? 'Voy. ' + data.voyageNo : ''].filter(Boolean).join(' · '));
-  formBox(doc, M + half, y, half, 12, null, 'Lieu de réception → livraison', [g(data.placeOfReceipt), g(data.placeOfDelivery)].filter(Boolean).join(' → '));
+  formBox(doc, M + half, y, half, 12, null, 'Lieu de réception / livraison', [g(data.placeOfReceipt), g(data.placeOfDelivery)].filter(Boolean).join(' → '));
   y += 12;
   formBox(doc, M, y, half, 12, null, 'Port de chargement / Port of loading', g(data.portOfLoading));
-  formBox(doc, M + half, y, half, 12, null, 'Port de déchargement / of discharge', g(data.portOfDischarge));
+  formBox(doc, M + half, y, half, 12, null, 'Port de déchargement / Port of discharge', g(data.portOfDischarge));
   y += 12;
   formBox(doc, M, y, CW, 12, null, 'Conteneur / N° de plomb', g(data.containerNo));
   y += 12;
@@ -1626,7 +1637,7 @@ export async function generateBillOfLadingPdf(data: BillOfLadingData): Promise<v
   doc.text(`SHIPPED ON BOARD / Embarqué : ${g(data.shippedOnBoardDate) || g(data.date) || '...'}`, M, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text(`Émis à ${g(data.placeOfIssue) || '...'}, le ${g(data.date) || '...'}`, M, y + 12);
+  doc.text(`Émis ${atPlace(g(data.placeOfIssue))}, le ${g(data.date) || '...'}`, M, y + 12);
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
   doc.line(W - M - 62, y + 15, W - M, y + 15);
@@ -1714,7 +1725,7 @@ export async function generateAirWaybillPdf(data: AirWaybillData): Promise<void>
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Émis à ${g(data.executedPlace) || '...'}, le ${g(data.date) || '...'}`, M, y + 7);
+  doc.text(`Émis ${atPlace(g(data.executedPlace))}, le ${g(data.date) || '...'}`, M, y + 7);
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
   doc.line(M, y + 17, M + 60, y + 17);
