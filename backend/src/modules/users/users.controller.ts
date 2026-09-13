@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
@@ -28,6 +30,18 @@ export class UsersController {
   @ApiOperation({ summary: 'Créer ou mettre à jour son profil convoyeur' })
   upsertDriver(@CurrentUser('id') userId: string, @Body() dto: UpsertDriverProfileDto) {
     return this.users.upsertDriverProfile(userId, dto);
+  }
+
+  @Get('clients')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin : annuaire des clients' })
+  async listClients(@Query() pagination: PaginationDto, @Query('q') q?: string) {
+    const { data, total } = await this.users.listClients({
+      skip: pagination.skip,
+      take: pagination.take,
+      q,
+    });
+    return paginate(data, total, pagination.page, pagination.pageSize);
   }
 
   @Get('drivers')

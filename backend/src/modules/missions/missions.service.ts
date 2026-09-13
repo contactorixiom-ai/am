@@ -7,6 +7,9 @@ import {
 import { MissionStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import * as argon2 from 'argon2';
+import { randomBytes } from 'crypto';
+import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
 
@@ -49,6 +52,130 @@ export class MissionsService {
         },
       },
       include: { vehicle: true },
+    });
+  }
+
+  // Prise de commande par Roger (téléphone / e-mail) : il saisit la commande à la
+  // place du client. Le client et le véhicule sont créés à la volée si besoin,
+  // et le convoyeur peut être affecté dans la foulée.
+  async adminCreate(adminId: string, dto: AdminCreateMissionDto) {
+    const client = await this.resolveClient(dto);
+    const vehicle = await this.resolveVehicle(client.id, dto);
+
+    const hasDriver = Boolean(dto.driverId);
+    const status = hasDriver ? MissionStatus.ACCEPTED : MissionStatus.DRAFT;
+
+    if (dto.driverId) {
+      const driver = await this.prisma.user.findUnique({ where: { id: dto.driverId } });
+      if (!driver || driver.deletedAt) throw new NotFoundException('Convoyeur introuvable');
+    }
+
+    const mission = await this.prisma.mission.create({
+      data: {
+        clientId: client.id,
+        vehicleId: vehicle.id,
+        driverId: dto.driverId ?? null,
+        reference: this.generateReference(),
+        status,
+        priority: dto.priority,
+        acceptedAt: hasDriver ? new Date() : null,
+        priceCents: dto.priceCents ?? null,
+        distanceKm: dto.distanceKm ?? null,
+        pickupAddress: dto.pickupAddress,
+        pickupCity: dto.pickupCity,
+        pickupCountry: (dto.pickupCountry ?? 'FR').toUpperCase(),
+        pickupPostalCode: dto.pickupPostalCode,
+        pickupLatitude: dto.pickupLatitude ?? 0,
+        pickupLongitude: dto.pickupLongitude ?? 0,
+        pickupAt: new Date(dto.pickupAt),
+        pickupNotes: dto.pickupNotes,
+        deliveryAddress: dto.deliveryAddress,
+        deliveryCity: dto.deliveryCity,
+        deliveryCountry: (dto.deliveryCountry ?? 'FR').toUpperCase(),
+        deliveryPostalCode: dto.deliveryPostalCode,
+        deliveryLatitude: dto.deliveryLatitude ?? 0,
+        deliveryLongitude: dto.deliveryLongitude ?? 0,
+        deliveryAt: dto.deliveryAt ? new Date(dto.deliveryAt) : null,
+        deliveryNotes: dto.deliveryNotes,
+        statusHistory: {
+          create: { status, changedBy: adminId, notes: 'Commande saisie par l\'administrateur' },
+        },
+      },
+      include: {
+        vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true } },
+        client: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+        driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
+      },
+    });
+
+    if (dto.driverId) {
+      await this.ensureMissionConversation(mission.id, client.id, dto.driverId);
+    }
+    return mission;
+  }
+
+  private async resolveClient(dto: AdminCreateMissionDto) {
+    if (dto.clientId) {
+      const existing = await this.prisma.user.findUnique({ where: { id: dto.clientId } });
+      if (!existing || existing.deletedAt) throw new NotFoundException('Client introuvable');
+      return existing;
+    }
+
+    const email = dto.clientEmail?.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException('Indiquez un client existant ou son adresse e-mail');
+    }
+
+    const byEmail = await this.prisma.user.findUnique({ where: { email } });
+    if (byEmail && !byEmail.deletedAt) return byEmail;
+
+    if (!dto.clientFirstName || !dto.clientLastName) {
+      throw new BadRequestException('Nom et prénom requis pour créer le client');
+    }
+
+    // Mot de passe aléatoire : le client passera par « mot de passe oublié »
+    // pour activer son accès au suivi.
+    const passwordHash = await argon2.hash(randomBytes(24).toString('hex'), { type: argon2.argon2id });
+    return this.prisma.user.create({
+      data: {
+        email,
+        phone: dto.clientPhone?.trim() || null,
+        passwordHash,
+        role: UserRole.CLIENT,
+        status: 'PENDING',
+        firstName: dto.clientFirstName.trim(),
+        lastName: dto.clientLastName.trim(),
+      },
+    });
+  }
+
+  private async resolveVehicle(clientId: string, dto: AdminCreateMissionDto) {
+    if (dto.vehicleId) {
+      const existing = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
+      if (!existing || existing.deletedAt) throw new NotFoundException('Véhicule introuvable');
+      return existing;
+    }
+
+    if (!dto.vehicleMake || !dto.vehicleModel || !dto.vehiclePlate) {
+      throw new BadRequestException('Marque, modèle et immatriculation du véhicule requis');
+    }
+
+    const plate = dto.vehiclePlate.trim().toUpperCase();
+    const known = await this.prisma.vehicle.findFirst({
+      where: { ownerId: clientId, licensePlate: plate, deletedAt: null },
+    });
+    if (known) return known;
+
+    return this.prisma.vehicle.create({
+      data: {
+        ownerId: clientId,
+        type: dto.vehicleType,
+        make: dto.vehicleMake.trim(),
+        model: dto.vehicleModel.trim(),
+        year: dto.vehicleYear ?? new Date().getFullYear(),
+        licensePlate: plate,
+        vin: dto.vehicleVin?.trim() || null,
+      },
     });
   }
 
@@ -140,6 +267,83 @@ export class MissionsService {
         },
       },
       include: { conversation: true },
+    });
+  }
+
+  // Affectation par l'administrateur (Roger dispose de ses propres convoyeurs).
+  // Contrairement à accept(), la mission n'a pas besoin d'être PUBLISHED : Roger
+  // peut affecter directement depuis un brouillon, et réaffecter si besoin.
+  async assignDriver(id: string, driverId: string, adminId: string) {
+    const mission = await this.requireMission(id);
+
+    const finalStatuses: MissionStatus[] = [MissionStatus.COMPLETED, MissionStatus.CANCELLED];
+    if (finalStatuses.includes(mission.status)) {
+      throw new BadRequestException('Mission cloturee : affectation impossible');
+    }
+    if (mission.status === MissionStatus.DELIVERED) {
+      throw new BadRequestException('Mission deja livree : affectation impossible');
+    }
+
+    const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
+    if (!driver || driver.deletedAt) throw new NotFoundException('Convoyeur introuvable');
+    if (driver.role !== UserRole.DRIVER && driver.role !== UserRole.ADMIN) {
+      throw new BadRequestException('Cet utilisateur n\'est pas un convoyeur');
+    }
+
+    // DRAFT/PUBLISHED -> ACCEPTED. Une mission déjà démarrée garde son statut.
+    const nextStatus =
+      mission.status === MissionStatus.DRAFT || mission.status === MissionStatus.PUBLISHED
+        ? MissionStatus.ACCEPTED
+        : mission.status;
+
+    const updated = await this.prisma.mission.update({
+      where: { id },
+      data: {
+        driverId,
+        status: nextStatus,
+        acceptedAt: mission.acceptedAt ?? new Date(),
+        statusHistory: {
+          create: {
+            status: nextStatus,
+            changedBy: adminId,
+            notes: `Affectation convoyeur : ${driver.firstName ?? ''} ${driver.lastName ?? ''}`.trim(),
+          },
+        },
+      },
+      include: {
+        vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+        driver: { select: { id: true, firstName: true, lastName: true, phone: true, avatarUrl: true } },
+        client: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    await this.ensureMissionConversation(id, mission.clientId, driverId);
+    return updated;
+  }
+
+  // La conversation est unique par mission : on la crée si absente, sinon on
+  // s'assure que le convoyeur affecté en fait partie (cas d'une réaffectation).
+  private async ensureMissionConversation(missionId: string, clientId: string, driverId: string) {
+    const existing = await this.prisma.conversation.findUnique({
+      where: { missionId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      await this.prisma.conversation.create({
+        data: {
+          type: 'MISSION',
+          missionId,
+          participants: { create: [{ userId: clientId }, { userId: driverId }] },
+        },
+      });
+      return;
+    }
+
+    await this.prisma.conversationParticipant.upsert({
+      where: { conversationId_userId: { conversationId: existing.id, userId: driverId } },
+      create: { conversationId: existing.id, userId: driverId },
+      update: {},
     });
   }
 

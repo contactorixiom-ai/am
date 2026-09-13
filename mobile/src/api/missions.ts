@@ -49,6 +49,84 @@ export async function publishMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
 }
 
+// ─── Espace admin (Roger) ─────────────────────────────────────────────────
+// Roger prend les commandes par téléphone et affecte lui-même ses convoyeurs.
+// Ces routes sont réservées au rôle ADMIN côté backend.
+
+export interface DriverOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  driverProfile?: { baseCity?: string | null; rating?: number | null } | null;
+}
+
+export interface ClientOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  companyName?: string | null;
+}
+
+export async function listDrivers(city?: string): Promise<DriverOption[]> {
+  const qs = city ? `?pageSize=100&city=${encodeURIComponent(city)}` : '?pageSize=100';
+  const res = await apiFetch<{ data: DriverOption[] }>(`/users/drivers${qs}`);
+  return res?.data ?? [];
+}
+
+export async function listClients(q?: string): Promise<ClientOption[]> {
+  const qs = q ? `?pageSize=50&q=${encodeURIComponent(q)}` : '?pageSize=50';
+  const res = await apiFetch<{ data: ClientOption[] }>(`/users/clients${qs}`);
+  return res?.data ?? [];
+}
+
+export async function assignDriver(missionId: string, driverId: string): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>(`/missions/${missionId}/assign`, {
+    method: 'POST',
+    body: { driverId },
+  });
+}
+
+export interface AdminCreateMissionInput {
+  clientId?: string;
+  clientEmail?: string;
+  clientFirstName?: string;
+  clientLastName?: string;
+  clientPhone?: string;
+  vehicleId?: string;
+  vehicleType?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER';
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehiclePlate?: string;
+  vehicleVin?: string;
+  driverId?: string;
+  priority?: 'STANDARD' | 'EXPRESS' | 'URGENT';
+  pickupAddress: string;
+  pickupCity: string;
+  pickupCountry?: string;
+  pickupPostalCode?: string;
+  pickupAt: string;
+  pickupNotes?: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryCountry?: string;
+  deliveryPostalCode?: string;
+  deliveryAt?: string;
+  deliveryNotes?: string;
+  priceCents?: number;
+  distanceKm?: number;
+}
+
+export async function adminCreateMission(
+  input: AdminCreateMissionInput,
+): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>('/missions/admin', { method: 'POST', body: input });
+}
+
 // ─── Brouillon de convoyage (threadé sans toucher navigation/types) ────────
 // CarRequestScreen collecte les infos véhicule + trajet mais ne peut pas les
 // passer en paramètres de route (navigation/types.ts est gelé). On persiste

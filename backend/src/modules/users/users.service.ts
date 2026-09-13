@@ -84,6 +84,37 @@ export class UsersService {
     });
   }
 
+  // Annuaire clients pour l'espace admin (prise de commande téléphonique).
+  async listClients(opts: { skip: number; take: number; q?: string }) {
+    const term = opts.q?.trim();
+    const where: Prisma.UserWhereInput = {
+      role: UserRole.CLIENT,
+      deletedAt: null,
+      ...(term
+        ? {
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' as const } },
+              { lastName: { contains: term, mode: 'insensitive' as const } },
+              { email: { contains: term, mode: 'insensitive' as const } },
+              { phone: { contains: term, mode: 'insensitive' as const } },
+              { companyName: { contains: term, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip: opts.skip,
+        take: opts.take,
+        select: this.safeSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { data, total };
+  }
+
   async listDrivers(opts: { skip: number; take: number; city?: string }) {
     const where: Prisma.UserWhereInput = {
       role: UserRole.DRIVER,

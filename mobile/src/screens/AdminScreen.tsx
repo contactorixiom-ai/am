@@ -5,7 +5,16 @@
 //   3. Documents — historique local des documents, filtré par activité
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { listMissions, MissionSummary } from '../api/missions';
+import {
+  adminCreateMission,
+  assignDriver,
+  ClientOption,
+  DriverOption,
+  listClients,
+  listDrivers,
+  listMissions,
+  MissionSummary,
+} from '../api/missions';
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
@@ -117,6 +126,52 @@ const DEMO_PARCELS: ParcelSummary[] = [
 // ─── Pré-remplissage d'une liasse depuis un envoi réel ───────────────────────
 // Les clés couvrent l'ensemble des types de documents : chaque formulaire ne
 // retient que les champs qu'il déclare, les autres sont simplement ignorés.
+// Brouillon de prise de commande (Roger saisit au téléphone).
+interface OrderDraft {
+  clientId: string;          // '' = nouveau client
+  clientFirstName: string;
+  clientLastName: string;
+  clientEmail: string;
+  clientPhone: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  vehicleYear: string;
+  vehiclePlate: string;
+  pickupAddress: string;
+  pickupCity: string;
+  pickupPostalCode: string;
+  pickupCountry: string;
+  pickupAt: string;          // JJ/MM/AAAA
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPostalCode: string;
+  deliveryCountry: string;
+  price: string;             // EUR TTC
+  driverId: string;          // '' = pas d'affectation immédiate
+  notes: string;
+}
+
+const EMPTY_ORDER: OrderDraft = {
+  clientId: '', clientFirstName: '', clientLastName: '', clientEmail: '', clientPhone: '',
+  vehicleMake: '', vehicleModel: '', vehicleYear: '', vehiclePlate: '',
+  pickupAddress: '', pickupCity: '', pickupPostalCode: '', pickupCountry: 'FR', pickupAt: '',
+  deliveryAddress: '', deliveryCity: '', deliveryPostalCode: '', deliveryCountry: 'FR',
+  price: '', driverId: '', notes: '',
+};
+
+// « 15/10/2026 » ou « 2026-10-15 » -> ISO. Renvoie null si illisible.
+function parseFrDate(input: string): string | null {
+  const v = input.trim();
+  if (!v) return null;
+  const fr = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (fr) {
+    const d = new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1]), 9, 0, 0);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const iso = new Date(v);
+  return Number.isNaN(iso.getTime()) ? null : iso.toISOString();
+}
+
 const AXIS_SENDER = {
   senderName: 'Axis Import SAS',
   senderAddress: '14 rue de la Logistique, 75015 Paris, France',
@@ -212,6 +267,18 @@ export function AdminScreen() {
   // Lieu / note optionnels ajoutés au prochain changement de statut.
   const [eventLocation, setEventLocation] = useState('');
   const [eventNote, setEventNote] = useState('');
+
+  // Affectation d'un convoyeur (modale)
+  const [assignMission, setAssignMission] = useState<MissionSummary | null>(null);
+  const [drivers, setDrivers] = useState<DriverOption[] | null>(null);
+  const [assigning, setAssigning] = useState(false);
+
+  // Prise de commande (modale)
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientOption[] | null>(null);
+  const [order, setOrder] = useState<OrderDraft>(EMPTY_ORDER);
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -513,8 +580,129 @@ export function AdminScreen() {
       </ScrollView>
 
       {renderStatusModal()}
+      {renderAssignModal()}
+      {renderOrderModal()}
     </SafeAreaView>
   );
+
+  // ─── Affectation d'un convoyeur ────────────────────────────────────────────
+  function openAssign(m: MissionSummary) {
+    if (offline) {
+      notify('Hors ligne', "L'affectation d'un convoyeur nécessite une connexion au serveur.");
+      return;
+    }
+    setAssignMission(m);
+    if (drivers === null) {
+      listDrivers()
+        .then(setDrivers)
+        .catch(() => setDrivers([]));
+    }
+  }
+
+  async function confirmAssign(driverId: string) {
+    const m = assignMission;
+    if (!m || assigning) return;
+    setAssigning(true);
+    try {
+      const updated = await assignDriver(m.id, driverId);
+      setMissions((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...updated } : x)));
+      setAssignMission(null);
+      const d = (drivers ?? []).find((x) => x.id === driverId);
+      notify('Convoyeur affecté', d ? `${m.reference} confié à ${d.firstName} ${d.lastName}.` : m.reference);
+    } catch (e) {
+      notify('Affectation impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  // ─── Prise de commande ─────────────────────────────────────────────────────
+  function openOrder() {
+    if (offline) {
+      notify('Hors ligne', 'La prise de commande nécessite une connexion au serveur.');
+      return;
+    }
+    setOrder(EMPTY_ORDER);
+    setOrderError(null);
+    setOrderOpen(true);
+    if (clients === null) listClients().then(setClients).catch(() => setClients([]));
+    if (drivers === null) listDrivers().then(setDrivers).catch(() => setDrivers([]));
+  }
+
+  // Déclaration de fonction (hoistée) : ces helpers vivent après le `return`
+  // du composant, comme les autres `render*`.
+  function setOrderField(key: keyof OrderDraft) {
+    return (v: string) => setOrder((prev) => ({ ...prev, [key]: v }));
+  }
+
+  async function submitOrder() {
+    if (orderSaving) return;
+    const o = order;
+
+    // Validation : ce qui manque bloque la création côté serveur.
+    if (!o.clientId && !o.clientEmail.trim()) {
+      setOrderError('Choisis un client existant ou saisis son e-mail.');
+      return;
+    }
+    if (!o.clientId && (!o.clientFirstName.trim() || !o.clientLastName.trim())) {
+      setOrderError('Nom et prénom requis pour un nouveau client.');
+      return;
+    }
+    if (!o.vehicleMake.trim() || !o.vehicleModel.trim() || !o.vehiclePlate.trim()) {
+      setOrderError('Marque, modèle et immatriculation du véhicule requis.');
+      return;
+    }
+    if (!o.pickupAddress.trim() || !o.pickupCity.trim()) {
+      setOrderError('Adresse et ville de départ requises.');
+      return;
+    }
+    if (!o.deliveryAddress.trim() || !o.deliveryCity.trim()) {
+      setOrderError("Adresse et ville d'arrivée requises.");
+      return;
+    }
+    const pickupAt = parseFrDate(o.pickupAt);
+    if (!pickupAt) {
+      setOrderError('Date de départ invalide (format JJ/MM/AAAA).');
+      return;
+    }
+
+    const priceEur = Number(o.price.replace(',', '.'));
+    setOrderError(null);
+    setOrderSaving(true);
+    try {
+      const created = await adminCreateMission({
+        clientId: o.clientId || undefined,
+        clientEmail: o.clientId ? undefined : o.clientEmail.trim(),
+        clientFirstName: o.clientId ? undefined : o.clientFirstName.trim(),
+        clientLastName: o.clientId ? undefined : o.clientLastName.trim(),
+        clientPhone: o.clientId ? undefined : o.clientPhone.trim() || undefined,
+        vehicleMake: o.vehicleMake.trim(),
+        vehicleModel: o.vehicleModel.trim(),
+        vehicleYear: o.vehicleYear ? Number(o.vehicleYear) : undefined,
+        vehiclePlate: o.vehiclePlate.trim(),
+        driverId: o.driverId || undefined,
+        pickupAddress: o.pickupAddress.trim(),
+        pickupCity: o.pickupCity.trim(),
+        pickupPostalCode: o.pickupPostalCode.trim() || undefined,
+        pickupCountry: (o.pickupCountry || 'FR').slice(0, 2).toUpperCase(),
+        pickupAt,
+        deliveryAddress: o.deliveryAddress.trim(),
+        deliveryCity: o.deliveryCity.trim(),
+        deliveryPostalCode: o.deliveryPostalCode.trim() || undefined,
+        deliveryCountry: (o.deliveryCountry || 'FR').slice(0, 2).toUpperCase(),
+        deliveryNotes: o.notes.trim() || undefined,
+        priceCents: Number.isFinite(priceEur) && priceEur > 0 ? Math.round(priceEur * 100) : undefined,
+      });
+      setMissions((prev) => [created, ...prev]);
+      setOrderOpen(false);
+      setTab('shipments');
+      notify('Commande enregistrée', `${created.reference} — ${created.pickupCity} vers ${created.deliveryCity}.`);
+    } catch (e) {
+      setOrderError(e instanceof Error ? e.message : 'Enregistrement impossible. Réessaie dans un instant.');
+    } finally {
+      setOrderSaving(false);
+    }
+  }
 
   // ─── Modale : faire avancer le statut d'un colis ───────────────────────────
   function renderStatusModal() {
@@ -634,6 +822,240 @@ export function AdminScreen() {
     );
   }
 
+  // ─── Modale : affecter un convoyeur ────────────────────────────────────────
+  function renderAssignModal() {
+    const m = assignMission;
+    return (
+      <Modal visible={!!m} transparent animationType="slide" onRequestClose={() => setAssignMission(null)}>
+        <Pressable onPress={() => setAssignMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '90%' }}>
+            {m ? (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
+                <View>
+                  <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                    Affecter un convoyeur
+                  </Text>
+                  <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }} numberOfLines={1}>
+                    {m.reference}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    {m.pickupCity} → {m.deliveryCity} · {m.vehicle.make} {m.vehicle.model}
+                  </Text>
+                </View>
+
+                {m.driver ? (
+                  <Banner
+                    tone="info"
+                    title={`Actuellement : ${m.driver.firstName} ${m.driver.lastName}`}
+                    message="Choisir un autre convoyeur remplacera l'affectation en cours."
+                  />
+                ) : null}
+
+                {drivers === null ? (
+                  <Skeleton variant="card" count={3} />
+                ) : drivers.length === 0 ? (
+                  <Surface padded style={{ padding: 4 }}>
+                    <EmptyState
+                      iconKey="user"
+                      title="Aucun convoyeur"
+                      subtitle="Ajoute d'abord des comptes convoyeurs pour pouvoir les affecter."
+                    />
+                  </Surface>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    {drivers.map((d) => {
+                      const current = m.driver
+                        ? `${m.driver.firstName} ${m.driver.lastName}` === `${d.firstName} ${d.lastName}`
+                        : false;
+                      const initials = `${d.firstName?.[0] ?? ''}${d.lastName?.[0] ?? ''}`.toUpperCase();
+                      return (
+                        <Pressable
+                          key={d.id}
+                          disabled={assigning}
+                          onPress={() => confirmAssign(d.id)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: current ? theme.gold : theme.line, backgroundColor: current ? theme.gold + '18' : theme.surface, opacity: assigning ? 0.6 : 1 }}
+                        >
+                          <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bgSoft }}>
+                            <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.bold }}>{initials || '?'}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                              {d.firstName} {d.lastName}
+                            </Text>
+                            <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                              {[d.driverProfile?.baseCity, d.phone].filter(Boolean).join(' · ') || 'Convoyeur Axis'}
+                            </Text>
+                          </View>
+                          {current ? <Pill tone="gold">Affecté</Pill> : <Icons.arrow size={16} color={theme.muted} stroke={1.8} />}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <Button kind="ghost" size="md" fullWidth onPress={() => setAssignMission(null)}>
+                  Fermer
+                </Button>
+              </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
+  // ─── Modale : prise de commande (Roger saisit pour un client) ──────────────
+  function renderOrderModal() {
+    const newClient = !order.clientId;
+    return (
+      <Modal visible={orderOpen} transparent animationType="slide" onRequestClose={() => setOrderOpen(false)}>
+        <Pressable onPress={() => setOrderOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '92%' }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 4 }}>
+              <View>
+                <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                  Nouvelle commande
+                </Text>
+                <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
+                  Convoyage de véhicule
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                  Saisis la commande reçue par téléphone. Le client et le véhicule sont créés automatiquement.
+                </Text>
+              </View>
+
+              {orderError ? <Banner tone="warn" title="Champs à compléter" message={orderError} /> : null}
+
+              {/* 1. Client */}
+              <SectionHead title="1 · Client" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <Pressable
+                  onPress={() => setOrder((p) => ({ ...p, clientId: '' }))}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.md, borderWidth: 1.5, borderColor: newClient ? theme.gold : theme.line, backgroundColor: newClient ? theme.gold + '18' : theme.surface }}
+                >
+                  <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Nouveau client</Text>
+                </Pressable>
+                {(clients ?? []).map((c) => {
+                  const active = order.clientId === c.id;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => setOrder((p) => ({ ...p, clientId: c.id }))}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.md, borderWidth: 1.5, borderColor: active ? theme.gold : theme.line, backgroundColor: active ? theme.gold + '18' : theme.surface }}
+                    >
+                      <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                        {c.companyName || `${c.firstName} ${c.lastName}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {newClient ? (
+                <View style={{ gap: 10 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Field label="Prénom" value={order.clientFirstName} onChangeText={setOrderField('clientFirstName')} placeholder="Marc" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field label="Nom" value={order.clientLastName} onChangeText={setOrderField('clientLastName')} placeholder="Dupont" />
+                    </View>
+                  </View>
+                  <Field label="E-mail" value={order.clientEmail} onChangeText={setOrderField('clientEmail')} placeholder="marc.dupont@email.fr" autoCapitalize="none" keyboardType="email-address" hint="Sert d'identifiant : le client y accède via « mot de passe oublié »." />
+                  <Field label="Téléphone" value={order.clientPhone} onChangeText={setOrderField('clientPhone')} placeholder="+33 6 12 34 56 78" keyboardType="phone-pad" />
+                </View>
+              ) : null}
+
+              {/* 2. Véhicule */}
+              <SectionHead title="2 · Véhicule" />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Marque" value={order.vehicleMake} onChangeText={setOrderField('vehicleMake')} placeholder="Renault" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="Modèle" value={order.vehicleModel} onChangeText={setOrderField('vehicleModel')} placeholder="Master" />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Immatriculation" value={order.vehiclePlate} onChangeText={setOrderField('vehiclePlate')} placeholder="AB-123-CD" autoCapitalize="characters" />
+                </View>
+                <View style={{ width: 110 }}>
+                  <Field label="Année" value={order.vehicleYear} onChangeText={setOrderField('vehicleYear')} placeholder="2021" keyboardType="number-pad" />
+                </View>
+              </View>
+
+              {/* 3. Trajet */}
+              <SectionHead title="3 · Trajet" />
+              <Field label="Adresse de départ" value={order.pickupAddress} onChangeText={setOrderField('pickupAddress')} placeholder="12 rue des Lilas" />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Ville départ" value={order.pickupCity} onChangeText={setOrderField('pickupCity')} placeholder="Paris" />
+                </View>
+                <View style={{ width: 100 }}>
+                  <Field label="CP" value={order.pickupPostalCode} onChangeText={setOrderField('pickupPostalCode')} placeholder="75015" />
+                </View>
+                <View style={{ width: 72 }}>
+                  <Field label="Pays" value={order.pickupCountry} onChangeText={setOrderField('pickupCountry')} placeholder="FR" autoCapitalize="characters" maxLength={2} />
+                </View>
+              </View>
+              <Field label="Date d'enlèvement" value={order.pickupAt} onChangeText={setOrderField('pickupAt')} placeholder="15/10/2026" hint="Format JJ/MM/AAAA" />
+
+              <Field label="Adresse d'arrivée" value={order.deliveryAddress} onChangeText={setOrderField('deliveryAddress')} placeholder="8 avenue du Port" />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Ville arrivée" value={order.deliveryCity} onChangeText={setOrderField('deliveryCity')} placeholder="Marseille" />
+                </View>
+                <View style={{ width: 100 }}>
+                  <Field label="CP" value={order.deliveryPostalCode} onChangeText={setOrderField('deliveryPostalCode')} placeholder="13002" />
+                </View>
+                <View style={{ width: 72 }}>
+                  <Field label="Pays" value={order.deliveryCountry} onChangeText={setOrderField('deliveryCountry')} placeholder="FR" autoCapitalize="characters" maxLength={2} />
+                </View>
+              </View>
+
+              {/* 4. Prix + convoyeur */}
+              <SectionHead title="4 · Prix et convoyeur" />
+              <Field label="Prix convenu (EUR TTC)" value={order.price} onChangeText={setOrderField('price')} placeholder="690" keyboardType="decimal-pad" hint="Facultatif — sert à la facturation et au chiffre d'affaires." />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <Pressable
+                  onPress={() => setOrder((p) => ({ ...p, driverId: '' }))}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.md, borderWidth: 1.5, borderColor: !order.driverId ? theme.gold : theme.line, backgroundColor: !order.driverId ? theme.gold + '18' : theme.surface }}
+                >
+                  <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Affecter plus tard</Text>
+                </Pressable>
+                {(drivers ?? []).map((d) => {
+                  const active = order.driverId === d.id;
+                  return (
+                    <Pressable
+                      key={d.id}
+                      onPress={() => setOrder((p) => ({ ...p, driverId: d.id }))}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.md, borderWidth: 1.5, borderColor: active ? theme.gold : theme.line, backgroundColor: active ? theme.gold + '18' : theme.surface }}
+                    >
+                      <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                        {d.firstName} {d.lastName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Field label="Consignes (option.)" value={order.notes} onChangeText={setOrderField('notes')} placeholder="Remise des clés à l'accueil" multiline />
+
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                <Button kind="ghost" size="md" style={{ flex: 1 }} onPress={() => setOrderOpen(false)}>
+                  Annuler
+                </Button>
+                <Button kind="primary" size="md" style={{ flex: 1 }} loading={orderSaving} onPress={submitOrder}>
+                  Enregistrer
+                </Button>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
   // ─── Onglet 0 : Tableau de bord (poste de commande de Roger) ───────────────
   function renderDashboardTab() {
     const now = new Date();
@@ -702,6 +1124,18 @@ export function AdminScreen() {
           <DashMini theme={theme} label="Convoyages actifs" value={String(activeConvoys)} icon={<Icons.truck size={15} color={theme.muted} stroke={1.7} />} />
           <DashMini theme={theme} label="Documents (mois)" value={String(docsMonth)} icon={<Icons.doc size={15} color={theme.muted} stroke={1.7} />} />
         </View>
+
+        {/* Prise de commande — première action du quotidien de Roger */}
+        <SectionHead title="Prendre une commande" style={{ marginTop: 6 }} />
+        <Button
+          kind="primary"
+          size="md"
+          fullWidth
+          leftIcon={<Icons.truck size={16} color="#fff" stroke={1.9} />}
+          onPress={openOrder}
+        >
+          Nouveau convoyage
+        </Button>
 
         {/* Génération rapide */}
         <SectionHead title="Générer rapidement" style={{ marginTop: 6 }} />
@@ -1077,6 +1511,10 @@ export function AdminScreen() {
 
         <SectionHead title={`Envois à traiter · ${total}`} />
 
+        <Button kind="primary" size="md" fullWidth onPress={openOrder}>
+          + Nouvelle commande de convoyage
+        </Button>
+
         {shipmentsLoading ? (
           <Skeleton variant="card" count={3} />
         ) : total === 0 ? (
@@ -1103,6 +1541,9 @@ export function AdminScreen() {
                   {m.driver ? ` · ${m.driver.firstName} ${m.driver.lastName}` : ''}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => openAssign(m)}>
+                    {m.driver ? 'Changer' : 'Affecter'}
+                  </Button>
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromMission(m)}>
                     Facture
                   </Button>

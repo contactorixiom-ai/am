@@ -8,9 +8,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { IsOptional, IsString } from 'class-validator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { paginate } from '../../common/dto/pagination.dto';
+import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
+import { AssignDriverDto } from './dto/assign-driver.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
 import { MissionsService } from './missions.service';
@@ -31,6 +35,13 @@ export class MissionsController {
   @ApiOperation({ summary: 'Créer une mission de convoyage (DRAFT)' })
   create(@CurrentUser('id') userId: string, @Body() dto: CreateMissionDto) {
     return this.missions.create(userId, dto);
+  }
+
+  @Post('admin')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin : saisir une commande pour un client (client/véhicule créés à la volée)' })
+  adminCreate(@CurrentUser('id') adminId: string, @Body() dto: AdminCreateMissionDto) {
+    return this.missions.adminCreate(adminId, dto);
   }
 
   @Get()
@@ -55,6 +66,17 @@ export class MissionsController {
   @ApiOperation({ summary: 'Un convoyeur accepte la mission' })
   accept(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') driverId: string) {
     return this.missions.accept(id, driverId);
+  }
+
+  @Post(':id/assign')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin : affecter un convoyeur à la mission' })
+  assign(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') adminId: string,
+    @Body() body: AssignDriverDto,
+  ) {
+    return this.missions.assignDriver(id, body.driverId, adminId);
   }
 
   @Post(':id/start')
