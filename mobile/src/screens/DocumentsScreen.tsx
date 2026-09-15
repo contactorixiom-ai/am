@@ -134,6 +134,8 @@ export function DocumentsScreen() {
     clientName,
     driverName: c.driverName,
     vehicleBrandModel: c.vehicleLabel,
+    plate: c.plate,
+    vehicleCategory: c.vehicleCategory,
     pickupDate: c.pickupDate,
   });
 

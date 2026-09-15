@@ -19,7 +19,13 @@ export interface MissionSummary {
   deliveryAt?: string | null;
   distanceKm?: number | null;
   priceCents?: number | null;
-  vehicle: { make: string; model: string; year: number; licensePlate?: string };
+  vehicle: {
+    make: string;
+    model: string;
+    year: number;
+    licensePlate?: string;
+    type?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER' | null;
+  };
   driver?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
   client?: { firstName: string; lastName: string } | null;
 }

@@ -16,6 +16,8 @@ export interface ContractDoc {
   reference: string;             // référence Axis imprimée sur le PDF
   route: string;
   vehicleLabel?: string;
+  plate?: string;
+  vehicleCategory?: string;
   driverName?: string;
   pickupDate?: string;
   signed: boolean;
@@ -36,6 +38,19 @@ const fmtDate = (iso?: string | null): string =>
     ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
     : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
+// Le type de véhicule du serveur pilote la case cochée et le croquis du
+// contrat. Les libellés doivent correspondre à VEHICLE_CATEGORIES (pdf.ts).
+function vehicleCategoryLabel(type?: string | null): string | undefined {
+  switch (type) {
+    case 'CAR': return 'Berline';
+    case 'SUV': return 'SUV';
+    case 'VAN': return 'Utilitaire';
+    case 'TRUCK': return 'Poids lourd';
+    case 'MOTORCYCLE': return 'Moto';
+    default: return undefined;
+  }
+}
+
 // Un convoyage donne toujours lieu à un contrat ; un colis n'en a pas
 // (le récépissé de dépôt tient lieu de preuve).
 export function contractsFrom(missions: MissionSummary[]): ContractDoc[] {
@@ -48,8 +63,9 @@ export function contractsFrom(missions: MissionSummary[]): ContractDoc[] {
       kind: 'mission' as const,
       reference: m.reference,
       route: `${m.pickupCity} → ${m.deliveryCity}`,
-      vehicleLabel: [`${m.vehicle.make} ${m.vehicle.model}`.trim(), m.vehicle.licensePlate]
-        .filter(Boolean).join(' · '),
+      vehicleLabel: `${m.vehicle.make} ${m.vehicle.model}`.trim(),
+      plate: m.vehicle.licensePlate,
+      vehicleCategory: vehicleCategoryLabel(m.vehicle.type),
       driverName: m.driver ? `${m.driver.firstName} ${m.driver.lastName}`.trim() : undefined,
       pickupDate: m.pickupAt
         ? new Date(m.pickupAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })

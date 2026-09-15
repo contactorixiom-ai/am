@@ -209,7 +209,7 @@ export class MissionsService {
         skip: query.skip,
         take: query.take,
         include: {
-          vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true } },
+          vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true, type: true } },
           client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
           driver: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
         },
