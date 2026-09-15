@@ -4,38 +4,11 @@ import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-nativ
 import { listNews, NewsArticle } from '../api/news';
 import { AppBar } from '../components/AppBar';
 import { DotLoader } from '../components/DotLoader';
-import { Pill, PillTone } from '../components/Pill';
+import { EmptyState } from '../components/EmptyState';
+import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
-
-// Articles de démo affichés si le backend est indisponible / vide.
-const DEMO_ARTICLES: { tag: string; tone: PillTone; title: string; meta: string }[] = [
-  {
-    tag: 'Réglementation',
-    tone: 'gold',
-    title: 'Nouveau document douanier obligatoire pour les exports véhicules vers le Sénégal',
-    meta: 'Il y a 2 j · Lecture 3 min',
-  },
-  {
-    tag: 'Europe',
-    tone: 'navy',
-    title: 'Convoyage : les nouveaux corridors verts entre la France et le Benelux',
-    meta: 'Il y a 5 j · Lecture 4 min',
-  },
-  {
-    tag: 'Afrique',
-    tone: 'good',
-    title: 'Port d\'Abidjan : délais de dédouanement réduits de 30 % depuis janvier',
-    meta: 'Il y a 1 sem · Lecture 2 min',
-  },
-  {
-    tag: 'Logistique',
-    tone: 'default',
-    title: 'Fret maritime : les taux Europe-Afrique de l\'Ouest se stabilisent',
-    meta: 'Il y a 2 sem · Lecture 5 min',
-  },
-];
 
 export function NewsScreen() {
   const { theme } = useTheme();
@@ -71,10 +44,21 @@ export function NewsScreen() {
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
             <DotLoader size={8} />
           </View>
+        ) : articles.length === 0 ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="doc"
+              title="Pas encore d'actualité"
+              subtitle="Axis publiera ici les évolutions réglementaires et les infos utiles sur les corridors Europe – Afrique."
+            />
+          </Surface>
         ) : (() => {
-          const featured = articles.length > 0
-            ? { title: articles[0].title, date: articles[0].publishedAt ? new Date(articles[0].publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : 'Il y a 2 j', read: '3 min' }
-            : { title: DEMO_ARTICLES[0].title, date: 'Il y a 2 j', read: '3 min' };
+          const featured = {
+            title: articles[0].title,
+            date: articles[0].publishedAt
+              ? new Date(articles[0].publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+              : '',
+          };
           return (
             <Pressable>
               <View style={{ borderRadius: RADII.xl, overflow: 'hidden', backgroundColor: theme.navy }}>
@@ -100,9 +84,11 @@ export function NewsScreen() {
                   <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 21, color: '#F5F1E8', lineHeight: 24, letterSpacing: -0.2 }}>
                     {featured.title}
                   </Text>
-                  <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.6)', marginTop: 8, fontFamily: TYPO.weights.medium }}>
-                    {featured.date} · Lecture {featured.read}
-                  </Text>
+                  {featured.date ? (
+                    <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.6)', marginTop: 8, fontFamily: TYPO.weights.medium }}>
+                      {featured.date}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             </Pressable>
@@ -136,29 +122,6 @@ export function NewsScreen() {
                     {new Date(a.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
                   </Text>
                 ) : null}
-              </Surface>
-            </Pressable>
-          ))
-        ) : !loading && articles.length === 0 ? (
-          DEMO_ARTICLES.slice(1).map((a, i) => (
-            <Pressable key={i}>
-              <Surface padded style={{ padding: 16 }}>
-                <Pill tone={a.tone}>{a.tag}</Pill>
-                <Text
-                  style={{
-                    fontSize: 14.5,
-                    color: theme.ink,
-                    marginTop: 10,
-                    lineHeight: 14.5 * 1.3,
-                    fontFamily: TYPO.weights.semibold,
-                    letterSpacing: -0.1,
-                  }}
-                >
-                  {a.title}
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
-                  {a.meta}
-                </Text>
               </Surface>
             </Pressable>
           ))

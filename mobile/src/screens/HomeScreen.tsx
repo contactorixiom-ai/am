@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
 import { listMissions } from '../api/missions';
+import { listNews, NewsArticle } from '../api/news';
+import { listNotifications } from '../api/notifications';
 import { listParcels } from '../api/parcels';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
@@ -42,6 +44,8 @@ export function HomeScreen() {
   // Aucune donnée d'exemple — si le client n'a rien, il voit un appel à l'action.
   const [shipments, setShipments] = useState<ShipmentView[] | null>(null);
   const [toSign, setToSign] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [latestNews, setLatestNews] = useState<NewsArticle | null>(null);
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -56,6 +60,13 @@ export function HomeScreen() {
         setShipments(sortForClient(views));
         const n = await countContractsToSign(missions);
         if (!cancelled) setToSign(n);
+
+        // Pastille de notifications et aperçu actualités : silencieux si
+        // l'API ne répond pas, ces blocs sont secondaires.
+        const [notifs, news] = await Promise.allSettled([listNotifications(), listNews()]);
+        if (cancelled) return;
+        setUnread(notifs.status === 'fulfilled' ? notifs.value.filter((x) => !x.readAt).length : 0);
+        setLatestNews(news.status === 'fulfilled' ? news.value.data[0] ?? null : null);
       })();
       return () => { cancelled = true; };
     }, []),
@@ -135,19 +146,21 @@ export function HomeScreen() {
           })}
         >
           <Icons.bell size={20} color={theme.ink} stroke={1.6} />
-          <View
-            style={{
-              position: 'absolute',
-              top: 9,
-              right: 11,
-              width: 7,
-              height: 7,
-              borderRadius: 4,
-              backgroundColor: theme.gold,
-              borderWidth: 2,
-              borderColor: theme.surface,
-            }}
-          />
+          {unread > 0 ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 9,
+                right: 11,
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: theme.gold,
+                borderWidth: 2,
+                borderColor: theme.surface,
+              }}
+            />
+          ) : null}
         </Pressable>
       </View>
 
@@ -457,34 +470,39 @@ export function HomeScreen() {
           </Pressable>
         ) : null}
 
-        {/* News preview */}
-        <View>
-          <SectionHead
-            title="Actualités transport"
-            action="Voir tout"
-            onAction={() => nav.navigate('News')}
-          />
-          <Surface padded>
-            <Pill tone="gold">Réglementation</Pill>
-            <Text
-              style={{
-                fontSize: 14.5,
-                color: theme.ink,
-                marginTop: 10,
-                lineHeight: 14.5 * 1.3,
-                fontFamily: TYPO.weights.semibold,
-                letterSpacing: -0.1,
-              }}
-            >
-              Nouveau document douanier obligatoire pour les exports véhicules vers le Sénégal
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-              <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Il y a 2 j</Text>
-              <Text style={{ fontSize: 12, color: theme.muted }}>·</Text>
-              <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Lecture 3 min</Text>
-            </View>
-          </Surface>
-        </View>
+        {/* Aperçu actualités — masqué tant qu'Axis n'a rien publié */}
+        {latestNews ? (
+          <View>
+            <SectionHead
+              title="Actualités transport"
+              action="Voir tout"
+              onAction={() => nav.navigate('News')}
+            />
+            <Pressable onPress={() => nav.navigate('News')}>
+              <Surface padded>
+                {latestNews.category ? <Pill tone="gold">{latestNews.category.name}</Pill> : null}
+                <Text
+                  style={{
+                    fontSize: 14.5,
+                    color: theme.ink,
+                    marginTop: latestNews.category ? 10 : 0,
+                    lineHeight: 14.5 * 1.3,
+                    fontFamily: TYPO.weights.semibold,
+                    letterSpacing: -0.1,
+                  }}
+                  numberOfLines={3}
+                >
+                  {latestNews.title}
+                </Text>
+                {latestNews.publishedAt ? (
+                  <Text style={{ fontSize: 12, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
+                    {new Date(latestNews.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                  </Text>
+                ) : null}
+              </Surface>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

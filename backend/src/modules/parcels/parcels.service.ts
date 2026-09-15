@@ -1,13 +1,30 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ParcelStatus, PickupMode, Prisma, UserRole } from '@prisma/client';
+import { NotificationType, ParcelStatus, PickupMode, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { AddParcelEventDto } from './dto/parcel-event.dto';
 
+// Titres lisibles par l'expéditeur, alignés sur le pipeline de l'espace admin.
+const PARCEL_STATUS_LABEL: Partial<Record<ParcelStatus, string>> = {
+  AWAITING_DROP_OFF: 'En attente de dépôt',
+  AWAITING_PICKUP: 'Enlèvement programmé',
+  RECEIVED: 'Colis réceptionné',
+  IN_TRANSIT: 'Colis en transit',
+  CUSTOMS: 'En cours de dédouanement',
+  OUT_FOR_DELIVERY: 'En cours de livraison',
+  DELIVERED: 'Colis livré',
+  CANCELLED: 'Envoi annulé',
+  LOST: 'Colis en recherche',
+};
+
 @Injectable()
 export class ParcelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(senderId: string, dto: CreateParcelDto) {
     const pickupMode = dto.pickupMode ?? PickupMode.HUB_DROP_OFF;
@@ -140,13 +157,28 @@ export class ParcelsService {
         notes: dto.notes,
       },
     });
-    return this.prisma.parcel.update({
+    const updated = await this.prisma.parcel.update({
       where: { id },
       data: {
         status: dto.status,
         deliveredAt: dto.status === ParcelStatus.DELIVERED ? new Date() : undefined,
       },
     });
+
+    // L'expéditeur suit son colis depuis l'app : chaque étape le prévient.
+    // Un échec d'envoi ne doit pas annuler la mise à jour du statut.
+    try {
+      await this.notifications.notify(
+        updated.senderId,
+        NotificationType.PARCEL_STATUS_UPDATE,
+        PARCEL_STATUS_LABEL[dto.status] ?? 'Suivi mis à jour',
+        [`Colis ${updated.reference}`, dto.location, dto.notes].filter(Boolean).join(' · '),
+        { parcelId: id, reference: updated.reference, status: dto.status },
+      );
+    } catch {
+      /* journalisé côté service */
+    }
+    return updated;
   }
 
   private generateReference(): string {

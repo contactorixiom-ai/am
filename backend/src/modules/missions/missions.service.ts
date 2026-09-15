@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MissionStatus, Prisma, UserRole } from '@prisma/client';
+import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
@@ -15,7 +17,10 @@ import { SearchMissionsDto } from './dto/search-missions.dto';
 
 @Injectable()
 export class MissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(clientId: string, dto: CreateMissionDto) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
@@ -111,6 +116,13 @@ export class MissionsService {
     if (dto.driverId) {
       await this.ensureMissionConversation(mission.id, client.id, dto.driverId);
     }
+    await this.notifySafe(
+      client.id,
+      NotificationType.MISSION_CREATED,
+      'Commande enregistrée',
+      `Ton convoyage ${mission.reference} (${mission.pickupCity} vers ${mission.deliveryCity}) est enregistré par Axis.`,
+      { missionId: mission.id, reference: mission.reference },
+    );
     return mission;
   }
 
@@ -318,6 +330,25 @@ export class MissionsService {
     });
 
     await this.ensureMissionConversation(id, mission.clientId, driverId);
+
+    const driverLabel = `${driver.firstName ?? ''} ${driver.lastName ?? ''}`.trim();
+    const trajet = `${updated.pickupCity} vers ${updated.deliveryCity}`;
+    await Promise.all([
+      this.notifySafe(
+        mission.clientId,
+        NotificationType.MISSION_ACCEPTED,
+        'Convoyeur affecté',
+        `${driverLabel || 'Un convoyeur'} prend en charge ton convoyage ${updated.reference} (${trajet}).`,
+        { missionId: id, reference: updated.reference },
+      ),
+      this.notifySafe(
+        driverId,
+        NotificationType.MISSION_ACCEPTED,
+        'Nouvelle mission',
+        `${updated.reference} — ${trajet}. Enlèvement le ${updated.pickupAt.toLocaleDateString('fr-FR')}.`,
+        { missionId: id, reference: updated.reference },
+      ),
+    ]);
     return updated;
   }
 
@@ -353,7 +384,7 @@ export class MissionsService {
     if (mission.status !== MissionStatus.ACCEPTED) {
       throw new BadRequestException(`Cannot start from status ${mission.status}`);
     }
-    return this.prisma.mission.update({
+    const updated = await this.prisma.mission.update({
       where: { id },
       data: {
         status: MissionStatus.IN_PROGRESS,
@@ -361,6 +392,14 @@ export class MissionsService {
         statusHistory: { create: { status: MissionStatus.IN_PROGRESS, changedBy: driverId } },
       },
     });
+    await this.notifySafe(
+      mission.clientId,
+      NotificationType.MISSION_STARTED,
+      'Véhicule en route',
+      `Ton convoyage ${updated.reference} a démarré. Le suivi en temps réel est disponible.`,
+      { missionId: id, reference: updated.reference },
+    );
+    return updated;
   }
 
   async deliver(id: string, driverId: string) {
@@ -369,7 +408,7 @@ export class MissionsService {
     if (mission.status !== MissionStatus.IN_PROGRESS) {
       throw new BadRequestException(`Cannot deliver from status ${mission.status}`);
     }
-    return this.prisma.mission.update({
+    const updated = await this.prisma.mission.update({
       where: { id },
       data: {
         status: MissionStatus.DELIVERED,
@@ -377,6 +416,14 @@ export class MissionsService {
         statusHistory: { create: { status: MissionStatus.DELIVERED, changedBy: driverId } },
       },
     });
+    await this.notifySafe(
+      mission.clientId,
+      NotificationType.MISSION_DELIVERED,
+      'Véhicule livré',
+      `Ton convoyage ${updated.reference} est arrivé à ${updated.deliveryCity}. Pense à clôturer le dossier.`,
+      { missionId: id, reference: updated.reference },
+    );
+    return updated;
   }
 
   async complete(id: string, userId: string) {
@@ -413,6 +460,22 @@ export class MissionsService {
         statusHistory: { create: { status: MissionStatus.CANCELLED, changedBy: userId, notes: reason } },
       },
     });
+  }
+
+  // Une notification qui échoue ne doit jamais faire échouer l'action métier.
+  private async notifySafe(
+    userId: string | null | undefined,
+    type: NotificationType,
+    title: string,
+    body: string,
+    payload?: Record<string, unknown>,
+  ): Promise<void> {
+    if (!userId) return;
+    try {
+      await this.notifications.notify(userId, type, title, body, payload as never);
+    } catch {
+      /* journalisé côté service ; on continue */
+    }
   }
 
   private async transition(id: string, status: MissionStatus, userId: string) {

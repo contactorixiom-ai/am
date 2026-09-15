@@ -1,7 +1,14 @@
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  ServerNotification,
+  ServerNotificationType,
+} from '../api/notifications';
+import { Skeleton } from '../components/Skeleton';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { EmptyState } from '../components/EmptyState';
@@ -29,39 +36,92 @@ interface AppNotif {
   action?: { screen: keyof RootStackParamList; params?: Record<string, unknown> };
 }
 
-// La liste réelle viendra du backend (module notifications).
-// En attendant on affiche un empty state.
-const DEMO_NOTIFS: AppNotif[] = [];
+// Correspondance type serveur → présentation (icône, couleur, écran cible).
+const TYPE_TO_KIND: Record<ServerNotificationType, NotifKind> = {
+  MISSION_CREATED: 'system',
+  MISSION_ACCEPTED: 'driver_started',
+  MISSION_STARTED: 'driver_started',
+  MISSION_DELIVERED: 'driver_arrived',
+  MISSION_CANCELLED: 'system',
+  INSPECTION_REQUESTED: 'inspection_done',
+  INSPECTION_SIGNED: 'inspection_done',
+  NEW_MESSAGE: 'system',
+  CALL_INCOMING: 'system',
+  CALL_MISSED: 'system',
+  KYC_APPROVED: 'kyc_validated',
+  KYC_REJECTED: 'kyc_validated',
+  PARCEL_STATUS_UPDATE: 'driver_started',
+  PAYMENT_RECEIVED: 'invoice_paid',
+  REVIEW_RECEIVED: 'system',
+  SYSTEM: 'system',
+};
 
-const STORAGE_KEY = 'axis.notifs.read.v1';
+function relativeTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 1) return 'À l\'instant';
+  if (min < 60) return `Il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `Il y a ${h} h`;
+  const j = Math.floor(h / 24);
+  if (j < 7) return `Il y a ${j} j`;
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+// La notification porte l'identifiant de l'envoi concerné : on ouvre le bon
+// écran plutôt que de renvoyer l'utilisateur à l'accueil.
+function actionFor(n: ServerNotification): AppNotif['action'] {
+  const p = (n.payload ?? {}) as { missionId?: string; parcelId?: string; reference?: string };
+  if (p.missionId && p.reference) return { screen: 'MissionDetails', params: { reference: p.reference } };
+  if (p.parcelId && p.reference) {
+    return { screen: 'Tracking', params: { kind: 'parcel', id: p.parcelId, reference: p.reference } };
+  }
+  return undefined;
+}
+
+function toAppNotif(n: ServerNotification): AppNotif {
+  return {
+    id: n.id,
+    kind: TYPE_TO_KIND[n.type] ?? 'system',
+    title: n.title,
+    body: n.body,
+    time: relativeTime(n.createdAt),
+    read: !!n.readAt,
+    action: actionFor(n),
+  };
+}
 
 export function NotificationsScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [readIds, setReadIds] = useState<string[]>([]);
+  const [notifs, setNotifs] = useState<AppNotif[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) try { setReadIds(JSON.parse(raw)); } catch { /* ignore */ }
-    });
-  }, []);
-
-  const persistRead = (ids: string[]) => {
-    setReadIds(ids);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ids)).catch(() => {});
-  };
-
-  const notifs = useMemo(
-    () => DEMO_NOTIFS.map((n) => ({ ...n, read: readIds.includes(n.id) })),
-    [readIds],
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      listNotifications()
+        .then((list) => { if (!cancelled) setNotifs(list.map(toAppNotif)); })
+        .catch(() => { if (!cancelled) setNotifs([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
+    }, []),
   );
 
   const unread = notifs.filter((n) => !n.read).length;
 
-  const markAllRead = () => persistRead(DEMO_NOTIFS.map((n) => n.id));
+  // Marquage optimiste : l'écran réagit tout de suite, le serveur suit.
+  const markAllRead = () => {
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllNotificationsRead().catch(() => {});
+  };
 
   const open = (n: AppNotif) => {
-    if (!readIds.includes(n.id)) persistRead([...readIds, n.id]);
+    if (!n.read) {
+      setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      markNotificationRead(n.id).catch(() => {});
+    }
     if (n.action) {
       // @ts-expect-error — navigation dynamique sur des routes typées
       nav.navigate(n.action.screen, n.action.params);
@@ -69,7 +129,7 @@ export function NotificationsScreen() {
   };
 
   // Grouper par "Aujourd'hui" / "Plus tôt"
-  const today = notifs.filter((n) => /minute|instant|min$|^Il y a 1 h|^Il y a [1-9] h/.test(n.time));
+  const today = notifs.filter((n) => /instant|min$|^Il y a \d+ h$/.test(n.time));
   const earlier = notifs.filter((n) => !today.includes(n));
 
   return (
@@ -95,7 +155,8 @@ export function NotificationsScreen() {
       />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, gap: 16 }}>
-        {notifs.length === 0 ? (
+        {loading ? <Skeleton variant="card" count={3} /> : null}
+        {!loading && notifs.length === 0 ? (
           <Surface padded style={{ padding: 4 }}>
             <EmptyState
               iconKey="bell"
