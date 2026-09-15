@@ -77,6 +77,18 @@ export async function listMissions(): Promise<{ data: MissionSummary[]; meta: { 
   return apiFetch('/missions');
 }
 
+// ─── Convoyeur : faire avancer sa mission ─────────────────────────────────
+// Le passage en IN_PROGRESS est ce qui autorise l'envoi de positions GPS
+// côté serveur : sans lui, chaque point est refusé.
+
+export async function startMission(id: string): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>(`/missions/${id}/start`, { method: 'POST' });
+}
+
+export async function deliverMission(id: string): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>(`/missions/${id}/deliver`, { method: 'POST' });
+}
+
 export async function publishMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
 }

@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { listMissions, MissionSummary } from '../api/missions';
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { deliverMission, listMissions, MissionSummary, startMission } from '../api/missions';
 import { trackPosition, TrackPositionInput } from '../api/gps';
 import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
@@ -11,6 +11,7 @@ import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { useToast } from '../components/PushToast';
+import { Skeleton } from '../components/Skeleton';
 import { Surface } from '../components/Surface';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
@@ -74,42 +75,46 @@ export function DriverModeScreen() {
   const toast = useToast();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // ─── Mission en cours ────────────────────────────────────────────────────
-  const [mission, setMission] = useState<MissionSummary | null>(null);
+  // ─── Missions affectées au convoyeur ─────────────────────────────────────
+  // Roger affecte, le convoyeur exécute : on liste tout ce qui lui revient
+  // (affecté ou déjà démarré) et il choisit celle sur laquelle il travaille.
+  const [missions, setMissions] = useState<MissionSummary[]>([]);
+  const [missionId, setMissionId] = useState<string | null>(null);
   const [missionIsDemo, setMissionIsDemo] = useState(false);
   const [missionLoading, setMissionLoading] = useState(true);
+  const [advancing, setAdvancing] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await listMissions();
-        if (cancelled) return;
-        // Défensif : une réponse inattendue (erreur serveur, forme différente)
-        // ne doit pas planter l'écran — on retombe alors sur le mode démo.
-        const data = Array.isArray(res?.data) ? res.data : [];
-        const active =
-          data.find((m) => m.status === 'IN_PROGRESS')
-          ?? data.find((m) => m.status === 'ACCEPTED');
-        if (active) {
-          setMission(active);
-          setMissionIsDemo(false);
-        } else {
-          setMission(DEMO_MISSION);
-          setMissionIsDemo(true);
-        }
-      } catch {
-        // Hors-ligne / non connecté : repli démo, l'écran reste utilisable.
-        if (!cancelled) {
-          setMission(DEMO_MISSION);
-          setMissionIsDemo(true);
-        }
-      } finally {
-        if (!cancelled) setMissionLoading(false);
+  const loadMissions = useCallback(async (keepId?: string | null) => {
+    try {
+      const res = await listMissions();
+      // Défensif : une réponse inattendue ne doit pas planter l'écran.
+      const data = Array.isArray(res?.data) ? res.data : [];
+      const mine = data.filter((m) => m.status === 'IN_PROGRESS' || m.status === 'ACCEPTED');
+      if (mine.length > 0) {
+        setMissions(mine);
+        setMissionIsDemo(false);
+        setMissionId((prev) => {
+          const wanted = keepId ?? prev;
+          return wanted && mine.some((m) => m.id === wanted) ? wanted : mine[0].id;
+        });
+      } else {
+        setMissions([DEMO_MISSION]);
+        setMissionId(DEMO_MISSION.id);
+        setMissionIsDemo(true);
       }
-    })();
-    return () => { cancelled = true; };
+    } catch {
+      // Hors-ligne / non connecté : repli démo, l'écran reste utilisable.
+      setMissions([DEMO_MISSION]);
+      setMissionId(DEMO_MISSION.id);
+      setMissionIsDemo(true);
+    } finally {
+      setMissionLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadMissions(); }, [loadMissions]);
+
+  const mission = missions.find((m) => m.id === missionId) ?? null;
 
   // ─── État du suivi ───────────────────────────────────────────────────────
   const [tracking, setTracking] = useState(false);
@@ -120,6 +125,9 @@ export function DriverModeScreen() {
   const [lastPosition, setLastPosition] = useState<PhonePosition | null>(null);
   const [sentCount, setSentCount] = useState(0);
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null);
+  // Le serveur refuse les positions tant que la mission n'est pas démarrée :
+  // on le dit au convoyeur au lieu d'échouer en silence.
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // ─── Alerte « Tout va bien ? » ───────────────────────────────────────────
   const [alertVisible, setAlertVisible] = useState(false);
@@ -190,8 +198,16 @@ export function DriverModeScreen() {
         pendingRef.current.shift();
         setSentCount((n) => n + 1);
         setLastSentAt(new Date());
-      } catch {
-        break; // silencieux : buffer conservé, le chauffeur n'est pas dérangé
+        setSendError(null);
+      } catch (e) {
+        // 403 = mission pas encore démarrée côté serveur : c'est actionnable.
+        const status = (e as { status?: number } | undefined)?.status;
+        setSendError(
+          status === 403
+            ? 'Le serveur refuse les positions : appuie sur « Véhicule récupéré » pour démarrer la mission.'
+            : null,
+        );
+        break; // buffer conservé, le convoyeur n'est pas dérangé pour un souci réseau
       }
     }
   }, []);
@@ -404,6 +420,36 @@ export function DriverModeScreen() {
   const inspectionClientName = mission?.client
     ? `${mission.client.firstName} ${mission.client.lastName}`.trim()
     : undefined;
+  // ─── Avancement de la mission ────────────────────────────────────────────
+  // « Véhicule récupéré » fait passer la mission en cours côté serveur : c'est
+  // la condition pour que les positions GPS soient acceptées.
+  const advance = async (action: 'start' | 'deliver') => {
+    if (!mission || advancing) return;
+    if (missionIsDemo) {
+      notify('Mode démonstration', 'Aucune mission réelle affectée : rien n\'est envoyé au serveur.');
+      return;
+    }
+    setAdvancing(true);
+    try {
+      if (action === 'start') {
+        await startMission(mission.id);
+        toast.push({ kind: 'driver', title: 'Mission démarrée', body: 'Tu peux lancer le suivi GPS.' });
+      } else {
+        await deliverMission(mission.id);
+        if (tracking) stopTracking();
+        toast.push({ kind: 'driver', title: 'Livraison enregistrée', body: 'Le client est informé.' });
+      }
+      await loadMissions(mission.id);
+    } catch (e) {
+      notify(
+        action === 'start' ? 'Démarrage impossible' : 'Livraison impossible',
+        e instanceof Error ? e.message : 'Réessaie dans un instant.',
+      );
+    } finally {
+      setAdvancing(false);
+    }
+  };
+
   const openInspection = (phase: 'DÉPART' | 'ARRIVÉE') =>
     nav.navigate('VehicleInspection', {
       phase,
@@ -420,35 +466,92 @@ export function DriverModeScreen() {
       />
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}>
-        {/* Mission en cours */}
-        <Surface padded>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: TYPO.sizes.label, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, flex: 1 }}>
-              Mission en cours
-            </Text>
-            {missionIsDemo ? <Pill tone="gold">Démo</Pill> : null}
-            {mission ? (
-              <Pill tone={mission.status === 'IN_PROGRESS' ? 'good' : 'navy'}>
-                {mission.status === 'IN_PROGRESS' ? 'En cours' : 'Acceptée'}
-              </Pill>
+        {/* Missions affectées : le convoyeur choisit celle sur laquelle il est */}
+        {missionLoading ? (
+          <Skeleton variant="card" count={1} />
+        ) : (
+          <Surface padded>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: TYPO.sizes.label, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, flex: 1 }}>
+                {missions.length > 1 ? `Mes missions · ${missions.length}` : 'Ma mission'}
+              </Text>
+              {missionIsDemo ? <Pill tone="gold">Démo</Pill> : null}
+              {mission ? (
+                <Pill tone={mission.status === 'IN_PROGRESS' ? 'good' : 'navy'}>
+                  {mission.status === 'IN_PROGRESS' ? 'En cours' : 'À démarrer'}
+                </Pill>
+              ) : null}
+            </View>
+
+            {missions.length > 1 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 10 }}>
+                {missions.map((m) => {
+                  const on = m.id === missionId;
+                  return (
+                    <Pressable
+                      key={m.id}
+                      onPress={() => setMissionId(m.id)}
+                      style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface }}
+                    >
+                      <Text style={{ fontSize: 12.5, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.semibold }}>
+                        {m.pickupCity} → {m.deliveryCity}
+                      </Text>
+                      <Text style={{ fontSize: 10.5, color: on ? 'rgba(245,241,232,0.75)' : theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+                        {m.reference}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             ) : null}
-          </View>
-          <Text style={{ fontSize: 19, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 8, letterSpacing: -0.3 }}>
-            {missionLoading ? 'Chargement…' : mission ? `${mission.pickupCity} → ${mission.deliveryCity}` : '—'}
-          </Text>
-          {mission ? (
-            <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 3 }}>
-              {mission.reference} · {mission.vehicle.make} {mission.vehicle.model}
-              {mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}
+
+            <Text style={{ fontSize: 19, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: missions.length > 1 ? 2 : 8, letterSpacing: -0.3 }}>
+              {mission ? `${mission.pickupCity} → ${mission.deliveryCity}` : 'Aucune mission affectée'}
             </Text>
-          ) : null}
-        </Surface>
+            {mission ? (
+              <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 3 }}>
+                {mission.reference} · {mission.vehicle.make} {mission.vehicle.model}
+                {mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}
+              </Text>
+            ) : null}
+
+            {/* Avancement : c'est « Véhicule récupéré » qui autorise le GPS */}
+            {mission ? (
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <Button
+                  kind="primary"
+                  size="md"
+                  style={{ flex: 1 }}
+                  loading={advancing}
+                  disabled={mission.status !== 'ACCEPTED'}
+                  leftIcon={<Icons.car size={17} color="#fff" stroke={1.9} />}
+                  onPress={() => advance('start')}
+                >
+                  Véhicule récupéré
+                </Button>
+                <Button
+                  kind="gold"
+                  size="md"
+                  style={{ flex: 1 }}
+                  loading={advancing}
+                  disabled={mission.status !== 'IN_PROGRESS'}
+                  leftIcon={<Icons.check size={17} color={theme.navy} stroke={2.2} />}
+                  onPress={() => advance('deliver')}
+                >
+                  Livré
+                </Button>
+              </View>
+            ) : null}
+          </Surface>
+        )}
+
+        {sendError ? <Banner tone="warn" title="Positions non transmises" message={sendError} /> : null}
 
         {missionIsDemo && !missionLoading ? (
           <Banner
             tone="info"
             title="Mode démonstration"
-            message="Aucune mission active trouvée (ou hors-ligne). Le suivi fonctionne mais aucune position n'est envoyée au serveur."
+            message="Aucune mission ne t'est affectée pour l'instant (ou tu es hors ligne). Le suivi reste utilisable pour t'entraîner, mais aucune position n'est envoyée au serveur."
           />
         ) : null}
 
@@ -550,7 +653,18 @@ export function DriverModeScreen() {
             fullWidth
             style={{ minHeight: 64, borderRadius: RADII.xl }}
             leftIcon={<Icons.bolt size={20} color={theme.navy} stroke={2} />}
-            onPress={startTracking}
+            onPress={() => {
+              // Le serveur n'accepte les positions que sur une mission démarrée :
+              // on le dit avant de lancer le GPS plutôt qu'après 15 s d'échecs.
+              if (mission && !missionIsDemo && mission.status !== 'IN_PROGRESS') {
+                notify(
+                  'Démarre d\'abord la mission',
+                  'Appuie sur « Véhicule récupéré » : le suivi ne peut être transmis qu\'une fois le convoyage lancé.',
+                );
+                return;
+              }
+              startTracking();
+            }}
             disabled={missionLoading}
           >
             Démarrer le suivi
