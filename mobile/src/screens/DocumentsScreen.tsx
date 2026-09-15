@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { listMissions } from '../api/missions';
+import { listParcels } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
+import { EmptyState } from '../components/EmptyState';
+import { Skeleton } from '../components/Skeleton';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { PaymentSheet } from '../components/PaymentSheet';
@@ -12,6 +17,15 @@ import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
+import {
+  ContractDoc,
+  contractsFrom,
+  CONTRACTS_KEY,
+  Invoice,
+  invoicesFrom,
+  INVOICE_STORAGE_KEY,
+  safeParse,
+} from '../utils/clientDocs';
 import { generateContractPdf, generateInvoicePdf } from '../utils/pdf';
 
 // Espace « Documents » CLIENT — volontairement simple : le client n'a que
@@ -20,76 +34,61 @@ import { generateContractPdf, generateInvoicePdf } from '../utils/pdf';
 // Toute la gestion documentaire douanière (dossier, bordereaux, déclarations)
 // se fait côté admin (Roger), pas ici.
 
-const CONTRACTS_KEY = 'axis.contracts.v1';
-const INVOICE_STORAGE_KEY = 'axis.docs.v1';
-
-interface ContractDoc {
-  id: number;
-  title: string;
-  ref: string;
-  kind: 'mission' | 'parcel';
-  signed: boolean;
-  signedAt?: string;
-}
-
-interface Invoice {
-  id: number;
-  title: string;
-  ref: string;
-  date: string;
-  amountEur: number;
-  paid: boolean;
-}
-
-const INITIAL_CONTRACTS: ContractDoc[] = [
-  { id: 1, title: 'Contrat de convoyage', ref: 'Paris → Bruxelles · AX-2847', kind: 'mission', signed: false },
-  { id: 2, title: 'Contrat de transport', ref: 'Fret 4 palettes → Dakar · AX-2026-8841', kind: 'parcel', signed: false },
-];
-
-const INITIAL_INVOICES: Invoice[] = [
-  { id: 5, title: 'FA-2026-0184', ref: 'Convoyage Paris → Bruxelles', date: '14 mai 2026', amountEur: 512, paid: true },
-  { id: 6, title: 'FA-2026-0179', ref: 'Fret 4 palettes → Dakar', date: '08 mai 2026', amountEur: 1240, paid: false },
-];
-
 export function DocumentsScreen() {
   const { theme } = useTheme();
   const { user } = useSession();
   const clientName = user ? `${user.firstName} ${user.lastName}` : 'Client Axis Import';
   const clientEmail = user?.email;
 
-  // ─── Contrats ─────────────────────────────────────────────────────────────
-  const [contracts, setContracts] = useState<ContractDoc[]>(INITIAL_CONTRACTS);
-  useEffect(() => {
-    AsyncStorage.getItem(CONTRACTS_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const saved = JSON.parse(raw) as Record<number, { signed?: boolean; signedAt?: string }>;
-        setContracts((prev) => prev.map((c) => (saved[c.id] ? { ...c, signed: !!saved[c.id].signed, signedAt: saved[c.id].signedAt } : c)));
-      } catch { /* ignore */ }
-    });
-  }, []);
+  // ─── Contrats et factures, dérivés des envois réels du client ────────────
+  // La signature et le règlement restent stockés localement tant que la
+  // signature serveur et Stripe ne sont pas branchés ; le reste vient de l'API.
+  const [contracts, setContracts] = useState<ContractDoc[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState<Invoice | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const [mRes, pRes, signedRaw, paidRaw] = await Promise.all([
+          listMissions().catch(() => null),
+          listParcels().catch(() => null),
+          AsyncStorage.getItem(CONTRACTS_KEY).catch(() => null),
+          AsyncStorage.getItem(INVOICE_STORAGE_KEY).catch(() => null),
+        ]);
+        if (cancelled) return;
+
+        const missions = mRes?.data ?? [];
+        const parcels = pRes?.data ?? [];
+        const signed = safeParse<Record<string, { signed?: boolean; signedAt?: string }>>(signedRaw);
+        const paid = safeParse<Record<string, { paid?: boolean }>>(paidRaw);
+
+        setContracts(
+          contractsFrom(missions).map((c) =>
+            signed[c.id] ? { ...c, signed: !!signed[c.id].signed, signedAt: signed[c.id].signedAt } : c,
+          ),
+        );
+        setInvoices(
+          invoicesFrom(missions, parcels).map((i) =>
+            paid[i.id]?.paid != null ? { ...i, paid: !!paid[i.id].paid } : i,
+          ),
+        );
+        setLoading(false);
+      })();
+      return () => { cancelled = true; };
+    }, []),
+  );
 
   const persistContracts = (next: ContractDoc[]) => {
-    const toSave: Record<number, { signed: boolean; signedAt?: string }> = {};
+    const toSave: Record<string, { signed: boolean; signedAt?: string }> = {};
     next.forEach((c) => { toSave[c.id] = { signed: c.signed, signedAt: c.signedAt }; });
     AsyncStorage.setItem(CONTRACTS_KEY, JSON.stringify(toSave)).catch(() => {});
   };
 
-  // ─── Factures ─────────────────────────────────────────────────────────────
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [paying, setPaying] = useState<Invoice | null>(null);
-  useEffect(() => {
-    AsyncStorage.getItem(INVOICE_STORAGE_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const saved = JSON.parse(raw) as Record<number, { paid?: boolean }>;
-        setInvoices((prev) => prev.map((inv) => (saved[inv.id]?.paid != null ? { ...inv, paid: !!saved[inv.id].paid } : inv)));
-      } catch { /* ignore */ }
-    });
-  }, []);
-
   const persistInvoices = (next: Invoice[]) => {
-    const toSave: Record<number, { paid: boolean }> = {};
+    const toSave: Record<string, { paid: boolean }> = {};
     next.forEach((inv) => { toSave[inv.id] = { paid: inv.paid }; });
     AsyncStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
   };
@@ -118,9 +117,7 @@ export function DocumentsScreen() {
     });
     try {
       await generateContractPdf({
-        reference: c.ref.split('·').pop()?.trim() || `2026-${Math.floor(1000 + Math.random() * 8999)}`,
-        copyLabel: 'EXEMPLAIRE\nCLIENT',
-        clientName,
+        ...contractPdfBase(c),
         departureClientSigned: true,
         departureClientSignedDate: at,
         signatureDataUrl: url,
@@ -130,11 +127,19 @@ export function DocumentsScreen() {
     notify('Contrat signé', 'Ta signature est enregistrée. Le PDF signé a été téléchargé.');
   };
 
+  // Données communes aux deux usages du PDF (signature et téléchargement).
+  const contractPdfBase = (c: ContractDoc) => ({
+    reference: c.reference,
+    copyLabel: 'EXEMPLAIRE\nCLIENT',
+    clientName,
+    driverName: c.driverName,
+    vehicleBrandModel: c.vehicleLabel,
+    pickupDate: c.pickupDate,
+  });
+
   const downloadContract = async (c: ContractDoc) => {
     await generateContractPdf({
-      reference: c.ref.split('·').pop()?.trim() || '2026-0001',
-      copyLabel: 'EXEMPLAIRE\nCLIENT',
-      clientName,
+      ...contractPdfBase(c),
       departureClientSigned: c.signed,
       departureClientSignedDate: c.signedAt,
       signedDate: c.signedAt,
@@ -169,6 +174,16 @@ export function DocumentsScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28, gap: 12 }}>
         {/* ─── Contrats ─── */}
         <SectionLabel icon="sig" label={`Contrats${toSignCount ? ` · ${toSignCount} à signer` : ''}`} theme={theme} />
+        {loading ? <Skeleton variant="card" count={2} /> : null}
+        {!loading && contracts.length === 0 ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="sig"
+              title="Aucun contrat"
+              subtitle="Ton contrat de convoyage apparaîtra ici dès qu'une mission sera ouverte."
+            />
+          </Surface>
+        ) : null}
         {contracts.map((c) => (
           <Surface key={c.id} padded style={{ padding: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -197,6 +212,16 @@ export function DocumentsScreen() {
 
         {/* ─── Factures ─── */}
         <SectionLabel icon="euro" label={`Factures${toPayCount ? ` · ${toPayCount} à régler` : ''}`} theme={theme} style={{ marginTop: 8 }} />
+        {loading ? <Skeleton variant="card" count={1} /> : null}
+        {!loading && invoices.length === 0 ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="euro"
+              title="Aucune facture"
+              subtitle="Tes factures apparaîtront ici une fois le prix de l'envoi confirmé par Axis."
+            />
+          </Surface>
+        ) : null}
         {invoices.map((inv) => (
           <Surface key={inv.id} padded style={{ padding: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

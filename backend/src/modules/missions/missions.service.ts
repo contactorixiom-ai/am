@@ -211,7 +211,7 @@ export class MissionsService {
         include: {
           vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true } },
           client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-          driver: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          driver: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
         },
         orderBy: { pickupAt: 'asc' },
       }),

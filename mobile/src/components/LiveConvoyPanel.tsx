@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Linking, Pressable, Text, View } from 'react-native';
 import { Icons } from './Icons';
 import { LiveConvoyMap } from './LiveConvoyMap';
 import { Pill } from './Pill';
@@ -47,6 +47,18 @@ interface Props {
    * point, hors-ligne, erreur) la démo continue de tourner.
    */
   missionId?: string;
+  /** Téléphone du convoyeur : active le bouton d'appel. */
+  driverPhone?: string | null;
+  /** Distance réelle du trajet (km), si Axis l'a renseignée. */
+  totalKm?: number | null;
+  /** Avancement déduit du statut, utilisé tant qu'aucun point GPS n'existe. */
+  statusProgress?: number;
+  /**
+   * Laisse tourner le scénario animé quand aucune position réelle n'est
+   * disponible. Réservé aux démonstrations : jamais pour un vrai client, à
+   * qui l'on doit dire honnêtement que le suivi n'a pas encore démarré.
+   */
+  demo?: boolean;
 }
 
 // Interroge la dernière position GPS réelle de la mission toutes les 10 s.
@@ -78,7 +90,10 @@ function useLiveGps(missionId?: string): GpsPoint | null {
 // (en route / pause / arrêt). Si `missionId` est fourni et que le chauffeur a
 // émis des positions GPS réelles, elles sont affichées ; sinon la scène de
 // démo évolue automatiquement.
-export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehicleLabel, missionId }: Props) {
+export function LiveConvoyPanel({
+  from, to, fromLabel, toLabel, driverName, vehicleLabel, missionId,
+  driverPhone, totalKm: routeKm, statusProgress = 0, demo = false,
+}: Props) {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phaseIdx, setPhaseIdx] = useState(0);
@@ -121,7 +136,7 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
   // on reste figé.
   useEffect(() => {
     phaseStartRef.current = Date.now();
-    if (phase.state !== 'ROLLING') return;
+    if (!demo || phase.state !== 'ROLLING') return;
     const start = baseProgressRef.current;
     const end = start + phase.progressDelta;
     const tick = () => {
@@ -132,18 +147,18 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
     };
     let raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [phaseIdx, phase.state, phase.progressDelta, phase.durationMs]);
+  }, [demo, phaseIdx, phase.state, phase.progressDelta, phase.durationMs]);
 
   // Passage à la phase suivante
   useEffect(() => {
-    if (phaseIdx >= SCRIPT.length - 1) return;
+    if (!demo || phaseIdx >= SCRIPT.length - 1) return;
     const id = setTimeout(() => {
       baseProgressRef.current += phase.progressDelta;
       setProgress(baseProgressRef.current);
       setPhaseIdx((i) => i + 1);
     }, phase.durationMs);
     return () => clearTimeout(id);
-  }, [phaseIdx, phase.durationMs, phase.progressDelta]);
+  }, [demo, phaseIdx, phase.durationMs, phase.progressDelta]);
 
   // Pulsation du voyant statut
   useEffect(() => {
@@ -157,17 +172,19 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
     return () => loop.stop();
   }, [pulse]);
 
-  // Valeurs affichées : GPS réel prioritaire, sinon scénario de démo.
-  const displayState: DriverState = live ? (live.moving ? 'ROLLING' : 'STOP') : phase.state;
-  const displayProgress = live ? live.prog : progress;
+  // Trois cas : position GPS réelle, scénario de démonstration, ou aucune
+  // donnée — auquel cas on le dit plutôt que d'inventer une progression.
+  const awaiting = !live && !demo;
+  const displayState: DriverState = live ? (live.moving ? 'ROLLING' : 'STOP') : demo ? phase.state : 'STOP';
+  const displayProgress = live ? live.prog : demo ? progress : statusProgress;
   const displayLabel = live
     ? (live.moving ? 'En route' : 'Véhicule à l\'arrêt')
-    : phase.label;
+    : demo ? phase.label : 'Suivi GPS en attente';
   const displayDetail = live
     ? (live.speed !== null
         ? `GPS temps réel · ${Math.round(live.speed)} km/h`
         : 'GPS temps réel · position transmise par le chauffeur')
-    : phase.detail;
+    : demo ? phase.detail : 'Le convoyeur activera le suivi au départ du véhicule.';
 
   const statusColor =
     displayState === 'ROLLING' ? theme.good :
@@ -175,19 +192,21 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
     displayState === 'STOP'    ? (live ? '#E0A04D' : theme.gold) :
                                  theme.navy;
 
-  const totalKm = live ? live.totalKm : 312;
-  const doneKm = Math.round(totalKm * displayProgress);
-  const remainKm = totalKm - doneKm;
+  const totalKm = live ? live.totalKm : routeKm ?? null;
+  const doneKm = totalKm != null ? Math.round(totalKm * displayProgress) : null;
+  const remainKm = totalKm != null && doneKm != null ? totalKm - doneKm : null;
   // ETA : vitesse GPS réelle si le véhicule roule, sinon moyenne 85 km/h
   // (autoroute mixte UE). En démo, on ajoute le temps de pause restant.
   const avgSpeedKmh = live && live.speed !== null && live.speed > 20 ? live.speed : 85;
-  const driveMin = (remainKm / avgSpeedKmh) * 60;
+  const driveMin = remainKm != null ? (remainKm / avgSpeedKmh) * 60 : 0;
   const phaseRemainMs = Math.max(0, phase.durationMs - (Date.now() - phaseStartRef.current));
   const pauseRemainMin = !live && (phase.state === 'PAUSE' || phase.state === 'STOP') ? phaseRemainMs / 60000 : 0;
   const etaMin = Math.max(0, Math.round(driveMin + pauseRemainMin));
-  const eta = !live && phase.state === 'ARRIVED'
-    ? 'Arrivé'
-    : new Date(Date.now() + etaMin * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const eta = awaiting || remainKm == null
+    ? null
+    : !live && phase.state === 'ARRIVED'
+      ? 'Arrivé'
+      : new Date(Date.now() + etaMin * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   const fmtDuration = (sec: number) => {
     if (sec < 60) return `${sec} s`;
@@ -201,7 +220,9 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
   // Démo : « depuis Xs » (durée de la phase). GPS réel : fraîcheur du point.
   const sinceLabel = live
     ? `· MAJ il y a ${fmtDuration(live.ageSec)}`
-    : `· depuis ${fmtDuration(Math.floor((Date.now() - phaseStartRef.current) / 1000))}`;
+    : demo
+      ? `· depuis ${fmtDuration(Math.floor((Date.now() - phaseStartRef.current) / 1000))}`
+      : '';
 
   return (
     <View style={{ gap: 12 }}>
@@ -265,14 +286,16 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
           <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.bgSoft, overflow: 'hidden' }}>
             <View style={{ width: `${Math.round(displayProgress * 100)}%`, height: '100%', backgroundColor: theme.gold }} />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-            <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
-              {doneKm} km parcourus
-            </Text>
-            <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
-              {remainKm} km restants · ETA {eta}
-            </Text>
-          </View>
+          {!awaiting && doneKm != null && remainKm != null ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+              <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
+                {doneKm} km parcourus
+              </Text>
+              <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
+                {remainKm} km restants{eta ? ` · ETA ${eta}` : ''}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Chauffeur + actions rapides */}
@@ -283,21 +306,27 @@ export function LiveConvoyPanel({ from, to, fromLabel, toLabel, driverName, vehi
             </Text>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
-              {driverName ?? 'Karim Diallo'}
+            <Text numberOfLines={1} style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+              {driverName ?? 'Convoyeur à affecter'}
             </Text>
             <Text numberOfLines={1} style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-              {vehicleLabel ?? 'BMW Série 3 · AX-2847'} · 4,9 ★
+              {vehicleLabel ?? 'Véhicule convoyé'}
             </Text>
           </View>
           <Pressable
-            onPress={() => notify('Appel chauffeur', `Mise en relation avec ${driverName ?? 'le chauffeur'} dans la version finale.`)}
+            onPress={() => {
+              if (!driverPhone) {
+                notify('Coordonnées indisponibles', 'Le convoyeur n\'a pas encore communiqué son numéro.');
+                return;
+              }
+              Linking.openURL(`tel:${driverPhone.replace(/\s/g, '')}`).catch(() => notify('Appel impossible', driverPhone));
+            }}
             style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: theme.line, backgroundColor: pressed ? theme.bgSoft : theme.surface, alignItems: 'center', justifyContent: 'center' })}
           >
             <Icons.phone size={16} color={theme.ink} stroke={1.8} />
           </Pressable>
           <Pressable
-            onPress={() => nav.navigate('Messaging', { driverName: driverName ?? 'Karim Diallo', subtitle: `En route · ${vehicleLabel ?? ''}`.trim() })}
+            onPress={() => nav.navigate('Messaging', { driverName: driverName ?? 'Axis Import', subtitle: `En route · ${vehicleLabel ?? ''}`.trim() })}
             style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.navy, alignItems: 'center', justifyContent: 'center' })}
           >
             <Icons.chat size={16} color="#F5F1E8" stroke={1.8} />

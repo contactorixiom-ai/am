@@ -27,6 +27,10 @@ export interface ParcelSummary {
   destinationCountry: string;
   destinationCity: string;
   weightKg: number;
+  description?: string | null;
+  priceCents?: number | null;
+  createdAt?: string;
+  estimatedDelivery?: string | null;
   trackingEvents?: ParcelTrackingEvent[];
 }
 

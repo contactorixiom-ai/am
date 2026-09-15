@@ -1,121 +1,205 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
-import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { getMission, listMissions, MissionDetail } from '../api/missions';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { EmptyState } from '../components/EmptyState';
 import { Icons } from '../components/Icons';
 import { Pill, PillTone } from '../components/Pill';
+import { Skeleton } from '../components/Skeleton';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
+import { missionView } from '../utils/shipment';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
-// Données démo d'un dossier mission. Réutilisé par l'écran de suivi.
-const MISSION = {
-  reference: 'AX-2847',
-  status: { tone: 'navy' as PillTone, label: 'En route' },
-  vehicle: { brand: 'BMW Série 3 — 320d', plate: 'AX-2847-AI', year: '2022', category: 'Berline' },
-  driver: { firstName: 'Karim', lastName: 'Diallo', rating: 4.9, missions: 142, phone: '+33 6 12 34 56 78' },
-  route: {
-    fromCity: 'Paris 15ᵉ', fromAddress: '14 rue de Vaugirard, 75015 Paris',
-    toCity: 'Bruxelles', toAddress: 'Avenue Louise 250, 1050 Bruxelles',
-    pickupAt: '22 mai · 08h30', deliveryAt: '22 mai · 14h32 (estimé)',
-    distanceKm: 312, durationHr: '4h 02',
-  },
-  pricing: { base: 49, perKm: 0.66, options: 35, ttc: 645 },
-  documents: [
-    { id: 1, label: 'Contrat de convoyage',  status: 'signed' as const },
-    { id: 2, label: 'État des lieux départ', status: 'signed' as const },
-    { id: 3, label: 'État des lieux arrivée', status: 'pending' as const },
-    { id: 4, label: 'Facture FA-2026-0184',  status: 'paid' as const },
-  ],
-  timeline: [
-    { label: 'Demande validée',                  date: '21 mai · 17:42', done: true,  current: false },
-    { label: 'Chauffeur assigné · Karim Diallo', date: '21 mai · 18:08', done: true,  current: false },
-    { label: 'Véhicule récupéré',                date: '22 mai · 08:32', done: true,  current: false },
-    { label: 'État des lieux départ signé',      date: '22 mai · 08:42', done: true,  current: false },
-    { label: 'En route',                         date: '22 mai · 08:45 · pause repas 25 min', done: false, current: true },
-    { label: 'État des lieux arrivée',           date: 'prévu 14:32',     done: false, current: false },
-    { label: 'Livré au client',                  date: 'prévu 14:35',     done: false, current: false },
-  ],
+// Étapes du dossier, dans l'ordre où le client les vit. Chacune est datée
+// par l'historique de statut renvoyé par le serveur — rien n'est simulé.
+const TIMELINE_STEPS: { status: string; label: string }[] = [
+  { status: 'DRAFT', label: 'Demande enregistrée' },
+  { status: 'PUBLISHED', label: 'Recherche d\'un convoyeur' },
+  { status: 'ACCEPTED', label: 'Convoyeur affecté' },
+  { status: 'IN_PROGRESS', label: 'Véhicule récupéré — en route' },
+  { status: 'DELIVERED', label: 'Véhicule livré' },
+  { status: 'COMPLETED', label: 'Dossier clôturé' },
+];
+
+const fmtDateTime = (iso?: string | null): string | undefined => {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return `${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const STATUS_TONE: Record<string, PillTone> = {
+  DRAFT: 'default', PUBLISHED: 'default', ACCEPTED: 'gold', IN_PROGRESS: 'gold',
+  DELIVERED: 'good', COMPLETED: 'good', CANCELLED: 'bad', DISPUTED: 'bad',
 };
 
 export function MissionDetailsScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'MissionDetails'>>();
-  const reference = route.params?.reference ?? MISSION.reference;
-  const driverFullName = `${MISSION.driver.firstName} ${MISSION.driver.lastName}`;
+  const reference = route.params?.reference ?? '';
 
-  const goTracking = () => nav.navigate('Tracking', { kind: 'mission', id: reference, reference });
-  const goChat = () => nav.navigate('Messaging', { driverName: driverFullName, subtitle: `${MISSION.status.label} · ${reference}` });
-  const goInspection = () => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', reference, vehicleLabel: `${MISSION.vehicle.brand} · ${MISSION.vehicle.plate}` });
+  // Le dossier est ouvert par référence : on la résout en identifiant via la
+  // liste, puis on charge le détail (historique de statut compris).
+  const [mission, setMission] = useState<MissionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await listMissions();
+        const found = res.data.find((m) => m.reference === reference) ?? res.data[0];
+        if (!found) { if (!cancelled) setLoading(false); return; }
+        const detail = await getMission(found.id).catch(() => found as MissionDetail);
+        if (!cancelled) { setMission(detail); setLoading(false); }
+      } catch {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [reference]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <AppBar title={reference ? `Dossier ${reference}` : 'Dossier'} />
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+          <Skeleton variant="card" count={4} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (!mission) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <AppBar title="Dossier" />
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="truck"
+              title="Dossier introuvable"
+              subtitle="Ce convoyage n'existe plus ou ne t'est pas rattaché."
+              cta={{ label: 'Voir mes envois', onPress: () => nav.navigate('AppTabs') }}
+            />
+          </Surface>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const view = missionView(mission);
+  const vehicleLabel = `${mission.vehicle.make} ${mission.vehicle.model}`.trim();
+  const driverFullName = view.driverName;
+  const priceEur = mission.priceCents != null ? mission.priceCents / 100 : null;
+
+  // Dates réelles par statut : l'historique du serveur d'abord, les champs
+  // horodatés de la mission en secours.
+  const historyDate = (status: string): string | undefined => {
+    const ev = mission.statusHistory?.find((h) => h.status === status);
+    if (ev) return fmtDateTime(ev.createdAt);
+    if (status === 'ACCEPTED') return fmtDateTime(mission.acceptedAt);
+    if (status === 'IN_PROGRESS') return fmtDateTime(mission.startedAt);
+    if (status === 'DELIVERED') return fmtDateTime(mission.deliveredAt);
+    if (status === 'COMPLETED') return fmtDateTime(mission.completedAt);
+    if (status === 'DRAFT') return fmtDateTime(mission.createdAt);
+    return undefined;
+  };
+
+  const currentIndex = TIMELINE_STEPS.findIndex((t) => t.status === mission.status);
+  const timeline = TIMELINE_STEPS.map((t, i) => ({
+    label: t.label,
+    date: historyDate(t.status) ?? (i > currentIndex ? 'à venir' : ''),
+    done: currentIndex >= 0 && i < currentIndex,
+    current: i === currentIndex,
+  }));
+
+  const goTracking = () => nav.navigate('Tracking', { kind: 'mission', id: mission.id, reference: mission.reference });
+  const goChat = () => nav.navigate('Messaging', { driverName: driverFullName ?? 'Axis Import', subtitle: `${view.step} · ${mission.reference}` });
+  const goInspection = () => nav.navigate('VehicleInspection', {
+    phase: 'ARRIVÉE',
+    reference: mission.reference,
+    vehicleLabel: view.vehicleLabel ?? vehicleLabel,
+  });
+  const callDriver = () => {
+    if (!view.driverPhone) {
+      notify('Coordonnées indisponibles', 'Le convoyeur n\'a pas encore communiqué son numéro.');
+      return;
+    }
+    Linking.openURL(`tel:${view.driverPhone.replace(/\s/g, '')}`).catch(() => notify('Appel impossible', view.driverPhone ?? ''));
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title={`Dossier ${reference}`} subtitle={MISSION.vehicle.brand} />
+      <AppBar title={`Dossier ${mission.reference}`} subtitle={vehicleLabel} />
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 14 }}>
         {/* Hero statut */}
         <Surface padded flat style={{ padding: 16, backgroundColor: theme.navy, borderColor: theme.navy }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pill tone="gold">● {MISSION.status.label}</Pill>
-            <Text style={{ fontSize: 11.5, color: theme.goldHi, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
-              {reference}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <Pill tone={STATUS_TONE[mission.status] ?? 'gold'}>● {view.step}</Pill>
+            <Text style={{ fontSize: 11.5, color: theme.goldHi, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+              {mission.reference}
             </Text>
           </View>
           <Text style={{ fontSize: 22, color: '#F5F1E8', fontFamily: TYPO.weights.bold, letterSpacing: -0.3, marginTop: 12 }}>
-            {MISSION.route.fromCity}
+            {mission.pickupCity}
             {'\n'}
             <Text style={{ color: 'rgba(245,241,232,0.55)', fontFamily: TYPO.weights.regular }}>vers</Text>{' '}
-            {MISSION.route.toCity}
+            {mission.deliveryCity}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 18, marginTop: 14 }}>
-            <Stat label="Distance" value={`${MISSION.route.distanceKm} km`} />
-            <Stat label="Durée" value={MISSION.route.durationHr} />
-            <Stat label="Arrivée" value="14h32" />
+          <View style={{ flexDirection: 'row', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
+            {mission.distanceKm ? <Stat label="Distance" value={`${Math.round(mission.distanceKm)} km`} /> : null}
+            <Stat label="Enlèvement" value={fmtDateTime(mission.pickupAt) ?? '—'} />
+            <Stat label="Arrivée" value={view.eta ?? 'À confirmer'} />
           </View>
           <View style={{ height: 4, backgroundColor: 'rgba(245,241,232,0.15)', borderRadius: 2, marginTop: 14 }}>
-            <View style={{ width: '62%', height: '100%', backgroundColor: theme.gold, borderRadius: 2 }} />
+            <View style={{ width: `${Math.round(view.progress * 100)}%`, height: '100%', backgroundColor: theme.gold, borderRadius: 2 }} />
           </View>
-          <Text style={{ fontSize: 11, color: 'rgba(245,241,232,0.62)', fontFamily: TYPO.weights.medium, marginTop: 6 }}>
-            194 km parcourus · 118 km restants
-          </Text>
         </Surface>
 
         {/* Actions rapides */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <QuickAction onPress={goTracking} icon={<Icons.pin size={18} color={theme.gold} stroke={1.8} />} label="Suivi live" />
           <QuickAction onPress={goChat} icon={<Icons.chat size={18} color={theme.gold} stroke={1.8} />} label="Chat" />
-          <QuickAction onPress={() => notify('Appel chauffeur', `Mise en relation avec ${driverFullName} dans la version finale.`)} icon={<Icons.phone size={18} color={theme.gold} stroke={1.8} />} label="Appeler" />
+          <QuickAction onPress={callDriver} icon={<Icons.phone size={18} color={theme.gold} stroke={1.8} />} label="Appeler" />
           <QuickAction onPress={goInspection} icon={<Icons.sig size={18} color={theme.gold} stroke={1.8} />} label="État lieux" />
         </View>
 
-        {/* Chauffeur */}
-        <SectionCard title="Chauffeur">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Avatar name={driverFullName} size={48} tone="gold" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{driverFullName}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                <Icons.star size={12} color={theme.gold} stroke={2} />
-                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                  {MISSION.driver.rating} · {MISSION.driver.missions} convoyages · Permis B vérifié
+        {/* Convoyeur — la carte n'apparaît que s'il y en a un */}
+        {driverFullName ? (
+          <SectionCard title="Convoyeur">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Avatar name={driverFullName} size={48} tone="gold" />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{driverFullName}</Text>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
+                  {view.driverPhone ?? 'Convoyeur Axis Import'}
                 </Text>
               </View>
             </View>
-          </View>
-        </SectionCard>
+          </SectionCard>
+        ) : (
+          <SectionCard title="Convoyeur">
+            <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+              Axis affecte ton convoyeur. Tu recevras son nom et son numéro dès validation.
+            </Text>
+          </SectionCard>
+        )}
 
         {/* Véhicule */}
         <SectionCard title="Véhicule convoyé">
-          <KvRow label="Marque · modèle" value={MISSION.vehicle.brand} />
-          <KvRow label="Immatriculation" value={MISSION.vehicle.plate} />
-          <KvRow label="Année" value={MISSION.vehicle.year} />
-          <KvRow label="Catégorie" value={MISSION.vehicle.category} />
+          <KvRow label="Marque · modèle" value={vehicleLabel} />
+          {mission.vehicle.licensePlate ? <KvRow label="Immatriculation" value={mission.vehicle.licensePlate} /> : null}
+          {mission.vehicle.year ? <KvRow label="Année" value={String(mission.vehicle.year)} /> : null}
         </SectionCard>
 
         {/* Itinéraire */}
@@ -129,53 +213,42 @@ export function MissionDetailsScreen() {
             <View style={{ flex: 1, gap: 14 }}>
               <View>
                 <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.semibold }}>Enlèvement</Text>
-                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>{MISSION.route.fromAddress}</Text>
-                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{MISSION.route.pickupAt}</Text>
+                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>
+                  {mission.pickupAddress ? `${mission.pickupAddress}, ${mission.pickupCity}` : mission.pickupCity}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+                  {fmtDateTime(mission.pickupAt) ?? 'Date à confirmer'}
+                </Text>
               </View>
               <View>
                 <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.semibold }}>Livraison</Text>
-                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>{MISSION.route.toAddress}</Text>
-                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{MISSION.route.deliveryAt}</Text>
+                <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>
+                  {mission.deliveryAddress ? `${mission.deliveryAddress}, ${mission.deliveryCity}` : mission.deliveryCity}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>
+                  {fmtDateTime(mission.deliveryAt) ?? 'Date à confirmer'}
+                </Text>
               </View>
             </View>
           </View>
         </SectionCard>
 
-        {/* Tarif */}
-        <SectionCard title="Tarif">
-          <KvRow label={`Forfait + ${MISSION.route.distanceKm} km`} value={`${(MISSION.pricing.base + MISSION.pricing.perKm * MISSION.route.distanceKm).toFixed(2)} €`} />
-          <KvRow label="Options" value={`+ ${MISSION.pricing.options.toFixed(2)} €`} />
-          <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 8 }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.semibold, textTransform: 'uppercase', letterSpacing: 0.6 }}>Total TTC</Text>
-            <Text style={{ fontSize: 22, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
-              {MISSION.pricing.ttc.toLocaleString('fr-FR')} €
-            </Text>
-          </View>
-        </SectionCard>
+        {/* Tarif — masqué tant qu'aucun prix n'est convenu */}
+        {priceEur != null && priceEur > 0 ? (
+          <SectionCard title="Tarif">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.semibold, textTransform: 'uppercase', letterSpacing: 0.6 }}>Total TTC</Text>
+              <Text style={{ fontSize: 22, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
+                {priceEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </Text>
+            </View>
+          </SectionCard>
+        ) : null}
 
-        {/* Documents */}
-        <SectionCard title="Documents du dossier">
-          {MISSION.documents.map((d, i) => (
-            <Pressable key={d.id} onPress={() => nav.navigate('AppTabs')}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.lineSoft }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icons.doc size={16} color={theme.navy} stroke={1.8} />
-                </View>
-                <Text style={{ flex: 1, fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{d.label}</Text>
-                <Pill tone={docTone(d.status)}>{docLabel(d.status)}</Pill>
-                <Icons.chev size={16} color={theme.muted} stroke={1.8} />
-              </View>
-            </Pressable>
-          ))}
-        </SectionCard>
-
-        {/* Timeline */}
+        {/* Historique réel */}
         <SectionCard title="Historique">
-          {MISSION.timeline.map((t, i, arr) => (
-            <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
-              {/* Le padding vertical vit dans la colonne texte : le trait
-                  rejoint ainsi la pastille suivante sans coupure. */}
+          {timeline.map((t, i, arr) => (
+            <View key={t.label} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ alignItems: 'center' }}>
                 <View
                   style={{
@@ -196,13 +269,14 @@ export function MissionDetailsScreen() {
                 <Text style={{ fontSize: 13, color: t.done || t.current ? theme.ink : theme.muted, fontFamily: t.current ? TYPO.weights.semibold : TYPO.weights.medium }}>
                   {t.label}
                 </Text>
-                <Text style={{ fontSize: 11, color: theme.muted, marginTop: 1, fontFamily: TYPO.weights.medium }}>{t.date}</Text>
+                {t.date ? (
+                  <Text style={{ fontSize: 11, color: theme.muted, marginTop: 1, fontFamily: TYPO.weights.medium }}>{t.date}</Text>
+                ) : null}
               </View>
             </View>
           ))}
         </SectionCard>
 
-        {/* CTA bas */}
         <Button kind="gold" size="lg" fullWidth onPress={goTracking} rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}>
           Voir le suivi en temps réel
         </Button>
@@ -267,15 +341,4 @@ function KvRow({ label, value }: { label: string; value: string }) {
       <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold, fontVariant: ['tabular-nums'] }}>{value}</Text>
     </View>
   );
-}
-
-function docTone(s: 'signed' | 'pending' | 'paid'): PillTone {
-  if (s === 'signed') return 'good';
-  if (s === 'paid') return 'good';
-  return 'warn';
-}
-function docLabel(s: 'signed' | 'pending' | 'paid'): string {
-  if (s === 'signed') return 'Signé';
-  if (s === 'paid') return 'Payé';
-  return 'En attente';
 }

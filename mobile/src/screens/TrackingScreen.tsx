@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
+import { getMission, listMissions, MissionDetail } from '../api/missions';
 import { ParcelSummary, trackParcel } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
@@ -14,19 +15,50 @@ import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
+import { missionView } from '../utils/shipment';
+import { notify } from '../utils/notify';
+import { Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
 import { selectPartner } from '../utils/logisticsPartners';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
-// Étapes par défaut si pas de tracking events (mission convoyage)
-const DEFAULT_STEPS = [
-  { label: 'Demande validée',            sub: 'Confirmation des informations',         done: true,  current: false },
-  { label: 'État des lieux signé',       sub: 'Par le chauffeur — état impeccable',     done: true,  current: false },
-  { label: 'En route',                    sub: '47 km restants · arrivée 14h32',         done: false, current: true  },
-  { label: "État des lieux d'arrivée",    sub: 'Prévu 14h32',                            done: false, current: false },
-  { label: 'Livré',                       sub: '—',                                       done: false, current: false },
+// Étapes d'un convoyage, datées par l'historique de statut du serveur.
+const CONVOY_STEPS: { status: string; label: string }[] = [
+  { status: 'DRAFT', label: 'Demande enregistrée' },
+  { status: 'PUBLISHED', label: 'Recherche d\'un convoyeur' },
+  { status: 'ACCEPTED', label: 'Convoyeur affecté' },
+  { status: 'IN_PROGRESS', label: 'Véhicule en route' },
+  { status: 'DELIVERED', label: 'Véhicule livré' },
+  { status: 'COMPLETED', label: 'Dossier clôturé' },
 ];
+
+function convoySteps(mission: MissionDetail | null) {
+  if (!mission) return [];
+  const at = (status: string): string => {
+    const ev = mission.statusHistory?.find((h) => h.status === status);
+    const iso = ev?.createdAt
+      ?? (status === 'ACCEPTED' ? mission.acceptedAt
+        : status === 'IN_PROGRESS' ? mission.startedAt
+        : status === 'DELIVERED' ? mission.deliveredAt
+        : status === 'COMPLETED' ? mission.completedAt
+        : status === 'DRAFT' ? mission.createdAt
+        : null);
+    if (!iso) return '';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? ''
+      : `${d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  };
+  const idx = CONVOY_STEPS.findIndex((t) => t.status === mission.status);
+  return CONVOY_STEPS.map((t, i) => ({
+    label: t.label,
+    sub: '',
+    time: at(t.status) || (i > idx ? 'À venir' : ''),
+    done: idx >= 0 && i < idx,
+    current: i === idx,
+  }));
+}
 
 // Étapes pour un colis Europe→Afrique : 5 tronçons distincts
 function buildParcelLegs(partnerName: string, port: string) {
@@ -47,6 +79,7 @@ export function TrackingScreen() {
   const { kind, reference } = route.params;
 
   const [parcel, setParcel] = useState<ParcelSummary | null>(null);
+  const [mission, setMission] = useState<MissionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +101,17 @@ export function TrackingScreen() {
       if (kind === 'parcel') {
         const p = await trackParcel(reference);
         setParcel(p);
+      } else {
+        // L'écran peut être ouvert avec un identifiant ou seulement une
+        // référence : on résout les deux cas.
+        const id = route.params.id;
+        const detail = id && id !== reference
+          ? await getMission(id).catch(() => null)
+          : await listMissions()
+              .then((r) => r.data.find((m) => m.reference === reference) ?? null)
+              .then((m) => (m ? getMission(m.id).catch(() => m as MissionDetail) : null))
+              .catch(() => null);
+        setMission(detail);
       }
     } catch (e) {
       setError(e instanceof ApiError ? 'Impossible de charger le suivi.' : 'Erreur réseau.');
@@ -87,8 +131,20 @@ export function TrackingScreen() {
     );
   }
 
-  const fromLabel = parcel ? parcel.originCity : 'Paris';
-  const toLabel = parcel ? parcel.destinationCity : 'Bruxelles';
+  const view = mission ? missionView(mission) : null;
+  const fromLabel = parcel ? parcel.originCity : mission?.pickupCity ?? '—';
+  const toLabel = parcel ? parcel.destinationCity : mission?.deliveryCity ?? '—';
+  const vehicleLabel = view?.vehicleLabel ?? 'Véhicule convoyé';
+  const driverLabel = view?.driverName ?? 'Convoyeur en cours d\'affectation';
+
+  const callDriver = () => {
+    const phone = view?.driverPhone;
+    if (!phone) {
+      notify('Coordonnées indisponibles', 'Le convoyeur n\'a pas encore communiqué son numéro.');
+      return;
+    }
+    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => notify('Appel impossible', phone));
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -129,9 +185,12 @@ export function TrackingScreen() {
               to={{ latitude: 50.8503, longitude: 4.3517 }}
               fromLabel={fromLabel}
               toLabel={toLabel}
-              driverName="Karim Diallo"
-              vehicleLabel="BMW Série 3 · AX-2847"
-              missionId={route.params.id}
+              driverName={view?.driverName ?? undefined}
+              vehicleLabel={view?.vehicleLabel ?? undefined}
+              driverPhone={view?.driverPhone}
+              totalKm={mission?.distanceKm ?? null}
+              statusProgress={view?.progress ?? 0}
+              missionId={mission?.id ?? route.params.id}
             />
           ) : (
             <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
@@ -145,14 +204,14 @@ export function TrackingScreen() {
               phase="DÉPART"
               reference={reference}
               done={inspectionStatus.departureDone}
-              onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', reference, vehicleLabel: 'BMW Série 3 · AX-2847' })}
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', reference, vehicleLabel })}
             />
             <InspectionTile
               phase="ARRIVÉE"
               reference={reference}
               done={inspectionStatus.arrivalDone}
               locked={!inspectionStatus.departureDone}
-              onPress={() => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', reference, vehicleLabel: 'BMW Série 3 · AX-2847' })}
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', reference, vehicleLabel })}
             />
           </View>
         ) : null}
@@ -168,13 +227,11 @@ export function TrackingScreen() {
           }}
         >
           <Pill tone={parcel?.status === 'IN_TRANSIT' ? 'navy' : 'gold'}>
-            ● {parcel ? labelStatus(parcel.status) : 'En route'}
+            ● {parcel ? labelStatus(parcel.status) : view?.step ?? '—'}
           </Pill>
-          {parcel?.weightKg ? <Pill tone="default">{parcel.weightKg} kg</Pill> : <Pill tone="default">312 km</Pill>}
+          {parcel?.weightKg ? <Pill tone="default">{parcel.weightKg} kg</Pill> : null}
+          {!parcel && mission?.distanceKm ? <Pill tone="default">{Math.round(mission.distanceKm)} km</Pill> : null}
           <View style={{ flex: 1 }} />
-          <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-            MAJ il y a 12 s
-          </Text>
         </View>
 
         {error ? (
@@ -199,19 +256,17 @@ export function TrackingScreen() {
           <Surface padded style={{ padding: 16 }}>
             {/* Driver row */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Avatar name={parcel ? 'A B' : 'Karim Diallo'} size={48} tone="gold" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
-                  {parcel ? 'Transporteur Axis' : 'Karim Diallo'}
+              <Avatar name={parcel ? 'Axis Import' : driverLabel} size={48} tone="gold" />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                  {parcel ? 'Transporteur Axis' : driverLabel}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 }}>
-                  <Icons.star size={12} color={theme.gold} stroke={2} />
-                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                    4.9 · 142 convoyages · Chauffeur Axis
-                  </Text>
-                </View>
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
+                  {parcel ? 'Axis Import SAS' : view?.driverPhone ?? vehicleLabel}
+                </Text>
               </View>
               <Pressable
+                onPress={callDriver}
                 style={({ pressed }) => ({
                   width: 40,
                   height: 40,
@@ -226,6 +281,10 @@ export function TrackingScreen() {
                 <Icons.phone size={18} color={theme.ink} stroke={1.8} />
               </Pressable>
               <Pressable
+                onPress={() => nav.navigate('Messaging', {
+                  driverName: parcel ? 'Axis Import' : driverLabel,
+                  subtitle: `${view?.step ?? 'Suivi'} · ${reference}`,
+                })}
                 style={({ pressed }) => ({
                   width: 40,
                   height: 40,
@@ -242,7 +301,9 @@ export function TrackingScreen() {
             <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 14 }} />
 
             {/* Timeline verticale */}
-            {(parcel?.trackingEvents && parcel.trackingEvents.length > 0
+            {(kind === 'mission'
+              ? convoySteps(mission)
+              : parcel?.trackingEvents && parcel.trackingEvents.length > 0
               ? parcel.trackingEvents.map((e, i, arr) => ({
                   label: labelStatus(e.status),
                   sub: e.notes ?? e.location ?? '',
@@ -255,8 +316,8 @@ export function TrackingScreen() {
                       selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry }).name,
                       'Hub Roissy → Port autonome de Marseille',
                     )
-                  : DEFAULT_STEPS
-                ).map((s, i, arr) => ({ ...s, time: i < (arr.length >> 1) ? 'Hier · 17:42' : i === (arr.length >> 1) ? 'Maintenant' : 'Prévu' }))
+                  : []
+                ).map((s, i, arr) => ({ ...s, time: i < (arr.length >> 1) ? '' : i === (arr.length >> 1) ? 'En cours' : 'À venir' }))
             ).map((step, i, arr) => (
               <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
                 {/* Colonne pastille + trait : le padding vertical vit dans la

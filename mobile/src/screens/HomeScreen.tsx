@@ -1,8 +1,14 @@
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
+import { listMissions } from '../api/missions';
+import { listParcels } from '../api/parcels';
+import { EmptyState } from '../components/EmptyState';
+import { Skeleton } from '../components/Skeleton';
+import { countContractsToSign } from '../utils/clientDocs';
+import { missionView, parcelView, ShipmentView, sortForClient } from '../utils/shipment';
 import { Avatar } from '../components/Avatar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -15,26 +21,6 @@ import { useSession } from '../state/SessionContext';
 import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-
-// Sample data — sera remplacé par fetch des missions réelles
-const MISSION = {
-  ref: 'AX-2847',
-  from: 'Paris 15ᵉ',
-  to: 'Bruxelles, Schaerbeek',
-  driver: { name: 'Karim Diallo', rating: 4.9 },
-  eta: '14h32',
-  remaining: '47 km',
-  progress: 0.78,
-};
-
-const MISSION_AFR = {
-  ref: 'AX-2811',
-  from: 'Lyon, Vénissieux',
-  to: 'Abidjan, Port Autonome',
-  step: 'Douane Marseille — sortie maritime',
-  eta: 'Lun. 24/05',
-  progress: 0.42,
-};
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -51,6 +37,42 @@ export function HomeScreen() {
       .catch(() => { /* offline → on n'affiche pas la bannière */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Envois réels du client : convoyages + colis, fusionnés et triés.
+  // Aucune donnée d'exemple — si le client n'a rien, il voit un appel à l'action.
+  const [shipments, setShipments] = useState<ShipmentView[] | null>(null);
+  const [toSign, setToSign] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const [mRes, pRes] = await Promise.allSettled([listMissions(), listParcels()]);
+        if (cancelled) return;
+        const missions = mRes.status === 'fulfilled' ? mRes.value.data : [];
+        const views: ShipmentView[] = [
+          ...missions.map(missionView),
+          ...(pRes.status === 'fulfilled' ? pRes.value.data.map(parcelView) : []),
+        ];
+        setShipments(sortForClient(views));
+        const n = await countContractsToSign(missions);
+        if (!cancelled) setToSign(n);
+      })();
+      return () => { cancelled = true; };
+    }, []),
+  );
+
+  const primary = shipments?.[0] ?? null;
+  const secondary = shipments?.[1] ?? null;
+
+  const callDriver = (view: ShipmentView) => {
+    if (!view.driverPhone) {
+      notify('Coordonnées indisponibles', 'Le convoyeur n\'a pas encore communiqué son numéro.');
+      return;
+    }
+    Linking.openURL(`tel:${view.driverPhone.replace(/\s/g, '')}`).catch(() =>
+      notify('Appel impossible', view.driverPhone ?? ''),
+    );
+  };
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -186,107 +208,142 @@ export function HomeScreen() {
           </Pressable>
         ) : null}
 
-        {/* Hero — Active mission */}
-        <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
-          {/* Header cliquable → ouvre le dossier complet (sans englober les boutons) */}
-          <Pressable
-            onPress={() => nav.navigate('MissionDetails', { reference: MISSION.ref })}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}
-          >
-            <Pill tone="navy">● En route</Pill>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text
-                style={{
-                  fontSize: 11.5,
-                  color: theme.muted,
-                  letterSpacing: 0.7,
-                  textTransform: 'uppercase',
-                  fontFamily: TYPO.weights.medium,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {MISSION.ref}
-              </Text>
-              <Icons.chev size={14} color={theme.muted} stroke={2} />
-            </View>
-          </Pressable>
-          <Text
-            style={{
-              fontFamily: TYPO.weights.bold,
-              fontSize: 28,
-              lineHeight: 28 * 1.05,
-              color: theme.ink,
-              letterSpacing: -0.3,
-            }}
-          >
-            {MISSION.from}
-            {'\n'}
-            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.regular }}>vers</Text> {MISSION.to}
-          </Text>
-
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, marginBottom: 14 }}>
-            <View>
-              <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
-                Arrivée prévue
-              </Text>
-              <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 26, color: theme.ink, lineHeight: 26, marginTop: 2 }}>
-                {MISSION.eta}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }} />
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
-                Restant
-              </Text>
-              <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 26, color: theme.ink, lineHeight: 26, marginTop: 2 }}>
-                {MISSION.remaining}
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress bar */}
-          <View style={{ height: 4, backgroundColor: theme.bgSoft, borderRadius: 2, marginBottom: 14 }}>
-            <View
-              style={{
-                width: `${MISSION.progress * 100}%`,
-                height: '100%',
-                backgroundColor: theme.gold,
-                borderRadius: 2,
-              }}
+        {/* Envoi en cours — données réelles du client */}
+        {shipments === null ? (
+          <Skeleton variant="card" count={1} />
+        ) : primary === null ? (
+          <Surface padded style={{ padding: 4 }}>
+            <EmptyState
+              iconKey="truck"
+              title="Aucun envoi en cours"
+              subtitle="Demande un convoyage de véhicule ou envoie un colis : tu suivras tout ici."
+              cta={{ label: 'Faire une demande', onPress: () => nav.navigate('ServicePicker') }}
             />
-          </View>
-
-          {/* Driver row */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Avatar name={MISSION.driver.name} size={36} tone="gold" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>
-                {MISSION.driver.name}
+          </Surface>
+        ) : (
+          <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
+            {/* Header cliquable → ouvre le dossier complet (sans englober les boutons) */}
+            <Pressable
+              onPress={() =>
+                primary.kind === 'mission'
+                  ? nav.navigate('MissionDetails', { reference: primary.reference })
+                  : nav.navigate('Tracking', { kind: 'parcel', id: primary.id, reference: primary.reference })
+              }
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}
+            >
+              <View style={{ flexShrink: 1, minWidth: 0 }}>
+                <Pill tone={primary.active ? 'navy' : 'good'}>{`● ${primary.step}`}</Pill>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <Text
+                  style={{
+                    fontSize: 11.5,
+                    color: theme.muted,
+                    letterSpacing: 0.7,
+                    textTransform: 'uppercase',
+                    fontFamily: TYPO.weights.medium,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                  numberOfLines={1}
+                >
+                  {primary.reference}
+                </Text>
+                <Icons.chev size={14} color={theme.muted} stroke={2} />
+              </View>
+            </Pressable>
+            <Text
+              style={{
+                fontFamily: TYPO.weights.bold,
+                fontSize: 28,
+                lineHeight: 28 * 1.05,
+                color: theme.ink,
+                letterSpacing: -0.3,
+              }}
+            >
+              {primary.from}
+              {'\n'}
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.regular }}>vers</Text> {primary.to}
+            </Text>
+            {primary.stepDetail ? (
+              <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 6 }} numberOfLines={1}>
+                Dernier point : {primary.stepDetail}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                <Icons.star size={12} color={theme.gold} stroke={2} />
-                <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                  {MISSION.driver.rating} · Ton chauffeur
+            ) : null}
+
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, marginBottom: 14 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
+                  Arrivée prévue
+                </Text>
+                <Text style={{ fontFamily: TYPO.weights.bold, fontSize: primary.eta ? 26 : 18, color: primary.eta ? theme.ink : theme.muted, lineHeight: 28, marginTop: 2 }} numberOfLines={1}>
+                  {primary.eta ?? 'À confirmer'}
                 </Text>
               </View>
+              {primary.distanceKm ? (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
+                    Distance
+                  </Text>
+                  <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 26, color: theme.ink, lineHeight: 28, marginTop: 2 }}>
+                    {Math.round(primary.distanceKm)} km
+                  </Text>
+                </View>
+              ) : null}
             </View>
-            <Button
-              kind="outline"
-              size="sm"
-              leftIcon={<Icons.phone size={14} color={theme.ink} stroke={1.8} />}
-              onPress={() => notify('Appel chauffeur', `${MISSION.driver.name} sera mis en relation dans la version finale.`)}
-            >
-              Appeler
-            </Button>
-            <Button
-              kind="primary"
-              size="sm"
-              onPress={() => nav.navigate('Tracking', { kind: 'mission', id: MISSION.ref, reference: MISSION.ref })}
-            >
-              Suivre
-            </Button>
-          </View>
-        </Surface>
+
+            {/* Avancement déduit du statut réel de l'envoi */}
+            <View style={{ height: 4, backgroundColor: theme.bgSoft, borderRadius: 2, marginBottom: 14 }}>
+              <View
+                style={{
+                  width: `${Math.round(primary.progress * 100)}%`,
+                  height: '100%',
+                  backgroundColor: theme.gold,
+                  borderRadius: 2,
+                }}
+              />
+            </View>
+
+            {/* Convoyeur affecté — masqué tant qu'il n'y en a pas */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {primary.driverName ? (
+                <>
+                  <Avatar name={primary.driverName} size={36} tone="gold" />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                      {primary.driverName}
+                    </Text>
+                    <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }} numberOfLines={1}>
+                      {primary.vehicleLabel ?? 'Ton convoyeur'}
+                    </Text>
+                  </View>
+                  <Button
+                    kind="outline"
+                    size="sm"
+                    leftIcon={<Icons.phone size={14} color={theme.ink} stroke={1.8} />}
+                    onPress={() => callDriver(primary)}
+                  >
+                    Appeler
+                  </Button>
+                </>
+              ) : (
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    {primary.kind === 'mission'
+                      ? 'Convoyeur en cours d\'affectation par Axis.'
+                      : 'Ton colis est pris en charge par Axis.'}
+                  </Text>
+                </View>
+              )}
+              <Button
+                kind="primary"
+                size="sm"
+                onPress={() => nav.navigate('Tracking', { kind: primary.kind, id: primary.id, reference: primary.reference })}
+              >
+                Suivre
+              </Button>
+            </View>
+          </Surface>
+        )}
 
         {/* Quick actions */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -357,41 +414,48 @@ export function HomeScreen() {
               Documents{'\n'}& factures
             </Text>
             <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
-              3 à signer
+              {toSign > 0 ? `${toSign} à signer` : 'Tout est à jour'}
             </Text>
           </Pressable>
         </View>
 
-        {/* Second mission card */}
-        <Surface padded style={{ padding: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Pill tone="gold">● Douane</Pill>
-            <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium, fontVariant: ['tabular-nums'] }}>
-              {MISSION_AFR.ref}
-            </Text>
-          </View>
-          <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium, marginBottom: 2 }}>
-            {MISSION_AFR.from} → {MISSION_AFR.to}
-          </Text>
-          <Text style={{ fontSize: 12, color: theme.muted, marginBottom: 10, fontFamily: TYPO.weights.medium }}>
-            {MISSION_AFR.step}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ flex: 1, height: 3, backgroundColor: theme.bgSoft, borderRadius: 2 }}>
-              <View
-                style={{
-                  width: `${MISSION_AFR.progress * 100}%`,
-                  height: '100%',
-                  backgroundColor: theme.gold,
-                  borderRadius: 2,
-                }}
-              />
-            </View>
-            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-              Arrivée {MISSION_AFR.eta}
-            </Text>
-          </View>
-        </Surface>
+        {/* Deuxième envoi en cours, s'il y en a un */}
+        {secondary ? (
+          <Pressable
+            onPress={() => nav.navigate('Tracking', { kind: secondary.kind, id: secondary.id, reference: secondary.reference })}
+          >
+            <Surface padded style={{ padding: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={{ flexShrink: 1, minWidth: 0 }}>
+                  <Pill tone={secondary.active ? 'gold' : 'good'}>{`● ${secondary.step}`}</Pill>
+                </View>
+                <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium, fontVariant: ['tabular-nums'], flexShrink: 0 }} numberOfLines={1}>
+                  {secondary.reference}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium, marginBottom: 10 }} numberOfLines={2}>
+                {secondary.from} → {secondary.to}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ flex: 1, height: 3, backgroundColor: theme.bgSoft, borderRadius: 2 }}>
+                  <View
+                    style={{
+                      width: `${Math.round(secondary.progress * 100)}%`,
+                      height: '100%',
+                      backgroundColor: theme.gold,
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+                {secondary.eta ? (
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    Arrivée {secondary.eta}
+                  </Text>
+                ) : null}
+              </View>
+            </Surface>
+          </Pressable>
+        ) : null}
 
         {/* News preview */}
         <View>

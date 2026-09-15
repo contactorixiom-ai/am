@@ -11,12 +11,38 @@ export interface MissionSummary {
   status: MissionStatus;
   pickupCity: string;
   pickupCountry: string;
+  pickupAddress?: string;
   pickupAt: string;
   deliveryCity: string;
   deliveryCountry: string;
+  deliveryAddress?: string;
+  deliveryAt?: string | null;
+  distanceKm?: number | null;
+  priceCents?: number | null;
   vehicle: { make: string; model: string; year: number; licensePlate?: string };
-  driver?: { firstName: string; lastName: string } | null;
+  driver?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
   client?: { firstName: string; lastName: string } | null;
+}
+
+export interface MissionStatusEvent {
+  status: MissionStatus;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface MissionDetail extends MissionSummary {
+  acceptedAt?: string | null;
+  startedAt?: string | null;
+  deliveredAt?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
+  durationMinutes?: number | null;
+  statusHistory?: MissionStatusEvent[];
+  vehicle: MissionSummary['vehicle'] & { type?: string | null; vin?: string | null };
+}
+
+export async function getMission(id: string): Promise<MissionDetail> {
+  return apiFetch<MissionDetail>(`/missions/${id}`);
 }
 
 export interface CreateMissionInput {
