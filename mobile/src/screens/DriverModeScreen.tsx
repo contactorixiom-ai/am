@@ -17,6 +17,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { createStationaryWatch, StationaryWatch } from '../utils/stationaryWatch';
+import { hasNativeLocation, NativeStop, startNativeWatch } from '../utils/nativeLocation';
 
 // ─── Mode chauffeur : suivi GPS temps réel + pause + alerte d'arrêt ─────────
 // Le chauffeur démarre le suivi au départ de la mission. Le téléphone envoie
@@ -144,6 +145,8 @@ export function DriverModeScreen() {
 
   const stationaryRef = useRef<StationaryWatch | null>(null);
   const geoWatchIdRef = useRef<number | null>(null);
+  // Suivi natif (application installée) : continue écran verrouillé.
+  const nativeStopRef = useRef<NativeStop | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -230,6 +233,8 @@ export function DriverModeScreen() {
       navigator.geolocation.clearWatch(geoWatchIdRef.current);
     }
     geoWatchIdRef.current = null;
+    nativeStopRef.current?.();
+    nativeStopRef.current = null;
     if (simTimerRef.current) clearInterval(simTimerRef.current);
     simTimerRef.current = null;
     if (sendTimerRef.current) clearInterval(sendTimerRef.current);
@@ -272,7 +277,25 @@ export function DriverModeScreen() {
       onMove: handleMove,
     });
 
-    if (hasPhoneGeolocation()) {
+    // Application installée : suivi natif, qui survit au verrouillage de
+    // l'écran. Sinon (web), on garde navigator.geolocation.
+    if (hasNativeLocation()) {
+      startNativeWatch(handlePosition).then((res) => {
+        if (res.ok) {
+          nativeStopRef.current = res.stop;
+          if (!res.background) {
+            setGeoError(
+              'Suivi actif, mais l\'autorisation « Toujours » n\'a pas été accordée : la position s\'arrêtera si tu verrouilles l\'écran. Tu peux la changer dans les réglages du téléphone.',
+            );
+          }
+        } else if (res.reason === 'denied') {
+          setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone, ou continue en simulation.');
+        } else {
+          setGeoError('Géolocalisation indisponible sur cet appareil — trajectoire simulée.');
+          startSimulation();
+        }
+      });
+    } else if (hasPhoneGeolocation()) {
       // Web (et natif si polyfill présent) : suivi haute précision du téléphone.
       geoWatchIdRef.current = navigator.geolocation.watchPosition(
         (p) => {
