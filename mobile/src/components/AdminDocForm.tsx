@@ -4,7 +4,7 @@
 // groupés deux par ligne pour rester dense — Roger veut aller vite.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { AdminDocType, AdminFieldSpec, AdminValues } from '../utils/adminDocs';
+import { AdminDocType, AdminFieldSpec, AdminValues, ISSUER_HELP, ISSUER_LABEL } from '../utils/adminDocs';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { Button } from './Button';
@@ -79,8 +79,35 @@ export function AdminDocForm({ docType, initialValues, onSubmit, submitting }: P
     onSubmit(values);
   };
 
+  // Qui délivre l'original : la première chose à savoir avant de remplir.
+  const issuerTone =
+    docType.issuer === 'axis'
+      ? { bg: theme.good + '18', border: theme.good + '55', fg: theme.good }
+      : { bg: theme.warn + '16', border: theme.warn + '50', fg: theme.warn };
+
   return (
     <View style={{ gap: 12 }}>
+      <View
+        style={{
+          backgroundColor: issuerTone.bg,
+          borderColor: issuerTone.border,
+          borderWidth: 1,
+          borderRadius: RADII.md,
+          padding: 11,
+          gap: 3,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <Icons.shield size={14} color={issuerTone.fg} stroke={1.9} />
+          <Text style={{ fontSize: 12.5, color: issuerTone.fg, fontFamily: TYPO.weights.bold }}>
+            {ISSUER_LABEL[docType.issuer]}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 11.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 16 }}>
+          {docType.issuerNote ?? ISSUER_HELP[docType.issuer]}
+        </Text>
+      </View>
+
       {rows.map((row) => (
         <View key={row.map((f) => f.key).join('+')} style={{ flexDirection: 'row', gap: 10 }}>
           {row.map((f) => (

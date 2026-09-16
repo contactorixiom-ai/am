@@ -1546,7 +1546,7 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
   doc.setFontSize(11);
   setColor(doc, INK, 'text');
   doc.text('Valeur déclarée', tx, y);
-  doc.text(`${EURO(data.value ?? 2380)} ${currency}`, W - M, y, { align: 'right' });
+  doc.text(data.value != null ? `${EURO(data.value)} ${currency}` : '—', W - M, y, { align: 'right' });
   setColor(doc, INK, 'draw');
   doc.setLineWidth(0.5);
   doc.line(tx, y + 2, W - M, y + 2);
@@ -1556,7 +1556,7 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
   doc.setFontSize(7.5);
   setColor(doc, MUTED, 'text');
   doc.text(doc.splitTextToSize(
-    'Déclaration simplifiée établie en vue de la sortie du territoire douanier de l\'Union. Document à présenter au bureau de douane d\'exportation.',
+    'Récapitulatif préparatoire établi en vue de la sortie du territoire douanier de l\'Union. La déclaration légale se dépose par voie électronique sur le téléservice DELTA de la douane française : ce document ne s\'y substitue pas.',
     W - 2 * M,
   ), M, y);
 

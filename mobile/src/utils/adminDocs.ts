@@ -56,12 +56,38 @@ export interface AdminFieldSpec {
 
 export type AdminValues = Record<string, string | boolean>;
 
+// Qui délivre juridiquement l'original du document. C'est la distinction la
+// plus importante du catalogue : un document « axis » fait foi tel qu'il sort
+// de l'app ; les trois autres sont des dossiers préparés par Axis, que seul
+// un tiers peut rendre opposables. Les confondre expose à présenter un faux.
+export type DocIssuer = 'axis' | 'carrier' | 'authority' | 'supplier' | 'insurer';
+
+export const ISSUER_LABEL: Record<DocIssuer, string> = {
+  axis: 'Émis par Axis',
+  carrier: 'Émis par le transporteur',
+  authority: 'Validé par un organisme',
+  supplier: 'Fourni par le fabricant',
+  insurer: 'Émis par l\'assureur',
+};
+
+export const ISSUER_HELP: Record<DocIssuer, string> = {
+  axis: 'Le PDF fait foi tel quel : il suffit de le signer et de le remettre.',
+  carrier: 'Axis prépare les données ; l\'original est émis par la compagnie de transport.',
+  authority: 'Axis prépare le dossier ; l\'original est délivré ou visé par un organisme officiel.',
+  supplier: 'Le contenu vient du fabricant du produit ; Axis le met en forme pour le transmettre.',
+  insurer: 'L\'attestation opposable est délivrée par la compagnie d\'assurance.',
+};
+
 export interface AdminDocType {
   id: AdminDocTypeId;
   label: string;
   description: string;
   icon: IconName;
   activity: AdminActivity;
+  /** Qui délivre juridiquement l'original. */
+  issuer: DocIssuer;
+  /** Précision affichée sous le badge : qui délivre, et ce qu'il faut faire. */
+  issuerNote?: string;
   /** Préfixe de la référence auto-incrémentée (vide = format AAAA-NNNN nu). */
   refPrefix: string;
   /** Clé du champ qui porte la référence du document. */
@@ -198,6 +224,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Facture TTC avec TVA, tampon payé/à régler',
     icon: 'card',
     activity: 'convoyage',
+    issuer: 'axis',
     refPrefix: '',
     refKey: 'number',
     fields: [
@@ -235,6 +262,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Base du calcul des droits de douane (Incoterm, code SH)',
     icon: 'globe',
     activity: 'marchandise',
+    issuer: 'axis',
+    issuerNote: 'Signée et cachetée par l\'exportateur ; elle sert de base au calcul des droits.',
     refPrefix: 'FC',
     refKey: 'number',
     fields: [
@@ -278,6 +307,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Packing list : colis, dimensions, poids brut/net',
     icon: 'pallet',
     activity: 'marchandise',
+    issuer: 'axis',
     refPrefix: 'LC',
     refKey: 'number',
     fields: [
@@ -312,6 +342,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Lettre d\'ordre d\'expédition (Shipping Instructions)',
     icon: 'truck',
     activity: 'marchandise',
+    issuer: 'axis',
     refPrefix: 'SI',
     refKey: 'number',
     fields: [
@@ -369,6 +400,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Contrat de transport routier international (24 cases)',
     icon: 'truck',
     activity: 'marchandise',
+    issuer: 'axis',
+    issuerNote: 'Établie par l\'expéditeur, signée par l\'expéditeur, le transporteur et le destinataire.',
     refPrefix: 'CMR',
     refKey: 'number',
     fields: [
@@ -432,6 +465,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Bill of Lading — transport maritime, titre de propriété',
     icon: 'globe',
     activity: 'marchandise',
+    issuer: 'carrier',
+    issuerNote: 'L\'original négociable est émis par la compagnie maritime : c\'est lui qui donne droit à la marchandise.',
     refPrefix: 'BOL',
     refKey: 'number',
     fields: [
@@ -491,6 +526,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Air Waybill (AWB) — transport aérien, format IATA',
     icon: 'bolt',
     activity: 'marchandise',
+    issuer: 'carrier',
+    issuerNote: 'L\'original est émis par la compagnie aérienne ou l\'agent IATA.',
     refPrefix: 'AWB',
     refKey: 'number',
     fields: [
@@ -548,6 +585,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Atteste l\'origine des marchandises (modèle UE)',
     icon: 'flag',
     activity: 'marchandise',
+    issuer: 'authority',
+    issuerNote: 'À faire viser par la chambre de commerce et d\'industrie : sans son visa, le certificat n\'a aucune valeur.',
     refPrefix: 'CO',
     refKey: 'number',
     fields: [
@@ -589,6 +628,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Justificatif de livraison signé par le destinataire',
     icon: 'box',
     activity: 'colis',
+    issuer: 'axis',
     refPrefix: 'BL',
     refKey: 'number',
     fields: [
@@ -630,6 +670,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Contrat + état des lieux départ/arrivée (PV)',
     icon: 'sig',
     activity: 'convoyage',
+    issuer: 'axis',
     refPrefix: 'CV',
     refKey: 'reference',
     fields: [
@@ -675,6 +716,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Couverture transport, police et plafond de garantie',
     icon: 'shield',
     activity: 'marchandise',
+    issuer: 'insurer',
+    issuerNote: 'L\'attestation opposable est délivrée par l\'assureur ; ce document reprend les termes de la police.',
     refPrefix: 'ASS',
     refKey: 'number',
     fields: [
@@ -708,6 +751,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'DAU / EX1 simplifié : régime, bureau, valeur déclarée',
     icon: 'flag',
     activity: 'marchandise',
+    issuer: 'authority',
+    issuerNote: 'La déclaration légale se dépose sur DELTA. Ce document est le récapitulatif préparatoire.',
     refPrefix: 'EX1',
     refKey: 'number',
     fields: [
@@ -747,6 +792,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Le client mandate Axis pour les formalités douanières',
     icon: 'doc',
     activity: 'marchandise',
+    issuer: 'axis',
+    issuerNote: 'Acte entre le client et Axis : il prend effet à la signature du mandant.',
     refPrefix: 'MND',
     refKey: 'number',
     fields: [
@@ -780,6 +827,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Étiquette A6 avec QR de suivi, prête à imprimer',
     icon: 'box',
     activity: 'colis',
+    issuer: 'axis',
     refPrefix: 'AX',
     refKey: 'reference',
     fields: [
@@ -813,6 +861,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Bordereau électronique de suivi des cargaisons — dossier à déposer sur le portail',
     icon: 'shield',
     activity: 'marchandise',
+    issuer: 'authority',
+    issuerNote: 'Le bordereau est délivré par le COSEC (Sénégal) ou l\'OIC (Côte d\'Ivoire) après dépôt sur leur portail.',
     refPrefix: 'BESC',
     refKey: 'number',
     fields: [
@@ -887,6 +937,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Produits dangereux — 16 rubriques, format REACH annexe II',
     icon: 'shield',
     activity: 'marchandise',
+    issuer: 'supplier',
+    issuerNote: 'Établie par le fabricant du produit, sous sa responsabilité. Axis la reprend pour la transmettre.',
     refPrefix: 'FDS',
     refKey: 'number',
     fields: [
@@ -965,6 +1017,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     description: 'Programme PVoC / VoC — inspection avant embarquement',
     icon: 'shield',
     activity: 'marchandise',
+    issuer: 'authority',
+    issuerNote: 'Le certificat est délivré par l\'organisme d\'inspection agréé après contrôle avant embarquement.',
     refPrefix: 'COC',
     refKey: 'number',
     fields: [
@@ -1696,6 +1750,31 @@ export async function generateCertificateOfOriginPdf(data: CertificateOfOriginDa
   doc.setTextColor(107, 107, 107);
   doc.text('Signature & cachet de l\'entreprise', W - M - 62, y + 13);
 
+  // Cadre réservé au visa : sans lui, le certificat n'a aucune valeur.
+  y += 22;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(M, y, CW / 2 - 3, 26);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(90, 90, 90);
+  doc.text('VISA DE LA CHAMBRE DE COMMERCE ET D\'INDUSTRIE', M + 2.5, y + 5);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(140, 140, 140);
+  doc.text('Cachet et signature', M + 2.5, y + 23);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text(
+    doc.splitTextToSize(
+      'Ce certificat n\'est opposable qu\'après visa de la chambre de commerce et d\'industrie compétente. Non visé, il ne vaut pas preuve de l\'origine des marchandises.',
+      CW / 2 - 6,
+    ) as string[],
+    M + CW / 2 + 3, y + 5,
+  );
+
   axisFooter(doc);
   labelDownload(doc, `Certificat-origine-${data.number}.pdf`);
 }
@@ -2125,6 +2204,15 @@ export async function generateConformityCertificatePdf(data: ConformityCertifica
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
   doc.text('Signature & cachet de l\'exportateur', W - M - 62, y + 13);
+
+  doc.setFontSize(7.5);
+  doc.text(
+    doc.splitTextToSize(
+      'Ce document est une demande d\'inspection : il ne constitue pas le certificat de conformité, seul délivré par l\'organisme agréé après contrôle.',
+      CW,
+    ) as string[],
+    M, y + 24,
+  );
 
   axisFooter(doc);
   labelDownload(doc, `Demande-COC-${data.number}.pdf`);

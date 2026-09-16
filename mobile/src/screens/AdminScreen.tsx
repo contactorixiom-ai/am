@@ -45,6 +45,7 @@ import {
   generateAdminDocument,
   pushAdminHistory,
   readAdminHistory,
+  ISSUER_LABEL,
 } from '../utils/adminDocs';
 import { notify } from '../utils/notify';
 import { downloadCsv } from '../utils/csv';
@@ -1354,8 +1355,10 @@ export function AdminScreen() {
 
           <SectionHead title="Documents de la liasse" style={{ marginTop: 6 }} />
           <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: -2, marginBottom: 2, lineHeight: 16 }}>
-            Touche un document pour le générer. « Obligatoire » = exigé par la douane
-            ou le transporteur pour cette opération ; « Facultatif » = utile mais non exigé.
+            Touche un document pour le générer. « Obligatoire » = exigé pour cette
+            opération. « Émis par Axis » = le PDF fait foi tel quel ; sinon, il sert à
+            préparer le dossier, et l'original vient du transporteur, d'un organisme
+            officiel ou du fabricant.
           </Text>
           <View style={{ gap: 8 }}>
             {pack.items.map((item) => {
@@ -1372,15 +1375,21 @@ export function AdminScreen() {
                           : renderTypeIcon(t, 16, theme.goldDeep)}
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                          <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
-                            {t.label}
-                          </Text>
-                          {/* Badge d'information, pas un bouton : il dit si la
-                              douane exige ce document pour ce type d'opération. */}
+                        {/* Titre sur sa propre ligne : avec deux badges à
+                            côté, il était tronqué à trois lettres. */}
+                        <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                          {t.label}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                          {/* Badges d'information, pas des boutons : le premier
+                              dit si la douane exige ce document, le second qui
+                              en délivre l'original. */}
                           {item.required
                             ? <Pill tone="warn">Obligatoire</Pill>
                             : <Pill tone="ghost">Facultatif</Pill>}
+                          <Pill tone={t.issuer === 'axis' ? 'good' : 'default'}>
+                            {ISSUER_LABEL[t.issuer]}
+                          </Pill>
                         </View>
                         <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={2}>
                           {item.note ?? t.description}
