@@ -36,7 +36,10 @@ export type AdminDocTypeId =
   | 'insurance'
   | 'exportDeclaration'
   | 'customsMandate'
-  | 'shippingLabel';
+  | 'shippingLabel'
+  | 'besc'
+  | 'safetyDataSheet'
+  | 'conformityCertificate';
 
 export type AdminFieldType = 'text' | 'number' | 'multiline' | 'boolean' | 'select';
 
@@ -800,6 +803,223 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       transportMode: 'Aérien',
     }),
   },
+  {
+    // Le BESC est délivré par le COSEC (Sénégal) / l'OIC (Côte d'Ivoire) sur
+    // leur portail : Axis ne peut pas l'émettre. Ce document rassemble toutes
+    // les données que le portail réclame, prêt à saisir ou à remettre à
+    // l'agent, et garde trace du numéro obtenu.
+    id: 'besc',
+    label: 'Demande de BESC / BSC',
+    description: 'Bordereau électronique de suivi des cargaisons — dossier à déposer sur le portail',
+    icon: 'shield',
+    activity: 'marchandise',
+    refPrefix: 'BESC',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° de dossier interne', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'destinationCountry', label: 'Pays de destination', type: 'select', half: true, required: true, options: ['Sénégal', 'Côte d\'Ivoire', 'Mali', 'Burkina Faso', 'Niger', 'Togo', 'Bénin', 'Cameroun', 'Congo', 'Madagascar'] },
+      { key: 'bescNumber', label: 'N° BESC obtenu', half: true, hint: 'À compléter après validation du portail' },
+      { key: 'shipperName', label: 'Chargeur / Exportateur', required: true },
+      { key: 'shipperAddress', label: 'Adresse chargeur' },
+      { key: 'consigneeName', label: 'Destinataire / Importateur', required: true },
+      { key: 'consigneeAddress', label: 'Adresse destinataire' },
+      { key: 'consigneeTaxId', label: 'N° contribuable destinataire', half: true, hint: 'NINEA au Sénégal, CC en Côte d\'Ivoire' },
+      { key: 'forwarder', label: 'Transitaire', half: true },
+      { key: 'carrier', label: 'Compagnie maritime', half: true },
+      { key: 'blNumber', label: 'N° de connaissement (B/L)', half: true, required: true },
+      { key: 'blDate', label: 'Date du B/L', half: true },
+      { key: 'vessel', label: 'Navire', half: true },
+      { key: 'voyageNo', label: 'N° voyage', half: true },
+      { key: 'portOfLoading', label: 'Port de chargement', half: true, placeholder: 'Le Havre' },
+      { key: 'portOfDischarge', label: 'Port de déchargement', half: true, placeholder: 'Dakar' },
+      { key: 'sailingDate', label: 'Date de départ du navire', half: true, hint: 'Le BESC doit être validé avant' },
+      { key: 'containerNo', label: 'Conteneur / n° de plomb', half: true },
+      { key: 'goods', label: 'Désignation des marchandises', required: true },
+      { key: 'hsCode', label: 'Code SH', half: true, placeholder: '8708.30' },
+      { key: 'packages', label: 'Nombre et nature des colis', half: true },
+      { key: 'grossWeight', label: 'Poids brut (kg)', type: 'number', half: true },
+      { key: 'volume', label: 'Cubage (m³)', type: 'number', half: true },
+      { key: 'incoterm', label: 'Incoterm', half: true, placeholder: 'FOB Le Havre' },
+      { key: 'currency', label: 'Devise', half: true, placeholder: 'EUR' },
+      { key: 'goodsValue', label: 'Valeur de la marchandise', type: 'number', half: true, required: true },
+      { key: 'freightValue', label: 'Montant du fret', type: 'number', half: true },
+      { key: 'invoiceRef', label: 'Facture commerciale liée', half: true },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      destinationCountry: 'Sénégal',
+      bescNumber: '',
+      shipperName: 'Axis Import SAS',
+      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      consigneeName: '',
+      consigneeAddress: '',
+      consigneeTaxId: '',
+      forwarder: '',
+      carrier: '',
+      blNumber: '',
+      blDate: '',
+      vessel: '',
+      voyageNo: '',
+      portOfLoading: 'Le Havre',
+      portOfDischarge: '',
+      sailingDate: '',
+      containerNo: '',
+      goods: '',
+      hsCode: '',
+      packages: '',
+      grossWeight: '',
+      volume: '',
+      incoterm: '',
+      currency: 'EUR',
+      goodsValue: '',
+      freightValue: '',
+      invoiceRef: '',
+    }),
+  },
+  {
+    // La FDS est établie par le fabricant ou le fournisseur du produit
+    // (règlement REACH). Axis la reprend pour la transmettre au transporteur
+    // et aux autorités : la rubrique 14 (transport) est la partie critique.
+    id: 'safetyDataSheet',
+    label: 'Fiche de données de sécurité (FDS)',
+    description: 'Produits dangereux — 16 rubriques, format REACH annexe II',
+    icon: 'shield',
+    activity: 'marchandise',
+    refPrefix: 'FDS',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° de fiche', half: true, required: true },
+      { key: 'date', label: 'Date de révision', half: true },
+      { key: 'version', label: 'Version', half: true, placeholder: '1.0' },
+      { key: 'productName', label: 'Nom du produit', required: true },
+      { key: 'productUse', label: 'Utilisation identifiée', placeholder: 'Nettoyant industriel' },
+      { key: 'supplierName', label: 'Fournisseur / fabricant', required: true, hint: 'C\'est lui qui établit la FDS' },
+      { key: 'supplierAddress', label: 'Adresse du fournisseur' },
+      { key: 'emergencyPhone', label: 'Téléphone d\'urgence', half: true, placeholder: '+33 1 45 42 59 59 (ORFILA)' },
+      { key: 'composition', label: '2 · Composants dangereux', type: 'multiline', hint: 'Nom ; n° CAS ; n° CE ; %' },
+      { key: 'hazardClass', label: '3 · Classes de danger', type: 'multiline', placeholder: 'Liquide inflammable, cat. 2 (H225)' },
+      { key: 'signalWord', label: 'Mention d\'avertissement', type: 'select', half: true, options: ['Danger', 'Attention', 'Sans objet'] },
+      { key: 'hazardStatements', label: 'Mentions de danger (H)', half: true, placeholder: 'H225, H319' },
+      { key: 'precautionary', label: 'Conseils de prudence (P)', half: true, placeholder: 'P210, P280' },
+      { key: 'firstAid', label: '4 · Premiers secours', type: 'multiline' },
+      { key: 'fireFighting', label: '5 · Lutte contre l\'incendie', type: 'multiline' },
+      { key: 'accidentalRelease', label: '6 · Dispersion accidentelle', type: 'multiline' },
+      { key: 'handlingStorage', label: '7 · Manipulation et stockage', type: 'multiline' },
+      { key: 'exposureControl', label: '8 · Protection individuelle', type: 'multiline' },
+      { key: 'physicalProps', label: '9 · Propriétés physico-chimiques', type: 'multiline' },
+      { key: 'stability', label: '10 · Stabilité et réactivité', type: 'multiline' },
+      { key: 'toxicology', label: '11 · Informations toxicologiques', type: 'multiline' },
+      { key: 'ecology', label: '12 · Informations écologiques', type: 'multiline' },
+      { key: 'disposal', label: '13 · Élimination', type: 'multiline' },
+      { key: 'unNumber', label: '14 · N° ONU', half: true, required: true, placeholder: 'UN1993' },
+      { key: 'properShippingName', label: 'Désignation officielle de transport', required: true, placeholder: 'LIQUIDE INFLAMMABLE, N.S.A.' },
+      { key: 'transportClass', label: 'Classe de danger', half: true, placeholder: '3' },
+      { key: 'packingGroup', label: 'Groupe d\'emballage', type: 'select', half: true, options: ['I', 'II', 'III', 'Sans objet'] },
+      { key: 'marinePollutant', label: 'Polluant marin', type: 'boolean', half: true },
+      { key: 'limitedQuantity', label: 'Quantité limitée (LQ)', type: 'boolean', half: true },
+      { key: 'regulatory', label: '15 · Informations réglementaires', type: 'multiline' },
+      { key: 'otherInfo', label: '16 · Autres informations', type: 'multiline' },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      version: '1.0',
+      productName: '',
+      productUse: '',
+      supplierName: '',
+      supplierAddress: '',
+      emergencyPhone: '+33 1 45 42 59 59 (Centre antipoison ORFILA)',
+      composition: '',
+      hazardClass: '',
+      signalWord: 'Danger',
+      hazardStatements: '',
+      precautionary: '',
+      firstAid: '',
+      fireFighting: '',
+      accidentalRelease: '',
+      handlingStorage: '',
+      exposureControl: '',
+      physicalProps: '',
+      stability: '',
+      toxicology: '',
+      ecology: '',
+      disposal: '',
+      unNumber: '',
+      properShippingName: '',
+      transportClass: '',
+      packingGroup: 'II',
+      marinePollutant: false,
+      limitedQuantity: false,
+      regulatory: 'Règlement (CE) n° 1907/2006 (REACH) · Règlement (CE) n° 1272/2008 (CLP).',
+      otherInfo: '',
+    }),
+  },
+  {
+    // Le COC est délivré par un organisme agréé (SGS, Intertek, Cotecna,
+    // Bureau Veritas) après inspection avant embarquement. Axis prépare la
+    // demande et enregistre le numéro de certificat une fois obtenu.
+    id: 'conformityCertificate',
+    label: 'Demande de certificat de conformité (COC)',
+    description: 'Programme PVoC / VoC — inspection avant embarquement',
+    icon: 'shield',
+    activity: 'marchandise',
+    refPrefix: 'COC',
+    refKey: 'number',
+    fields: [
+      { key: 'number', label: 'N° de demande', half: true, required: true },
+      { key: 'date', label: 'Date', half: true },
+      { key: 'destinationCountry', label: 'Pays de destination', type: 'select', half: true, required: true, options: ['Côte d\'Ivoire', 'Sénégal', 'Cameroun', 'Bénin', 'Togo', 'Nigeria', 'Algérie', 'Kenya', 'Tanzanie', 'Ouganda'] },
+      { key: 'inspectionBody', label: 'Organisme d\'inspection', type: 'select', half: true, required: true, options: ['SGS', 'Intertek', 'Cotecna', 'Bureau Veritas', 'TÜV Rheinland'] },
+      { key: 'cocNumber', label: 'N° de certificat obtenu', half: true, hint: 'À compléter après inspection' },
+      { key: 'route', label: 'Filière', type: 'select', half: true, options: ['Route A — expédition ponctuelle', 'Route B — exportateur régulier', 'Route C — homologation produit'] },
+      { key: 'exporterName', label: 'Exportateur', required: true },
+      { key: 'exporterAddress', label: 'Adresse exportateur' },
+      { key: 'importerName', label: 'Importateur', required: true },
+      { key: 'importerAddress', label: 'Adresse importateur' },
+      { key: 'importerTaxId', label: 'N° contribuable importateur', half: true },
+      { key: 'invoiceRef', label: 'Facture commerciale', half: true },
+      { key: 'goods', label: 'Désignation des produits', required: true },
+      { key: 'hsCode', label: 'Code SH', half: true, placeholder: '8708.30' },
+      { key: 'brand', label: 'Marque / modèle', half: true },
+      { key: 'quantity', label: 'Quantité', half: true },
+      { key: 'goodsValue', label: 'Valeur (devise)', type: 'number', half: true },
+      { key: 'currency', label: 'Devise', half: true, placeholder: 'EUR' },
+      { key: 'standards', label: 'Normes applicables', type: 'multiline', placeholder: 'CEI 60598-1, NF EN 60335-1' },
+      { key: 'inspectionPlace', label: 'Lieu d\'inspection', half: true, placeholder: 'Entrepôt, 75015 Paris' },
+      { key: 'inspectionDate', label: 'Date souhaitée', half: true },
+      { key: 'contactName', label: 'Contact sur place', half: true },
+      { key: 'contactPhone', label: 'Téléphone du contact', half: true },
+      { key: 'notes', label: 'Observations', type: 'multiline' },
+    ],
+    defaults: (ctx) => ({
+      number: ctx.reference,
+      date: ctx.dateShort,
+      destinationCountry: 'Côte d\'Ivoire',
+      inspectionBody: 'SGS',
+      cocNumber: '',
+      route: 'Route A — expédition ponctuelle',
+      exporterName: 'Axis Import SAS',
+      exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+      importerName: '',
+      importerAddress: '',
+      importerTaxId: '',
+      invoiceRef: '',
+      goods: '',
+      hsCode: '',
+      brand: '',
+      quantity: '',
+      goodsValue: '',
+      currency: 'EUR',
+      standards: '',
+      inspectionPlace: '14 rue de la Logistique, 75015 Paris',
+      inspectionDate: '',
+      contactName: '',
+      contactPhone: '',
+      notes: '',
+    }),
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -843,14 +1063,21 @@ export const DOC_PACKS: DocPack[] = [
       { typeId: 'billOfLading', required: true, note: 'Émis par la compagnie maritime' },
       { typeId: 'exportDeclaration', required: true, note: 'Déclaration réelle via DELTA' },
       { typeId: 'customsMandate', required: true, note: 'Si Axis dédouane pour le client' },
+      { typeId: 'besc', required: true, note: 'Dossier à déposer sur le portail avant l\'embarquement' },
+      { typeId: 'conformityCertificate', required: false, note: 'Si le produit relève du programme PVoC' },
+      { typeId: 'safetyDataSheet', required: false, note: 'Obligatoire si la marchandise est classée dangereuse' },
       { typeId: 'insurance', required: false },
       { typeId: 'shippingInstructions', required: false },
     ],
     externalSteps: [
       {
-        label: 'BSC / BESC — Bordereau de suivi des cargaisons',
-        note: 'OBLIGATOIRE pour le Sénégal et la Côte d\'Ivoire. À obtenir sur le portail officiel AVANT l\'embarquement. Sans lui : marchandise bloquée au port + pénalité de 30 à 50 % de la valeur CIF.',
+        label: 'Validation du BESC sur le portail officiel',
+        note: 'Le bordereau est délivré par le COSEC (Sénégal) ou l\'OIC (Côte d\'Ivoire) : l\'app prépare le dossier, la validation se fait sur leur portail AVANT le départ du navire. Passé 10 jours après l\'appareillage, il ne peut plus être validé — marchandise bloquée au port, surestaries et amende douanière.',
         url: 'https://cosec.besc-senegal.net',
+      },
+      {
+        label: 'Inspection avant embarquement (COC)',
+        note: 'Pour les produits réglementés, le certificat de conformité est délivré par un organisme agréé (SGS, Intertek, Cotecna, Bureau Veritas) après inspection en France. Il est valable 3 mois. Sans lui, la marchandise est refusée au dédouanement.',
       },
     ],
   },
@@ -866,6 +1093,8 @@ export const DOC_PACKS: DocPack[] = [
       { typeId: 'certificateOfOrigin', required: false },
       { typeId: 'exportDeclaration', required: true },
       { typeId: 'customsMandate', required: false },
+      { typeId: 'safetyDataSheet', required: false, note: 'Obligatoire si la marchandise est classée dangereuse (IATA-DGR)' },
+      { typeId: 'conformityCertificate', required: false, note: 'Si le produit relève du programme PVoC' },
       { typeId: 'insurance', required: false },
     ],
   },
@@ -1471,6 +1700,436 @@ export async function generateCertificateOfOriginPdf(data: CertificateOfOriginDa
   labelDownload(doc, `Certificat-origine-${data.number}.pdf`);
 }
 
+// ─── Demande de BESC / BSC (bordereau de suivi des cargaisons) ──────────────
+// Le bordereau lui-même est délivré par le COSEC (Sénégal) ou l'OIC (Côte
+// d'Ivoire) sur leur portail. Ce document rassemble, sur une page, toutes les
+// données que le portail réclame : Roger le remet à son agent ou s'en sert
+// pour saisir la demande sans rien oublier.
+
+export interface BescData {
+  number: string;
+  date?: string;
+  destinationCountry?: string;
+  bescNumber?: string;
+  shipper?: { name?: string; address?: string };
+  consignee?: { name?: string; address?: string; taxId?: string };
+  forwarder?: string;
+  carrier?: string;
+  blNumber?: string;
+  blDate?: string;
+  vessel?: string;
+  voyageNo?: string;
+  portOfLoading?: string;
+  portOfDischarge?: string;
+  sailingDate?: string;
+  containerNo?: string;
+  goods?: string;
+  hsCode?: string;
+  packages?: string;
+  grossWeight?: string;
+  volume?: string;
+  incoterm?: string;
+  currency?: string;
+  goodsValue?: string;
+  freightValue?: string;
+  invoiceRef?: string;
+}
+
+export async function generateBescPdf(data: BescData): Promise<void> {
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const third = CW / 3;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Demande de BESC', `Dossier ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text(
+    'Bordereau électronique de suivi des cargaisons — dossier de demande à déposer sur le portail officiel',
+    M, y,
+  );
+  y += 5;
+
+  formBox(doc, M, y, half, 12, null, 'Pays de destination', g(data.destinationCountry));
+  formBox(doc, M + half, y, half, 12, null, 'N° BESC obtenu', g(data.bescNumber) || '—  (à compléter après validation)');
+  y += 12;
+
+  formBox(doc, M, y, half, 20, '1', 'Chargeur / Exportateur', [g(data.shipper?.name), g(data.shipper?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 20, '2', 'Destinataire / Importateur', [g(data.consignee?.name), g(data.consignee?.address)].filter(Boolean).join('\n'));
+  y += 20;
+
+  formBox(doc, M, y, half, 11, '3', 'N° contribuable du destinataire', g(data.consignee?.taxId));
+  formBox(doc, M + half, y, half, 11, '4', 'Transitaire', g(data.forwarder));
+  y += 11;
+
+  formBox(doc, M, y, half, 11, '5', 'Compagnie maritime', g(data.carrier));
+  formBox(doc, M + half, y, half / 2, 11, '6', 'N° B/L', g(data.blNumber));
+  formBox(doc, M + half + half / 2, y, half / 2, 11, null, 'Date du B/L', g(data.blDate));
+  y += 11;
+
+  formBox(doc, M, y, third, 11, '7', 'Navire', g(data.vessel));
+  formBox(doc, M + third, y, third / 2, 11, null, 'Voyage', g(data.voyageNo));
+  formBox(doc, M + third + third / 2, y, third + third / 2, 11, '8', 'Départ du navire', g(data.sailingDate));
+  y += 11;
+
+  formBox(doc, M, y, half, 11, '9', 'Port de chargement', g(data.portOfLoading));
+  formBox(doc, M + half, y, half, 11, '10', 'Port de déchargement', g(data.portOfDischarge));
+  y += 11;
+
+  formBox(doc, M, y, CW, 11, '11', 'Conteneur / n° de plomb', g(data.containerNo));
+  y += 11;
+
+  formBox(doc, M, y, CW, 22, '12', 'Désignation des marchandises', g(data.goods));
+  y += 22;
+
+  const q = CW / 4;
+  formBox(doc, M, y, q, 11, '13', 'Code SH', g(data.hsCode));
+  formBox(doc, M + q, y, q, 11, '14', 'Colis', g(data.packages));
+  formBox(doc, M + 2 * q, y, q, 11, '15', 'Poids brut kg', g(data.grossWeight));
+  formBox(doc, M + 3 * q, y, q, 11, '16', 'Cubage m³', g(data.volume));
+  y += 11;
+
+  const cur = g(data.currency) || 'EUR';
+  formBox(doc, M, y, q, 11, '17', 'Incoterm', g(data.incoterm));
+  formBox(doc, M + q, y, q, 11, '18', `Valeur marchandise ${cur}`, g(data.goodsValue));
+  formBox(doc, M + 2 * q, y, q, 11, '19', `Fret ${cur}`, g(data.freightValue));
+  formBox(doc, M + 3 * q, y, q, 11, '20', 'Facture liée', g(data.invoiceRef));
+  y += 17;
+
+  // Rappel des délais : c'est ce qui bloque la marchandise au port.
+  doc.setDrawColor(193, 138, 45);
+  doc.setFillColor(252, 246, 234);
+  doc.setLineWidth(0.4);
+  doc.rect(M, y, CW, 30, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(140, 94, 15);
+  doc.text('DÉLAIS À RESPECTER', M + 3, y + 5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.8);
+  doc.setTextColor(60, 60, 60);
+  const rappel = [
+    'La demande doit être validée AVANT le départ du navire. Un dossier pré-validé non complété sous 5 jours ouvrables est annulé.',
+    'Passé 10 jours après le départ du navire, le bordereau ne peut plus être validé : la marchandise est alors bloquée au port,',
+    'avec surestaries, frais de stockage et amende douanière jusqu\'à présentation d\'un bordereau valide.',
+    'Pièces à joindre au portail : connaissement, facture commerciale, liste de colisage et facture de fret.',
+  ];
+  rappel.forEach((line, i) => doc.text(line, M + 3, y + 11 + i * 4.2, { maxWidth: CW - 6 }));
+  y += 36;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(107, 107, 107);
+  doc.text(
+    doc.splitTextToSize(
+      'Document interne Axis Import : il ne remplace pas le bordereau officiel, délivré par l\'organisme chargeur du pays de destination.',
+      CW,
+    ) as string[],
+    M, y,
+  );
+
+  axisFooter(doc);
+  labelDownload(doc, `Demande-BESC-${data.number}.pdf`);
+}
+
+// ─── Fiche de données de sécurité (FDS) ─────────────────────────────────────
+// Format imposé par l'annexe II du règlement REACH (CE 1907/2006), révisée
+// par le règlement (UE) 2020/878 : 16 rubriques, dans cet ordre exact.
+// La FDS est établie par le fabricant ou le fournisseur du produit ; Axis la
+// reprend pour la transmettre au transporteur et aux autorités. La rubrique 14
+// est la partie critique pour le transport.
+
+export interface SafetyDataSheetData {
+  number: string;
+  date?: string;
+  version?: string;
+  productName?: string;
+  productUse?: string;
+  supplierName?: string;
+  supplierAddress?: string;
+  emergencyPhone?: string;
+  composition?: string;
+  hazardClass?: string;
+  signalWord?: string;
+  hazardStatements?: string;
+  precautionary?: string;
+  firstAid?: string;
+  fireFighting?: string;
+  accidentalRelease?: string;
+  handlingStorage?: string;
+  exposureControl?: string;
+  physicalProps?: string;
+  stability?: string;
+  toxicology?: string;
+  ecology?: string;
+  disposal?: string;
+  unNumber?: string;
+  properShippingName?: string;
+  transportClass?: string;
+  packingGroup?: string;
+  marinePollutant?: boolean;
+  limitedQuantity?: boolean;
+  regulatory?: string;
+  otherInfo?: string;
+}
+
+export async function generateSafetyDataSheetPdf(data: SafetyDataSheetData): Promise<void> {
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const g = (v?: string) => (v && v.trim() ? v.trim() : 'Non renseigné par le fournisseur.');
+  let y = axisLetterhead(doc, 'Fiche de données de sécurité', `${data.number}${data.version ? ` · version ${data.version}` : ''}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text(
+    'Conforme au règlement (CE) n° 1907/2006 (REACH), annexe II modifiée par le règlement (UE) 2020/878',
+    M, y,
+  );
+  y += 6;
+
+  // Une rubrique = un titre en bandeau + son contenu, avec saut de page
+  // automatique pour que jamais un titre ne se retrouve seul en bas de page.
+  const section = (num: number, title: string, body: string) => {
+    const lines = doc.splitTextToSize(body, CW - 4) as string[];
+    const needed = 7 + lines.length * 3.8 + 3;
+    if (y + needed > H - 24) {
+      axisFooter(doc);
+      doc.addPage();
+      // Bandeau de continuation : une FDS circule page par page, chacune doit
+      // porter l'identification du produit.
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text('AXIS IMPORT', M, 14);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(107, 107, 107);
+      doc.text(
+        `Fiche de données de sécurité ${data.number}${data.productName ? ` — ${data.productName}` : ''} (suite)`,
+        W - M, 14, { align: 'right' },
+      );
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(M, 17, W - M, 17);
+      y = 24;
+    }
+    doc.setFillColor(11, 37, 69);
+    doc.rect(M, y, CW, 5.6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(245, 241, 232);
+    doc.text(`RUBRIQUE ${num} — ${title.toUpperCase()}`, M + 2.5, y + 3.9);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.3);
+    doc.setTextColor(0, 0, 0);
+    doc.text(lines, M + 2, y);
+    y += lines.length * 3.8 + 4;
+  };
+
+  section(1, 'Identification du produit et du fournisseur', [
+    `Nom du produit : ${g(data.productName)}`,
+    `Utilisation identifiée : ${g(data.productUse)}`,
+    `Fournisseur : ${g(data.supplierName)}`,
+    data.supplierAddress ? `Adresse : ${data.supplierAddress}` : '',
+    `Téléphone d'urgence : ${g(data.emergencyPhone)}`,
+    'Expéditeur du lot : Axis Import SAS, 14 rue de la Logistique, 75015 Paris.',
+  ].filter(Boolean).join('\n'));
+
+  section(2, 'Composition / informations sur les composants', g(data.composition));
+
+  section(3, 'Identification des dangers', [
+    `Classes et catégories de danger : ${g(data.hazardClass)}`,
+    data.signalWord ? `Mention d'avertissement : ${data.signalWord}` : '',
+    data.hazardStatements ? `Mentions de danger : ${data.hazardStatements}` : '',
+    data.precautionary ? `Conseils de prudence : ${data.precautionary}` : '',
+  ].filter(Boolean).join('\n'));
+
+  section(4, 'Premiers secours', g(data.firstAid));
+  section(5, 'Mesures de lutte contre l\'incendie', g(data.fireFighting));
+  section(6, 'Mesures en cas de dispersion accidentelle', g(data.accidentalRelease));
+  section(7, 'Manipulation et stockage', g(data.handlingStorage));
+  section(8, 'Contrôle de l\'exposition / protection individuelle', g(data.exposureControl));
+  section(9, 'Propriétés physiques et chimiques', g(data.physicalProps));
+  section(10, 'Stabilité et réactivité', g(data.stability));
+  section(11, 'Informations toxicologiques', g(data.toxicology));
+  section(12, 'Informations écologiques', g(data.ecology));
+  section(13, 'Considérations relatives à l\'élimination', g(data.disposal));
+
+  // Rubrique 14 : c'est celle que lisent le transporteur et la douane.
+  const mentions: string[] = [];
+  if (data.marinePollutant) mentions.push('Polluant marin (IMDG)');
+  if (data.limitedQuantity) mentions.push('Quantité limitée (LQ)');
+  section(14, 'Informations relatives au transport', [
+    `N° ONU : ${g(data.unNumber)}`,
+    `Désignation officielle de transport : ${g(data.properShippingName)}`,
+    `Classe de danger pour le transport : ${g(data.transportClass)}`,
+    `Groupe d'emballage : ${g(data.packingGroup)}`,
+    mentions.length > 0 ? `Mentions particulières : ${mentions.join(' · ')}` : 'Mentions particulières : néant',
+    'Réglementations applicables : ADR (route), IMDG (maritime), IATA-DGR (aérien).',
+  ].join('\n'));
+
+  section(15, 'Informations réglementaires', g(data.regulatory));
+  section(16, 'Autres informations', [
+    g(data.otherInfo),
+    '',
+    `Fiche établie le ${data.date || '...'}${data.version ? ` — version ${data.version}` : ''}.`,
+    'Les informations de cette fiche proviennent du fabricant ou du fournisseur du produit. Axis Import',
+    'les reproduit pour les besoins du transport et n\'en garantit ni l\'exhaustivité ni la mise à jour.',
+  ].join('\n'));
+
+  axisFooter(doc);
+
+  // Numérotation « Page x/y » sur toutes les pages, une fois leur nombre connu.
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i += 1) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 107, 107);
+    doc.text(`Page ${i}/${pages}`, W - M, H - 9, { align: 'right' });
+  }
+
+  labelDownload(doc, `FDS-${data.number}.pdf`);
+}
+
+// ─── Demande de certificat de conformité (COC / PVoC) ───────────────────────
+// Le certificat est délivré par un organisme agréé (SGS, Intertek, Cotecna,
+// Bureau Veritas) après inspection avant embarquement. Axis ne peut pas
+// l'émettre : ce document est la demande d'inspection, et il enregistre le
+// numéro de certificat une fois celui-ci obtenu.
+
+export interface ConformityCertificateData {
+  number: string;
+  date?: string;
+  destinationCountry?: string;
+  inspectionBody?: string;
+  cocNumber?: string;
+  route?: string;
+  exporter?: { name?: string; address?: string };
+  importer?: { name?: string; address?: string; taxId?: string };
+  invoiceRef?: string;
+  goods?: string;
+  hsCode?: string;
+  brand?: string;
+  quantity?: string;
+  goodsValue?: string;
+  currency?: string;
+  standards?: string;
+  inspectionPlace?: string;
+  inspectionDate?: string;
+  contactName?: string;
+  contactPhone?: string;
+  notes?: string;
+}
+
+export async function generateConformityCertificatePdf(data: ConformityCertificateData): Promise<void> {
+  const doc = patchDoc(new jsPDF({ unit: 'mm', format: 'a4' }));
+  const W = doc.internal.pageSize.getWidth();
+  const M = A4_M;
+  const CW = W - 2 * M;
+  const half = CW / 2;
+  const g = (v?: string) => v || '';
+  let y = axisLetterhead(doc, 'Demande de COC', `Dossier ${data.number}`) + 1;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.3);
+  doc.setTextColor(107, 107, 107);
+  doc.text(
+    'Demande d\'inspection avant embarquement — programme de vérification de conformité aux normes (PVoC / VoC)',
+    M, y,
+  );
+  y += 5;
+
+  formBox(doc, M, y, half, 12, null, 'Pays de destination', g(data.destinationCountry));
+  formBox(doc, M + half, y, half, 12, null, 'Organisme d\'inspection', g(data.inspectionBody));
+  y += 12;
+
+  formBox(doc, M, y, half, 12, null, 'Filière retenue', g(data.route));
+  formBox(doc, M + half, y, half, 12, null, 'N° de certificat obtenu', g(data.cocNumber) || '—  (à compléter après inspection)');
+  y += 12;
+
+  formBox(doc, M, y, half, 20, '1', 'Exportateur', [g(data.exporter?.name), g(data.exporter?.address)].filter(Boolean).join('\n'));
+  formBox(doc, M + half, y, half, 20, '2', 'Importateur', [g(data.importer?.name), g(data.importer?.address)].filter(Boolean).join('\n'));
+  y += 20;
+
+  formBox(doc, M, y, half, 11, '3', 'N° contribuable de l\'importateur', g(data.importer?.taxId));
+  formBox(doc, M + half, y, half, 11, '4', 'Facture commerciale', g(data.invoiceRef));
+  y += 11;
+
+  formBox(doc, M, y, CW, 20, '5', 'Désignation des produits à inspecter', g(data.goods));
+  y += 20;
+
+  const q = CW / 4;
+  const cur = g(data.currency) || 'EUR';
+  formBox(doc, M, y, q, 11, '6', 'Code SH', g(data.hsCode));
+  formBox(doc, M + q, y, q, 11, '7', 'Marque / modèle', g(data.brand));
+  formBox(doc, M + 2 * q, y, q, 11, '8', 'Quantité', g(data.quantity));
+  formBox(doc, M + 3 * q, y, q, 11, '9', `Valeur ${cur}`, g(data.goodsValue));
+  y += 11;
+
+  formBox(doc, M, y, CW, 20, '10', 'Normes et règlements techniques applicables', g(data.standards));
+  y += 20;
+
+  formBox(doc, M, y, half, 11, '11', 'Lieu d\'inspection', g(data.inspectionPlace));
+  formBox(doc, M + half, y, half, 11, '12', 'Date souhaitée', g(data.inspectionDate));
+  y += 11;
+
+  formBox(doc, M, y, half, 11, '13', 'Contact sur place', g(data.contactName));
+  formBox(doc, M + half, y, half, 11, null, 'Téléphone', g(data.contactPhone));
+  y += 11;
+
+  if (data.notes) {
+    formBox(doc, M, y, CW, 14, '14', 'Observations', data.notes);
+    y += 14;
+  }
+  y += 6;
+
+  // Ce que Roger risque s'il embarque sans certificat.
+  doc.setDrawColor(193, 138, 45);
+  doc.setFillColor(252, 246, 234);
+  doc.setLineWidth(0.4);
+  doc.rect(M, y, CW, 26, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(140, 94, 15);
+  doc.text('À SAVOIR', M + 3, y + 5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.8);
+  doc.setTextColor(60, 60, 60);
+  [
+    'L\'inspection doit avoir lieu AVANT l\'embarquement : un certificat obtenu à destination n\'est pas accepté.',
+    'Sans certificat, la marchandise est refusée au dédouanement ou taxée d\'une pénalité, et peut être réexpédiée.',
+    'Le certificat est valable 3 mois à compter de sa date d\'émission — vérifier qu\'il couvre la date d\'arrivée.',
+  ].forEach((line, i) => doc.text(line, M + 3, y + 11 + i * 4.4, { maxWidth: CW - 6 }));
+  y += 32;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Fait ${atPlace('Paris')}, le ${g(data.date) || '...'}`, M, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(g(data.exporter?.name) || 'Axis Import SAS', W - M, y, { align: 'right' });
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.3);
+  doc.line(W - M - 62, y + 9, W - M, y + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  doc.text('Signature & cachet de l\'exportateur', W - M - 62, y + 13);
+
+  axisFooter(doc);
+  labelDownload(doc, `Demande-COC-${data.number}.pdf`);
+}
+
 // ─── Bon de livraison / Justificatif de livraison (POD) ─────────────────────
 
 export interface DeliveryNoteData {
@@ -2061,6 +2720,104 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         recipientPhone: orU(str(values, 'recipientPhone')),
         weightKg: numU(values, 'weightKg'),
         transportMode: orU(str(values, 'transportMode')),
+      });
+      break;
+    case 'besc':
+      await generateBescPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        destinationCountry: orU(str(values, 'destinationCountry')),
+        bescNumber: orU(str(values, 'bescNumber')),
+        shipper: { name: orU(str(values, 'shipperName')), address: orU(str(values, 'shipperAddress')) },
+        consignee: {
+          name: orU(str(values, 'consigneeName')),
+          address: orU(str(values, 'consigneeAddress')),
+          taxId: orU(str(values, 'consigneeTaxId')),
+        },
+        forwarder: orU(str(values, 'forwarder')),
+        carrier: orU(str(values, 'carrier')),
+        blNumber: orU(str(values, 'blNumber')),
+        blDate: orU(str(values, 'blDate')),
+        vessel: orU(str(values, 'vessel')),
+        voyageNo: orU(str(values, 'voyageNo')),
+        portOfLoading: orU(str(values, 'portOfLoading')),
+        portOfDischarge: orU(str(values, 'portOfDischarge')),
+        sailingDate: orU(str(values, 'sailingDate')),
+        containerNo: orU(str(values, 'containerNo')),
+        goods: orU(str(values, 'goods')),
+        hsCode: orU(str(values, 'hsCode')),
+        packages: orU(str(values, 'packages')),
+        grossWeight: orU(str(values, 'grossWeight')),
+        volume: orU(str(values, 'volume')),
+        incoterm: orU(str(values, 'incoterm')),
+        currency: orU(str(values, 'currency')),
+        goodsValue: orU(str(values, 'goodsValue')),
+        freightValue: orU(str(values, 'freightValue')),
+        invoiceRef: orU(str(values, 'invoiceRef')),
+      });
+      break;
+    case 'safetyDataSheet':
+      await generateSafetyDataSheetPdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        version: orU(str(values, 'version')),
+        productName: orU(str(values, 'productName')),
+        productUse: orU(str(values, 'productUse')),
+        supplierName: orU(str(values, 'supplierName')),
+        supplierAddress: orU(str(values, 'supplierAddress')),
+        emergencyPhone: orU(str(values, 'emergencyPhone')),
+        composition: orU(str(values, 'composition')),
+        hazardClass: orU(str(values, 'hazardClass')),
+        signalWord: orU(str(values, 'signalWord')),
+        hazardStatements: orU(str(values, 'hazardStatements')),
+        precautionary: orU(str(values, 'precautionary')),
+        firstAid: orU(str(values, 'firstAid')),
+        fireFighting: orU(str(values, 'fireFighting')),
+        accidentalRelease: orU(str(values, 'accidentalRelease')),
+        handlingStorage: orU(str(values, 'handlingStorage')),
+        exposureControl: orU(str(values, 'exposureControl')),
+        physicalProps: orU(str(values, 'physicalProps')),
+        stability: orU(str(values, 'stability')),
+        toxicology: orU(str(values, 'toxicology')),
+        ecology: orU(str(values, 'ecology')),
+        disposal: orU(str(values, 'disposal')),
+        unNumber: orU(str(values, 'unNumber')),
+        properShippingName: orU(str(values, 'properShippingName')),
+        transportClass: orU(str(values, 'transportClass')),
+        packingGroup: orU(str(values, 'packingGroup')),
+        marinePollutant: bool(values, 'marinePollutant'),
+        limitedQuantity: bool(values, 'limitedQuantity'),
+        regulatory: orU(str(values, 'regulatory')),
+        otherInfo: orU(str(values, 'otherInfo')),
+      });
+      break;
+    case 'conformityCertificate':
+      await generateConformityCertificatePdf({
+        number: reference,
+        date: orU(str(values, 'date')),
+        destinationCountry: orU(str(values, 'destinationCountry')),
+        inspectionBody: orU(str(values, 'inspectionBody')),
+        cocNumber: orU(str(values, 'cocNumber')),
+        route: orU(str(values, 'route')),
+        exporter: { name: orU(str(values, 'exporterName')), address: orU(str(values, 'exporterAddress')) },
+        importer: {
+          name: orU(str(values, 'importerName')),
+          address: orU(str(values, 'importerAddress')),
+          taxId: orU(str(values, 'importerTaxId')),
+        },
+        invoiceRef: orU(str(values, 'invoiceRef')),
+        goods: orU(str(values, 'goods')),
+        hsCode: orU(str(values, 'hsCode')),
+        brand: orU(str(values, 'brand')),
+        quantity: orU(str(values, 'quantity')),
+        goodsValue: orU(str(values, 'goodsValue')),
+        currency: orU(str(values, 'currency')),
+        standards: orU(str(values, 'standards')),
+        inspectionPlace: orU(str(values, 'inspectionPlace')),
+        inspectionDate: orU(str(values, 'inspectionDate')),
+        contactName: orU(str(values, 'contactName')),
+        contactPhone: orU(str(values, 'contactPhone')),
+        notes: orU(str(values, 'notes')),
       });
       break;
   }
