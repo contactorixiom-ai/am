@@ -46,6 +46,36 @@ export interface QuoteOption {
   priceCents: number;
 }
 
+// ─── Estimation en direct ──────────────────────────────────────────────────
+// Même moteur de prix que le devis, sans rien enregistrer : le client voit
+// son tarif se mettre à jour pendant qu'il remplit le formulaire.
+
+export interface QuoteEstimate {
+  transportMode: TransportMode;
+  pickupMode: PickupMode;
+  distanceKm: number | null;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  currency: string;
+  uncertaintyPct: number | null;
+  basePriceCents: number;
+  variablePriceCents: number;
+  pickupFeeCents: number;
+  addonsPriceCents: number;
+  options: QuoteOption[];
+  hints: QuoteHint[];
+}
+
+export async function estimateQuote(input: CreateQuoteInput): Promise<QuoteEstimate> {
+  return apiFetch<QuoteEstimate>('/quotes/estimate', {
+    method: 'POST',
+    body: input,
+    // Appel fréquent pendant la saisie : on échoue vite plutôt que d'attendre.
+    timeoutMs: 8000,
+  });
+}
+
 export interface QuoteResponse {
   id: string;
   reference: string;
@@ -88,5 +118,13 @@ export async function createQuote(input: CreateQuoteInput): Promise<QuoteRespons
 }
 
 export async function listCities(region?: 'EU' | 'AFRICA'): Promise<City[]> {
-  return apiFetch<City[]>('/cities', { skipAuth: true, params: region ? { region } : undefined });
+  // Défensif : une réponse inattendue (erreur renvoyée en 200, passage à un
+  // format paginé) ne doit pas faire planter l'écran de réservation, qui est
+  // le plus coûteux à perdre.
+  const res = await apiFetch<City[] | { data?: City[] }>('/cities', {
+    skipAuth: true,
+    params: region ? { region } : undefined,
+  });
+  if (Array.isArray(res)) return res;
+  return Array.isArray(res?.data) ? res.data : [];
 }

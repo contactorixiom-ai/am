@@ -19,7 +19,9 @@ export function CityPicker({ label, value, onChange, region }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    listCities(region).then(setCities).catch(() => setCities([]));
+    listCities(region)
+      .then((r) => setCities(Array.isArray(r) ? r : []))
+      .catch(() => setCities([]));
   }, [open, region]);
 
   const filtered = useMemo(() => {

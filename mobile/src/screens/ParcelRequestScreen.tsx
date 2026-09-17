@@ -3,10 +3,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { CountryRequirements, getDemoRequirements, getRequirements } from '../api/customs';
-import { City } from '../api/quotes';
+import { City, CreateQuoteInput } from '../api/quotes';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Icons } from '../components/Icons';
+import { LivePriceBar } from '../components/LivePriceBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
@@ -44,6 +45,22 @@ export function ParcelRequestScreen() {
     // Garde l'étape en draft (utile pour "Reprendre plus tard")
     set({ step });
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Estimation en direct : dès que le trajet et le poids sont connus, le
+  // client voit son tarif, sans attendre l'étape 4.
+  const estimateInput: CreateQuoteInput | null = useMemo(() => {
+    if (!draft.from || !draft.to || !draft.weightKg || draft.weightKg <= 0) return null;
+    return {
+      service,
+      transportMode: draft.transportMode ?? 'AIR',
+      pickupMode: draft.pickupMode ?? 'HUB_DROP_OFF',
+      fromCity: draft.from.city,
+      fromCountry: draft.from.country,
+      toCity: draft.to.city,
+      toCountry: draft.to.country,
+      weightKg: draft.weightKg,
+    };
+  }, [service, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode]);
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -135,6 +152,15 @@ export function ParcelRequestScreen() {
           {step === 1 ? <ParcelSizeScreen draft={draft} onChange={set} /> : null}
           {step === 2 ? <ParcelContentScreen draft={draft} onChange={set} /> : null}
         </ScrollView>
+
+        <LivePriceBar
+          input={estimateInput}
+          placeholder={
+            step === 0
+              ? 'Choisis ton trajet, puis le poids : le tarif s\'affiche aussitôt.'
+              : 'Indique le poids du colis pour voir le tarif.'
+          }
+        />
 
         {/* CTA sticky en bas */}
         <View

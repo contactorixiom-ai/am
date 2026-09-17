@@ -29,6 +29,13 @@ export class QuotesController {
     return this.quotes.create(dto, user);
   }
 
+  @Public()
+  @Post('estimate')
+  @ApiOperation({ summary: 'Estimer un prix sans enregistrer de devis' })
+  estimate(@Body() dto: CreateQuoteDto) {
+    return this.quotes.estimate(dto);
+  }
+
   @ApiBearerAuth()
   @Get('mine')
   @ApiOperation({ summary: 'Mes devis sauvegardés' })

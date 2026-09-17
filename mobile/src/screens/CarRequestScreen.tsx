@@ -1,16 +1,17 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
-import { City, createQuote, QuoteOptionKind } from '../api/quotes';
+import { City, createQuote, CreateQuoteInput, QuoteOptionKind } from '../api/quotes';
 import { saveConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
+import { LivePriceBar } from '../components/LivePriceBar';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
 import { Surface } from '../components/Surface';
@@ -60,6 +61,26 @@ export function CarRequestScreen() {
   const [notes, setNotes] = useState('');
   const [selectedOptions, setSelectedOptions] = useState<Set<QuoteOptionKind>>(new Set());
   const [loading, setLoading] = useState(false);
+
+  // Tarif en direct : dès que le trajet est choisi, le client voit le prix
+  // bouger quand il change de catégorie ou coche une option.
+  const estimateInput: CreateQuoteInput | null = useMemo(() => {
+    if (!from || !to) return null;
+    return {
+      service,
+      transportMode: 'ROAD',
+      fromCity: from.city,
+      fromCountry: from.country,
+      fromLatitude: from.latitude,
+      fromLongitude: from.longitude,
+      toCity: to.city,
+      toCountry: to.country,
+      toLatitude: to.latitude,
+      toLongitude: to.longitude,
+      vehicleCategory: category,
+      options: [...selectedOptions],
+    };
+  }, [service, from, to, category, selectedOptions]);
 
   const toggleOption = (k: QuoteOptionKind) =>
     setSelectedOptions((prev) => {
@@ -282,6 +303,11 @@ export function CarRequestScreen() {
             </View>
           </View>
         </ScrollView>
+
+        <LivePriceBar
+          input={estimateInput}
+          placeholder="Choisis le départ et l'arrivée : le tarif s'affiche aussitôt."
+        />
 
         {/* Sticky CTA */}
         <View

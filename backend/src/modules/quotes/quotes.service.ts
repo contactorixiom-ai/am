@@ -13,6 +13,63 @@ const QUOTE_VALIDITY_DAYS = 30;
 export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Estimation en direct : même moteur de prix que create(), mais sans rien
+  // écrire en base. Le client la voit se mettre à jour pendant qu'il remplit
+  // le formulaire ; créer un devis à chaque frappe polluerait la table.
+  estimate(dto: CreateQuoteDto) {
+    const { distanceKm, computed } = this.price(dto);
+    return {
+      transportMode: computed.transportMode,
+      pickupMode: computed.pickupMode,
+      distanceKm,
+      subtotalCents: computed.subtotalCents,
+      taxCents: computed.taxCents,
+      totalCents: computed.totalCents,
+      currency: computed.currency,
+      uncertaintyPct: computed.uncertaintyPct,
+      basePriceCents: computed.basePriceCents,
+      variablePriceCents: computed.variablePriceCents,
+      pickupFeeCents: computed.pickupFeeCents,
+      addonsPriceCents: computed.addonsPriceCents,
+      options: computed.options,
+      hints: computed.hints,
+    };
+  }
+
+  // Géocodage, distance et tarification — la partie commune au devis
+  // persisté et à l'estimation volatile.
+  private price(dto: CreateQuoteDto) {
+    const fromGeo = (dto.fromLatitude != null && dto.fromLongitude != null)
+      ? { latitude: dto.fromLatitude, longitude: dto.fromLongitude }
+      : lookupCity(dto.fromCity);
+    const toGeo = (dto.toLatitude != null && dto.toLongitude != null)
+      ? { latitude: dto.toLatitude, longitude: dto.toLongitude }
+      : lookupCity(dto.toCity);
+
+    let distanceKm = dto.distanceKm;
+    if (distanceKm == null && fromGeo && toGeo) {
+      distanceKm = roadKmFromHaversine(haversineKm(fromGeo, toGeo));
+    }
+
+    try {
+      const computed = computeQuote({
+        service: dto.service,
+        transportMode: dto.transportMode,
+        pickupMode: dto.pickupMode,
+        distanceKm,
+        weightKg: dto.weightKg,
+        volumeM3: dto.volumeM3,
+        units: dto.units,
+        options: dto.options ?? [],
+        vehicleCategory: dto.vehicleCategory,
+        pickupDistanceKm: dto.pickupDistanceKm,
+      });
+      return { fromGeo, toGeo, distanceKm, computed };
+    } catch (e) {
+      throw new BadRequestException(e instanceof Error ? e.message : 'Invalid quote input');
+    }
+  }
+
   async create(dto: CreateQuoteDto, user?: AuthenticatedUser) {
     // Auto-géocodage des villes si lat/lng absents
     const fromGeo = (dto.fromLatitude != null && dto.fromLongitude != null)
