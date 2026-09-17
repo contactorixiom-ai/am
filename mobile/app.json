@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/axis-mark.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B2545"
     },
@@ -34,7 +34,7 @@
       "package": "com.axisimport.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/axis-mark.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B2545"
       },
       "permissions": [
@@ -51,7 +51,8 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png"
     },
     "experiments": {
       "baseUrl": "/am/app"
@@ -84,7 +85,7 @@
     "extra": {
       "apiUrl": "https://am-production-80d6.up.railway.app/api/v1"
     },
-    "icon": "./assets/axis-mark.png",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
     ]

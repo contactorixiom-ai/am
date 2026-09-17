@@ -18,6 +18,7 @@ import { RADII, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { createStationaryWatch, StationaryWatch } from '../utils/stationaryWatch';
 import { hasNativeLocation, NativeStop, startNativeWatch } from '../utils/nativeLocation';
+import { startBackgroundTracking, stopBackgroundTracking } from '../utils/backgroundLocation';
 
 // ─── Mode chauffeur : suivi GPS temps réel + pause + alerte d'arrêt ─────────
 // Le chauffeur démarre le suivi au départ de la mission. Le téléphone envoie
@@ -235,6 +236,9 @@ export function DriverModeScreen() {
     geoWatchIdRef.current = null;
     nativeStopRef.current?.();
     nativeStopRef.current = null;
+    // Coupe aussi la tâche système, sinon elle continuerait d'émettre après
+    // que le convoyeur a arrêté le suivi.
+    stopBackgroundTracking();
     if (simTimerRef.current) clearInterval(simTimerRef.current);
     simTimerRef.current = null;
     if (sendTimerRef.current) clearInterval(sendTimerRef.current);
@@ -280,17 +284,30 @@ export function DriverModeScreen() {
     // Application installée : suivi natif, qui survit au verrouillage de
     // l'écran. Sinon (web), on garde navigator.geolocation.
     if (hasNativeLocation()) {
+      // 1. La tâche système : c'est elle qui transmet la position écran
+      //    verrouillé, pendant tout le trajet.
+      const m = missionRef.current;
+      if (m && !missionIsDemoRef.current) {
+        startBackgroundTracking(m.id).then((res) => {
+          if (res.ok) return;
+          if (res.reason === 'denied-background') {
+            setGeoError(
+              'Le suivi s\'arrêtera quand tu verrouilleras l\'écran : choisis « Toujours autoriser » dans les réglages de localisation du téléphone.',
+            );
+          } else if (res.reason === 'denied-foreground') {
+            setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone.');
+          }
+        });
+      }
+
+      // 2. Le suivi au premier plan alimente l'affichage (vitesse, compteur,
+      //    détection d'arrêt) tant que le convoyeur regarde son écran.
       startNativeWatch(handlePosition).then((res) => {
         if (res.ok) {
           nativeStopRef.current = res.stop;
-          if (!res.background) {
-            setGeoError(
-              'Suivi actif, mais l\'autorisation « Toujours » n\'a pas été accordée : la position s\'arrêtera si tu verrouilles l\'écran. Tu peux la changer dans les réglages du téléphone.',
-            );
-          }
         } else if (res.reason === 'denied') {
           setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone, ou continue en simulation.');
-        } else {
+        } else if (res.reason !== 'unavailable') {
           setGeoError('Géolocalisation indisponible sur cet appareil — trajectoire simulée.');
           startSimulation();
         }

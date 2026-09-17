@@ -15,7 +15,15 @@ l'application installée, elle continue pendant tout le trajet.
 |---|---|
 | `mobile/eas.json` | Les trois profils de build (development, preview, production) |
 | `mobile/app.json` | Identifiants, icône, permissions Android et textes iOS |
-| `mobile/src/utils/nativeLocation.ts` | Le suivi GPS natif, actif uniquement sur l'app installée |
+| `mobile/assets/icon.png` | Icône 1024×1024 sans transparence, exigée par App Store Connect |
+| `mobile/assets/adaptive-icon.png` | Icône Android, logo dans la zone sûre du masque circulaire |
+| `mobile/src/utils/backgroundLocation.native.ts` | La tâche système qui transmet la position écran verrouillé |
+| `mobile/src/utils/nativeLocation.ts` | Le suivi au premier plan, qui alimente l'affichage |
+
+Les projets natifs (`android/` et `ios/`) ne sont pas versionnés : EAS les
+régénère à chaque build depuis `app.json`. La configuration a été validée
+localement avec `npx expo prebuild` — permissions Android et clés Info.plist
+correctes sur les deux plateformes.
 
 Identifiants de l'application :
 - Android : `com.axisimport.app`
@@ -55,6 +63,11 @@ un QR code. Le convoyeur ouvre le lien sur son téléphone, installe l'APK
 **À l'installation, le convoyeur doit accepter la localisation en
 choisissant « Toujours autoriser ».** Sans cela, le suivi s'arrêtera à
 chaque fois qu'il verrouille son téléphone — l'app le lui signale.
+
+Une fois le suivi lancé, Android affiche en permanence une notification
+« Convoyage en cours ». Elle est imposée par le système pour tout service de
+localisation, et c'est aussi ce qui garantit au convoyeur qu'il sait quand
+sa position est partagée.
 
 ---
 
@@ -112,7 +125,20 @@ un module natif ou si l'on change les permissions.
 
 ---
 
-## 6. Tester sans rien installer
+## 6. Vérifier la configuration native sans lancer de build
+
+```bash
+cd mobile
+npx expo prebuild --platform android --no-install --clean
+npx expo prebuild --platform ios --no-install --clean
+```
+
+Ces commandes génèrent les projets natifs localement et révèlent toute erreur
+de configuration en quelques secondes, au lieu d'attendre vingt minutes une
+build qui échoue. Supprimer ensuite `android/` et `ios/` : ils ne sont pas
+versionnés.
+
+## 7. Tester sans rien installer
 
 ```bash
 cd mobile
