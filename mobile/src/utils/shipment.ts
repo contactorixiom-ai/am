@@ -102,7 +102,7 @@ export function parcelView(p: ParcelSummary): ShipmentView {
     stepDetail: last?.location ?? null,
     progress: step.progress,
     active: !INACTIVE_PARCEL.includes(p.status),
-    eta: null,
+    eta: formatEta(p.estimatedDelivery),
     driverName: null,
     driverPhone: null,
     vehicleLabel: null,

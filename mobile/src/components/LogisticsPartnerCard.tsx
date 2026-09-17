@@ -21,10 +21,12 @@ export function LogisticsPartnerCard({ partner, showTracking = true }: Props) {
   const { theme } = useTheme();
 
   const copyTracking = () => {
+    const nb = partner.trackingNumber;
+    if (!nb) return;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(partner.trackingNumber).catch(() => {});
+      navigator.clipboard.writeText(nb).catch(() => {});
     }
-    notify('Copié', `Numéro ${partner.trackingNumber} copié dans le presse-papier.`);
+    notify('Copié', `Numéro ${nb} copié dans le presse-papier.`);
   };
 
   const openCarrier = () => {
@@ -64,20 +66,23 @@ export function LogisticsPartnerCard({ partner, showTracking = true }: Props) {
         </View>
       </View>
 
-      {/* Pickup window */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: theme.bgSoft }}>
-        <Icons.calendar size={16} color={theme.navy} stroke={1.8} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
-            Créneau d'enlèvement
-          </Text>
-          <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>
-            {partner.pickupEta}
-          </Text>
+      {/* Créneau d'enlèvement : affiché seulement s'il a été confirmé par le
+          transporteur. Annoncer une heure non confirmée fait rater le rendez-vous. */}
+      {partner.pickupEta ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: theme.bgSoft }}>
+          <Icons.calendar size={16} color={theme.navy} stroke={1.8} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+              Créneau d'enlèvement
+            </Text>
+            <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>
+              {partner.pickupEta}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
-      {showTracking ? (
+      {showTracking && partner.trackingNumber ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
           <Pressable
             onPress={copyTracking}
@@ -105,6 +110,11 @@ export function LogisticsPartnerCard({ partner, showTracking = true }: Props) {
             <Icons.globe size={18} color="#F5F1E8" stroke={1.8} />
           </Pressable>
         </View>
+      ) : showTracking ? (
+        <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 10, lineHeight: 16.5 }}>
+          Le numéro de suivi {partner.name} s'affichera ici dès qu'Axis le recevra.
+          En attendant, les étapes ci-dessous sont mises à jour par Axis.
+        </Text>
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>

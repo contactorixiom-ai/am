@@ -673,6 +673,10 @@ model Parcel {
   pickupAt      DateTime?
 
   estimatedDelivery DateTime?
+  // Numéro de suivi chez le transporteur du premier tronçon (Chronopost,
+  // Geodis…), saisi par l'admin quand le partenaire le communique.
+  partnerCarrier    String?
+  partnerTracking   String?
   deliveredAt       DateTime?
 
   priceCents     Int?

@@ -31,6 +31,8 @@ export interface ParcelSummary {
   priceCents?: number | null;
   createdAt?: string;
   estimatedDelivery?: string | null;
+  partnerCarrier?: string | null;
+  partnerTracking?: string | null;
   trackingEvents?: ParcelTrackingEvent[];
 }
 
@@ -75,7 +77,14 @@ export async function getParcel(id: string): Promise<ParcelSummary> {
 // Admin (Roger) : ajoute un événement de suivi et fait avancer le statut du colis.
 export async function addParcelEvent(
   id: string,
-  input: { status: ParcelStatus; location?: string; notes?: string },
+  input: {
+    status: ParcelStatus;
+    location?: string;
+    notes?: string;
+    estimatedDelivery?: string;
+    partnerCarrier?: string;
+    partnerTracking?: string;
+  },
 ): Promise<ParcelSummary> {
   return apiFetch<ParcelSummary>(`/parcels/${id}/events`, { method: 'POST', body: input });
 }

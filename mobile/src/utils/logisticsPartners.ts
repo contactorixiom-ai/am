@@ -7,9 +7,11 @@ export type PartnerCarrier =
 export interface LogisticsPartner {
   carrier: PartnerCarrier;
   name: string;
-  trackingNumber: string;
+  /** Numéro communiqué par le transporteur. Null tant qu'Axis ne l'a pas reçu. */
+  trackingNumber: string | null;
+  /** Créneau confirmé par le transporteur. Null tant qu'il n'est pas confirmé. */
+  pickupEta: string | null;
   phone: string;
-  pickupEta: string; // ex "Aujourd'hui · 14h-18h"
   hub: string;       // ex "Hub Geodis Roissy"
   /** Couleur d'accent pour la card. */
   color: string;
@@ -53,34 +55,12 @@ function partnerFor(carrier: PartnerCarrier, toCountry: string): LogisticsPartne
   return {
     carrier,
     name: NAME[carrier],
-    trackingNumber: genTracking(carrier),
+    trackingNumber: null,
     phone: PHONE[carrier],
-    pickupEta: nextPickupWindow(),
+    pickupEta: null,
     hub: hubByCarrier[carrier],
     color: COLOR[carrier],
   };
-}
-
-function genTracking(carrier: PartnerCarrier): string {
-  const r = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
-  switch (carrier) {
-    case 'CHRONOPOST': return `XX${r(11)}FR`;
-    case 'DHL':        return `${r(10)}`;
-    case 'GEODIS':     return `GE${r(10)}FR`;
-    case 'COLISSIMO':  return `8R${r(11)}`;
-    case 'DPD':        return `01250${r(9)}`;
-    case 'MONDIAL_RELAY': return `${r(8)}MR`;
-    case 'UPS':        return `1Z${r(15)}`;
-    case 'TNT':        return `GE${r(9)}WW`;
-  }
-}
-
-function nextPickupWindow(): string {
-  // Démo : créneau "demain matin" ou "aujourd'hui" selon l'heure
-  const h = new Date().getHours();
-  if (h < 10) return 'Aujourd\'hui · 14h-18h';
-  if (h < 16) return 'Demain · 09h-12h';
-  return 'Demain · 14h-18h';
 }
 
 const NAME: Record<PartnerCarrier, string> = {
@@ -118,7 +98,7 @@ const COLOR: Record<PartnerCarrier, string> = {
 
 // URL de suivi externe vers le site du transporteur.
 export function trackingUrlFor(p: LogisticsPartner): string {
-  const t = encodeURIComponent(p.trackingNumber);
+  const t = encodeURIComponent(p.trackingNumber ?? '');
   switch (p.carrier) {
     case 'CHRONOPOST': return `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${t}`;
     case 'DHL':        return `https://www.dhl.com/fr-fr/home/tracking/tracking-parcel.html?tracking-id=${t}`;

@@ -268,6 +268,10 @@ export function AdminScreen() {
   // Lieu / note optionnels ajoutés au prochain changement de statut.
   const [eventLocation, setEventLocation] = useState('');
   const [eventNote, setEventNote] = useState('');
+  // Date d'arrivée prévue : Roger la corrige quand un navire prend du retard.
+  const [eventEta, setEventEta] = useState('');
+  // Numéro de suivi du transporteur du premier tronçon, quand il le communique.
+  const [eventTracking, setEventTracking] = useState('');
 
   // Affectation d'un convoyeur (modale)
   const [assignMission, setAssignMission] = useState<MissionSummary | null>(null);
@@ -376,8 +380,18 @@ export function AdminScreen() {
     try {
       // En mode démo (hors-ligne) on met simplement à jour l'état local pour que
       // Roger puisse dérouler le flux ; sinon on notifie le backend (admin only).
+      const eta = parseFrDate(eventEta);
+      if (eventEta.trim() && !eta) {
+        notify('Date invalide', 'Utilise le format JJ/MM/AAAA pour l\'arrivée prévue.');
+        setAdvancing(false);
+        return;
+      }
       if (!offline && parcel.id && !parcel.id.startsWith('demo')) {
-        await addParcelEvent(parcel.id, { status, location, notes });
+        await addParcelEvent(parcel.id, {
+          status, location, notes,
+          estimatedDelivery: eta ?? undefined,
+          partnerTracking: eventTracking.trim() || undefined,
+        });
       }
       setParcels((prev) => prev.map((p) => (p.id === parcel.id ? { ...p, status } : p)));
       // Modale maintenue ouverte : on met à jour l'étape courante et le journal.
@@ -385,13 +399,15 @@ export function AdminScreen() {
       setStatusEvents((prev) => [...(prev ?? []), { status, location, notes, occurredAt: new Date().toISOString() }]);
       setEventLocation('');
       setEventNote('');
+      setEventEta('');
+      setEventTracking('');
       notify('Statut mis à jour', `${parcel.reference} → ${parcelStatusLabel(status)}`);
     } catch {
       notify('Échec de la mise à jour', 'Le statut n\'a pas pu être enregistré. Vérifie ta connexion et tes droits.');
     } finally {
       setAdvancing(false);
     }
-  }, [offline, eventLocation, eventNote]);
+  }, [offline, eventLocation, eventNote, eventEta, eventTracking]);
 
   // Charge le journal de suivi du colis ouvert dans la modale.
   useEffect(() => {
@@ -738,6 +754,23 @@ export function AdminScreen() {
                     <Field label="Note (facultatif)" value={eventNote} onChangeText={setEventNote} placeholder="Ex. Dédouané" />
                   </View>
                 </View>
+                {/* La date d'arrivée est ce que le client regarde en premier :
+                    laissée vide, elle se resserre automatiquement selon l'étape. */}
+                <Field
+                  label="Arrivée prévue (facultatif)"
+                  value={eventEta}
+                  onChangeText={setEventEta}
+                  placeholder={p.estimatedDelivery ? new Date(p.estimatedDelivery).toLocaleDateString('fr-FR') : 'JJ/MM/AAAA'}
+                  hint="Vide = date recalculée selon l'étape. Renseigne-la si un navire a du retard."
+                />
+                <Field
+                  label="N° de suivi transporteur (facultatif)"
+                  value={eventTracking}
+                  onChangeText={setEventTracking}
+                  placeholder={p.partnerTracking ?? 'Ex. XX061953784FR'}
+                  autoCapitalize="characters"
+                  hint="Celui du premier tronçon (Chronopost, Geodis…). Le client pourra le suivre chez eux."
+                />
 
                 <View style={{ gap: 6 }}>
                   {PARCEL_PIPELINE.map((s, i) => {

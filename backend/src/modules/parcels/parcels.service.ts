@@ -6,6 +6,26 @@ import { AuthenticatedUser } from '../../common/decorators/current-user.decorato
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { AddParcelEventDto } from './dto/parcel-event.dto';
 
+// Délais de bout en bout annoncés au client au moment du devis. On retient la
+// borne haute : mieux vaut livrer en avance qu'annoncer une date qu'on rate.
+const TRANSIT_DAYS: Record<string, number> = {
+  AIR: 10,
+  SEA: 45,
+};
+
+// Jours restants une fois le colis engagé : à partir de ces étapes, la date
+// d'arrivée ne dépend plus du mode de transport mais de l'avancement réel.
+const REMAINING_DAYS: Partial<Record<ParcelStatus, number>> = {
+  CUSTOMS: 5,
+  OUT_FOR_DELIVERY: 1,
+};
+
+function addDays(from: Date, days: number): Date {
+  const d = new Date(from);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 // Titres lisibles par l'expéditeur, alignés sur le pipeline de l'espace admin.
 const PARCEL_STATUS_LABEL: Partial<Record<ParcelStatus, string>> = {
   AWAITING_DROP_OFF: 'En attente de dépôt',
@@ -46,9 +66,15 @@ export class ParcelsService {
       ? ParcelStatus.AWAITING_PICKUP
       : ParcelStatus.AWAITING_DROP_OFF;
 
+    // Date d'arrivée prévue : le client attend plusieurs semaines pour un
+    // envoi maritime, il lui faut une date dès la commande.
+    const transitDays = TRANSIT_DAYS[dto.transportMode ?? 'AIR'] ?? TRANSIT_DAYS.AIR;
+    const estimatedDelivery = addDays(new Date(), transitDays);
+
     return this.prisma.parcel.create({
       data: {
         senderId,
+        estimatedDelivery,
         reference: this.generateReference(),
         status: initialStatus,
         category: dto.category,
@@ -136,6 +162,8 @@ export class ParcelsService {
         destinationCountry: true,
         destinationCity: true,
         estimatedDelivery: true,
+        partnerCarrier: true,
+        partnerTracking: true,
         deliveredAt: true,
         trackingEvents: { orderBy: { occurredAt: 'asc' } },
       },
@@ -157,10 +185,25 @@ export class ParcelsService {
         notes: dto.notes,
       },
     });
+    // Date d'arrivée : Roger peut la corriger, sinon on la resserre à partir
+    // des étapes où elle ne dépend plus du mode de transport.
+    let estimatedDelivery: Date | undefined;
+    if (dto.estimatedDelivery) {
+      estimatedDelivery = new Date(dto.estimatedDelivery);
+    } else {
+      const remaining = REMAINING_DAYS[dto.status];
+      if (remaining != null) estimatedDelivery = addDays(new Date(), remaining);
+    }
+
     const updated = await this.prisma.parcel.update({
       where: { id },
       data: {
         status: dto.status,
+        estimatedDelivery,
+        // Suivi partenaire : renseigné seulement quand Roger le reçoit du
+        // transporteur. Jamais inventé — le client le copierait sur leur site.
+        partnerCarrier: dto.partnerCarrier?.trim() || undefined,
+        partnerTracking: dto.partnerTracking?.trim() || undefined,
         deliveredAt: dto.status === ParcelStatus.DELIVERED ? new Date() : undefined,
       },
     });
@@ -172,7 +215,14 @@ export class ParcelsService {
         updated.senderId,
         NotificationType.PARCEL_STATUS_UPDATE,
         PARCEL_STATUS_LABEL[dto.status] ?? 'Suivi mis à jour',
-        [`Colis ${updated.reference}`, dto.location, dto.notes].filter(Boolean).join(' · '),
+        [
+          `Colis ${updated.reference}`,
+          dto.location,
+          dto.notes,
+          dto.status !== ParcelStatus.DELIVERED && updated.estimatedDelivery
+            ? `Arrivée prévue le ${updated.estimatedDelivery.toLocaleDateString('fr-FR')}`
+            : undefined,
+        ].filter(Boolean).join(' · '),
         { parcelId: id, reference: updated.reference, status: dto.status },
       );
     } catch {

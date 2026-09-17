@@ -15,7 +15,7 @@ import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
-import { missionView } from '../utils/shipment';
+import { formatEta, missionView } from '../utils/shipment';
 import { notify } from '../utils/notify';
 import { Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
@@ -150,7 +150,7 @@ export function TrackingScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
         title="Suivi en temps réel"
-        subtitle={`${reference}${parcel ? ` · ${parcel.weightKg} kg` : ''}`}
+        subtitle={`${reference}${parcel ? ` · ${parcel.weightKg.toLocaleString('fr-FR')} kg` : ''}`}
         trailing={
           <Pressable
             style={({ pressed }) => ({
@@ -229,10 +229,30 @@ export function TrackingScreen() {
           <Pill tone={parcel?.status === 'IN_TRANSIT' ? 'navy' : 'gold'}>
             ● {parcel ? labelStatus(parcel.status) : view?.step ?? '—'}
           </Pill>
-          {parcel?.weightKg ? <Pill tone="default">{parcel.weightKg} kg</Pill> : null}
+          {parcel?.weightKg ? <Pill tone="default">{parcel.weightKg.toLocaleString('fr-FR')} kg</Pill> : null}
           {!parcel && mission?.distanceKm ? <Pill tone="default">{Math.round(mission.distanceKm)} km</Pill> : null}
           <View style={{ flex: 1 }} />
         </View>
+
+        {/* Date d'arrivée : la première chose que le client cherche quand son
+            colis met trois semaines à traverser. */}
+        {parcel && parcel.status !== 'DELIVERED' && formatEta(parcel.estimatedDelivery) ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            <Surface padded style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.pin size={18} color={theme.goldDeep} stroke={1.9} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 10.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                  Arrivée prévue
+                </Text>
+                <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
+                  {formatEta(parcel.estimatedDelivery)}
+                </Text>
+              </View>
+            </Surface>
+          </View>
+        ) : null}
 
         {error ? (
           <View style={{ paddingHorizontal: 20, marginTop: 12 }}>
@@ -246,7 +266,12 @@ export function TrackingScreen() {
         {kind === 'parcel' ? (
           <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
             <LogisticsPartnerCard
-              partner={selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry })}
+              partner={{
+                ...selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry }),
+                // Le numéro de suivi vient du serveur quand Axis l'a reçu du
+                // transporteur ; sinon la carte n'en affiche aucun.
+                trackingNumber: parcel?.partnerTracking ?? null,
+              }}
             />
           </View>
         ) : null}
