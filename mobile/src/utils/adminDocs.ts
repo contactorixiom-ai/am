@@ -1976,9 +1976,18 @@ export async function generateSafetyDataSheetPdf(data: SafetyDataSheetData): Pro
 
   // Une rubrique = un titre en bandeau + son contenu, avec saut de page
   // automatique pour que jamais un titre ne se retrouve seul en bas de page.
+  // Pas de ligne fixe : jsPDF espace ses lignes selon la police, pas selon la
+  // valeur qu'on lui suppose. En dessinant ligne à ligne on maîtrise l'écart
+  // exact — sinon le décalage s'accumule et les rubriques respirent de façon
+  // inégale selon leur longueur.
+  const LINE = 3.6;      // interligne du corps de texte
+  const GAP = 5;         // respiration avant la rubrique suivante
+  const BAND = 5.6;      // hauteur du bandeau de titre
+  const TEXT_X = M + 2.5; // aligné sur le libellé du bandeau
+
   const section = (num: number, title: string, body: string) => {
-    const lines = doc.splitTextToSize(body, CW - 4) as string[];
-    const needed = 7 + lines.length * 3.8 + 3;
+    const lines = doc.splitTextToSize(body, CW - 5) as string[];
+    const needed = BAND + 2.4 + lines.length * LINE + GAP;
     if (y + needed > H - 24) {
       axisFooter(doc);
       doc.addPage();
@@ -2001,17 +2010,18 @@ export async function generateSafetyDataSheetPdf(data: SafetyDataSheetData): Pro
       y = 24;
     }
     doc.setFillColor(11, 37, 69);
-    doc.rect(M, y, CW, 5.6, 'F');
+    doc.rect(M, y, CW, BAND, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(245, 241, 232);
-    doc.text(`RUBRIQUE ${num} — ${title.toUpperCase()}`, M + 2.5, y + 3.9);
-    y += 8;
+    doc.text(`RUBRIQUE ${num} — ${title.toUpperCase()}`, TEXT_X, y + 3.9);
+    y += BAND + 4;
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.3);
     doc.setTextColor(0, 0, 0);
-    doc.text(lines, M + 2, y);
-    y += lines.length * 3.8 + 4;
+    lines.forEach((line, i) => doc.text(line, TEXT_X, y + i * LINE));
+    y += lines.length * LINE + GAP;
   };
 
   section(1, 'Identification du produit et du fournisseur', [

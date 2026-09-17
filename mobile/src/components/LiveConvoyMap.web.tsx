@@ -1,5 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { StyledRouteMap } from './StyledRouteMap';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII } from '../theme/tokens';
 
@@ -16,28 +19,34 @@ interface Props {
   height?: number;
   fromLabel?: string;
   toLabel?: string;
+  /** Pictogramme du mobile suivi : voiture pour un convoyage, bateau ou
+   *  avion pour un colis. Un colis maritime ne roule pas. */
+  glyph?: string;
 }
 
 // Carte temps réel (web) : Leaflet + OpenStreetMap (gratuit, sans clé),
 // avec un marqueur véhicule qui se déplace le long de l'itinéraire.
-export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLabel, toLabel }: Props) {
+export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLabel, toLabel, glyph = '🚗' }: Props) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const traveledRef = useRef<any>(null);
   const LRef = useRef<any>(null);
+  // Carte indisponible (CDN bloqué, hors ligne) : on bascule sur le tracé
+  // stylisé plutôt que de laisser un cadre gris.
+  const [failed, setFailed] = useState(false);
 
   const vehicleIcon = (L: any, isPaused: boolean) => {
     const ring = isPaused ? '#E0A04D' : theme.gold;
-    const glyph = isPaused ? '⏸' : '🚗';
+    const mark = isPaused ? '⏸' : glyph;
     return L.divIcon({
       className: '',
       iconSize: [40, 40],
       iconAnchor: [20, 20],
       html: `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center">
         <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:${ring};opacity:.25"></div>
-        <div style="position:relative;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid ${ring};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.35)">${glyph}</div>
+        <div style="position:relative;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid ${ring};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.35)">${mark}</div>
       </div>`,
     });
   };
@@ -47,21 +56,10 @@ export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLa
     if (typeof window === 'undefined' || !containerRef.current) return;
     let cancelled = false;
 
-    const ensureLeaflet = () =>
-      new Promise<any>((resolve) => {
-        const w = window as any;
-        if (w.L) return resolve(w.L);
-        const css = document.createElement('link');
-        css.rel = 'stylesheet';
-        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(css);
-        const s = document.createElement('script');
-        s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        s.onload = () => resolve((window as any).L);
-        document.head.appendChild(s);
-      });
-
-    ensureLeaflet().then((L) => {
+    // Leaflet est embarqué dans l'application : plus de dépendance à un CDN
+    // externe, qui laissait un cadre vide dès qu'il était injoignable
+    // (réseau d'entreprise filtrant, coupure, blocage).
+    try {
       if (cancelled || !containerRef.current) return;
       LRef.current = L;
       const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false, dragging: true });
@@ -81,7 +79,11 @@ export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLa
       markerRef.current = L.marker([from.latitude, from.longitude], { icon: vehicleIcon(L, !!paused) }).addTo(map);
 
       map.fitBounds([[from.latitude, from.longitude], [to.latitude, to.longitude]], { padding: [44, 44] });
-    });
+    } catch {
+      // Tuiles injoignables ou conteneur invalide : on bascule sur le tracé
+      // stylisé plutôt que de laisser un cadre gris.
+      if (!cancelled) setFailed(true);
+    }
 
     return () => {
       cancelled = true;
@@ -107,6 +109,17 @@ export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLa
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress, paused]);
+
+  if (failed) {
+    return (
+      <StyledRouteMap
+        height={height}
+        progress={progress}
+        from={fromLabel ?? 'Départ'}
+        to={toLabel ?? 'Arrivée'}
+      />
+    );
+  }
 
   return (
     <View style={{ height, borderRadius: RADII.lg, overflow: 'hidden', borderWidth: 1, borderColor: theme.line }}>

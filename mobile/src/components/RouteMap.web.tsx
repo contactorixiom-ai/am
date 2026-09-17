@@ -1,5 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { StyledRouteMap } from './StyledRouteMap';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII } from '../theme/tokens';
 
@@ -20,6 +23,7 @@ interface Props {
 export function RouteMap({ from, to, height = 240, fromLabel, toLabel }: Props) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !containerRef.current) return;
@@ -27,20 +31,8 @@ export function RouteMap({ from, to, height = 240, fromLabel, toLabel }: Props) 
     let map: any;
     let cleanup = false;
 
-    const ensureLeaflet = () => new Promise<any>((resolve) => {
-      const w = window as any;
-      if (w.L) return resolve(w.L);
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(css);
-      const s = document.createElement('script');
-      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      s.onload = () => resolve((window as any).L);
-      document.head.appendChild(s);
-    });
-
-    ensureLeaflet().then((L) => {
+    // Leaflet embarqué dans l'application, comme pour LiveConvoyMap.
+    try {
       if (cleanup || !containerRef.current) return;
       const midLat = (from.latitude + to.latitude) / 2;
       const midLng = (from.longitude + to.longitude) / 2;
@@ -58,13 +50,21 @@ export function RouteMap({ from, to, height = 240, fromLabel, toLabel }: Props) 
         [from.latitude, from.longitude],
         [to.latitude, to.longitude],
       ], { padding: [40, 40] });
-    });
+    } catch {
+      if (!cleanup) setFailed(true);
+    }
 
     return () => {
       cleanup = true;
       if (map) map.remove();
     };
   }, [from.latitude, from.longitude, to.latitude, to.longitude, fromLabel, toLabel, theme.navy, theme.gold]);
+
+  if (failed) {
+    return (
+      <StyledRouteMap height={height} progress={0} from={fromLabel ?? 'Départ'} to={toLabel ?? 'Arrivée'} />
+    );
+  }
 
   return (
     <View style={{ height, borderRadius: RADII.lg, overflow: 'hidden', borderWidth: 1, borderColor: theme.line }}>

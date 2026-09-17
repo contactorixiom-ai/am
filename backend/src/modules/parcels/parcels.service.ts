@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType, ParcelStatus, PickupMode, Prisma, UserRole } from '@prisma/client';
+import { lookupCity } from '../../common/geocoding';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -45,6 +46,21 @@ export class ParcelsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  // Coordonnées des villes, pour tracer le trajet sur une vraie carte côté
+  // client. Résolues à la lecture depuis l'annuaire interne : pas de colonne
+  // à maintenir, et une ville inconnue renvoie simplement null.
+  private withCoords<T extends { originCity: string; destinationCity: string }>(parcel: T) {
+    const from = lookupCity(parcel.originCity);
+    const to = lookupCity(parcel.destinationCity);
+    return {
+      ...parcel,
+      originLatitude: from?.latitude ?? null,
+      originLongitude: from?.longitude ?? null,
+      destinationLatitude: to?.latitude ?? null,
+      destinationLongitude: to?.longitude ?? null,
+    };
+  }
 
   async create(senderId: string, dto: CreateParcelDto) {
     const pickupMode = dto.pickupMode ?? PickupMode.HUB_DROP_OFF;
@@ -137,7 +153,7 @@ export class ParcelsService {
       }),
       this.prisma.parcel.count({ where }),
     ]);
-    return { data, total };
+    return { data: data.map((p) => this.withCoords(p)), total };
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
@@ -149,7 +165,7 @@ export class ParcelsService {
     if (user.role !== UserRole.ADMIN && parcel.senderId !== user.id) {
       throw new ForbiddenException();
     }
-    return parcel;
+    return this.withCoords(parcel);
   }
 
   async track(reference: string) {
@@ -159,8 +175,11 @@ export class ParcelsService {
         reference: true,
         status: true,
         originCountry: true,
+        originCity: true,
         destinationCountry: true,
         destinationCity: true,
+        weightKg: true,
+        transportMode: true,
         estimatedDelivery: true,
         partnerCarrier: true,
         partnerTracking: true,
@@ -169,7 +188,7 @@ export class ParcelsService {
       },
     });
     if (!parcel) throw new NotFoundException('Parcel not found');
-    return parcel;
+    return this.withCoords(parcel);
   }
 
   async addEvent(id: string, dto: AddParcelEventDto, user: AuthenticatedUser) {

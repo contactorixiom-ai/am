@@ -13,6 +13,7 @@ interface Props {
   height?: number;
   fromLabel?: string;
   toLabel?: string;
+  glyph?: string;
 }
 
 export function LiveConvoyMap({ progress, height = 260, fromLabel, toLabel }: Props) {

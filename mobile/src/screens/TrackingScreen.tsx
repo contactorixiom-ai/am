@@ -10,12 +10,13 @@ import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
 import { Icons } from '../components/Icons';
+import { LiveConvoyMap } from '../components/LiveConvoyMap';
 import { LiveConvoyPanel } from '../components/LiveConvoyPanel';
 import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
-import { formatEta, missionView } from '../utils/shipment';
+import { formatEta, missionView, parcelView } from '../utils/shipment';
 import { notify } from '../utils/notify';
 import { Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
@@ -132,6 +133,17 @@ export function TrackingScreen() {
   }
 
   const view = mission ? missionView(mission) : null;
+  // Trajet du colis sur la carte : uniquement si le serveur a su résoudre
+  // les deux villes.
+  const parcelRoute =
+    parcel?.originLatitude != null && parcel?.originLongitude != null
+      && parcel?.destinationLatitude != null && parcel?.destinationLongitude != null
+      ? {
+          from: { latitude: parcel.originLatitude, longitude: parcel.originLongitude },
+          to: { latitude: parcel.destinationLatitude, longitude: parcel.destinationLongitude },
+        }
+      : null;
+  const parcelProgress = parcel ? parcelView(parcel).progress : 0;
   const fromLabel = parcel ? parcel.originCity : mission?.pickupCity ?? '—';
   const toLabel = parcel ? parcel.destinationCity : mission?.deliveryCity ?? '—';
   const vehicleLabel = view?.vehicleLabel ?? 'Véhicule convoyé';
@@ -192,8 +204,22 @@ export function TrackingScreen() {
               statusProgress={view?.progress ?? 0}
               missionId={mission?.id ?? route.params.id}
             />
+          ) : parcelRoute ? (
+            // Vraie carte : Apple Plans sur iPhone, Google Maps sur Android,
+            // OpenStreetMap sur le web. L'illustration ne servait à rien.
+            <LiveConvoyMap
+              from={parcelRoute.from}
+              to={parcelRoute.to}
+              progress={parcelProgress}
+              height={300}
+              fromLabel={fromLabel}
+              toLabel={toLabel}
+              glyph={parcel?.transportMode === 'SEA' ? '🚢' : '✈️'}
+            />
           ) : (
-            <StyledRouteMap height={300} progress={parcel ? 0.4 : 0.78} from={fromLabel} to={toLabel} />
+            // Ville inconnue de l'annuaire : on garde l'illustration plutôt
+            // qu'une carte centrée n'importe où.
+            <StyledRouteMap height={300} progress={parcelProgress} from={fromLabel} to={toLabel} />
           )}
         </View>
 

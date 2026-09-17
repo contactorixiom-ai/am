@@ -27,12 +27,19 @@ export interface ParcelSummary {
   destinationCountry: string;
   destinationCity: string;
   weightKg: number;
+  transportMode?: ParcelTransportMode | null;
   description?: string | null;
   priceCents?: number | null;
   createdAt?: string;
   estimatedDelivery?: string | null;
   partnerCarrier?: string | null;
   partnerTracking?: string | null;
+  // Coordonnées résolues par le serveur depuis les noms de villes, pour
+  // tracer le trajet sur une vraie carte.
+  originLatitude?: number | null;
+  originLongitude?: number | null;
+  destinationLatitude?: number | null;
+  destinationLongitude?: number | null;
   trackingEvents?: ParcelTrackingEvent[];
 }
 

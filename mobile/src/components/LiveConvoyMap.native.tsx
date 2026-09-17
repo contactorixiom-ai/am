@@ -13,6 +13,8 @@ interface Props {
   height?: number;
   fromLabel?: string;
   toLabel?: string;
+  /** Ignoré côté natif : le marqueur véhicule y est déjà un point coloré. */
+  glyph?: string;
 }
 
 export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLabel, toLabel }: Props) {
