@@ -310,7 +310,7 @@ export function QuoteReviewScreen() {
           <DetailRow
             label={isConvoy
               ? `Forfait + ${quote.distanceKm ? Math.round(quote.distanceKm) : 0} km`
-              : `Transport (${quote.weightKg} kg)`}
+              : `Transport (${quote.weightKg?.toLocaleString('fr-FR') ?? '—'} kg)`}
             sub={isConvoy
               ? 'Distance × tarif kilométrique HT'
               : quote.transportMode === 'AIR' ? 'Acheminement aérien Europe → Afrique' : 'Acheminement maritime conteneur'}

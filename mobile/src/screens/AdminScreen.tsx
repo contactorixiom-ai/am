@@ -48,6 +48,7 @@ import {
   ISSUER_LABEL,
 } from '../utils/adminDocs';
 import { notify } from '../utils/notify';
+import { buildFollowUps } from '../utils/followUps';
 import { downloadCsv } from '../utils/csv';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
@@ -486,7 +487,7 @@ export function AdminScreen() {
     openDocForm(
       adminDocTypeById('invoice')!,
       {
-        description: `Envoi colis ${p.originCity} → ${p.destinationCity} (${p.weightKg} kg) — réf ${p.reference}`,
+        description: `Envoi colis ${p.originCity} → ${p.destinationCity} (${p.weightKg.toLocaleString('fr-FR')} kg) — réf ${p.reference}`,
       },
       'colis',
     );
@@ -1115,6 +1116,10 @@ export function AdminScreen() {
 
     const fmtEuro = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
 
+    // Relances : ce qui n'avance plus et qu'il faut traiter aujourd'hui.
+    const followUps = buildFollowUps(missions, parcels);
+    const urgentCount = followUps.filter((f) => f.level === 'urgent').length;
+
     // File prioritaire : colis en douane (formalités à faire) puis convoyages actifs.
     const priorityParcels = parcels.filter((p) => p.status === 'CUSTOMS' || p.status === 'IN_TRANSIT').slice(0, 4);
 
@@ -1158,6 +1163,65 @@ export function AdminScreen() {
           <DashMini theme={theme} label="Convoyages actifs" value={String(activeConvoys)} icon={<Icons.truck size={15} color={theme.muted} stroke={1.7} />} />
           <DashMini theme={theme} label="Documents (mois)" value={String(docsMonth)} icon={<Icons.doc size={15} color={theme.muted} stroke={1.7} />} />
         </View>
+
+        {/* Relances — tout en haut : c'est ce qui coûte de l'argent si on
+            l'oublie (surestaries, stockage, client qui appelle). */}
+        {followUps.length > 0 ? (
+          <>
+            <SectionHead
+              title={`À relancer · ${followUps.length}${urgentCount > 0 ? ` · ${urgentCount} urgent${urgentCount > 1 ? 's' : ''}` : ''}`}
+              style={{ marginTop: 6 }}
+            />
+            <View style={{ gap: 8 }}>
+              {followUps.slice(0, 5).map((f) => {
+                const urgent = f.level === 'urgent';
+                const tone = urgent ? theme.bad : theme.warn;
+                return (
+                  <Pressable
+                    key={`fu-${f.kind}-${f.id}`}
+                    onPress={() => {
+                      if (f.kind === 'parcel') {
+                        const p = parcels.find((x) => x.id === f.id);
+                        if (p) setStatusParcel(p);
+                        return;
+                      }
+                      const m = missions.find((x) => x.id === f.id);
+                      if (m) openAssign(m);
+                    }}
+                  >
+                    <Surface
+                      padded
+                      flat
+                      style={{ padding: 12, borderWidth: 1, borderColor: tone + '4D', backgroundColor: tone + '12' }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: tone + '22', alignItems: 'center', justifyContent: 'center' }}>
+                          {f.kind === 'parcel'
+                            ? <Icons.box size={16} color={tone} stroke={1.9} />
+                            : <Icons.truck size={16} color={tone} stroke={1.9} />}
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                            {f.reference} · {f.route}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: tone, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={2}>
+                            {f.reason}
+                          </Text>
+                        </View>
+                        <Icons.arrow size={16} color={theme.muted} stroke={1.8} />
+                      </View>
+                    </Surface>
+                  </Pressable>
+                );
+              })}
+              {followUps.length > 5 ? (
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, textAlign: 'center' }}>
+                  et {followUps.length - 5} autre{followUps.length - 5 > 1 ? 's' : ''} dans l'onglet Envois
+                </Text>
+              ) : null}
+            </View>
+          </>
+        ) : null}
 
         {/* Prise de commande — première action du quotidien de Roger */}
         <SectionHead title="Prendre une commande" style={{ marginTop: 6 }} />
@@ -1214,7 +1278,7 @@ export function AdminScreen() {
                           {p.reference} · {p.originCity} → {p.destinationCity}
                         </Text>
                         <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
-                          {p.status === 'CUSTOMS' ? 'Dédouanement à préparer' : 'En transit'} · {p.weightKg} kg
+                          {p.status === 'CUSTOMS' ? 'Dédouanement à préparer' : 'En transit'} · {p.weightKg.toLocaleString('fr-FR')} kg
                         </Text>
                       </View>
                       <StatusBadge status={p.status} />
@@ -1612,7 +1676,7 @@ export function AdminScreen() {
                   <StatusBadge status={p.status} />
                 </View>
                 <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
-                  {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {p.weightKg} kg
+                  {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {p.weightKg.toLocaleString('fr-FR')} kg
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => setStatusParcel(p)}>

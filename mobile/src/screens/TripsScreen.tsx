@@ -173,7 +173,7 @@ function ParcelCard({ parcel: p, onPress }: { parcel: ParcelSummary; onPress: ()
               {p.originCity} → {p.destinationCity}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 2 }}>
-              {p.weightKg} kg · {p.originCountry} → {p.destinationCountry}
+              {p.weightKg.toLocaleString('fr-FR')} kg · {p.originCountry} → {p.destinationCountry}
             </Text>
           </View>
           <StatusBadge status={p.status} />

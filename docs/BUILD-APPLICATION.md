@@ -138,16 +138,51 @@ de configuration en quelques secondes, au lieu d'attendre vingt minutes une
 build qui échoue. Supprimer ensuite `android/` et `ios/` : ils ne sont pas
 versionnés.
 
-## 7. Tester sans rien installer
+## 7. Avoir l'app sur le téléphone — et pourquoi pas Expo Go
+
+**Expo Go ne peut pas ouvrir cette application.** Deux raisons, chacune
+suffisante :
+
+1. Expo Go de l'App Store ne supporte que le SDK 54 et au-delà. Le projet
+   est en SDK 51 : Expo Go répondrait « Project is incompatible with this
+   version of Expo Go ».
+2. Même après une montée de version, Expo Go **ne sait pas exécuter le suivi
+   GPS en arrière-plan** — ni sur iOS, ni sur Android. C'est justement la
+   fonction centrale du mode chauffeur.
+
+L'équivalent qui fonctionne est le **client de développement** : même
+expérience (on scanne un QR code, l'app se recharge à chaque modification),
+mais avec toutes les fonctions natives.
+
+### Une fois : construire le client
 
 ```bash
 cd mobile
-npx expo start --tunnel
+npm run build:devclient      # ≈ 20 min, produit un APK à installer
 ```
 
-Scanner le QR code avec Expo Go. Attention : **Expo Go ne sait pas faire de
-GPS en arrière-plan** — pour tester ce point précis, il faut une vraie
-build.
+### Ensuite : le QR code, à chaque session
+
+```bash
+cd mobile
+npm run phone
+```
+
+Le terminal affiche un QR code. On le scanne avec le client installé, et
+l'application se charge — en rechargeant automatiquement à chaque
+modification du code. Le tunnel traverse les box et les réseaux d'entreprise :
+téléphone et ordinateur n'ont pas besoin d'être sur le même réseau.
+
+### Les trois façons d'avoir l'app, et ce que chacune permet
+
+| | Installation | GPS en arrière-plan | Rechargement à chaud |
+|---|---|---|---|
+| **Web** (lien actuel) | rien à installer | non | — |
+| **Client de développement** | APK à installer une fois | oui | oui |
+| **APK preview** | APK à installer | oui | non, refaire une build |
+
+Pour Roger au quotidien : l'**APK preview**. Pour tester une modification en
+cours : le **client de développement**.
 
 ---
 

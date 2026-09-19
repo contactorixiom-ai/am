@@ -148,7 +148,9 @@ export class ParcelsService {
         where,
         skip: opts.skip,
         take: opts.take,
-        include: { items: true },
+        // Le dernier événement suffit à savoir depuis quand un colis n'a pas
+        // bougé : c'est ce qui alimente les relances de l'espace admin.
+        include: { items: true, trackingEvents: { orderBy: { occurredAt: 'desc' }, take: 1 } },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.parcel.count({ where }),
