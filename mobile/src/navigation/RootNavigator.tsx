@@ -50,7 +50,14 @@ function NewCenterPlaceholder() {
   return null;
 }
 
+// Les onglets dépendent du rôle. Un convoyeur n'est pas un client : il ne
+// commande pas de transport, et l'onglet Documents lui présentait les
+// factures du client — avec un bouton « Régler » pour une mission qu'il
+// conduit. À la place, il accède directement à ses missions.
 function AppTabs() {
+  const { user } = useSession();
+  const isDriverOnly = user?.role === 'DRIVER';
+
   return (
     <Tabs.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -58,8 +65,14 @@ function AppTabs() {
     >
       <Tabs.Screen name="Home" component={HomeScreen} />
       <Tabs.Screen name="Trips" component={TripsScreen} />
-      <Tabs.Screen name="NewCenter" component={NewCenterPlaceholder} />
-      <Tabs.Screen name="Documents" component={DocumentsScreen} />
+      {isDriverOnly ? (
+        <Tabs.Screen name="Missions" component={DriverModeScreen} />
+      ) : (
+        <>
+          <Tabs.Screen name="NewCenter" component={NewCenterPlaceholder} />
+          <Tabs.Screen name="Documents" component={DocumentsScreen} />
+        </>
+      )}
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );

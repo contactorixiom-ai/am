@@ -25,6 +25,10 @@ export interface ShipmentView {
   eta: string | null;
   driverName: string | null;
   driverPhone: string | null;
+  /** Identifiant du convoyeur affecté — sert à savoir si la mission est la sienne. */
+  driverId: string | null;
+  /** Nom du client donneur d'ordre — affiché côté convoyeur, jamais côté client. */
+  clientName: string | null;
   vehicleLabel: string | null;
   distanceKm: number | null;
 }
@@ -82,6 +86,8 @@ export function missionView(m: MissionSummary): ShipmentView {
     eta: formatEta(m.deliveryAt) ?? formatEta(m.pickupAt),
     driverName: driver,
     driverPhone: m.driver?.phone ?? null,
+    driverId: m.driver?.id ?? null,
+    clientName: m.client ? `${m.client.firstName} ${m.client.lastName}`.trim() || null : null,
     vehicleLabel: [`${m.vehicle.make} ${m.vehicle.model}`.trim(), m.vehicle.licensePlate]
       .filter(Boolean)
       .join(' · ') || null,
@@ -105,6 +111,8 @@ export function parcelView(p: ParcelSummary): ShipmentView {
     eta: formatEta(p.estimatedDelivery),
     driverName: null,
     driverPhone: null,
+    driverId: null,
+    clientName: null,
     vehicleLabel: null,
     distanceKm: null,
   };

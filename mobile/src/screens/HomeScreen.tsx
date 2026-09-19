@@ -33,6 +33,10 @@ export function HomeScreen() {
   // Repli silencieux en mode hors-ligne (on n'embête pas l'utilisateur démo).
   const [kycStatus, setKycStatus] = useState<GlobalKycStatus | null>(null);
   const isDriver = user?.role === 'DRIVER' || user?.role === 'ADMIN';
+  // Un convoyeur n'est pas un client : il ne commande rien, il exécute.
+  // L'administrateur, lui, passe aussi des commandes pour ses clients :
+  // il garde donc l'interface cliente complète.
+  const isDriverOnly = user?.role === 'DRIVER';
   useEffect(() => {
     // Inutile d'interroger l'API pour un client : le KYC ne le concerne pas.
     if (!isDriver) return;
@@ -53,16 +57,29 @@ export function HomeScreen() {
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const [mRes, pRes] = await Promise.allSettled([listMissions(), listParcels()]);
+        // Le convoyeur n'a pas de colis et ne signe pas de contrat client :
+        // on ne charge que ses missions, et uniquement celles qui lui sont
+        // affectées (l'API lui renvoie aussi les missions publiées).
+        const [mRes, pRes] = await Promise.allSettled([
+          listMissions(),
+          isDriverOnly ? Promise.resolve({ data: [] as Awaited<ReturnType<typeof listParcels>>['data'] }) : listParcels(),
+        ]);
         if (cancelled) return;
-        const missions = mRes.status === 'fulfilled' ? mRes.value.data : [];
+        const allMissions = mRes.status === 'fulfilled' ? mRes.value.data : [];
+        const missions = isDriverOnly
+          ? allMissions.filter((m) => m.driver?.id && m.driver.id === user?.id)
+          : allMissions;
         const views: ShipmentView[] = [
           ...missions.map(missionView),
           ...(pRes.status === 'fulfilled' ? pRes.value.data.map(parcelView) : []),
         ];
         setShipments(sortForClient(views));
-        const n = await countContractsToSign(missions);
-        if (!cancelled) setToSign(n);
+        if (isDriverOnly) {
+          setToSign(0);
+        } else {
+          const n = await countContractsToSign(missions);
+          if (!cancelled) setToSign(n);
+        }
 
         // Pastille de notifications et aperçu actualités : silencieux si
         // l'API ne répond pas, ces blocs sont secondaires.
@@ -72,7 +89,7 @@ export function HomeScreen() {
         setLatestNews(news.status === 'fulfilled' ? news.value.data[0] ?? null : null);
       })();
       return () => { cancelled = true; };
-    }, []),
+    }, [isDriverOnly, user?.id]),
   );
 
   const primary = shipments?.[0] ?? null;
@@ -178,7 +195,9 @@ export function HomeScreen() {
                 ? 'Reprends les pièces refusées pour pouvoir continuer.'
                 : kycStatus === 'PENDING'
                   ? 'Notre équipe valide tes documents sous 24 h.'
-                  : '2 min pour pouvoir envoyer un colis ou un véhicule.'
+                  : isDriverOnly
+                    ? '2 min : permis et pièce d\'identité pour pouvoir convoyer.'
+                    : '2 min pour pouvoir envoyer un colis ou un véhicule.'
             }
             action={
               kycStatus === 'PENDING'
@@ -221,12 +240,24 @@ export function HomeScreen() {
           <Skeleton variant="card" count={1} />
         ) : primary === null ? (
           <Surface padded style={{ padding: 4 }}>
-            <EmptyState
-              iconKey="truck"
-              title="Aucun envoi en cours"
-              subtitle="Demande un convoyage de véhicule ou envoie un colis : tu suivras tout ici."
-              cta={{ label: 'Faire une demande', onPress: () => nav.navigate('ServicePicker') }}
-            />
+            {isDriverOnly ? (
+              <EmptyState
+                iconKey="truck"
+                title="Aucune mission affectée"
+                subtitle="Dès qu'Axis t'affecte un convoyage, il apparaît ici avec l'itinéraire et le suivi GPS."
+                cta={{
+                  label: 'Ouvrir le mode chauffeur',
+                  onPress: () => nav.getParent()?.navigate('AppTabs', { screen: 'Missions' } as never),
+                }}
+              />
+            ) : (
+              <EmptyState
+                iconKey="truck"
+                title="Aucun envoi en cours"
+                subtitle="Demande un convoyage de véhicule ou envoie un colis : tu suivras tout ici."
+                cta={{ label: 'Faire une demande', onPress: () => nav.navigate('ServicePicker') }}
+              />
+            )}
           </Surface>
         ) : (
           <Surface padded style={{ padding: 16, overflow: 'hidden' }}>
@@ -311,7 +342,28 @@ export function HomeScreen() {
               />
             </View>
 
-            {/* Convoyeur affecté — masqué tant qu'il n'y en a pas */}
+            {/* Convoyeur affecté — masqué tant qu'il n'y en a pas.
+                Côté convoyeur on inverse : c'est le client qu'il doit voir,
+                pas son propre nom avec un bouton « Appeler ». */}
+            {isDriverOnly ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
+                    Donneur d'ordre
+                  </Text>
+                  <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
+                    {primary.clientName ?? 'Axis Import'}
+                  </Text>
+                </View>
+                <Button
+                  kind="primary"
+                  size="sm"
+                  onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Missions' } as never)}
+                >
+                  Mode chauffeur
+                </Button>
+              </View>
+            ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {primary.driverName ? (
                 <>
@@ -350,10 +402,86 @@ export function HomeScreen() {
                 Suivre
               </Button>
             </View>
+            )}
           </Surface>
         )}
 
-        {/* Quick actions */}
+        {/* Raccourcis du convoyeur — il ne commande pas de transport et n'a
+            aucune facture à régler : ces deux cartes étaient celles du client. */}
+        {isDriverOnly ? (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Missions' } as never)}
+              style={({ pressed }) => ({
+                flex: 1.4,
+                borderWidth: 1,
+                borderColor: theme.navy,
+                backgroundColor: pressed ? theme.navyDeep : theme.navy,
+                padding: 16,
+                borderRadius: RADII.xxl,
+                overflow: 'hidden',
+                position: 'relative',
+              })}
+            >
+              <View style={{ position: 'absolute', right: -20, top: -20, opacity: 0.12 }}>
+                <Icons.truck size={90} color={theme.gold} stroke={1.5} />
+              </View>
+              <Text
+                style={{
+                  fontSize: 11.5,
+                  color: theme.gold,
+                  letterSpacing: 0.9,
+                  textTransform: 'uppercase',
+                  fontFamily: TYPO.weights.semibold,
+                }}
+              >
+                Mode chauffeur
+              </Text>
+              <Text
+                style={{
+                  fontFamily: TYPO.weights.bold,
+                  fontSize: 24,
+                  lineHeight: 24 * 1.05,
+                  marginTop: 6,
+                  color: '#F5F1E8',
+                  letterSpacing: -0.2,
+                }}
+              >
+                Démarrer le suivi
+              </Text>
+              <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.65)', marginTop: 10, fontFamily: TYPO.weights.medium }}>
+                Position partagée avec le client
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => nav.navigate('VehicleDocs')}
+              style={({ pressed }) => ({
+                flex: 1,
+                borderWidth: 1,
+                borderColor: theme.line,
+                backgroundColor: pressed ? theme.bgSoft : theme.surface,
+                padding: 16,
+                borderRadius: RADII.xxl,
+              })}
+            >
+              <Icons.doc size={24} color={theme.gold} stroke={1.6} />
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: theme.ink,
+                  marginTop: 10,
+                  lineHeight: 16,
+                  fontFamily: TYPO.weights.semibold,
+                }}
+              >
+                Documents{'\n'}véhicule
+              </Text>
+              <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
+                Carte grise · CT · assurance
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable
             onPress={() => nav.navigate('ServicePicker')}
@@ -426,6 +554,7 @@ export function HomeScreen() {
             </Text>
           </Pressable>
         </View>
+        )}
 
         {/* Deuxième envoi en cours, s'il y en a un */}
         {secondary ? (

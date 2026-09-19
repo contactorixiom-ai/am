@@ -47,5 +47,7 @@ export type AppTabParamList = {
   Trips: undefined;
   NewCenter: undefined;
   Documents: undefined;
+  /** Onglet convoyeur : ses missions affectées et le suivi GPS. */
+  Missions: undefined;
   Profile: undefined;
 };

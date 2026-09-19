@@ -5,14 +5,16 @@ import { useTheme } from '../theme/ThemeProvider';
 import { SAFE_AREA_BOTTOM, TYPO } from '../theme/tokens';
 import { Icons } from './Icons';
 
-type IconKey = 'home' | 'pin' | 'plus' | 'doc' | 'chat';
+type IconKey = 'home' | 'pin' | 'plus' | 'doc' | 'user' | 'truck';
 
 const TAB_CONFIG: Record<string, { label: string; icon: IconKey; isCenter?: boolean }> = {
   Home:      { label: 'Accueil',   icon: 'home' },
   Trips:     { label: 'Suivi',     icon: 'pin' },
   NewCenter: { label: 'Demander',  icon: 'plus', isCenter: true },
   Documents: { label: 'Documents', icon: 'doc' },
-  Profile:   { label: 'Profil',    icon: 'chat' },
+  // Onglet propre au convoyeur : ses missions et son suivi GPS.
+  Missions:  { label: 'Missions',  icon: 'truck' },
+  Profile:   { label: 'Profil',    icon: 'user' },
 };
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {

@@ -11,6 +11,7 @@ import { Pill } from '../components/Pill';
 import { StatusBadge } from '../components/StatusBadge';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
+import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 
@@ -26,6 +27,10 @@ const DONE_STATUSES = new Set(['DELIVERED', 'COMPLETED']);
 
 export function TripsScreen() {
   const { theme } = useTheme();
+  const { user } = useSession();
+  // Le convoyeur suit ses missions, pas des « envois » : pas de colis, pas de
+  // demande à créer, et surtout pas les missions publiées des autres clients.
+  const isDriverOnly = user?.role === 'DRIVER';
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [missions, setMissions] = useState<MissionSummary[]>([]);
   const [parcels, setParcels] = useState<ParcelSummary[]>([]);
@@ -36,12 +41,16 @@ export function TripsScreen() {
   const load = useCallback(async () => {
     // Chargement en parallèle + repli gracieux : si l'un des deux appels
     // échoue (hors-ligne, droits), on garde l'autre plutôt que de tout vider.
-    const [mRes, pRes] = await Promise.allSettled([listMissions(), listParcels()]);
-    setMissions(mRes.status === 'fulfilled' ? mRes.value.data : []);
+    const [mRes, pRes] = await Promise.allSettled([
+      listMissions(),
+      isDriverOnly ? Promise.resolve({ data: [] as ParcelSummary[] }) : listParcels(),
+    ]);
+    const all = mRes.status === 'fulfilled' ? mRes.value.data : [];
+    setMissions(isDriverOnly ? all.filter((m) => m.driver?.id && m.driver.id === user?.id) : all);
     setParcels(pRes.status === 'fulfilled' ? pRes.value.data : []);
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [isDriverOnly, user?.id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -58,26 +67,38 @@ export function TripsScreen() {
     return false;
   });
 
-  const emptyTitle = tab === 'done' ? 'Aucun envoi livré'
+  const emptyTitle = tab === 'done' ? (isDriverOnly ? 'Aucune mission livrée' : 'Aucun envoi livré')
     : tab === 'convoy' ? 'Aucun convoyage'
     : tab === 'parcel' ? 'Aucun colis'
+    : isDriverOnly ? 'Aucune mission affectée'
     : 'Aucun envoi en cours';
   const emptySubtitle = tab === 'done'
     ? 'Tes envois livrés apparaîtront ici, avec leur PV signé.'
-    : 'Crée ta première demande de transport pour la voir apparaître ici.';
+    : isDriverOnly
+      ? 'Dès qu\'Axis t\'affecte un convoyage, il apparaît ici.'
+      : 'Crée ta première demande de transport pour la voir apparaître ici.';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Mes envois" subtitle="Convoyages et colis · suivi temps réel" />
+      <AppBar
+        title={isDriverOnly ? 'Mes missions' : 'Mes envois'}
+        subtitle={isDriverOnly ? 'Convoyages affectés · suivi temps réel' : 'Convoyages et colis · suivi temps réel'}
+      />
 
       {/* Filtres — onglets fins soulignés */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme.line }}>
-        {([
-          { id: 'all',    label: 'Tous' },
-          { id: 'convoy', label: 'Convoyage' },
-          { id: 'parcel', label: 'Colis' },
-          { id: 'done',   label: 'Livrés' },
-        ] as { id: FilterId; label: string }[]).map((f) => {
+        {(isDriverOnly
+          ? ([
+              { id: 'all',  label: 'Toutes' },
+              { id: 'done', label: 'Livrées' },
+            ] as { id: FilterId; label: string }[])
+          : ([
+              { id: 'all',    label: 'Tous' },
+              { id: 'convoy', label: 'Convoyage' },
+              { id: 'parcel', label: 'Colis' },
+              { id: 'done',   label: 'Livrés' },
+            ] as { id: FilterId; label: string }[])
+        ).map((f) => {
           const on = tab === f.id;
           return (
             <Pressable
@@ -114,7 +135,11 @@ export function TripsScreen() {
               iconKey={tab === 'done' ? 'check' : tab === 'convoy' ? 'truck' : 'box'}
               title={emptyTitle}
               subtitle={emptySubtitle}
-              cta={tab === 'done' ? undefined : { label: 'Nouvelle demande', onPress: () => nav.navigate('ServicePicker') }}
+              cta={
+                tab === 'done' || isDriverOnly
+                  ? undefined
+                  : { label: 'Nouvelle demande', onPress: () => nav.navigate('ServicePicker') }
+              }
             />
           </Surface>
         ) : (

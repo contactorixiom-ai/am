@@ -145,12 +145,16 @@ export function ProfileScreen() {
               cela vit dans les onglets. Le profil ne garde donc que ce qui
               n'a pas sa place ailleurs — et rien qui ne soit branché. */}
           <MenuSection label="Mon compte">
-            <MenuRow
-              iconKey="box"
-              label="Mes informations d'envoi"
-              sub="Expéditeur, marchandise — reprises sur tes documents"
-              onPress={() => nav.navigate('ShipmentInfo')}
-            />
+            {/* Le convoyeur n'expédie rien : ces informations d'expéditeur
+                et de marchandise ne concernent que le client. */}
+            {user?.role === 'DRIVER' ? null : (
+              <MenuRow
+                iconKey="box"
+                label="Mes informations d'envoi"
+                sub="Expéditeur, marchandise — reprises sur tes documents"
+                onPress={() => nav.navigate('ShipmentInfo')}
+              />
+            )}
             <MenuRow
               iconKey="shield"
               label="Sécurité du compte"
@@ -163,7 +167,7 @@ export function ProfileScreen() {
             <MenuRow
               iconKey="chat"
               label="Contacter Axis"
-              sub="Une question sur un envoi en cours"
+              sub={user?.role === 'DRIVER' ? 'Une question sur une mission en cours' : 'Une question sur un envoi en cours'}
               onPress={() => nav.navigate('Conversations')}
             />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
@@ -180,12 +184,16 @@ export function ProfileScreen() {
                   onPress={() => nav.navigate('Admin')}
                 />
               ) : null}
-              <MenuRow
-                iconKey="pin"
-                label="Mode chauffeur"
-                sub="Suivi GPS, état des lieux, contrat"
-                onPress={() => nav.navigate('DriverMode')}
-              />
+              {/* Pour le convoyeur, le mode chauffeur est déjà un onglet :
+                  on ne double pas l'entrée. L'admin, lui, n'a pas cet onglet. */}
+              {user?.role === 'ADMIN' ? (
+                <MenuRow
+                  iconKey="pin"
+                  label="Mode chauffeur"
+                  sub="Suivi GPS, état des lieux, contrat"
+                  onPress={() => nav.navigate('DriverMode')}
+                />
+              ) : null}
               <MenuRow
                 iconKey="car"
                 label="Documents véhicule"
