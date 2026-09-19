@@ -39,6 +39,10 @@ export function ProfileScreen() {
     return unsub;
   }, [nav]);
 
+  // Le KYC exige un permis de conduire : il ne concerne que les convoyeurs.
+  // Un client qui envoie un colis n'a aucune raison de fournir le sien.
+  const isDriver = user?.role === 'DRIVER' || user?.role === 'ADMIN';
+
   const handleLogout = () => {
     confirmAction('Déconnexion', 'Tu es sûr ?', () => logout(), 'Se déconnecter');
   };
@@ -86,7 +90,8 @@ export function ProfileScreen() {
             </View>
           </View>
 
-          {/* Carte vérification d'identité (KYC) */}
+          {/* Vérification d'identité — convoyeurs uniquement */}
+          {isDriver ? (
           <Pressable
             onPress={() => nav.navigate('KycVerification')}
             style={({ pressed }) => ({
@@ -119,46 +124,15 @@ export function ProfileScreen() {
             </View>
             <Icons.chev size={16} color="rgba(245,241,232,0.7)" stroke={2} />
           </Pressable>
+          ) : null}
 
-          {/* Stats strip */}
-          <View
-            style={{
-              marginTop: 18,
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 12,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.08)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 14,
-            }}
-          >
-            <View>
-              <Text style={{ fontSize: 18, color: theme.goldHi, fontFamily: TYPO.weights.bold }}>0</Text>
-              <Text style={{ fontSize: 10, color: 'rgba(245,241,232,0.55)', letterSpacing: 0.4, marginTop: 1, fontFamily: TYPO.weights.medium }}>
-                Missions
-              </Text>
-            </View>
-            <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.12)' }} />
-            <View>
-              <Text style={{ fontSize: 18, color: theme.goldHi, fontFamily: TYPO.weights.bold }}>0 €</Text>
-              <Text style={{ fontSize: 10, color: 'rgba(245,241,232,0.55)', letterSpacing: 0.4, marginTop: 1, fontFamily: TYPO.weights.medium }}>
-                Total dépensé
-              </Text>
-            </View>
-            <View style={{ flex: 1 }} />
-            <View
-              style={{
-                paddingVertical: 4,
-                paddingHorizontal: 9,
-                borderRadius: 999,
-                backgroundColor: theme.gold + '2E',
-              }}
-            >
+          {/* Badge de rôle. Les compteurs « missions » et « total dépensé »
+              qui figuraient ici n'ont jamais été branchés : ils affichaient
+              zéro en permanence. Les vrais chiffres sont dans l'onglet Suivi. */}
+          <View style={{ marginTop: 16, flexDirection: 'row' }}>
+            <View style={{ paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999, backgroundColor: theme.gold + '2E' }}>
               <Text style={{ fontSize: 10.5, color: theme.goldHi, letterSpacing: 0.6, fontFamily: TYPO.weights.semibold }}>
-                CLIENT
+                {user?.role === 'ADMIN' ? 'ADMINISTRATEUR' : user?.role === 'DRIVER' ? 'CONVOYEUR' : 'CLIENT'}
               </Text>
             </View>
           </View>
@@ -166,44 +140,63 @@ export function ProfileScreen() {
 
         {/* Sections */}
         <View style={{ paddingHorizontal: 8, paddingTop: 14 }}>
-          <MenuSection label="Compte">
-            <MenuRow iconKey="box" label="Infos d'envoi" sub="Expéditeur, marchandise — pour vos documents" onPress={() => nav.navigate('ShipmentInfo')} />
-            <MenuRow iconKey="pin" label="Mes adresses" trailing="0" onPress={() => notify('Mes adresses', 'Le carnet d\'adresses arrive avec la prochaine version.')} />
-            <MenuRow iconKey="card" label="Modes de paiement" trailing="0" onPress={() => notify('Modes de paiement', 'La gestion des cartes arrive avec l\'activation Stripe.')} />
+          {/* Le client a quatre besoins : demander un devis, suivre ses
+              transports, signer ses documents, lire les actualités. Tout
+              cela vit dans les onglets. Le profil ne garde donc que ce qui
+              n'a pas sa place ailleurs — et rien qui ne soit branché. */}
+          <MenuSection label="Mon compte">
+            <MenuRow
+              iconKey="box"
+              label="Mes informations d'envoi"
+              sub="Expéditeur, marchandise — reprises sur tes documents"
+              onPress={() => nav.navigate('ShipmentInfo')}
+            />
+            <MenuRow
+              iconKey="shield"
+              label="Sécurité du compte"
+              sub="Face ID, double authentification, sessions"
+              onPress={() => nav.navigate('SecuritySettings')}
+            />
           </MenuSection>
 
-          <MenuSection label="Activité">
-            <MenuRow iconKey="truck" label="Mes missions" onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Trips' } as never)} />
-            <MenuRow iconKey="chat" label="Messages" sub="Chauffeurs et support" onPress={() => nav.navigate('Conversations')} />
-            <MenuRow iconKey="doc" label="Documents & factures" onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Documents' } as never)} />
-            <MenuRow iconKey="car" label="Documents véhicule" sub="Carte grise, CT, assurance" onPress={() => nav.navigate('VehicleDocs')} />
+          <MenuSection label="Aide">
+            <MenuRow
+              iconKey="chat"
+              label="Contacter Axis"
+              sub="Une question sur un envoi en cours"
+              onPress={() => nav.navigate('Conversations')}
+            />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
           </MenuSection>
 
-          <MenuSection label="Sécurité">
-            <MenuRow iconKey="shield" label="Sécurité du compte" sub="Face ID, 2FA, sessions" onPress={() => nav.navigate('SecuritySettings')} />
-            <MenuRow iconKey="sig" label="Vérification d'identité" sub="KYC chauffeur" onPress={() => nav.navigate('KycVerification')} />
-          </MenuSection>
-
-          <MenuSection label="Axis">
-            {/* Espace admin réservé à Roger (rôle ADMIN) */}
-            {user?.role === 'ADMIN' ? (
-              <MenuRow iconKey="sliders" label="Espace admin" sub="Tableau de bord · documents · envois" onPress={() => nav.navigate('Admin')} />
-            ) : null}
-            {/* Mode chauffeur : convoyeurs (et admin) uniquement */}
-            {user?.role === 'DRIVER' || user?.role === 'ADMIN' ? (
-              <MenuRow iconKey="pin" label="Mode chauffeur" sub="Suivi GPS, état des lieux, contrat" onPress={() => nav.navigate('DriverMode')} />
-            ) : null}
-            {user?.role === 'CLIENT' ? (
-              <MenuRow iconKey="bolt" label="Devenir chauffeur Axis" badge="Nouveau" onPress={() => nav.navigate('KycVerification')} />
-            ) : null}
-            <MenuRow iconKey="star" label="Parrainage" sub="20 € par filleul" onPress={() => notify('Parrainage', 'Le programme de parrainage ouvre au lancement officiel.')} />
-            <MenuRow iconKey="shield" label="Centre d'aide" onPress={() => nav.navigate('Conversations')} />
-          </MenuSection>
+          {/* Accès réservés : n'apparaissent que pour les rôles concernés. */}
+          {user?.role === 'ADMIN' || user?.role === 'DRIVER' ? (
+            <MenuSection label="Axis">
+              {user?.role === 'ADMIN' ? (
+                <MenuRow
+                  iconKey="sliders"
+                  label="Espace admin"
+                  sub="Tableau de bord · documents · envois"
+                  onPress={() => nav.navigate('Admin')}
+                />
+              ) : null}
+              <MenuRow
+                iconKey="pin"
+                label="Mode chauffeur"
+                sub="Suivi GPS, état des lieux, contrat"
+                onPress={() => nav.navigate('DriverMode')}
+              />
+              <MenuRow
+                iconKey="car"
+                label="Documents véhicule"
+                sub="Carte grise, contrôle technique, assurance"
+                onPress={() => nav.navigate('VehicleDocs')}
+              />
+            </MenuSection>
+          ) : null}
 
           <MenuSection label="Préférences">
             <MenuRow iconKey="bell" label="Notifications" onPress={() => nav.navigate('Notifications')} />
-            <MenuRow iconKey="globe" label="Langue" trailing="Français" onPress={() => notify('Langue', 'Français uniquement pour le moment — anglais à venir.')} />
             <MenuRowToggle
               label="Mode sombre"
               value={isDark}

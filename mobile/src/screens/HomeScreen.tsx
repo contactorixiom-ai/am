@@ -32,13 +32,16 @@ export function HomeScreen() {
   // Statut KYC pour afficher une bannière d'incitation si nécessaire.
   // Repli silencieux en mode hors-ligne (on n'embête pas l'utilisateur démo).
   const [kycStatus, setKycStatus] = useState<GlobalKycStatus | null>(null);
+  const isDriver = user?.role === 'DRIVER' || user?.role === 'ADMIN';
   useEffect(() => {
+    // Inutile d'interroger l'API pour un client : le KYC ne le concerne pas.
+    if (!isDriver) return;
     let cancelled = false;
     fetchKycOverview()
       .then((o) => { if (!cancelled) setKycStatus(o.status); })
       .catch(() => { /* offline → on n'affiche pas la bannière */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [isDriver]);
 
   // Envois réels du client : convoyages + colis, fusionnés et triés.
   // Aucune donnée d'exemple — si le client n'a rien, il voit un appel à l'action.
@@ -106,20 +109,11 @@ export function HomeScreen() {
           gap: 12,
         }}
       >
-        <Pressable
-          onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Profile' } as never)}
-          style={({ pressed }) => ({
-            width: 42,
-            height: 42,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: theme.line,
-            backgroundColor: pressed ? theme.bgSoft : theme.surface,
-            alignItems: 'center',
-            justifyContent: 'center',
-          })}
-        >
-          <Icons.sliders size={20} color={theme.ink} stroke={1.6} />
+        {/* L'avatar mène au profil. L'icône de réglages qui figurait ici
+            laissait croire à des paramètres, alors que l'onglet Profil est
+            déjà dans la barre du bas. */}
+        <Pressable onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Profile' } as never)}>
+          <Avatar name={user ? `${user.firstName} ${user.lastName}` : 'Axis'} size={42} tone="navy" />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
@@ -165,10 +159,11 @@ export function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24, gap: 18 }}>
-        {/* Bannière KYC : invite à compléter la vérification d'identité.
-            S'affiche uniquement si l'API a répondu avec un statut < APPROVED
-            (donc jamais en mode hors-ligne pour éviter le bruit). */}
-        {kycStatus !== null && kycStatus !== 'APPROVED' ? (
+        {/* Bannière KYC — convoyeurs uniquement. Le KYC exige un permis de
+            conduire : le réclamer à un client qui envoie un colis n'a aucun
+            sens, et c'est ce qu'il voyait dès l'ouverture de l'application.
+            Masquée aussi hors ligne, l'API n'ayant alors pas répondu. */}
+        {isDriver && kycStatus !== null && kycStatus !== 'APPROVED' ? (
           <Banner
             tone={kycStatus === 'REJECTED' ? 'error' : 'info'}
             title={
