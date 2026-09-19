@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axis — Test CORS</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background: #06182E; color: #F1ECDC; margin: 0; padding: 24px; line-height: 1.5; }
+  h1 { color: #D4B262; font-size: 20px; margin-bottom: 8px; }
+  .box { background: #0F2B4D; border: 1px solid #1B3D67; border-radius: 12px; padding: 16px; margin-top: 16px; word-break: break-word; }
+  .ok { color: #34D399; }
+  .ko { color: #F87171; }
+  pre { background: #06182E; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
+  button { background: #C9A55C; color: #06182E; border: 0; padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Diagnostic CORS Axis</h1>
+<p style="color: #9CA3B3; font-size: 13px;">Teste la connexion entre cette page et le backend Railway.</p>
+
+<button onclick="run()">Lancer le test</button>
+
+<div class="box" id="result">
+  <em style="color: #9CA3B3;">Appuie sur « Lancer le test ».</em>
+</div>
+
+<script>
+const API = 'https://am-production-80d6.up.railway.app/api/v1/health';
+const out = document.getElementById('result');
+
+async function run() {
+  out.innerHTML = '<em style="color: #9CA3B3;">Test en cours…</em>';
+  const log = [];
+  log.push(`Origin du navigateur : ${window.location.origin}`);
+  log.push(`URL appelée : ${API}`);
+  log.push('');
+
+  try {
+    const t0 = Date.now();
+    const r = await fetch(API, { method: 'GET' });
+    const dt = Date.now() - t0;
+    log.push(`<span class="ok">✓ HTTP ${r.status} en ${dt} ms</span>`);
+    log.push('');
+    log.push('Headers de réponse visibles :');
+    log.push('<pre>' + Array.from(r.headers.entries()).map(([k,v]) => k + ': ' + v).join('\n') + '</pre>');
+    log.push('');
+    const body = await r.text();
+    log.push('Body :');
+    log.push('<pre>' + body + '</pre>');
+    log.push('');
+    log.push('<span class="ok">→ Le backend répond et CORS marche. L\'app devrait fonctionner.</span>');
+  } catch (e) {
+    log.push(`<span class="ko">✗ ERREUR : ${e.name} — ${e.message}</span>`);
+    log.push('');
+    log.push('Ça veut dire :');
+    if (e.message.toLowerCase().includes('failed') || e.message.toLowerCase().includes('network')) {
+      log.push('• Soit CORS bloque (le backend ne renvoie pas Access-Control-Allow-Origin)');
+      log.push('• Soit le serveur a refusé la connexion (down ou suspendu)');
+      log.push('• Soit certificat SSL invalide');
+    }
+    log.push('');
+    log.push('<pre>' + (e.stack || '').slice(0, 500) + '</pre>');
+  }
+
+  out.innerHTML = log.join('<br>');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{
+  "expo": {
+    "name": "Axis Import",
+    "slug": "axis-import",
+    "owner": "am27z",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "axisimport",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B2545"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.axisimport.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Axis Import partage votre position avec le client pendant le convoyage, pour qu'il suive son véhicule en temps réel.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Axis Import continue de transmettre votre position lorsque l'écran est verrouillé, afin que le suivi du convoyage ne s'interrompe pas en route.",
+        "NSCameraUsageDescription": "Axis Import utilise l'appareil photo pour les photos de l'état des lieux du véhicule, obligatoires au départ et à l'arrivée.",
+        "NSPhotoLibraryUsageDescription": "Axis Import accède à vos photos pour joindre vos documents et l'état des lieux du véhicule.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.axisimport.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B2545"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA",
+        "INTERNET",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/am/app"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Axis Import accède à vos photos pour joindre l'état des lieux du véhicule et vos documents.",
+          "cameraPermission": "Axis Import utilise l'appareil photo pour l'état des lieux du véhicule (photos obligatoires au départ et à l'arrivée)."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Axis Import transmet votre position au client pendant le convoyage, y compris écran verrouillé.",
+          "locationWhenInUsePermission": "Axis Import transmet votre position au client pendant le convoyage.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C9A55C"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://am-production-80d6.up.railway.app/api/v1"
+    },
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}

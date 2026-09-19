@@ -1,0 +1,90 @@
+name: Construire l'APK Android
+
+# Déclenchement manuel : onglet Actions du dépôt → « Construire l'APK
+# Android » → « Run workflow ». Aucun compte Expo n'est nécessaire : le
+# runner GitHub possède déjà le SDK Android, et l'APK est signé avec la clé
+# de débogage — suffisant pour installer sur un téléphone et tester.
+#
+# Pour une publication sur le Play Store, il faudra une build signée avec
+# une vraie clé : voir docs/APK-ETAPE-PAR-ETAPE.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apiUrl:
+        description: "URL de l'API (laisser vide pour celle d'app.json)"
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Installer les dépendances
+        working-directory: mobile
+        run: npm ci
+
+      - name: Pointer vers une autre API si demandé
+        if: inputs.apiUrl != ''
+        working-directory: mobile
+        run: |
+          node -e "
+            const fs = require('fs');
+            const c = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            c.expo.extra = { ...c.expo.extra, apiUrl: process.env.API_URL };
+            fs.writeFileSync('app.json', JSON.stringify(c, null, 2) + '\n');
+            console.log('apiUrl =', process.env.API_URL);
+          "
+        env:
+          API_URL: ${{ inputs.apiUrl }}
+
+      - name: Générer le projet natif
+        working-directory: mobile
+        run: npx expo prebuild --platform android --no-install --clean
+
+      - name: Construire l'APK
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      # La variante « release » d'Expo est signée avec la clé de débogage
+      # tant qu'aucun keystore n'est fourni : l'APK s'installe donc
+      # directement, sans passer par un store.
+      - name: Repérer l'APK produit
+        id: apk
+        working-directory: mobile
+        run: |
+          FILE=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
+          echo "Trouvé : $FILE ($(du -h "$FILE" | cut -f1))"
+          echo "path=mobile/$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: axis-import-apk
+          path: ${{ steps.apk.outputs.path }}
+          retention-days: 30
