@@ -4,11 +4,11 @@
   "private": true,
   "main": "expo/AppEntry.js",
   "scripts": {
-    "android": "expo run:android",
+    "android": "expo start --android",
     "build:apk": "eas build --platform android --profile preview",
     "build:devclient": "eas build --platform android --profile development",
     "check:native": "expo prebuild --platform android --no-install --clean && expo prebuild --platform ios --no-install --clean && rm -rf android ios",
-    "ios": "expo run:ios",
+    "ios": "expo start --ios",
     "lint": "expo lint",
     "phone": "expo start --dev-client --tunnel",
     "start": "expo start",
