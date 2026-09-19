@@ -1,4 +1,41 @@
-# Obtenir l'APK — marche à suivre
+# Obtenir l'APK
+
+Deux chemins. Le premier ne demande aucun compte et se déclenche depuis le
+navigateur ; le second passe par EAS et sert pour la publication sur les
+stores.
+
+---
+
+## Chemin court — sans rien installer, sans compte
+
+Le dépôt contient un workflow GitHub qui construit l'APK sur les serveurs de
+GitHub. Le SDK Android y est déjà présent, et l'APK est signé avec la clé de
+débogage : il s'installe sur n'importe quel téléphone Android.
+
+1. Ouvrir le dépôt sur GitHub → onglet **Actions**
+2. Choisir **« Construire l'APK Android »** dans la liste de gauche
+3. Cliquer **Run workflow**, puis confirmer
+4. Attendre une dizaine de minutes
+5. Ouvrir l'exécution terminée → section **Artifacts** → télécharger
+   **`axis-import-apk`**
+
+Le fichier arrive dans un `.zip` : le décompresser pour obtenir l'APK, puis
+l'envoyer au convoyeur par WhatsApp ou par lien.
+
+Le champ **« URL de l'API »** du formulaire permet de pointer la build vers
+un autre serveur que celui d'`app.json` — utile pour tester contre un
+environnement de préproduction. Laissé vide, il garde la configuration du
+dépôt.
+
+Cet APK convient pour la bêta et pour tout tester, y compris le suivi GPS en
+arrière-plan. Il ne convient pas pour une publication sur le Play Store, qui
+exige une signature avec une clé qui t'appartient — c'est l'objet du chemin
+ci-dessous.
+
+---
+
+## Chemin EAS — pour les stores
+
 
 Cinq commandes, une vingtaine de minutes d'attente, et tu as un lien à
 envoyer par WhatsApp. Tout ce qui pouvait échouer côté code a été vérifié :
