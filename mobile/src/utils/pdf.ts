@@ -587,6 +587,29 @@ export interface PdfSignature {
   h: number;
 }
 
+/**
+ * Reconstruit une signature vectorielle depuis la data URL SVG produite par le
+ * pavé de signature. C'est ce qui permet à Roger de réimprimer le contrat avec
+ * la signature du client : seule l'image est conservée côté serveur, mais elle
+ * vient de notre propre générateur, donc son format est connu.
+ */
+export function signatureFromSvgDataUrl(url?: string | null): PdfSignature | undefined {
+  if (!url || !url.startsWith('data:image/svg+xml')) return undefined;
+  let svg: string;
+  try {
+    const payload = url.slice(url.indexOf(',') + 1);
+    svg = url.includes(';base64,') ? atob(payload) : decodeURIComponent(payload);
+  } catch {
+    return undefined;
+  }
+  const paths = Array.from(svg.matchAll(/\sd="([^"]+)"/g)).map((m) => m[1]);
+  if (paths.length === 0) return undefined;
+  const w = Number(/\swidth="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+  const h = Number(/\sheight="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+  if (!(w > 0) || !(h > 0)) return undefined;
+  return { paths, w, h };
+}
+
 const VEHICLE_CATEGORIES = [
   'Citadine', 'Berline', 'Break', 'Coupé', 'Monospace', 'SUV', '4×4', 'Utilitaire',
   'Camping-car', 'Poids lourd', 'Moto', 'Élec.', 'Hybride', 'Luxe', 'Collection',

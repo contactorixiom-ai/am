@@ -17,6 +17,7 @@ import {
 } from '../api/missions';
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
 import { getPaymentsSummary, listPayments, PaymentRecord, PaymentsSummary } from '../api/payments';
+import { DocumentRecord, listDocuments } from '../api/documents';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
@@ -291,6 +292,9 @@ export function AdminScreen() {
   // de réponse : on n'affiche pas un « 0 € » qui serait faux.
   const [payments, setPayments] = useState<PaymentsSummary | null>(null);
   const [paymentList, setPaymentList] = useState<PaymentRecord[]>([]);
+  // Contrats signés par les clients, indexés par mission : Roger voit qui a
+  // signé et récupère la signature sur son exemplaire du contrat.
+  const [signedContracts, setSignedContracts] = useState<Map<string, DocumentRecord>>(new Map());
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -302,6 +306,13 @@ export function AdminScreen() {
   const loadShipments = useCallback(async () => {
     getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
     listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
+    listDocuments({ category: 'CONTRACT' })
+      .then((docs) => {
+        const map = new Map<string, DocumentRecord>();
+        docs.forEach((d) => { if (d.missionId && d.signedAt) map.set(d.missionId, d); });
+        setSignedContracts(map);
+      })
+      .catch(() => setSignedContracts(new Map()));
     const [mRes, pRes] = await Promise.allSettled([listMissions(), listParcels()]);
     const mOk = mRes.status === 'fulfilled';
     const pOk = pRes.status === 'fulfilled';
@@ -502,10 +513,18 @@ export function AdminScreen() {
   };
 
   const contractFromMission = (m: MissionSummary) => {
+    const signed = signedContracts.get(m.id);
+    const signedAt = signed?.signedAt ? new Date(signed.signedAt) : null;
     openDocForm(
       adminDocTypeById('contract')!,
       {
         reference: m.reference,
+        // Reprise de la signature du client si le contrat est déjà signé.
+        clientSignatureDataUrl: signed?.signatureUrl ?? '',
+        clientSignedDate:
+          signedAt && !Number.isNaN(signedAt.getTime())
+            ? signedAt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            : '',
         vehicleBrandModel: `${m.vehicle.make} ${m.vehicle.model}`,
         plate: m.vehicle.licensePlate ?? '',
         driverName: m.driver ? `${m.driver.firstName} ${m.driver.lastName}` : '',
@@ -1710,6 +1729,11 @@ export function AdminScreen() {
                   {m.pickupCity} → {m.deliveryCity} · {m.vehicle.make} {m.vehicle.model}
                   {m.driver ? ` · ${m.driver.firstName} ${m.driver.lastName}` : ''}
                 </Text>
+                {signedContracts.has(m.id) ? (
+                  <View style={{ flexDirection: 'row' }}>
+                    <Pill tone="good">Contrat signé par le client</Pill>
+                  </View>
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => openAssign(m)}>
                     {m.driver ? 'Changer' : 'Affecter'}

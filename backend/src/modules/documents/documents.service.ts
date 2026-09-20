@@ -26,10 +26,20 @@ export class DocumentsService {
     });
   }
 
-  async list(user: AuthenticatedUser, opts: { skip: number; take: number; category?: DocumentCategory; missionId?: string }) {
-    const where: Prisma.DocumentWhereInput = { ownerId: user.id };
+  async list(
+    user: AuthenticatedUser,
+    opts: { skip: number; take: number; category?: DocumentCategory; missionId?: string; parcelId?: string },
+  ) {
+    // L'administrateur voit tout : sans cela, un contrat signé par un client
+    // restait invisible pour Roger, à qui il est pourtant destiné. Le
+    // convoyeur voit les documents des missions qu'il conduit.
+    const where: Prisma.DocumentWhereInput =
+      user.role === 'ADMIN'
+        ? {}
+        : { OR: [{ ownerId: user.id }, { mission: { driverId: user.id } }] };
     if (opts.category) where.category = opts.category;
     if (opts.missionId) where.missionId = opts.missionId;
+    if (opts.parcelId) where.parcelId = opts.parcelId;
 
     const [data, total] = await Promise.all([
       this.prisma.document.findMany({

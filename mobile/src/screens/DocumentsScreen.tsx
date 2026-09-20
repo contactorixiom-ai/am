@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ApiError } from '../api/client';
 import { listMissions } from '../api/missions';
 import { listParcels } from '../api/parcels';
 import { AppBar } from '../components/AppBar';
@@ -11,6 +12,7 @@ import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { listPayments } from '../api/payments';
+import { listDocuments, signMissionContract } from '../api/documents';
 import { Pill } from '../components/Pill';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
@@ -42,10 +44,10 @@ export function DocumentsScreen() {
   const clientEmail = user?.email;
 
   // ─── Contrats et factures, dérivés des envois réels du client ────────────
-  // Le règlement fait foi côté serveur (table Payment) : c'est ce qui permet
-  // de retrouver ses factures payées sur un autre téléphone, et à Roger de
-  // savoir qui a réglé. Le cache local ne sert que de repli hors ligne.
-  // La signature, elle, reste locale tant qu'elle n'est pas remontée.
+  // Le règlement et la signature font foi côté serveur (tables Payment et
+  // Document) : c'est ce qui permet de les retrouver sur un autre téléphone,
+  // et à Roger de savoir qui a réglé et qui a signé. Le cache local ne sert
+  // plus que de repli hors ligne.
   const [contracts, setContracts] = useState<ContractDoc[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,10 +57,11 @@ export function DocumentsScreen() {
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const [mRes, pRes, payRes, signedRaw, paidRaw] = await Promise.all([
+        const [mRes, pRes, payRes, docRes, signedRaw, paidRaw] = await Promise.all([
           listMissions().catch(() => null),
           listParcels().catch(() => null),
           listPayments().catch(() => null),
+          listDocuments({ category: 'CONTRACT' }).catch(() => null),
           AsyncStorage.getItem(CONTRACTS_KEY).catch(() => null),
           AsyncStorage.getItem(INVOICE_STORAGE_KEY).catch(() => null),
         ]);
@@ -78,10 +81,27 @@ export function DocumentsScreen() {
             if (r.parcelId) settled.add(`p-${r.parcelId}`);
           });
 
+        // Contrats signés d'après le serveur — source de vérité.
+        const serverSigned = new Map<string, string>();
+        (docRes ?? [])
+          .filter((d) => d.signedAt && d.missionId)
+          .forEach((d) => serverSigned.set(d.missionId as string, d.signedAt as string));
+
         setContracts(
-          contractsFrom(missions).map((c) =>
-            signed[c.id] ? { ...c, signed: !!signed[c.id].signed, signedAt: signed[c.id].signedAt } : c,
-          ),
+          contractsFrom(missions).map((c) => {
+            const at = serverSigned.get(c.id);
+            if (at) {
+              const d = new Date(at);
+              return {
+                ...c,
+                signed: true,
+                signedAt: Number.isNaN(d.getTime())
+                  ? undefined
+                  : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }),
+              };
+            }
+            return signed[c.id] ? { ...c, signed: !!signed[c.id].signed, signedAt: signed[c.id].signedAt } : c;
+          }),
         );
         setInvoices(
           invoicesFrom(missions, parcels).map((i) =>
@@ -124,8 +144,34 @@ export function DocumentsScreen() {
       return;
     }
     const url = padRef.current?.toDataUrl() ?? undefined;
+    // Les tracés vectoriels servent au rendu du PDF ; la data URL, à la preuve
+    // conservée côté serveur. On les capture avant de fermer le pavé.
+    const strokes = padRef.current?.toPaths() ?? undefined;
+    if (!url) {
+      notify('Signature illisible', 'Recommence ta signature dans le cadre.');
+      return;
+    }
     const at = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const c = signing;
+
+    // La signature part d'abord au serveur : c'est elle qui fait foi et c'est
+    // ce qui permet à Roger de la voir. Tant qu'elle n'est pas transmise, on
+    // ne déclare pas le contrat signé — sinon le client croirait avoir signé
+    // un contrat que personne n'a reçu.
+    try {
+      await signMissionContract(c.id, url);
+    } catch (e) {
+      const already = e instanceof ApiError && e.status === 400;
+      if (!already) {
+        notify(
+          'Signature non transmise',
+          'Impossible de joindre Axis pour l\'instant. Vérifie ta connexion et réessaie.',
+        );
+        return;
+      }
+      // 400 = déjà signé côté serveur : on s'aligne au lieu de bloquer.
+    }
+
     setSigning(null);
     setContracts((prev) => {
       const next = prev.map((x) => (x.id === c.id ? { ...x, signed: true, signedAt: at } : x));
@@ -137,11 +183,12 @@ export function DocumentsScreen() {
         ...contractPdfBase(c),
         departureClientSigned: true,
         departureClientSignedDate: at,
+        departureClientSignature: strokes,
         signatureDataUrl: url,
         signedDate: at,
       });
-    } catch { /* le statut signé est déjà enregistré */ }
-    notify('Contrat signé', 'Ta signature est enregistrée. Le PDF signé a été téléchargé.');
+    } catch { /* la signature est enregistrée côté serveur, le PDF est secondaire */ }
+    notify('Contrat signé', 'Ta signature est transmise à Axis. Le PDF signé a été téléchargé.');
   };
 
   // Données communes aux deux usages du PDF (signature et téléchargement).

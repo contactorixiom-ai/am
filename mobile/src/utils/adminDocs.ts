@@ -16,7 +16,8 @@ import {
   generateInsuranceCertificatePdf,
   generateInvoicePdf,
   generatePackingListPdf,
-  patchDoc,} from './pdf';
+  patchDoc,
+  signatureFromSvgDataUrl,} from './pdf';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -2604,6 +2605,12 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         estimatedKm: numU(values, 'estimatedKm'),
         estimatedDuration: orU(str(values, 'estimatedDuration')),
         priceEur: numU(values, 'priceEur'),
+        // Signature déjà apposée par le client depuis son espace : elle est
+        // reprise telle quelle sur l'exemplaire d'Axis. Ces clés ne sont pas
+        // des champs du formulaire, elles viennent de l'envoi sélectionné.
+        departureClientSignature: signatureFromSvgDataUrl(str(values, 'clientSignatureDataUrl')),
+        departureClientSigned: !!str(values, 'clientSignatureDataUrl'),
+        departureClientSignedDate: orU(str(values, 'clientSignedDate')),
       });
       break;
 

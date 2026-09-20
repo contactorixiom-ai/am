@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MissionStatus, Prisma, UserRole } from '@prisma/client';
+import { DocumentCategory, DocumentVisibility, MissionStatus, Prisma, UserRole } from '@prisma/client';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
+import { SignContractDto } from './dto/sign-contract.dto';
 
 @Injectable()
 export class MissionsService {
@@ -463,6 +464,97 @@ export class MissionsService {
   }
 
   // Une notification qui échoue ne doit jamais faire échouer l'action métier.
+  /**
+   * Signature du contrat de convoyage par le client.
+   *
+   * Le contrat lui-même n'est pas stocké : il est reconstitué à l'identique à
+   * partir des données de la mission. Ce qui est unique, et donc conservé,
+   * c'est l'image de la signature — quelques kilo-octets, gardés en base pour
+   * survivre aux redéploiements (le disque du serveur, lui, est éphémère).
+   * Le document ainsi créé est ce qui permet à Roger de savoir qu'un client a
+   * bien signé, et de régénérer le contrat signé en cas de litige.
+   */
+  async signContract(missionId: string, user: AuthenticatedUser, dto: SignContractDto) {
+    const mission = await this.prisma.mission.findUnique({
+      where: { id: missionId },
+      select: { id: true, reference: true, clientId: true, pickupCity: true, deliveryCity: true },
+    });
+    if (!mission) throw new NotFoundException('Mission introuvable');
+    if (mission.clientId !== user.id && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Seul le client donneur d\'ordre signe son contrat.');
+    }
+
+    const existing = await this.prisma.document.findFirst({
+      where: { missionId, category: DocumentCategory.CONTRACT, signedAt: { not: null } },
+    });
+    if (existing) throw new BadRequestException('Ce contrat est déjà signé.');
+
+    // Taille réelle de l'image, pour que fileSize ne soit pas un chiffre inventé.
+    const payload = dto.signatureUrl.includes(',')
+      ? dto.signatureUrl.slice(dto.signatureUrl.indexOf(',') + 1)
+      : dto.signatureUrl;
+    const isData = dto.signatureUrl.startsWith('data:');
+    const isBase64 = isData && dto.signatureUrl.slice(0, 60).includes(';base64,');
+    const fileSize = isData
+      ? Buffer.from(payload, isBase64 ? 'base64' : 'utf8').length
+      : dto.signatureUrl.length;
+    // Le pavé de signature produit du SVG ; les photos de signature, du PNG.
+    const mimeType = isData
+      ? dto.signatureUrl.slice(5, dto.signatureUrl.indexOf(';') > 0 ? dto.signatureUrl.indexOf(';') : dto.signatureUrl.indexOf(','))
+      : 'image/png';
+    const ext = mimeType.includes('svg') ? 'svg' : mimeType.includes('jpeg') ? 'jpg' : 'png';
+
+    const doc = await this.prisma.document.create({
+      data: {
+        ownerId: mission.clientId,
+        missionId,
+        category: DocumentCategory.CONTRACT,
+        visibility: DocumentVisibility.SHARED,
+        title: `Contrat de convoyage ${mission.reference}`,
+        description: `${mission.pickupCity} vers ${mission.deliveryCity}`,
+        fileUrl: dto.signatureUrl,
+        fileName: `signature-${mission.reference}.${ext}`,
+        mimeType,
+        fileSize,
+        signedAt: new Date(),
+        signatureUrl: dto.signatureUrl,
+        signedBy: user.id,
+      },
+    });
+
+    await this.prisma.auditLog
+      .create({
+        data: {
+          userId: user.id,
+          action: 'CONTRACT_SIGN',
+          entity: 'Mission',
+          entityId: missionId,
+          metadata: { documentId: doc.id, reference: mission.reference },
+        },
+      })
+      .catch(() => { /* la signature reste valable même si la trace échoue */ });
+
+    // Roger doit savoir qu'un contrat vient d'être signé : c'est ce qui
+    // débloque le départ du convoyage.
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN, deletedAt: null },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((a) =>
+        this.notifySafe(
+          a.id,
+          NotificationType.INSPECTION_SIGNED,
+          'Contrat signé',
+          `Le contrat du convoyage ${mission.reference} (${mission.pickupCity} vers ${mission.deliveryCity}) vient d'être signé par le client.`,
+          { missionId, reference: mission.reference, documentId: doc.id },
+        ),
+      ),
+    );
+
+    return { id: doc.id, missionId, signedAt: doc.signedAt, signedBy: doc.signedBy };
+  }
+
   private async notifySafe(
     userId: string | null | undefined,
     type: NotificationType,

@@ -17,6 +17,7 @@ import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { AssignDriverDto } from './dto/assign-driver.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
+import { SignContractDto } from './dto/sign-contract.dto';
 import { MissionsService } from './missions.service';
 
 class CancelMissionDto {
@@ -66,6 +67,16 @@ export class MissionsController {
   @ApiOperation({ summary: 'Un convoyeur accepte la mission' })
   accept(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') driverId: string) {
     return this.missions.accept(id, driverId);
+  }
+
+  @Post(':id/contract-signature')
+  @ApiOperation({ summary: 'Signature du contrat de convoyage par le client' })
+  signContract(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SignContractDto,
+  ) {
+    return this.missions.signContract(id, user, dto);
   }
 
   @Post(':id/assign')
