@@ -123,7 +123,12 @@ export function MissionDetailsScreen() {
   }));
 
   const goTracking = () => nav.navigate('Tracking', { kind: 'mission', id: mission.id, reference: mission.reference });
-  const goChat = () => nav.navigate('Messaging', { driverName: driverFullName ?? 'Axis Import', subtitle: `${view.step} · ${mission.reference}` });
+  const goChat = () =>
+    nav.navigate('Messaging', {
+      driverName: driverFullName ?? 'Axis Import',
+      subtitle: `${view.step} · ${mission.reference}`,
+      missionId: mission.id,
+    });
   const goInspection = () => nav.navigate('VehicleInspection', {
     phase: 'ARRIVÉE',
     missionId: mission.id,

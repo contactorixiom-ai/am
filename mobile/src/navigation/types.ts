@@ -28,7 +28,16 @@ export type RootStackParamList = {
   BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
   MissionDetails: { reference?: string } | undefined;
-  Messaging: { driverName?: string; subtitle?: string; conversationId?: string } | undefined;
+  Messaging:
+    | {
+        driverName?: string;
+        subtitle?: string;
+        conversationId?: string;
+        /** À défaut de conversationId, on retrouve le fil rattaché au dossier. */
+        missionId?: string;
+        parcelId?: string;
+      }
+    | undefined;
   Conversations: undefined;
   DriverMode: undefined;
   Admin: undefined;

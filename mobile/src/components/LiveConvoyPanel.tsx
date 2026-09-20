@@ -326,7 +326,13 @@ export function LiveConvoyPanel({
             <Icons.phone size={16} color={theme.ink} stroke={1.8} />
           </Pressable>
           <Pressable
-            onPress={() => nav.navigate('Messaging', { driverName: driverName ?? 'Axis Import', subtitle: `En route · ${vehicleLabel ?? ''}`.trim() })}
+            onPress={() =>
+              nav.navigate('Messaging', {
+                driverName: driverName ?? 'Axis Import',
+                subtitle: `En route · ${vehicleLabel ?? ''}`.trim(),
+                missionId: missionId && missionId !== 'demo' ? missionId : undefined,
+              })
+            }
             style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.navy, alignItems: 'center', justifyContent: 'center' })}
           >
             <Icons.chat size={16} color="#F5F1E8" stroke={1.8} />

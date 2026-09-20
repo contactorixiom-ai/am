@@ -7,6 +7,7 @@ import {
   conversationSubtitle,
   conversationTitle,
   getConversation,
+  listConversations,
   listMessages,
   markRead,
   messagePreview,
@@ -34,18 +35,14 @@ interface Msg {
   createdAt?: string;
 }
 
-const INITIAL: Msg[] = [
-  { id: 's1', who: 'system', text: 'Karim a démarré le trajet · Paris 15ᵉ → Bruxelles', time: '13:32' },
-  { id: 'd1', who: 'driver', text: 'Bonjour, je viens de récupérer le véhicule. État impeccable, état des lieux dans l\'app.', time: '13:42' },
-  { id: 'm1', who: 'me', text: 'Parfait, merci ! Arrivée prévue vers 14h30 ?', time: '13:43', seen: true },
-  { id: 'd2', who: 'driver', text: 'Oui, 14h32 normalement. Petit ralentissement au sud de Lille, je te tiens au courant.', time: '13:48' },
-];
-
 const QUICK_REPLIES = ['Merci 🙏', 'Tout va bien ?', 'Préviens 10 min avant', 'Photos arrivée svp'];
 
 const POLL_INTERVAL_MS = 5000;
 
-type Mode = 'loading' | 'live' | 'demo';
+// « unavailable » : aucun fil réel rattaché à ce dossier. On le dit au lieu
+// de simuler une conversation — l'écran répondait auparavant à la place du
+// convoyeur, avec des messages tirés au hasard.
+type Mode = 'loading' | 'live' | 'unavailable';
 
 interface PendingMsg {
   localId: string;
@@ -77,25 +74,22 @@ export function MessagingScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'Messaging'>>();
   const { user } = useSession();
 
-  // `conversationId` sera ajouté au type de route par l'orchestrateur —
-  // lecture défensive pour compiler sans modifier navigation/types.ts (gelé).
-  const params = (route.params ?? {}) as {
-    driverName?: string;
-    subtitle?: string;
-    conversationId?: string;
-  };
-  const conversationId = params.conversationId;
+  const params = route.params ?? {};
+  // Le fil peut être désigné directement, ou déduit du dossier ouvert.
+  const [conversationId, setConversationId] = useState<string | undefined>(params.conversationId);
+  const { missionId, parcelId } = params;
   const myId = user?.id;
 
-  const [mode, setMode] = useState<Mode>(conversationId ? 'loading' : 'demo');
+  const [mode, setMode] = useState<Mode>('loading');
+  const [unavailableReason, setUnavailableReason] = useState<string>(
+    'La conversation s\'ouvrira dès qu\'Axis aura affecté un convoyeur à ce dossier.',
+  );
   const [title, setTitle] = useState(params.driverName ?? 'Karim Diallo');
   const [subtitle, setSubtitle] = useState(params.subtitle ?? (conversationId ? 'Conversation' : 'En route · AX-2847'));
 
   // Live : messages confirmés serveur (ordre chronologique) + envois en cours.
   const [serverMessages, setServerMessages] = useState<ApiMessage[]>([]);
   const [pendingMsgs, setPendingMsgs] = useState<PendingMsg[]>([]);
-  // Démo : état local historique.
-  const [demoMessages, setDemoMessages] = useState<Msg[]>(INITIAL);
 
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -103,14 +97,11 @@ export function MessagingScreen() {
   const pollBusyRef = useRef(false);
   const knownIdsRef = useRef<Set<string> | null>(null);
   const localSeqRef = useRef(0);
-  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      demoTimersRef.current.forEach(clearTimeout);
-      demoTimersRef.current = [];
     };
   }, []);
 
@@ -147,10 +138,43 @@ export function MessagingScreen() {
     }
   }, [myId]);
 
+  // ─── Résolution du fil depuis le dossier ────────────────────────────────
+  // Seul l'écran « Messages » passait un identifiant de conversation. Depuis
+  // le suivi ou le dossier de convoyage, l'écran basculait en démonstration
+  // et répondait à la place du convoyeur. On retrouve désormais le vrai fil.
+  useEffect(() => {
+    if (conversationId || (!missionId && !parcelId)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await listConversations(1, 100);
+        if (cancelled || !mountedRef.current) return;
+        const found = (res?.data ?? []).find(
+          (c) => (missionId && c.missionId === missionId) || (parcelId && c.parcelId === parcelId),
+        );
+        if (found) setConversationId(found.id);
+        else {
+          setUnavailableReason(
+            'Aucune conversation n\'est encore ouverte pour ce dossier. Elle le sera dès qu\'Axis aura affecté un convoyeur.',
+          );
+          setMode('unavailable');
+        }
+      } catch {
+        if (cancelled || !mountedRef.current) return;
+        setUnavailableReason('Messagerie injoignable. Vérifie ta connexion et réessaie.');
+        setMode('unavailable');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [conversationId, missionId, parcelId]);
+
   // ─── Chargement initial du fil réel ──────────────────────────────────────
   useEffect(() => {
     if (!conversationId) {
-      setMode('demo');
+      if (!missionId && !parcelId) {
+        setUnavailableReason('Ouvre la conversation depuis le dossier concerné ou depuis « Messages ».');
+        setMode('unavailable');
+      }
       return;
     }
     let cancelled = false;
@@ -172,12 +196,8 @@ export function MessagingScreen() {
         scrollToEnd(false);
       } catch {
         if (cancelled || !mountedRef.current) return;
-        // Hors-ligne ou conversation inaccessible → repli démo gracieux.
-        setDemoMessages([
-          { id: 'sys-offline', who: 'system', text: 'Hors ligne — conversation de démonstration', time: hm(new Date().toISOString()) },
-          ...INITIAL,
-        ]);
-        setMode('demo');
+        setUnavailableReason('Messagerie injoignable. Tes messages précédents réapparaîtront dès le retour du réseau.');
+        setMode('unavailable');
       }
     })();
     return () => { cancelled = true; };
@@ -217,35 +237,14 @@ export function MessagingScreen() {
     }
   };
 
-  const sendDemo = (text: string) => {
-    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    setDemoMessages((prev) => [...prev, { id: `m${Date.now()}`, who: 'me', text, time: now, seen: false }]);
-    scrollToEnd(true);
-    // Réponse simulée du chauffeur après 2 sec
-    const t = setTimeout(() => {
-      if (!mountedRef.current) return;
-      const replies = [
-        'OK, je note !',
-        'Reçu, je te confirme dès que je suis sur place.',
-        '👍 Pas de souci.',
-      ];
-      const r = replies[Math.floor(Math.random() * replies.length)];
-      const now2 = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      setDemoMessages((prev) => [
-        ...prev.map((m) => (m.who === 'me' ? { ...m, seen: true } : m)),
-        { id: `d${Date.now()}`, who: 'driver', text: r, time: now2 },
-      ]);
-      scrollToEnd(true);
-    }, 1800);
-    demoTimersRef.current.push(t);
-  };
-
   const send = (text: string) => {
     const t = text.trim();
-    if (!t || mode === 'loading') return;
+    // Hors d'un fil réel, on n'envoie rien : l'écran simulait jusqu'ici des
+    // réponses du convoyeur tirées au hasard, ce que le client prenait pour
+    // de vrais messages.
+    if (!t || mode !== 'live' || !conversationId) return;
     setInput('');
-    if (mode === 'live' && conversationId) void sendLive(conversationId, t);
-    else sendDemo(t);
+    void sendLive(conversationId, t);
   };
 
   const retryFailed = (localId: string) => {
@@ -257,7 +256,7 @@ export function MessagingScreen() {
 
   // ─── Liste affichée ──────────────────────────────────────────────────────
   const displayMessages: Msg[] = useMemo(() => {
-    if (mode !== 'live') return demoMessages;
+    if (mode !== 'live') return [];
     const confirmed: Msg[] = serverMessages.map((m) => ({
       id: m.id,
       who: m.type === 'SYSTEM' ? 'system' : m.senderId === myId ? 'me' : 'driver',
@@ -275,16 +274,12 @@ export function MessagingScreen() {
       createdAt: p.at,
     }));
     return [...confirmed, ...optimistic];
-  }, [mode, demoMessages, serverMessages, pendingMsgs, myId]);
+  }, [mode, serverMessages, pendingMsgs, myId]);
 
-  // Lignes avec séparateurs de jour (live) ou entête simple (démo).
+  // Lignes du fil, avec séparateurs de jour.
   const rows = useMemo(() => {
     const out: Array<{ kind: 'day'; key: string; label: string } | { kind: 'msg'; key: string; msg: Msg }> = [];
-    if (mode !== 'live') {
-      out.push({ kind: 'day', key: 'day-demo', label: 'Aujourd\'hui' });
-      demoMessages.forEach((m) => out.push({ kind: 'msg', key: m.id, msg: m }));
-      return out;
-    }
+    if (mode !== 'live') return out;
     let lastDay = '';
     displayMessages.forEach((m) => {
       const day = m.createdAt ? new Date(m.createdAt).toDateString() : lastDay;
@@ -295,7 +290,7 @@ export function MessagingScreen() {
       out.push({ kind: 'msg', key: m.id, msg: m });
     });
     return out;
-  }, [mode, demoMessages, displayMessages]);
+  }, [mode, displayMessages]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -353,7 +348,20 @@ export function MessagingScreen() {
                 </Text>
               ) : null}
 
-              {/* Quick replies */}
+              {mode === 'unavailable' ? (
+                <View style={{ paddingVertical: 28, paddingHorizontal: 8, gap: 10, alignItems: 'center' }}>
+                  <Icons.chat size={28} color={theme.muted} stroke={1.5} />
+                  <Text style={{ textAlign: 'center', fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                    Conversation indisponible
+                  </Text>
+                  <Text style={{ textAlign: 'center', fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>
+                    {unavailableReason}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Réponses rapides — uniquement sur un fil réel. */}
+              {mode === 'live' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
                 {QUICK_REPLIES.map((q) => (
                   <Pressable key={q} onPress={() => send(q)}>
@@ -363,6 +371,7 @@ export function MessagingScreen() {
                   </Pressable>
                 ))}
               </View>
+              ) : null}
             </>
           )}
         </ScrollView>
@@ -385,12 +394,12 @@ export function MessagingScreen() {
           </View>
           <Pressable
             onPress={() => send(input)}
-            disabled={!input.trim() || mode === 'loading'}
+            disabled={!input.trim() || mode !== 'live'}
             style={({ pressed }) => ({
               width: 40, height: 40, borderRadius: 12,
-              backgroundColor: !input.trim() || mode === 'loading' ? theme.line : pressed ? theme.goldDeep : theme.gold,
+              backgroundColor: !input.trim() || mode !== 'live' ? theme.line : pressed ? theme.goldDeep : theme.gold,
               alignItems: 'center', justifyContent: 'center',
-              opacity: !input.trim() || mode === 'loading' ? 0.6 : 1,
+              opacity: !input.trim() || mode !== 'live' ? 0.6 : 1,
             })}
           >
             <Icons.arrow size={18} color={theme.navy} stroke={2.4} />

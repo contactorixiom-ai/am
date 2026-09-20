@@ -1,12 +1,16 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { CallStatus, CallType } from '@prisma/client';
+import { CallStatus, CallType, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
 
 @Injectable()
 export class MessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async listConversations(userId: string, skip: number, take: number) {
     const where = { participants: { some: { userId } } };
@@ -70,7 +74,66 @@ export class MessagingService {
       where: { id: conversationId },
       data: { lastMessageAt: message.createdAt },
     });
+    await this.notifyOthers(conversationId, senderId, message.body ?? '');
     return message;
+  }
+
+  /**
+   * Prévient les autres participants. Sans cela, un message envoyé à un
+   * client qui n'a pas l'application ouverte ne lui parvenait jamais : rien
+   * ne le signalait.
+   *
+   * On ne notifie qu'au premier message non lu d'une série, sinon une
+   * conversation active remplit la liste de notifications.
+   */
+  private async notifyOthers(conversationId: string, senderId: string, body: string): Promise<void> {
+    try {
+      const [conv, sender] = await Promise.all([
+        this.prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: {
+            mission: { select: { reference: true } },
+            participants: {
+              where: { userId: { not: senderId }, isMuted: false },
+              select: { userId: true, lastReadAt: true },
+            },
+          },
+        }),
+        this.prisma.user.findUnique({
+          where: { id: senderId },
+          select: { firstName: true, lastName: true },
+        }),
+      ]);
+      if (!conv) return;
+
+      const from = sender ? `${sender.firstName} ${sender.lastName}`.trim() : 'Axis Import';
+      const suffix = conv.mission?.reference ? ` · ${conv.mission.reference}` : '';
+      const preview = body.length > 120 ? `${body.slice(0, 117)}…` : body;
+
+      await Promise.all(
+        conv.participants.map(async (p) => {
+          // Déjà un message non lu en attente : inutile d'en rajouter un.
+          const pending = await this.prisma.message.count({
+            where: {
+              conversationId,
+              senderId: { not: p.userId },
+              deletedAt: null,
+              ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
+            },
+          });
+          if (pending > 1) return;
+          await this.notifications.notify(
+            p.userId,
+            NotificationType.NEW_MESSAGE,
+            `Message de ${from}${suffix}`,
+            preview || 'Nouveau message',
+            { conversationId } as never,
+          );
+        }),
+      );
+    } catch {
+      /* un message part même si la notification échoue */
+    }
   }
 
   async markRead(conversationId: string, userId: string) {

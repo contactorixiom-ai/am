@@ -335,6 +335,9 @@ export function TrackingScreen() {
                 onPress={() => nav.navigate('Messaging', {
                   driverName: parcel ? 'Axis Import' : driverLabel,
                   subtitle: `${view?.step ?? 'Suivi'} · ${reference}`,
+                  // Sans le dossier, l'écran ne peut pas retrouver le vrai fil.
+                  missionId: kind === 'mission' ? (mission?.id ?? route.params.id) : undefined,
+                  parcelId: kind === 'parcel' ? (parcel?.id ?? route.params.id) : undefined,
                 })}
                 style={({ pressed }) => ({
                   width: 40,
