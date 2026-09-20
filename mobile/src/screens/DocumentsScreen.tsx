@@ -10,6 +10,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { PaymentSheet } from '../components/PaymentSheet';
+import { listPayments } from '../api/payments';
 import { Pill } from '../components/Pill';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
@@ -41,8 +42,10 @@ export function DocumentsScreen() {
   const clientEmail = user?.email;
 
   // ─── Contrats et factures, dérivés des envois réels du client ────────────
-  // La signature et le règlement restent stockés localement tant que la
-  // signature serveur et Stripe ne sont pas branchés ; le reste vient de l'API.
+  // Le règlement fait foi côté serveur (table Payment) : c'est ce qui permet
+  // de retrouver ses factures payées sur un autre téléphone, et à Roger de
+  // savoir qui a réglé. Le cache local ne sert que de repli hors ligne.
+  // La signature, elle, reste locale tant qu'elle n'est pas remontée.
   const [contracts, setContracts] = useState<ContractDoc[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,9 +55,10 @@ export function DocumentsScreen() {
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const [mRes, pRes, signedRaw, paidRaw] = await Promise.all([
+        const [mRes, pRes, payRes, signedRaw, paidRaw] = await Promise.all([
           listMissions().catch(() => null),
           listParcels().catch(() => null),
+          listPayments().catch(() => null),
           AsyncStorage.getItem(CONTRACTS_KEY).catch(() => null),
           AsyncStorage.getItem(INVOICE_STORAGE_KEY).catch(() => null),
         ]);
@@ -65,6 +69,15 @@ export function DocumentsScreen() {
         const signed = safeParse<Record<string, { signed?: boolean; signedAt?: string }>>(signedRaw);
         const paid = safeParse<Record<string, { paid?: boolean }>>(paidRaw);
 
+        // Dossiers réglés d'après le serveur — source de vérité.
+        const settled = new Set<string>();
+        (payRes?.data ?? [])
+          .filter((r) => r.status === 'PAID')
+          .forEach((r) => {
+            if (r.missionId) settled.add(`m-${r.missionId}`);
+            if (r.parcelId) settled.add(`p-${r.parcelId}`);
+          });
+
         setContracts(
           contractsFrom(missions).map((c) =>
             signed[c.id] ? { ...c, signed: !!signed[c.id].signed, signedAt: signed[c.id].signedAt } : c,
@@ -72,7 +85,11 @@ export function DocumentsScreen() {
         );
         setInvoices(
           invoicesFrom(missions, parcels).map((i) =>
-            paid[i.id]?.paid != null ? { ...i, paid: !!paid[i.id].paid } : i,
+            settled.has(i.id)
+              ? { ...i, paid: true }
+              : paid[i.id]?.paid != null
+                ? { ...i, paid: !!paid[i.id].paid }
+                : i,
           ),
         );
         setLoading(false);
@@ -301,6 +318,8 @@ export function DocumentsScreen() {
         amountEur={paying?.amountEur ?? 0}
         reference={paying?.title}
         description={paying?.ref}
+        missionId={paying?.kind === 'mission' ? paying.shipmentId : undefined}
+        parcelId={paying?.kind === 'parcel' ? paying.shipmentId : undefined}
         onClose={() => setPaying(null)}
         onPaid={() => { if (paying) payInvoice(paying); }}
       />

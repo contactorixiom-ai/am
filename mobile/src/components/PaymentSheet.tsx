@@ -21,8 +21,13 @@ interface Props {
   amountEur: number;
   reference?: string;
   description?: string;
+  /** Dossier réglé — enregistré côté serveur avec le paiement. */
+  missionId?: string;
+  parcelId?: string;
   onClose: () => void;
-  onPaid: () => void;
+  /** Reçoit l'identifiant de session : il permet de rattacher le règlement
+      à la commande une fois celle-ci créée. */
+  onPaid: (sessionId: string | null) => void;
 }
 
 function openExternal(url: string) {
@@ -44,7 +49,7 @@ function returnUrls(): { successUrl: string; cancelUrl: string } {
   };
 }
 
-export function PaymentSheet({ visible, amountEur, reference, description, onClose, onPaid }: Props) {
+export function PaymentSheet({ visible, amountEur, reference, description, missionId, parcelId, onClose, onPaid }: Props) {
   const { theme } = useTheme();
   const [step, setStep] = useState<Step>('pick');
   const [method, setMethod] = useState<Method>('apple_pay');
@@ -88,6 +93,8 @@ export function PaymentSheet({ visible, amountEur, reference, description, onClo
         currency: 'eur',
         reference,
         description,
+        missionId,
+        parcelId,
         successUrl,
         cancelUrl,
       });
@@ -115,7 +122,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, onClo
   };
 
   const finish = () => {
-    onPaid();
+    onPaid(sessionId);
     onClose();
     setTimeout(reset, 400);
   };

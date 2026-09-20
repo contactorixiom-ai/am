@@ -16,6 +16,7 @@ import {
   MissionSummary,
 } from '../api/missions';
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
+import { getPaymentsSummary, listPayments, PaymentRecord, PaymentsSummary } from '../api/payments';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
@@ -286,6 +287,11 @@ export function AdminScreen() {
   const [clients, setClients] = useState<ClientOption[] | null>(null);
   const [order, setOrder] = useState<OrderDraft>(EMPTY_ORDER);
 
+  // Encaissements réels (table Payment côté serveur). Null tant qu'on n'a pas
+  // de réponse : on n'affiche pas un « 0 € » qui serait faux.
+  const [payments, setPayments] = useState<PaymentsSummary | null>(null);
+  const [paymentList, setPaymentList] = useState<PaymentRecord[]>([]);
+
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
 
@@ -294,6 +300,8 @@ export function AdminScreen() {
   }, []);
 
   const loadShipments = useCallback(async () => {
+    getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
+    listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
     const [mRes, pRes] = await Promise.allSettled([listMissions(), listParcels()]);
     const mOk = mRes.status === 'fulfilled';
     const pOk = pRes.status === 'fulfilled';
@@ -1106,9 +1114,14 @@ export function AdminScreen() {
     };
     const isPaid = (v: unknown) => v === true || v === 'true';
 
+    // Encaissements : la table Payment du serveur fait foi (elle enregistre
+    // les règlements Stripe). À défaut de réponse — serveur injoignable — on
+    // retombe sur les factures que Roger a lui-même éditées depuis l'app.
     const invoices = history.filter((h) => h.typeId === 'invoice');
-    const caMonth = invoices.filter((h) => sameMonth(h.dateISO)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
-    const toCollect = invoices.filter((h) => !isPaid(h.values.paid)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
+    const localCaMonth = invoices.filter((h) => sameMonth(h.dateISO)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
+    const localToCollect = invoices.filter((h) => !isPaid(h.values.paid)).reduce((s, h) => s + parseAmt(h.values.amountEur), 0);
+    const caMonth = payments ? Math.round(payments.collectedMonthCents / 100) : localCaMonth;
+    const toCollect = payments ? Math.round(payments.pendingCents / 100) : localToCollect;
     const inCustoms = parcels.filter((p) => p.status === 'CUSTOMS').length;
     const activeConvoys = missions.filter((m) => m.status === 'IN_PROGRESS').length;
     const toProcess = missions.length + parcels.length;
@@ -1155,7 +1168,7 @@ export function AdminScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <DashTile theme={theme} label="Envois à traiter" value={String(toProcess)} tone="navy" onPress={() => setTab('shipments')} />
           <DashTile theme={theme} label="En douane" value={String(inCustoms)} tone={inCustoms > 0 ? 'warn' : 'plain'} onPress={() => setTab('shipments')} />
-          <DashTile theme={theme} label="CA facturé (mois)" value={fmtEuro(caMonth)} tone="gold" />
+          <DashTile theme={theme} label={payments ? 'Encaissé (mois)' : 'CA facturé (mois)'} value={fmtEuro(caMonth)} tone="gold" />
           <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
         </View>
 
@@ -1219,6 +1232,51 @@ export function AdminScreen() {
                   et {followUps.length - 5} autre{followUps.length - 5 > 1 ? 's' : ''} dans l'onglet Envois
                 </Text>
               ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* Règlements reçus — Roger voit enfin qui a payé. Avant, le paiement
+            ne vivait que dans le téléphone du client. */}
+        {paymentList.length > 0 ? (
+          <>
+            <SectionHead title="Derniers règlements" style={{ marginTop: 6 }} />
+            <View style={{ gap: 8 }}>
+              {paymentList.slice(0, 5).map((pay) => {
+                const done = pay.status === 'PAID';
+                const tone = done ? theme.good : pay.status === 'PENDING' ? theme.warn : theme.bad;
+                const who = pay.client ? `${pay.client.firstName} ${pay.client.lastName}`.trim() : 'Client';
+                const dossier = pay.mission?.reference ?? pay.parcel?.reference ?? pay.reference ?? 'Sans dossier';
+                const when = new Date(pay.paidAt ?? pay.createdAt);
+                return (
+                  <Surface key={pay.id} padded flat style={{ padding: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: RADII.sm, backgroundColor: tone + '22', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icons.card size={16} color={tone} stroke={1.9} />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                          {who} · {dossier}
+                        </Text>
+                        <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
+                          {Number.isNaN(when.getTime())
+                            ? ''
+                            : when.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                          {pay.provider === 'simulation' ? ' · simulation (aucun débit)' : ''}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
+                          {fmtEuro(Math.round(pay.amountCents / 100))}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: tone, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>
+                          {done ? 'Réglé' : pay.status === 'PENDING' ? 'En attente' : 'Échoué'}
+                        </Text>
+                      </View>
+                    </View>
+                  </Surface>
+                );
+              })}
             </View>
           </>
         ) : null}

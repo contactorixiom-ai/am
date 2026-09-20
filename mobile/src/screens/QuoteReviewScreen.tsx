@@ -11,6 +11,7 @@ import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/mission
 import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
+import { linkPayment } from '../api/payments';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
@@ -45,7 +46,7 @@ export function QuoteReviewScreen() {
   const partner = isParcel ? selectPartner({ fromCountry: quote.fromCountry, weightKg: quote.weightKg ?? undefined, toCountry: quote.toCountry }) : null;
 
   // Réservation réelle d'un convoyage : créer le véhicule puis la mission.
-  const bookConvoy = async () => {
+  const bookConvoy = async (paymentSessionId: string | null) => {
     setBooking(true);
     try {
       const draft = await readConvoyDraft();
@@ -83,6 +84,11 @@ export function QuoteReviewScreen() {
         pickupNotes: draft?.notes,
       });
 
+      // Le règlement a eu lieu avant la création du convoyage : on le
+      // rattache maintenant, sinon la facture réapparaîtrait « à régler ».
+      if (paymentSessionId) {
+        await linkPayment(paymentSessionId, { missionId: mission.id }).catch(() => {});
+      }
       await clearConvoyDraft();
       nav.replace('BookingConfirmation', {
         kind: 'mission',
@@ -504,9 +510,9 @@ export function QuoteReviewScreen() {
           reference={quote.reference}
           description={`Convoyage ${quote.fromCity} → ${quote.toCity}`}
           onClose={() => setShowPayment(false)}
-          onPaid={() => {
+          onPaid={(sessionId) => {
             setShowPayment(false);
-            bookConvoy();
+            bookConvoy(sessionId);
           }}
         />
       ) : null}

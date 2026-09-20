@@ -27,8 +27,39 @@ export interface CreateCheckoutInput {
   currency?: string;
   reference?: string;
   description?: string;
+  /** Rattache le règlement au dossier : sans lui, Roger ne sait pas ce qui a été payé. */
+  missionId?: string;
+  parcelId?: string;
   successUrl: string;
   cancelUrl: string;
+}
+
+export type PaymentRecordStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
+
+export interface PaymentRecord {
+  id: string;
+  sessionId: string;
+  provider: string;
+  reference?: string | null;
+  description?: string | null;
+  amountCents: number;
+  currency: string;
+  status: PaymentRecordStatus;
+  paidAt?: string | null;
+  createdAt: string;
+  missionId?: string | null;
+  parcelId?: string | null;
+  client?: { id: string; firstName: string; lastName: string; email: string } | null;
+  mission?: { id: string; reference: string } | null;
+  parcel?: { id: string; reference: string } | null;
+}
+
+export interface PaymentsSummary {
+  collectedMonthCents: number;
+  collectedMonthCount: number;
+  pendingCents: number;
+  pendingCount: number;
+  collectedTotalCents: number;
 }
 
 export async function createCheckoutSession(input: CreateCheckoutInput): Promise<CheckoutSession> {
@@ -37,6 +68,27 @@ export async function createCheckoutSession(input: CreateCheckoutInput): Promise
 
 export async function getPaymentSession(id: string): Promise<PaymentSessionStatus> {
   return apiFetch<PaymentSessionStatus>(`/payments/session/${encodeURIComponent(id)}`);
+}
+
+// Rattache un règlement à l'envoi créé juste après (paiement du devis).
+export async function linkPayment(
+  sessionId: string,
+  target: { missionId?: string; parcelId?: string },
+): Promise<void> {
+  await apiFetch(`/payments/session/${encodeURIComponent(sessionId)}/link`, {
+    method: 'POST',
+    body: target,
+  });
+}
+
+// Règlements enregistrés côté serveur : ceux du client, ou tous pour l'admin.
+export async function listPayments(): Promise<{ data: PaymentRecord[] }> {
+  const res = await apiFetch<{ data: PaymentRecord[] }>('/payments?pageSize=100');
+  return { data: Array.isArray(res?.data) ? res.data : [] };
+}
+
+export async function getPaymentsSummary(): Promise<PaymentsSummary> {
+  return apiFetch<PaymentsSummary>('/payments/summary');
 }
 
 export async function getPaymentsConfig(): Promise<{ configured: boolean }> {

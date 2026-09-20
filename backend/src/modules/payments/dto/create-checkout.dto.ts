@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateCheckoutDto {
   @ApiProperty({ description: 'Montant à débiter, en centimes (min 100 = 1,00).' })
@@ -24,6 +24,16 @@ export class CreateCheckoutDto {
   @IsString()
   @MaxLength(200)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Convoyage réglé — rattache le paiement au dossier.' })
+  @IsOptional()
+  @IsUUID()
+  missionId?: string;
+
+  @ApiPropertyOptional({ description: 'Colis réglé — rattache le paiement au dossier.' })
+  @IsOptional()
+  @IsUUID()
+  parcelId?: string;
 
   @ApiProperty({ description: 'URL de retour succès — doit contenir {CHECKOUT_SESSION_ID}.' })
   @IsString()

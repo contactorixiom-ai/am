@@ -77,6 +77,7 @@ model User {
   newsArticles    NewsArticle[]             @relation("NewsAuthor")
   auditLogs       AuditLog[]
   quotes          Quote[]                   @relation("QuoteCustomer")
+  payments        Payment[]                 @relation("PaymentClient")
 
   @@index([email])
   @@index([phone])
@@ -302,6 +303,7 @@ model Mission {
   conversation  Conversation?
   reviews       Review[]
   statusHistory MissionStatusHistory[]
+  payments      Payment[]
 
   @@index([clientId, status])
   @@index([driverId, status])
@@ -449,18 +451,18 @@ model Document {
   parcelId  String?  @db.Uuid
   parcel    Parcel?  @relation(fields: [parcelId], references: [id], onDelete: SetNull)
 
-  category    DocumentCategory
-  visibility  DocumentVisibility @default(PRIVATE)
-  title       String
-  description String?
-  fileUrl     String
-  fileName    String
-  mimeType    String
-  fileSize    Int
-  pageCount   Int?
-  signedAt      DateTime?
-  signatureUrl  String?
-  signedBy      String?   @db.Uuid
+  category     DocumentCategory
+  visibility   DocumentVisibility @default(PRIVATE)
+  title        String
+  description  String?
+  fileUrl      String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  pageCount    Int?
+  signedAt     DateTime?
+  signatureUrl String?
+  signedBy     String?            @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -690,6 +692,7 @@ model Parcel {
   documents      Document[]
   cargoNotes     CargoTrackingNote[]
   conversation   Conversation?
+  payments       Payment[]
 
   @@index([senderId, status])
   @@index([originCountry, destinationCountry])
@@ -1025,4 +1028,48 @@ model CargoTrackingNote {
 
   @@index([parcelId])
   @@index([destinationCountry, status])
+}
+
+// ============================================================================
+//  PAIEMENTS
+// ============================================================================
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+// Trace serveur d'un règlement client. Sans elle, un paiement n'existait que
+// dans le téléphone du client : Roger ne savait pas qui avait payé, et le
+// client retrouvait sa facture « à régler » après une réinstallation.
+model Payment {
+  id       String @id @default(uuid()) @db.Uuid
+  clientId String @db.Uuid
+  client   User   @relation("PaymentClient", fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Envoi réglé — l'un ou l'autre, jamais les deux.
+  missionId String?  @db.Uuid
+  mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  parcelId  String?  @db.Uuid
+  parcel    Parcel?  @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+
+  // Identifiant de session Stripe Checkout (ou cs_sim_… en mode simulation).
+  sessionId   String        @unique
+  provider    String        @default("stripe")
+  reference   String?
+  description String?
+  amountCents Int
+  currency    String        @default("EUR")
+  status      PaymentStatus @default(PENDING)
+  paidAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, status])
+  @@index([status, createdAt])
+  @@index([missionId])
+  @@index([parcelId])
 }

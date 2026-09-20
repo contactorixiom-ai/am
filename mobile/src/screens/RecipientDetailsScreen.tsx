@@ -9,6 +9,7 @@ import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
+import { linkPayment } from '../api/payments';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -75,7 +76,7 @@ export function RecipientDetailsScreen() {
     setShowPayment(true);
   };
 
-  const finalizeBooking = async () => {
+  const finalizeBooking = async (paymentSessionId: string | null) => {
     setLoading(true);
     try {
       const parcel = await createParcel({
@@ -97,6 +98,11 @@ export function RecipientDetailsScreen() {
         recipientPhone: phone.trim(),
         recipientEmail: email.trim() || undefined,
       });
+      // Le règlement a eu lieu avant la création du colis : on le rattache
+      // maintenant, sinon la facture réapparaîtrait comme « à régler ».
+      if (paymentSessionId) {
+        await linkPayment(paymentSessionId, { parcelId: parcel.id }).catch(() => {});
+      }
       resetDraft();
       nav.replace('BookingConfirmation', {
         kind: 'parcel',
@@ -290,9 +296,9 @@ export function RecipientDetailsScreen() {
         reference={quote.reference}
         description={`${quote.fromCity} → ${quote.toCity}`}
         onClose={() => setShowPayment(false)}
-        onPaid={() => {
+        onPaid={(sessionId) => {
           setShowPayment(false);
-          finalizeBooking();
+          finalizeBooking(sessionId);
         }}
       />
     </SafeAreaView>

@@ -31,6 +31,9 @@ export interface Invoice {
   date: string;
   amountEur: number;
   paid: boolean;
+  /** Envoi facturé — permet de rattacher le règlement au dossier côté serveur. */
+  kind: 'mission' | 'parcel';
+  shipmentId: string;
 }
 
 const fmtDate = (iso?: string | null): string =>
@@ -85,6 +88,8 @@ export function invoicesFrom(missions: MissionSummary[], parcels: ParcelSummary[
       date: fmtDate(m.pickupAt),
       amountEur: Math.round((m.priceCents ?? 0) / 100),
       paid: false,
+      kind: 'mission' as const,
+      shipmentId: m.id,
     }));
   const fromParcels = parcels
     .filter((p) => p.status !== 'CANCELLED' && (p.priceCents ?? 0) > 0)
@@ -95,6 +100,8 @@ export function invoicesFrom(missions: MissionSummary[], parcels: ParcelSummary[
       date: fmtDate(p.createdAt),
       amountEur: Math.round((p.priceCents ?? 0) / 100),
       paid: false,
+      kind: 'parcel' as const,
+      shipmentId: p.id,
     }));
   return [...fromMissions, ...fromParcels];
 }
