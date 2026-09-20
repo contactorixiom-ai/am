@@ -1,11 +1,20 @@
-import { BadRequestException, Injectable, Logger, PayloadTooLargeException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { mkdir, writeFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { createReadStream, existsSync } from 'fs';
+import { mkdir, stat, writeFile } from 'fs/promises';
+import { join, extname, resolve } from 'path';
 import { randomUUID } from 'crypto';
 
 export interface UploadedFile {
   url: string;
+  /** Chemin relatif « dossier/nom », indépendant du domaine de l'API. */
+  path: string;
   fileName: string;
   storedName: string;
   mimeType: string;
@@ -16,6 +25,20 @@ export interface UploadedFile {
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const ALLOWED_MIME_PREFIXES = ['image/', 'application/pdf'];
+
+/** Dossiers de rangement autorisés — mêmes valeurs que le DTO d'upload. */
+export const STORAGE_FOLDERS = ['kyc', 'signatures', 'documents', 'avatars', 'misc'] as const;
+export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
+
+/** Nom de fichier tel que nous le générons : UUID + extension. Rien d'autre
+ *  n'est accepté à la lecture, ce qui exclut toute remontée d'arborescence. */
+const STORED_NAME = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.[A-Za-z0-9]{1,8})?$/;
+
+const MIME_BY_EXT: Record<string, string> = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+  '.webp': 'image/webp', '.heic': 'image/heic', '.gif': 'image/gif',
+  '.svg': 'image/svg+xml', '.pdf': 'application/pdf',
+};
 
 @Injectable()
 export class StorageService {
@@ -28,6 +51,49 @@ export class StorageService {
     this.driver = config.get<'local' | 's3'>('storage.driver', 'local');
     this.localPath = config.get<string>('storage.localPath', './uploads');
     this.publicUrl = config.get<string>('storage.publicUrl', 'http://localhost:3000/uploads');
+
+    if (this.driver === 's3') {
+      // Mieux vaut refuser de démarrer que de découvrir le trou au premier
+      // upload d'une pièce d'identité.
+      throw new Error(
+        'STORAGE_DRIVER=s3 : le pilote S3 n\'est pas implémenté. Utilisez le pilote local avec un volume.',
+      );
+    }
+
+    // Sans volume, le disque du conteneur repart à zéro à chaque
+    // déploiement : les pièces KYC déjà transmises deviendraient
+    // introuvables. On le dit fort plutôt que de le laisser arriver.
+    const onVolume = config.get<boolean>('storage.onVolume', false);
+    if (!onVolume && config.get<string>('nodeEnv') === 'production') {
+      this.logger.error(
+        'Aucun volume de stockage : les fichiers envoyés (pièces KYC, photos) ' +
+          'seront perdus au prochain déploiement. Attachez un volume au service, ' +
+          'ou définissez STORAGE_LOCAL_PATH vers un disque persistant.',
+      );
+    }
+  }
+
+  /** Emplacement sur disque d'un fichier déjà stocké, après validation. */
+  async locate(folder: string, name: string): Promise<{ path: string; mimeType: string; size: number }> {
+    if (!(STORAGE_FOLDERS as readonly string[]).includes(folder) || !STORED_NAME.test(name)) {
+      throw new NotFoundException('Fichier introuvable');
+    }
+    const base = resolve(this.localPath);
+    const path = resolve(join(base, folder, name));
+    // Ceinture et bretelles : le chemin résolu doit rester sous la racine.
+    if (!path.startsWith(base) || !existsSync(path)) {
+      throw new NotFoundException('Fichier introuvable');
+    }
+    const info = await stat(path);
+    return {
+      path,
+      mimeType: MIME_BY_EXT[extname(name).toLowerCase()] ?? 'application/octet-stream',
+      size: info.size,
+    };
+  }
+
+  stream(path: string) {
+    return createReadStream(path);
   }
 
   /**
@@ -79,6 +145,7 @@ export class StorageService {
     this.logger.debug(`Stored file at ${fullPath}`);
     return {
       url: `${this.publicUrl}/${folder}/${storedName}`,
+      path: `${folder}/${storedName}`,
       fileName: originalName,
       storedName,
       mimeType,

@@ -1,3 +1,14 @@
+// Adresse publique de l'API, utilisée pour construire l'URL des fichiers.
+// Railway expose le domaine du service ; en local on retombe sur le port.
+function publicApiBase(): string {
+  const prefix = process.env.API_PREFIX ?? 'api/v1';
+  if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL.replace(/\/$/, '');
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/${prefix}`;
+  }
+  return `http://localhost:${process.env.PORT ?? '3000'}/${prefix}`;
+}
+
 export default () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -26,8 +37,19 @@ export default () => ({
 
   storage: {
     driver: (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 's3',
-    localPath: process.env.STORAGE_LOCAL_PATH ?? './uploads',
-    publicUrl: process.env.STORAGE_PUBLIC_URL ?? 'http://localhost:3000/uploads',
+    // Sur Railway, le disque du conteneur est recréé à chaque déploiement :
+    // tout fichier écrit ailleurs que sur un volume est perdu. Dès qu'un
+    // volume est attaché au service, la plateforme expose son point de
+    // montage — on s'y range automatiquement, sans réglage supplémentaire.
+    localPath:
+      process.env.STORAGE_LOCAL_PATH ??
+      (process.env.RAILWAY_VOLUME_MOUNT_PATH
+        ? `${process.env.RAILWAY_VOLUME_MOUNT_PATH}/uploads`
+        : './uploads'),
+    // Les fichiers sont servis par l'API elle-même, derrière authentification :
+    // une pièce d'identité n'a rien à faire sur une URL publique devinable.
+    publicUrl: process.env.STORAGE_PUBLIC_URL ?? publicApiBase() + '/storage/file',
+    onVolume: Boolean(process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.STORAGE_LOCAL_PATH),
     s3: {
       endpoint: process.env.S3_ENDPOINT,
       region: process.env.S3_REGION ?? 'eu-west-3',
