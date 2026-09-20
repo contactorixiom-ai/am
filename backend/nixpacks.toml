@@ -21,4 +21,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npx prisma db push --accept-data-loss --skip-generate && node dist/main"
+cmd = "node scripts/db-deploy.js && node dist/main"
