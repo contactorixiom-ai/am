@@ -85,8 +85,8 @@ export function ShipmentInfoScreen() {
           <Surface padded style={{ padding: 16, gap: 12 }}>
             <SectionHead title="Expéditeur" />
             <Field label="Nom / société" value={form.senderName} onChangeText={set('senderName')} placeholder="Axis Import SAS" autoCapitalize="words" />
-            <Field label="Adresse" value={form.senderAddress} onChangeText={set('senderAddress')} placeholder="14 rue de la Logistique, 75015 Paris" />
-            <Field label="N° TVA / identifiant fiscal" value={form.senderVat} onChangeText={set('senderVat')} placeholder="FR42 925487312" autoCapitalize="characters" />
+            <Field label="Adresse" value={form.senderAddress} onChangeText={set('senderAddress')} placeholder="Numéro, rue, code postal, ville" />
+            <Field label="N° TVA / identifiant fiscal" value={form.senderVat} onChangeText={set('senderVat')} placeholder="FR + 11 caractères" autoCapitalize="characters" />
           </Surface>
 
           <Surface padded style={{ padding: 16, gap: 12 }}>

@@ -12,7 +12,7 @@ import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { listPayments } from '../api/payments';
-import { listDocuments, signMissionContract } from '../api/documents';
+import { contractVerifyUrl, DocumentRecord, listDocuments, signMissionContract } from '../api/documents';
 import { Pill } from '../components/Pill';
 import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
@@ -29,7 +29,7 @@ import {
   INVOICE_STORAGE_KEY,
   safeParse,
 } from '../utils/clientDocs';
-import { generateContractPdf, generateInvoicePdf } from '../utils/pdf';
+import { generateContractPdf, generateInvoicePdf, PdfProof, signatureFromSvgDataUrl } from '../utils/pdf';
 
 // Espace « Documents » CLIENT — volontairement simple : le client n'a que
 //   1. ses contrats à signer,
@@ -82,22 +82,26 @@ export function DocumentsScreen() {
           });
 
         // Contrats signés d'après le serveur — source de vérité.
-        const serverSigned = new Map<string, string>();
+        const serverSigned = new Map<string, DocumentRecord>();
         (docRes ?? [])
           .filter((d) => d.signedAt && d.missionId)
-          .forEach((d) => serverSigned.set(d.missionId as string, d.signedAt as string));
+          .forEach((d) => serverSigned.set(d.missionId as string, d));
 
         setContracts(
           contractsFrom(missions).map((c) => {
-            const at = serverSigned.get(c.id);
-            if (at) {
-              const d = new Date(at);
+            const rec = serverSigned.get(c.id);
+            if (rec?.signedAt) {
+              const d = new Date(rec.signedAt);
               return {
                 ...c,
                 signed: true,
                 signedAt: Number.isNaN(d.getTime())
                   ? undefined
                   : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }),
+                signatureUrl: rec.signatureUrl ?? undefined,
+                proof: rec.contentHash
+                  ? { hash: rec.contentHash, signedAt: rec.signedAt, verifyUrl: contractVerifyUrl(rec.id) }
+                  : undefined,
               };
             }
             return signed[c.id] ? { ...c, signed: !!signed[c.id].signed, signedAt: signed[c.id].signedAt } : c;
@@ -158,8 +162,14 @@ export function DocumentsScreen() {
     // ce qui permet à Roger de la voir. Tant qu'elle n'est pas transmise, on
     // ne déclare pas le contrat signé — sinon le client croirait avoir signé
     // un contrat que personne n'a reçu.
+    // La preuve imprimée sur le PDF vient du serveur : empreinte des termes
+    // du dossier et horodatage de la signature. Rien n'est fabriqué ici.
+    let proof: PdfProof | undefined;
     try {
-      await signMissionContract(c.id, url);
+      const res = await signMissionContract(c.id, url);
+      if (res.contentHash && res.signedAt) {
+        proof = { hash: res.contentHash, signedAt: res.signedAt, verifyUrl: contractVerifyUrl(res.id) };
+      }
     } catch (e) {
       const already = e instanceof ApiError && e.status === 400;
       if (!already) {
@@ -186,6 +196,7 @@ export function DocumentsScreen() {
         departureClientSignature: strokes,
         signatureDataUrl: url,
         signedDate: at,
+        proof,
       });
     } catch { /* la signature est enregistrée côté serveur, le PDF est secondaire */ }
     notify('Contrat signé', 'Ta signature est transmise à Axis. Le PDF signé a été téléchargé.');
@@ -208,7 +219,9 @@ export function DocumentsScreen() {
       ...contractPdfBase(c),
       departureClientSigned: c.signed,
       departureClientSignedDate: c.signedAt,
+      departureClientSignature: signatureFromSvgDataUrl(c.signatureUrl),
       signedDate: c.signedAt,
+      proof: c.proof,
     });
     notify('Contrat téléchargé', `${c.title}.pdf enregistré dans tes fichiers.`);
   };

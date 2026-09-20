@@ -463,6 +463,9 @@ model Document {
   signedAt     DateTime?
   signatureUrl String?
   signedBy     String?            @db.Uuid
+  // Empreinte SHA-256 des termes du dossier au moment de la signature.
+  // Recalculée à la vérification : si le dossier a changé depuis, cela se voit.
+  contentHash  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

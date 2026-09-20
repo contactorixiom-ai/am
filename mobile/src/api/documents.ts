@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { API_BASE_URL, apiFetch } from './client';
 
 // Documents enregistrés côté serveur. Pour l'instant, un seul usage : la
 // signature du contrat de convoyage par le client. Le contrat lui-même n'est
@@ -22,7 +22,14 @@ export interface DocumentRecord {
   signedAt?: string | null;
   signatureUrl?: string | null;
   signedBy?: string | null;
+  /** Empreinte SHA-256 des termes du dossier, figée à la signature. */
+  contentHash?: string | null;
   createdAt: string;
+}
+
+/** Adresse publique de vérification d'un contrat signé (imprimée en QR). */
+export function contractVerifyUrl(documentId: string): string {
+  return `${API_BASE_URL}/missions/contract-verification/${documentId}`;
 }
 
 export async function listDocuments(params?: {
@@ -40,7 +47,7 @@ export async function listDocuments(params?: {
 export async function signMissionContract(
   missionId: string,
   signatureUrl: string,
-): Promise<{ id: string; signedAt: string | null }> {
+): Promise<{ id: string; signedAt: string | null; contentHash: string | null }> {
   return apiFetch(`/missions/${missionId}/contract-signature`, {
     method: 'POST',
     body: { signatureUrl },

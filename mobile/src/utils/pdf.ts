@@ -4,6 +4,7 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
+import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 import {
   VEHICLE_SKETCH_CAR,
   VEHICLE_SKETCH_CAR_RATIO,
@@ -140,90 +141,125 @@ function footer(doc: jsPDF) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   setColor(doc, MUTED, 'text');
-  doc.text('Axis Import SAS · SIRET 925 487 312 00018 · TVA FR42 925487312 · 14 rue de la Logistique, 75015 Paris', 14, h - 13);
-  doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', 14, h - 9);
+  doc.text(companyLegalLine(), 14, h - 13);
+  doc.text(companyContactLine(), 14, h - 9);
 }
 
 // Génère un hash pseudo-unique du document pour l'URL de vérification.
 // Pas crypto-fort (c'est côté client), suffisant pour la démo.
-function docHash(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h).toString(36).padStart(8, '0').slice(0, 10);
+/**
+ * Preuve de signature émise par le serveur. Elle n'est présente que sur un
+ * document réellement signé : rien n'est fabriqué côté téléphone.
+ */
+export interface PdfProof {
+  /** Empreinte SHA-256 des termes du dossier, figée à la signature. */
+  hash: string;
+  /** Horodatage serveur de la signature (ISO 8601). */
+  signedAt: string;
+  /** Adresse de vérification, servie par l'API Axis. */
+  verifyUrl: string;
 }
 
-// Ajoute un bloc "Document vérifié" : QR + URL + hash + horodatage.
-// À placer juste avant footer(). Le contrat est dense → version compacte
-// (15mm de haut), la facture est aérée → version standard (30mm).
-async function drawVerificationBlock(doc: jsPDF, reference: string, kind: 'invoice' | 'contract') {
+// Bloc de bas de page.
+//
+// Ce bloc affichait auparavant une « empreinte SHA », un horodatage et un QR
+// renvoyant vers verify.axis-import.com. Rien de tout cela n'était réel :
+// l'empreinte était un hachage 32 bits de la référence et de l'heure de
+// génération — donc différente à chaque réimpression et incapable de détecter
+// la moindre modification —, le domaine n'existe pas, et la facture
+// annonçait un chiffrement AES-256 au repos qui n'a jamais existé.
+//
+// Désormais : pas de preuve sans preuve. Le QR et l'empreinte n'apparaissent
+// que si le serveur a réellement signé le document et fourni l'une et l'autre.
+async function drawVerificationBlock(
+  doc: jsPDF,
+  reference: string,
+  kind: 'invoice' | 'contract',
+  proof?: PdfProof,
+) {
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const compact = kind === 'contract';
   const blockH = compact ? 14 : 30;
   const blockY = H - (compact ? 32 : 50);
 
-  const hash = docHash(`${kind}:${reference}:${Date.now()}`);
-  const url = `https://verify.axis-import.com/v/${hash}`;
-  const now = new Date();
-  const ts = now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  // Cadre
   setColor(doc, LINE, 'draw');
   doc.setLineWidth(0.3);
   doc.line(14, blockY - 2, W - 14, blockY - 2);
 
-  // QR code
-  let qrDataUrl: string | null = null;
-  try {
-    qrDataUrl = await QRCode.toDataURL(url, { width: 220, margin: 0, color: { dark: INK, light: '#FFFFFFFF' } });
-  } catch {
-    qrDataUrl = null;
-  }
-  if (qrDataUrl) {
-    doc.addImage(qrDataUrl, 'PNG', 14, blockY, blockH, blockH);
+  let tx = 14;
+  if (proof) {
+    let qrDataUrl: string | null = null;
+    try {
+      qrDataUrl = await QRCode.toDataURL(proof.verifyUrl, {
+        width: 220,
+        margin: 0,
+        color: { dark: INK, light: '#FFFFFFFF' },
+      });
+    } catch {
+      qrDataUrl = null;
+    }
+    if (qrDataUrl) {
+      doc.addImage(qrDataUrl, 'PNG', 14, blockY, blockH, blockH);
+      tx = 14 + blockH + 4;
+    }
   }
 
-  // Texte à droite du QR
-  const tx = 14 + blockH + 4;
+  const signedAt = proof ? new Date(proof.signedAt) : null;
+  const signedLabel =
+    signedAt && !Number.isNaN(signedAt.getTime())
+      ? signedAt.toLocaleString('fr-FR', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        })
+      : null;
+
   if (compact) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     setColor(doc, INK, 'text');
-    drawTick(doc, tx, blockY + 4, 2.4, INK);
-    doc.text('Document à valeur légale · eIDAS', tx + 3.6, blockY + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    setColor(doc, MUTED, 'text');
-    doc.text(`Horodaté ${ts} · Empreinte ${hash.toUpperCase()}`, tx, blockY + 8);
-    doc.text(`Scanner le QR pour vérifier · ${url}`, tx, blockY + 11.5);
+    if (proof) {
+      drawTick(doc, tx, blockY + 4, 2.4, INK);
+      doc.text('Signature électronique simple', tx + 3.6, blockY + 4);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      setColor(doc, MUTED, 'text');
+      doc.text(
+        `Règlement (UE) n° 910/2014 (eIDAS), art. 25 · signé le ${signedLabel ?? '—'}`,
+        tx, blockY + 8,
+      );
+      // Empreinte groupée par blocs de 8 : relisible à l'œil sur papier.
+      const grouped = (proof.hash.slice(0, 32).match(/.{1,8}/g) ?? []).join(' ');
+      doc.text(`Empreinte SHA-256 ${grouped}`, tx, blockY + 11.5);
+      doc.setFontSize(5.8);
+      doc.text(`Vérifier ce contrat : ${proof.verifyUrl}`, tx, blockY + 14.8);
+    } else {
+      doc.text(`Contrat de convoyage ${reference}`, tx, blockY + 4);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      setColor(doc, MUTED, 'text');
+      doc.text('Exemplaire non signé électroniquement — à signer de la main des parties.', tx, blockY + 8);
+    }
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     setColor(doc, INK, 'text');
-    drawTick(doc, tx, blockY + 4, 2.7, INK);
-    doc.text('Document à valeur légale', tx + 4, blockY + 4);
+    doc.text(`Facture ${reference}`, tx, blockY + 4);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     setColor(doc, MUTED, 'text');
-    doc.text('Facture conforme à l\'art. 289 du CGI · conservée 10 ans', tx, blockY + 8);
-    doc.text(`Horodaté le ${ts}`, tx, blockY + 12);
-    doc.text(`Empreinte SHA · ${hash.toUpperCase()}`, tx, blockY + 15.5);
-    doc.text('Scanner le QR code pour vérifier l\'authenticité sur', tx, blockY + 20);
-    setColor(doc, INK, 'text');
-    doc.setFont('helvetica', 'bold');
-    doc.text(url, tx, blockY + 23.5);
+    doc.text('Émise par Axis Import · à conserver 10 ans (art. L102 B du LPF).', tx, blockY + 8);
+    doc.text(
+      `Éditée le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`,
+      tx, blockY + 12,
+    );
 
     const rx = W - 14;
-    setColor(doc, MUTED, 'text');
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.text('CONFIDENTIEL', rx, blockY + 4, { align: 'right' });
     doc.setFontSize(6.5);
     doc.text('Ne pas reproduire sans accord.', rx, blockY + 8, { align: 'right' });
-    doc.text('Chiffré AES-256 au repos.', rx, blockY + 11.5, { align: 'right' });
   }
 }
 
@@ -273,9 +309,9 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   setColor(doc, INK, 'text');
-  doc.text('Axis Import SAS', 14, y);
+  doc.text(COMPANY.name, 14, y);
   doc.text(data.clientName, w / 2 + 4, y);
-  doc.text('SAS au capital de 10 000 EUR', 14, y + 4);
+  doc.text(orTodo(COMPANY.legalForm), 14, y + 4);
   // Destinataire : adresse puis email (l'adresse est une mention obligatoire)
   let cy = y + 4;
   if (data.clientAddress) {
@@ -285,9 +321,9 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   }
   if (data.clientEmail) { doc.text(data.clientEmail, w / 2 + 4, cy); cy += 4; }
   if (data.clientSiren) doc.text(`SIREN : ${data.clientSiren}`, w / 2 + 4, cy);
-  doc.text('14 rue de la Logistique, 75015 Paris, France', 14, y + 8);
-  doc.text('RCS Paris 925 487 312 · SIRET 925 487 312 00018', 14, y + 12);
-  doc.text('TVA intracommunautaire : FR42 925487312', 14, y + 16);
+  doc.text(companyAddress(), 14, y + 8);
+  doc.text(companyRegistrationLine(), 14, y + 12);
+  doc.text(`TVA intracommunautaire : ${orTodo(COMPANY.vat)}`, 14, y + 16);
 
   // Dates légales (prestation + échéance)
   doc.setFontSize(8);
@@ -568,6 +604,8 @@ export interface ContractPdfData {
   vehicleLabel?: string;
   pickupDate2?: string;
   signatureDataUrl?: string;
+  /** Preuve de signature émise par le serveur (absente = non signé). */
+  proof?: PdfProof;
   signedDate?: string;
   priceEur?: number;
 }
@@ -828,7 +866,7 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   doc.text('Document contractuel — fait foi en cas de litige', W / 2, H - 5, { align: 'center' });
   doc.text('Page 1/1', W - M, H - 5, { align: 'right' });
 
-  await drawVerificationBlock(doc, data.reference || 'demo', 'contract');
+  await drawVerificationBlock(doc, data.reference || 'demo', 'contract', data.proof);
   if (!sharedDoc) triggerDownload(doc, `Contrat-Axis-${data.reference || 'demo'}.pdf`);
 }
 
@@ -1318,9 +1356,9 @@ export async function generateCommercialInvoicePdf(data: CommercialInvoicePdfDat
   const s = data.sender ?? {};
   const r = data.recipient ?? {};
   textLines(doc, [
-    s.name ?? 'Axis Import SAS',
-    s.address ?? '14 rue de la Logistique, 75015 Paris',
-    `TVA : ${s.vat ?? 'FR42 925487312'}`,
+    s.name ?? COMPANY.name,
+    s.address ?? companyAddress(),
+    `TVA : ${s.vat ?? orTodo(COMPANY.vat)}`,
   ], M, y);
   textLines(doc, [
     r.name ?? '',
@@ -1432,8 +1470,8 @@ export async function generatePackingListPdf(data: PackingListPdfData, sharedDoc
   blockLabel(doc, 'DESTINATAIRE', W / 2 + 4, y);
   y += 6;
   textLines(doc, [
-    data.sender?.name ?? 'Axis Import SAS',
-    data.sender?.address ?? '14 rue de la Logistique, 75015 Paris',
+    data.sender?.name ?? COMPANY.name,
+    data.sender?.address ?? companyAddress(),
   ], M, y);
   textLines(doc, [
     data.recipient?.name ?? '',
@@ -1521,9 +1559,9 @@ export async function generateExportDeclarationPdf(data: ExportDeclarationPdfDat
   blockLabel(doc, 'DESTINATAIRE', W / 2 + 4, y);
   y += 6;
   textLines(doc, [
-    data.exporter?.name ?? 'Axis Import SAS',
-    data.exporter?.address ?? '14 rue de la Logistique, 75015 Paris',
-    `EORI : ${data.exporter?.eori ?? 'FR92548731200018'}`,
+    data.exporter?.name ?? COMPANY.name,
+    data.exporter?.address ?? companyAddress(),
+    `EORI : ${data.exporter?.eori ?? orTodo(COMPANY.eori)}`,
   ], M, y);
   textLines(doc, [
     data.recipient?.name ?? '',
@@ -1707,10 +1745,10 @@ export async function generateCustomsMandatePdf(data: CustomsMandatePdfData, sha
   blockLabel(doc, 'DONNE MANDAT À', M, y);
   y += 6;
   y = textLines(doc, [
-    data.agent ?? 'Axis Import SAS',
+    data.agent ?? COMPANY.name,
     data.agentRegistration
-      ? `14 rue de la Logistique, 75015 Paris · représentant en douane enregistré n° ${data.agentRegistration}`
-      : '14 rue de la Logistique, 75015 Paris',
+      ? `${companyAddress()} · représentant en douane enregistré n° ${data.agentRegistration}`
+      : companyAddress(),
   ], M, y);
 
   // Mandant : EORI (requis pour les formalités douanières)

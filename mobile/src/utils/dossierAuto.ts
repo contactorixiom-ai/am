@@ -23,6 +23,7 @@ import {
   catalogByKind,
 } from './documentCatalog';
 import type { CountryRequirements } from '../api/customs';
+import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 import {
   generateCommercialInvoicePdf,
   generatePackingListPdf,
@@ -149,7 +150,7 @@ export interface DossierPlan {
 
 // ─── Valeurs de démo crédibles (repli si l'input est incomplet) ────────────
 const DEMO = {
-  sender: { name: 'Axis Import SAS', address: '14 rue de la Logistique, 75015 Paris', vat: 'FR42 925487312' },
+  sender: { name: COMPANY.name, address: companyAddress(), vat: orTodo(COMPANY.vat) },
   recipient: { name: 'Sahel Trading SARL', address: 'Zone portuaire, Dakar' },
   originCountry: 'France (UE)',
   destinationCountry: 'Sénégal',

@@ -10,7 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
@@ -477,7 +477,7 @@ export class MissionsService {
   async signContract(missionId: string, user: AuthenticatedUser, dto: SignContractDto) {
     const mission = await this.prisma.mission.findUnique({
       where: { id: missionId },
-      select: { id: true, reference: true, clientId: true, pickupCity: true, deliveryCity: true },
+      select: CONTRACT_TERMS_SELECT,
     });
     if (!mission) throw new NotFoundException('Mission introuvable');
     if (mission.clientId !== user.id && user.role !== UserRole.ADMIN) {
@@ -519,6 +519,7 @@ export class MissionsService {
         signedAt: new Date(),
         signatureUrl: dto.signatureUrl,
         signedBy: user.id,
+        contentHash: contractHash(mission),
       },
     });
 
@@ -552,7 +553,46 @@ export class MissionsService {
       ),
     );
 
-    return { id: doc.id, missionId, signedAt: doc.signedAt, signedBy: doc.signedBy };
+    return {
+      id: doc.id,
+      missionId,
+      signedAt: doc.signedAt,
+      signedBy: doc.signedBy,
+      contentHash: doc.contentHash,
+    };
+  }
+
+  /**
+   * Vérification publique d'un contrat signé. On recalcule l'empreinte des
+   * termes du dossier tels qu'ils sont aujourd'hui et on la compare à celle
+   * figée au moment de la signature : si le prix, le véhicule ou le trajet
+   * ont changé depuis, cela se voit.
+   *
+   * Aucune donnée personnelle n'est renvoyée : la page est accessible à
+   * quiconque scanne le code du document.
+   */
+  async verifyContract(documentId: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: {
+        signedAt: true,
+        contentHash: true,
+        mission: { select: CONTRACT_TERMS_SELECT },
+      },
+    });
+    if (!doc || !doc.signedAt || !doc.mission) {
+      throw new NotFoundException('Aucun contrat signé ne correspond à cette référence.');
+    }
+    const current = contractHash(doc.mission);
+    return {
+      reference: doc.mission.reference,
+      signedAt: doc.signedAt,
+      algorithm: 'SHA-256',
+      hash: doc.contentHash,
+      // contentHash est absent des signatures antérieures à sa mise en place :
+      // on ne prétend pas alors que le dossier est intact.
+      unchanged: doc.contentHash ? doc.contentHash === current : null,
+    };
   }
 
   private async notifySafe(
@@ -599,4 +639,65 @@ export class MissionsService {
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
     return `AXI-${stamp}-${rand}`;
   }
+}
+
+/**
+ * Termes du convoyage couverts par la signature. Y ajouter un champ change
+ * l'empreinte des futures signatures — pas celle des signatures passées.
+ */
+const CONTRACT_TERMS_SELECT = {
+  id: true,
+  reference: true,
+  clientId: true,
+  driverId: true,
+  pickupCity: true,
+  pickupCountry: true,
+  pickupAddress: true,
+  pickupAt: true,
+  deliveryCity: true,
+  deliveryCountry: true,
+  deliveryAddress: true,
+  priceCents: true,
+  distanceKm: true,
+  vehicle: { select: { make: true, model: true, licensePlate: true } },
+} as const;
+
+type ContractTerms = {
+  reference: string;
+  clientId: string;
+  driverId: string | null;
+  pickupCity: string;
+  pickupCountry: string;
+  pickupAddress: string;
+  pickupAt: Date;
+  deliveryCity: string;
+  deliveryCountry: string;
+  deliveryAddress: string;
+  priceCents: number | null;
+  distanceKm: number | null;
+  vehicle: { make: string; model: string; licensePlate: string | null };
+};
+
+/** Empreinte SHA-256 des termes du contrat, sur une chaîne canonique. */
+function contractHash(m: ContractTerms): string {
+  const canonical = [
+    'axis-contrat-convoyage',
+    'v1',
+    m.reference,
+    m.clientId,
+    m.driverId ?? '',
+    m.pickupAddress,
+    m.pickupCity,
+    m.pickupCountry,
+    m.pickupAt.toISOString(),
+    m.deliveryAddress,
+    m.deliveryCity,
+    m.deliveryCountry,
+    m.vehicle.make,
+    m.vehicle.model,
+    m.vehicle.licensePlate ?? '',
+    String(m.priceCents ?? ''),
+    String(m.distanceKm ?? ''),
+  ].join('|');
+  return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }

@@ -83,7 +83,23 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://am-production-80d6.up.railway.app/api/v1"
+      "apiUrl": "https://am-production-80d6.up.railway.app/api/v1",
+      "company": {
+        "name": "Axis Import",
+        "legalForm": "",
+        "address": "",
+        "postalCity": "",
+        "country": "France",
+        "siret": "",
+        "siren": "",
+        "vat": "",
+        "eori": "",
+        "rcs": "",
+        "email": "",
+        "phone": "",
+        "website": "",
+        "customsRegistration": ""
+      }
     },
     "icon": "./assets/icon.png",
     "assetBundlePatterns": [

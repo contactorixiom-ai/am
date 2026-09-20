@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { IsOptional, IsString } from 'class-validator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { paginate } from '../../common/dto/pagination.dto';
 import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
@@ -67,6 +68,15 @@ export class MissionsController {
   @ApiOperation({ summary: 'Un convoyeur accepte la mission' })
   accept(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') driverId: string) {
     return this.missions.accept(id, driverId);
+  }
+
+  @Public()
+  @Get('contract-verification/:documentId')
+  @ApiOperation({
+    summary: "Vérifier un contrat signé : date de signature et intégrité des termes",
+  })
+  verifyContract(@Param('documentId', new ParseUUIDPipe()) documentId: string) {
+    return this.missions.verifyContract(documentId);
   }
 
   @Post(':id/contract-signature')

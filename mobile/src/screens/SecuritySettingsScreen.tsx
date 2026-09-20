@@ -13,6 +13,7 @@ import { notify } from '../utils/notify';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { fetchSessions, revokeSession, type AuthSession } from '../api/security';
+import { COMPANY, orTodo } from '../config/company';
 
 const STORAGE_KEY = 'axis.security.v1';
 
@@ -282,7 +283,7 @@ export function SecuritySettingsScreen() {
         {/* RGPD / confidentialité */}
         <Section title="Confidentialité (RGPD)">
           <ActionRow icon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />} label="Exporter mes données" sub="Reçu par email sous 48h" onPress={() => notify('Demande enregistrée', 'Ton archive sera envoyée sous 48h conformément au RGPD.')} />
-          <ActionRow icon={<Icons.x size={18} color={theme.bad} stroke={2} />} label="Supprimer mon compte" sub="Suppression définitive sous 30 j" danger onPress={() => notify('Action sensible', 'Contacte support@axis-import.com pour confirmer la suppression.')} />
+          <ActionRow icon={<Icons.x size={18} color={theme.bad} stroke={2} />} label="Supprimer mon compte" sub="Suppression définitive sous 30 j" danger onPress={() => notify('Action sensible', `Contacte ${orTodo(COMPANY.email)} pour confirmer la suppression.`)} />
         </Section>
       </ScrollView>
 

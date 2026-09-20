@@ -17,7 +17,8 @@ import {
 } from '../api/missions';
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
 import { getPaymentsSummary, listPayments, PaymentRecord, PaymentsSummary } from '../api/payments';
-import { DocumentRecord, listDocuments } from '../api/documents';
+import { contractVerifyUrl, DocumentRecord, listDocuments } from '../api/documents';
+import { companyAddress } from '../config/company';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
@@ -178,11 +179,11 @@ function parseFrDate(input: string): string | null {
 
 const AXIS_SENDER = {
   senderName: 'Axis Import SAS',
-  senderAddress: '14 rue de la Logistique, 75015 Paris, France',
+  senderAddress: companyAddress(),
   shipperName: 'Axis Import SAS',
-  shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+  shipperAddress: companyAddress(),
   exporterName: 'Axis Import SAS',
-  exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+  exporterAddress: companyAddress(),
 };
 
 function prefillFromParcel(p: ParcelSummary): AdminValues {
@@ -525,6 +526,9 @@ export function AdminScreen() {
           signedAt && !Number.isNaN(signedAt.getTime())
             ? signedAt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
             : '',
+        proofHash: signed?.contentHash ?? '',
+        proofSignedAt: signed?.signedAt ?? '',
+        proofUrl: signed ? contractVerifyUrl(signed.id) : '',
         vehicleBrandModel: `${m.vehicle.make} ${m.vehicle.model}`,
         plate: m.vehicle.licensePlate ?? '',
         driverName: m.driver ? `${m.driver.firstName} ${m.driver.lastName}` : '',

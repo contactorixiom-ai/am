@@ -18,6 +18,7 @@ import {
   generatePackingListPdf,
   patchDoc,
   signatureFromSvgDataUrl,} from './pdf';
+import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'clientName', label: 'Client', required: true, placeholder: 'Nom du client' },
       { key: 'clientAddress', label: 'Adresse du client', required: true, placeholder: '12 rue…, 75000 Paris' },
       { key: 'clientEmail', label: 'Email client', half: true, placeholder: 'client@exemple.com' },
-      { key: 'clientSiren', label: 'SIREN client (si pro)', half: true, placeholder: '925487312' },
+      { key: 'clientSiren', label: 'SIREN client (si pro)', half: true, placeholder: '9 chiffres' },
       { key: 'serviceDate', label: 'Date de la prestation', half: true },
       { key: 'dueDate', label: 'Échéance de paiement', half: true },
       { key: 'operationCategory', label: 'Nature de l\'opération', type: 'select', options: ['Prestation de services', 'Livraison de biens', 'Mixte (biens et services)'], half: true },
@@ -272,7 +273,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'date', label: 'Date', half: true },
       { key: 'incoterm', label: 'Incoterm', half: true, placeholder: 'FOB Le Havre' },
       { key: 'currency', label: 'Devise', half: true, placeholder: 'EUR' },
-      { key: 'senderName', label: 'Expéditeur', placeholder: 'Axis Import SAS' },
+      { key: 'senderName', label: 'Expéditeur', placeholder: COMPANY.name },
       { key: 'senderAddress', label: 'Adresse expéditeur' },
       { key: 'recipientName', label: 'Destinataire', required: true },
       { key: 'recipientAddress', label: 'Adresse destinataire' },
@@ -289,8 +290,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       date: ctx.dateLong,
       incoterm: 'FOB Le Havre',
       currency: 'EUR',
-      senderName: 'Axis Import SAS',
-      senderAddress: '14 rue de la Logistique, 75015 Paris',
+      senderName: COMPANY.name,
+      senderAddress: companyAddress(),
       recipientName: '',
       recipientAddress: '',
       originCountry: 'France (UE)',
@@ -330,8 +331,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateLong,
-      senderName: 'Axis Import SAS',
-      senderAddress: '14 rue de la Logistique, 75015 Paris',
+      senderName: COMPANY.name,
+      senderAddress: companyAddress(),
       recipientName: '',
       recipientAddress: '',
       packagesText: '',
@@ -353,7 +354,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'invoiceRef', label: 'Facture liée', half: true, placeholder: 'FC-2026-0001' },
       { key: 'senderName', label: 'Expéditeur' },
       { key: 'senderAddress', label: 'Adresse expéditeur' },
-      { key: 'senderContact', label: 'Contact expéditeur', placeholder: '+33 1 84 88 12 00' },
+      { key: 'senderContact', label: 'Contact expéditeur', placeholder: orTodo(COMPANY.phone) },
       { key: 'recipientName', label: 'Destinataire', required: true },
       { key: 'recipientAddress', label: 'Adresse destinataire' },
       { key: 'recipientContact', label: 'Contact destinataire' },
@@ -375,9 +376,9 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       date: ctx.dateLong,
       forwarder: '',
       invoiceRef: '',
-      senderName: 'Axis Import SAS',
-      senderAddress: '14 rue de la Logistique, 75015 Paris',
-      senderContact: '+33 1 84 88 12 00',
+      senderName: COMPANY.name,
+      senderAddress: companyAddress(),
+      senderContact: orTodo(COMPANY.phone),
       recipientName: '',
       recipientAddress: '',
       recipientContact: '',
@@ -436,14 +437,14 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateShort,
-      senderName: 'Axis Import SAS',
-      senderAddress: '14 rue de la Logistique, 75015 Paris, France',
+      senderName: COMPANY.name,
+      senderAddress: companyAddress(),
       recipientName: '',
       recipientAddress: '',
       deliveryPlace: '',
       takingOverPlace: 'Paris, France',
       takingOverDate: ctx.dateShort,
-      carrierName: 'Axis Import SAS — 14 rue de la Logistique, 75015 Paris',
+      carrierName: `${COMPANY.name} — ${companyAddress()}`,
       plate: '',
       documentsAttached: 'Facture commerciale, liste de colisage',
       goods: '',
@@ -498,8 +499,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateShort,
-      shipperName: 'Axis Import SAS',
-      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      shipperName: COMPANY.name,
+      shipperAddress: companyAddress(),
       consigneeName: '',
       consigneeAddress: '',
       notifyParty: '',
@@ -558,11 +559,11 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateShort,
-      shipperName: 'Axis Import SAS',
-      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      shipperName: COMPANY.name,
+      shipperAddress: companyAddress(),
       consigneeName: '',
       consigneeAddress: '',
-      issuingAgent: 'Axis Import SAS',
+      issuingAgent: COMPANY.name,
       airportDeparture: 'Paris CDG (FR)',
       airportDestination: 'Dakar DSS (SN)',
       routing: '',
@@ -609,8 +610,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateLong,
-      exporterName: 'Axis Import SAS',
-      exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+      exporterName: COMPANY.name,
+      exporterAddress: companyAddress(),
       consigneeName: '',
       consigneeAddress: '',
       originCountry: 'Union européenne (France)',
@@ -652,8 +653,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       number: ctx.reference,
       date: ctx.dateShort,
       orderRef: '',
-      senderName: 'Axis Import SAS',
-      senderAddress: '14 rue de la Logistique, 75015 Paris',
+      senderName: COMPANY.name,
+      senderAddress: companyAddress(),
       recipientName: '',
       recipientAddress: '',
       deliveryAddress: '',
@@ -774,9 +775,9 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateLong,
-      exporterName: 'Axis Import SAS',
-      exporterAddress: '14 rue de la Logistique, 75015 Paris',
-      eori: 'FR92548731200018',
+      exporterName: COMPANY.name,
+      exporterAddress: companyAddress(),
+      eori: orTodo(COMPANY.eori),
       destinationCountry: 'Sénégal',
       recipientName: '',
       recipientAddress: '',
@@ -815,7 +816,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       principalName: '',
       principalAddress: '',
       principalEori: '',
-      agent: 'Axis Import SAS',
+      agent: COMPANY.name,
       agentRegistration: '',
       representation: 'directe',
       destinationCountry: 'Sénégal',
@@ -902,8 +903,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       date: ctx.dateShort,
       destinationCountry: 'Sénégal',
       bescNumber: '',
-      shipperName: 'Axis Import SAS',
-      shipperAddress: '14 rue de la Logistique, 75015 Paris, France',
+      shipperName: COMPANY.name,
+      shipperAddress: companyAddress(),
       consigneeName: '',
       consigneeAddress: '',
       consigneeTaxId: '',
@@ -1055,8 +1056,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       inspectionBody: 'SGS',
       cocNumber: '',
       route: 'Route A — expédition ponctuelle',
-      exporterName: 'Axis Import SAS',
-      exporterAddress: '14 rue de la Logistique, 75015 Paris, France',
+      exporterName: COMPANY.name,
+      exporterAddress: companyAddress(),
       importerName: '',
       importerAddress: '',
       importerTaxId: '',
@@ -1068,7 +1069,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       goodsValue: '',
       currency: 'EUR',
       standards: '',
-      inspectionPlace: '14 rue de la Logistique, 75015 Paris',
+      inspectionPlace: companyAddress(),
       inspectionDate: '',
       contactName: '',
       contactPhone: '',
@@ -1296,7 +1297,7 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   const qrY = H - M - qrSize - 10;
   doc.setLineWidth(0.3);
   doc.line(M, qrY - 4, W - M, qrY - 4);
-  const trackUrl = `https://axis-import.com/t/${encodeURIComponent(data.reference)}`;
+  const trackUrl = `${orTodo(COMPANY.website)}/t/${encodeURIComponent(data.reference)}`;
   try {
     const qr = await QRCode.toDataURL(trackUrl, { width: 300, margin: 0, color: { dark: '#000000', light: '#FFFFFFFF' } });
     doc.addImage(qr, 'PNG', M + 3, qrY, qrSize, qrSize);
@@ -1316,7 +1317,7 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
 
   // Pied
   doc.setFontSize(6.5);
-  doc.text('Axis Import SAS · support@axis-import.com · +33 1 84 88 12 00', W / 2, H - M - 3, { align: 'center' });
+  doc.text(`${COMPANY.name} · ${orTodo(COMPANY.email)} · ${orTodo(COMPANY.phone)}`, W / 2, H - M - 3, { align: 'center' });
 
   labelDownload(doc, `Etiquette-${data.reference}.pdf`);
 }
@@ -1367,8 +1368,8 @@ function axisFooter(doc: jsPDF) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
-  doc.text('Axis Import SAS · SIRET 925 487 312 00018 · TVA FR42 925487312 · 14 rue de la Logistique, 75015 Paris', M, H - 13);
-  doc.text('support@axis-import.com · +33 1 84 88 12 00 · axis-import.com', M, H - 9);
+  doc.text(companyLegalLine(), M, H - 13);
+  doc.text(companyContactLine(), M, H - 9);
 }
 
 /** Case bordée numérotée (style formulaire officiel type CMR). */
@@ -1553,7 +1554,7 @@ export async function generateShippingInstructionsPdf(data: ShippingInstructions
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text(data.signatory || data.sender?.name || 'Axis Import SAS', M, y);
+  doc.text(data.signatory || data.sender?.name || COMPANY.name, M, y);
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
   doc.line(M, y + 9, M + 62, y + 9);
@@ -1742,7 +1743,7 @@ export async function generateCertificateOfOriginPdf(data: CertificateOfOriginDa
   y += 12;
   doc.text(`Fait ${atPlace(g(data.signatoryPlace))}, le ${g(data.date) || '...'}`, M, y);
   doc.setFont('helvetica', 'bold');
-  doc.text(g(data.signatory) || 'Axis Import SAS', W - M, y, { align: 'right' });
+  doc.text(g(data.signatory) || COMPANY.name, W - M, y, { align: 'right' });
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
   doc.line(W - M - 62, y + 9, W - M, y + 9);
@@ -2031,7 +2032,7 @@ export async function generateSafetyDataSheetPdf(data: SafetyDataSheetData): Pro
     `Fournisseur : ${g(data.supplierName)}`,
     data.supplierAddress ? `Adresse : ${data.supplierAddress}` : '',
     `Téléphone d'urgence : ${g(data.emergencyPhone)}`,
-    'Expéditeur du lot : Axis Import SAS, 14 rue de la Logistique, 75015 Paris.',
+    `Expéditeur du lot : ${COMPANY.name}, ${companyAddress()}.`,
   ].filter(Boolean).join('\n'));
 
   section(2, 'Composition / informations sur les composants', g(data.composition));
@@ -2207,7 +2208,7 @@ export async function generateConformityCertificatePdf(data: ConformityCertifica
   doc.setTextColor(0, 0, 0);
   doc.text(`Fait ${atPlace('Paris')}, le ${g(data.date) || '...'}`, M, y);
   doc.setFont('helvetica', 'bold');
-  doc.text(g(data.exporter?.name) || 'Axis Import SAS', W - M, y, { align: 'right' });
+  doc.text(g(data.exporter?.name) || COMPANY.name, W - M, y, { align: 'right' });
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.3);
   doc.line(W - M - 62, y + 9, W - M, y + 9);
@@ -2611,6 +2612,16 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         departureClientSignature: signatureFromSvgDataUrl(str(values, 'clientSignatureDataUrl')),
         departureClientSigned: !!str(values, 'clientSignatureDataUrl'),
         departureClientSignedDate: orU(str(values, 'clientSignedDate')),
+        // Preuve émise par le serveur : QR de vérification et empreinte des
+        // termes du dossier. Absente si le client n'a pas encore signé.
+        proof:
+          str(values, 'proofHash') && str(values, 'proofSignedAt') && str(values, 'proofUrl')
+            ? {
+                hash: str(values, 'proofHash'),
+                signedAt: str(values, 'proofSignedAt'),
+                verifyUrl: str(values, 'proofUrl'),
+              }
+            : undefined,
       });
       break;
 

@@ -22,6 +22,10 @@ export interface ContractDoc {
   pickupDate?: string;
   signed: boolean;
   signedAt?: string;
+  /** Image de la signature du client, relue du serveur. */
+  signatureUrl?: string;
+  /** Preuve émise par le serveur, imprimée sur le PDF. */
+  proof?: { hash: string; signedAt: string; verifyUrl: string };
 }
 
 export interface Invoice {
