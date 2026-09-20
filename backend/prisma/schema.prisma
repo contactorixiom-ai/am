@@ -376,10 +376,20 @@ model Inspection {
   damageNotes   String?
   generalNotes  String?
 
+  // Points de dommage relevés sur le croquis : [{ view, x, y, code }].
+  // Stockés tels quels pour pouvoir redessiner le schéma à l'identique.
+  damages Json?
+  // Réponses aux contrôles Oui/Non du client : { clean: true, docs: false… }
+  controls Json?
+
   clientSignatureUrl String?
   driverSignatureUrl String?
   clientSignedAt     DateTime?
   driverSignedAt     DateTime?
+  // Signature du client recueillie sur l'appareil du convoyeur, comme sur un
+  // constat papier. On le trace : ce n'est pas la même chose qu'une signature
+  // apposée par le client depuis son propre compte.
+  clientSignedInPerson Boolean @default(false)
 
   submittedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -387,6 +397,7 @@ model Inspection {
 
   photos InspectionPhoto[]
 
+  @@unique([missionId, type])
   @@index([missionId, type])
 }
 

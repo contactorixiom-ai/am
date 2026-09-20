@@ -493,6 +493,8 @@ export function DriverModeScreen() {
   const openInspection = (phase: 'DÉPART' | 'ARRIVÉE') =>
     nav.navigate('VehicleInspection', {
       phase,
+      // missionIsDemo : pas de mission réelle, l'état des lieux reste local.
+      missionId: missionIsDemo ? undefined : mission?.id,
       reference: inspectionReference,
       vehicleLabel: inspectionVehicleLabel,
       clientName: inspectionClientName,

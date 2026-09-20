@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
+import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
@@ -12,6 +13,15 @@ import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { Damage, DamageCode, DAMAGE_META, VehicleDiagram, ViewKey } from '../components/VehicleDiagram';
 import { RootStackParamList } from '../navigation/types';
+import {
+  attachInspectionPhoto,
+  createInspection,
+  DamagePoint,
+  Inspection,
+  listInspections,
+  signInspection,
+  submitInspection,
+} from '../api/inspections';
 import { notify } from '../utils/notify';
 import { capturePhoto } from '../utils/pickImage';
 import { generateContractPdf } from '../utils/pdf';
@@ -62,6 +72,25 @@ const CONTROL_QUESTIONS: Record<'DÉPART' | 'ARRIVÉE', { key: string; label: st
   ],
 };
 
+// Correspondance avec les étiquettes de photo du serveur (InspectionPhotoTag).
+const PHOTO_TAGS: Record<string, string> = {
+  front: 'FRONT',
+  rear: 'REAR',
+  sideLeft: 'LEFT_SIDE',
+  sideRight: 'RIGHT_SIDE',
+};
+
+/** Les tracés du pavé de signature, en image SVG transmissible au serveur. */
+function svgDataUrl(sig: { paths: string[]; w: number; h: number }): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${sig.w}" height="${sig.h}" viewBox="0 0 ${sig.w} ${sig.h}">` +
+    sig.paths
+      .map((d) => `<path d="${d}" fill="none" stroke="#0B2545" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`)
+      .join('') +
+    '</svg>';
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 // Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
 // Servent de preuve horodatée pour la gestion des litiges.
 const VEHICLE_PHOTO_ANGLES: { key: string; label: string }[] = [
@@ -93,6 +122,9 @@ export function VehicleInspectionScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'VehicleInspection'>>();
   const driverName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Chauffeur Axis';
   const phase = route.params?.phase ?? 'DÉPART';
+  // Sans mission réelle (mode démo du convoyeur), l'état des lieux ne peut
+  // être rattaché à rien : il reste local et on le dit.
+  const missionId = route.params?.missionId;
   const reference = route.params?.reference ?? '2026-2847-FE12';
   const vehicleLabel = route.params?.vehicleLabel ?? 'BMW Série 3 · AX-2847';
   const isArrival = phase === 'ARRIVÉE';
@@ -101,6 +133,9 @@ export function VehicleInspectionScreen() {
 
   // État des lieux de DÉPART (chargé en arrivée)
   const [departureRef, setDepartureRef] = useState<SavedInspection | null>(null);
+  // Sa version serveur, qui seule dit si les deux parties l'ont signé.
+  const [departureServer, setDepartureServer] = useState<Inspection | null>(null);
+  const [sending, setSending] = useState(false);
 
   // Step 1
   const [vehicleCategory, setVehicleCategory] = useState<string>('Berline');
@@ -156,20 +191,113 @@ export function VehicleInspectionScreen() {
   };
 
   // Charge le DÉPART au montage si on est en ARRIVÉE.
+  //
+  // Le serveur fait foi : le départ a pu être fait par un autre convoyeur, ou
+  // sur un téléphone qui n'est plus là. Le cache local ne sert que si l'API
+  // est injoignable — auparavant il était la seule source, et une arrivée
+  // ouverte sur un autre appareil imprimait un PV au départ vide.
   useEffect(() => {
     if (!isArrival) return;
-    AsyncStorage.getItem(storageKey(reference, 'DÉPART')).then((raw) => {
-      if (!raw) return;
+    let cancelled = false;
+
+    const applyLocal = async () => {
+      const raw = await AsyncStorage.getItem(storageKey(reference, 'DÉPART')).catch(() => null);
+      if (!raw || cancelled) return;
       try {
         const parsed = JSON.parse(raw) as SavedInspection;
         setDepartureRef(parsed);
-        // Reprend le type de véhicule choisi au départ (même croquis à l'arrivée).
         if (parsed.vehicleCategory) setVehicleCategory(parsed.vehicleCategory);
-        // Reprend le nom du client si l'arrivée est ouverte sans paramètre.
         if (!route.params?.clientName && parsed.clientName) setClientName(parsed.clientName);
-      } catch { /* ignore */ }
-    });
-  }, [isArrival, reference]);
+      } catch { /* cache illisible : on repart de zéro */ }
+    };
+
+    (async () => {
+      if (!missionId) { await applyLocal(); return; }
+      try {
+        const list = await listInspections(missionId);
+        const dep = list.find((i) => i.type === 'PRE_DEPARTURE');
+        if (cancelled) return;
+        if (!dep) { await applyLocal(); return; }
+        setDepartureServer(dep);
+        setDepartureRef({
+          km: dep.mileage ?? undefined,
+          fuel: dep.fuelLevel != null ? dep.fuelLevel / 100 : null,
+          damages: (dep.damages ?? []).map((d, i) => ({
+            id: `srv${i}`, view: d.view, x: d.x, y: d.y, code: d.code, photo: false,
+          })) as Damage[],
+          date: new Date(dep.createdAt).toLocaleDateString('fr-FR'),
+        });
+      } catch {
+        await applyLocal();
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isArrival, reference, missionId]);
+
+  /**
+   * Transmet l'état des lieux : création, photos, soumission, puis les deux
+   * signatures. Chaque étape est tolérante — une photo qui ne passe pas ne
+   * doit pas faire perdre le procès-verbal.
+   *
+   * Renvoie false si le PV n'a pas pu être enregistré côté serveur, pour que
+   * le convoyeur en soit informé au lieu de le croire transmis.
+   */
+  const sendToServer = async (p: {
+    kmNum?: number;
+    fuelV?: number;
+    damagePoints: DamagePoint[];
+    finalObs: string;
+    driverSig?: { paths: string[]; w: number; h: number } | null;
+    clientSig?: { paths: string[]; w: number; h: number } | null;
+  }): Promise<boolean> => {
+    if (!missionId) return false;
+    setSending(true);
+    try {
+      const inspection = await createInspection(missionId, {
+        type: isArrival ? 'POST_DELIVERY' : 'PRE_DEPARTURE',
+        mileage: p.kmNum,
+        // Le serveur attend un pourcentage, le pad un quart de jauge.
+        fuelLevel: p.fuelV != null ? Math.round(p.fuelV * 100) : undefined,
+        generalNotes: p.finalObs || undefined,
+        damages: p.damagePoints,
+        controls,
+      });
+
+      // Photos des quatre angles, puis celles attachées à un dommage.
+      for (const angle of VEHICLE_PHOTO_ANGLES) {
+        const uri = vehiclePhotos[angle.key];
+        if (uri) await attachInspectionPhoto(inspection.id, uri, PHOTO_TAGS[angle.key], angle.label);
+      }
+      for (const d of damages) {
+        if (d.photoUri) {
+          await attachInspectionPhoto(inspection.id, d.photoUri, 'DAMAGE', `${DAMAGE_META[d.code].label} · ${d.view}`);
+        }
+      }
+
+      await submitInspection(inspection.id);
+
+      // Les deux signatures ont été apposées sur ce même appareil, côte à
+      // côte, comme sur un constat papier. Celle du client ne peut être
+      // envoyée que si le client est bien le compte connecté ; sinon elle
+      // figure sur le PDF et le client contresignera depuis son espace.
+      const sigUrl = (sig?: { paths: string[]; w: number; h: number } | null) =>
+        sig ? svgDataUrl(sig) : null;
+      const driverUrl = sigUrl(p.driverSig);
+      if (driverUrl) {
+        await signInspection(inspection.id, 'DRIVER', driverUrl).catch(() => undefined);
+      }
+      const clientUrl = sigUrl(p.clientSig);
+      if (clientUrl) {
+        await signInspection(inspection.id, 'CLIENT', clientUrl).catch(() => undefined);
+      }
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setSending(false);
+    }
+  };
 
   const finish = async () => {
     const today = new Date();
@@ -189,11 +317,16 @@ export function VehicleInspectionScreen() {
     const driverSig = driverPad.current?.toPaths() ?? undefined;
     const clientSig = clientPad.current?.toPaths() ?? undefined;
 
-    // Persiste l'état des lieux pour cette phase (utile pour comparaison).
+    // Persiste l'état des lieux pour cette phase (cache local, comparaison).
     await AsyncStorage.setItem(
       storageKey(reference, phase),
       JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos, vehicleCategory, clientName } as SavedInspection),
     );
+
+    // Envoi au serveur : c'est ce qui rend le PV opposable. Sans cela il ne
+    // restait que dans le téléphone du convoyeur, invisible du client comme
+    // d'Axis, et perdu avec l'appareil.
+    const sent = await sendToServer({ kmNum, fuelV, damagePoints, finalObs, driverSig, clientSig });
 
     if (isArrival) {
       // PV de livraison : embarque DÉPART + ARRIVÉE dans le même contrat.
@@ -213,9 +346,13 @@ export function VehicleInspectionScreen() {
         departureFuel: (departureRef?.fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined,
         departureDate: departureRef?.date,
         departureObservations: departureRef ? summarizeDamages(departureRef.damages) : undefined,
-        departureClientSigned: !!departureRef,
-        departureClientSignedDate: departureRef?.date,
-        departureDriverSigned: !!departureRef,
+        // L'existence d'un relevé de départ ne prouve pas qu'il a été signé :
+        // seul le serveur le sait. Sans lui, on n'affirme rien.
+        departureClientSigned: !!departureServer?.clientSignedAt,
+        departureClientSignedDate: departureServer?.clientSignedAt
+          ? new Date(departureServer.clientSignedAt).toLocaleDateString('fr-FR')
+          : undefined,
+        departureDriverSigned: !!departureServer?.driverSignedAt,
         departureDamages: departureRef?.damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code })) ?? [],
         // ARRIVÉE = ce qui vient d'être saisi
         arrivalKm: kmNum,
@@ -230,7 +367,12 @@ export function VehicleInspectionScreen() {
         arrivalDriverSignature: driverSig,
         arrivalClientSignature: clientSig,
       });
-      notify('PV de livraison finalisé', 'Le contrat avec les deux états des lieux est généré et envoyé au client.');
+      notify(
+        'PV de livraison finalisé',
+        sent
+          ? 'Le PV est transmis à Axis et au client. Le contrat avec les deux états des lieux a été téléchargé.'
+          : 'Le contrat a été téléchargé. Le PV n\'a pas pu être transmis : reprends-le une fois la connexion revenue.',
+      );
     } else {
       // PV de prise en charge : juste le DÉPART
       await generateContractPdf({
@@ -254,7 +396,12 @@ export function VehicleInspectionScreen() {
         departureDriverSignature: driverSig,
         departureClientSignature: clientSig,
       });
-      notify('PV de prise en charge finalisé', 'Le contrat est généré. L\'état des lieux d\'arrivée sera signé à la livraison.');
+      notify(
+        'PV de prise en charge finalisé',
+        sent
+          ? 'Le PV est transmis à Axis et au client. L\'état des lieux d\'arrivée sera signé à la livraison.'
+          : 'Le contrat a été téléchargé. Le PV n\'a pas pu être transmis : reprends-le une fois la connexion revenue.',
+      );
     }
     nav.goBack();
   };
@@ -286,6 +433,16 @@ export function VehicleInspectionScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 24, gap: 14 }}>
+        {/* Sans convoyage rattaché, le PV ne part nulle part : il faut le
+            dire avant que le convoyeur ne passe vingt minutes à le remplir. */}
+        {!missionId ? (
+          <Banner
+            tone="warn"
+            title="État des lieux non rattaché"
+            message="Aucun convoyage n'est associé : ce relevé restera sur ce téléphone et ne sera transmis ni au client ni à Axis. Ouvre-le depuis la mission concernée."
+          />
+        ) : null}
+
         {/* Bannière comparative DÉPART (uniquement en ARRIVÉE) */}
         {isArrival && departureRef ? (
           <Surface padded flat style={{ padding: 14, backgroundColor: theme.surface2, borderColor: theme.gold + '40', borderWidth: 1 }}>
@@ -595,8 +752,20 @@ export function VehicleInspectionScreen() {
             Continuer
           </Button>
         ) : (
-          <Button kind="gold" size="lg" fullWidth disabled={!canNext} onPress={finish} rightIcon={<Icons.check size={18} color={theme.navy} stroke={2.4} />}>
-            {isArrival ? 'Finaliser le PV de livraison' : 'Finaliser le PV de prise en charge'}
+          <Button
+            kind="gold"
+            size="lg"
+            fullWidth
+            disabled={!canNext || sending}
+            loading={sending}
+            onPress={finish}
+            rightIcon={sending ? undefined : <Icons.check size={18} color={theme.navy} stroke={2.4} />}
+          >
+            {sending
+              ? 'Transmission du PV…'
+              : isArrival
+                ? 'Finaliser le PV de livraison'
+                : 'Finaliser le PV de prise en charge'}
           </Button>
         )}
       </View>

@@ -230,14 +230,14 @@ export function TrackingScreen() {
               phase="DÉPART"
               reference={reference}
               done={inspectionStatus.departureDone}
-              onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', reference, vehicleLabel })}
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'DÉPART', missionId: mission?.id ?? route.params.id, reference, vehicleLabel })}
             />
             <InspectionTile
               phase="ARRIVÉE"
               reference={reference}
               done={inspectionStatus.arrivalDone}
               locked={!inspectionStatus.departureDone}
-              onPress={() => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', reference, vehicleLabel })}
+              onPress={() => nav.navigate('VehicleInspection', { phase: 'ARRIVÉE', missionId: mission?.id ?? route.params.id, reference, vehicleLabel })}
             />
           </View>
         ) : null}

@@ -126,6 +126,7 @@ export function MissionDetailsScreen() {
   const goChat = () => nav.navigate('Messaging', { driverName: driverFullName ?? 'Axis Import', subtitle: `${view.step} · ${mission.reference}` });
   const goInspection = () => nav.navigate('VehicleInspection', {
     phase: 'ARRIVÉE',
+    missionId: mission.id,
     reference: mission.reference,
     vehicleLabel: view.vehicleLabel ?? vehicleLabel,
   });
