@@ -11,6 +11,7 @@ import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/mission
 import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
+import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 import { linkPayment } from '../api/payments';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
@@ -329,12 +330,14 @@ export function QuoteReviewScreen() {
               value={`+ ${fmtEur(quote.pickupFeeCents)}`}
             />
           ) : null}
-          <DetailRow
-            label="Assurance tous risques"
-            sub={`Jusqu'à 250 000 € · ${isConvoy ? 'AXA Transport' : 'Allianz Marine'}`}
-            value="Inclus"
-            included
-          />
+          {hasInsurance() ? (
+            <DetailRow
+              label="Marchandise assurée"
+              sub={`Jusqu'à ${coverageLabel()} · ${INSURANCE.insurer}`}
+              value="Inclus"
+              included
+            />
+          ) : null}
           <DetailRow
             label="Suivi GPS temps réel"
             sub="Mise à jour toutes les 30 secondes"

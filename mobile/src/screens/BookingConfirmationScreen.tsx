@@ -17,6 +17,7 @@ import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { generateShippingLabelPdf } from '../utils/pdf';
 import { selectPartner } from '../utils/logisticsPartners';
+import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 
 // Instructions personnalisées selon le mode de récupération.
 // Inspiré de FedEx / UPS qui montrent un guide pas-à-pas après réservation.
@@ -333,7 +334,7 @@ export function BookingConfirmationScreen() {
         {/* Garanties */}
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Pill tone="ghost">Assurance 250 000 €</Pill>
+            {hasInsurance() ? <Pill tone="ghost">{`Assuré jusqu'à ${coverageLabel()}`}</Pill> : null}
             <Pill tone="ghost">Suivi temps réel</Pill>
             <Pill tone="ghost">Signature à la livraison</Pill>
           </View>

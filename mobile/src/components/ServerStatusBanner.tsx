@@ -4,8 +4,12 @@ import { API_BASE_URL, checkHealth, HealthResult } from '../api/client';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
-// Bannière de diagnostic : ping le backend au montage et affiche l'état.
-// Permet de distinguer "problème serveur/CORS" d'un "problème app".
+// Bannière de diagnostic : interroge le serveur au montage.
+//
+// En production elle ne s'affiche que si le serveur est injoignable — c'est
+// la seule information utile à quelqu'un qui essaie de se connecter. Elle
+// annonçait auparavant « Serveur connecté » sur les écrans de connexion et
+// d'inscription, les deux premiers écrans que voit un nouvel utilisateur.
 export function ServerStatusBanner() {
   const { theme } = useTheme();
   const [result, setResult] = useState<HealthResult | null>(null);
@@ -19,6 +23,9 @@ export function ServerStatusBanner() {
   }, []);
 
   useEffect(() => { run(); }, [run]);
+
+  // Rien à dire tant que tout va bien : on ne montre que la panne.
+  if (!__DEV__ && (checking || result?.ok !== false)) return null;
 
   const tone = checking
     ? { bg: theme.bgSoft, fg: theme.muted, dot: theme.muted }
@@ -51,9 +58,12 @@ export function ServerStatusBanner() {
   );
 }
 
-// Petit affichage debug de l'URL utilisée (utile pour vérifier la prod).
+// Affichage de diagnostic de l'adresse du serveur. Réservé au développement :
+// il figurait sur les écrans de connexion et d'inscription, où un client
+// découvrait l'URL technique du serveur en créant son compte.
 export function ApiUrlHint() {
   const { theme } = useTheme();
+  if (!__DEV__) return null;
   return (
     <Text style={{ fontSize: 10, color: theme.faint, fontFamily: TYPO.weights.regular, textAlign: 'center' }}>
       API : {API_BASE_URL}

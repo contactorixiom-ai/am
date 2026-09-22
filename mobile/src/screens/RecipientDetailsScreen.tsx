@@ -9,6 +9,7 @@ import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
+import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 import { linkPayment } from '../api/payments';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
@@ -236,7 +237,9 @@ export function RecipientDetailsScreen() {
           {/* Éléments rassurants */}
           <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
             <View style={{ gap: 10 }}>
-              <Trust theme={theme} icon={<Icons.shield size={16} color={theme.gold} stroke={1.8} />} label="Assurance jusqu'à 250 000 € incluse" />
+              {hasInsurance() ? (
+                <Trust theme={theme} icon={<Icons.shield size={16} color={theme.gold} stroke={1.8} />} label={`Marchandise assurée jusqu'à ${coverageLabel()}`} />
+              ) : null}
               <Trust theme={theme} icon={<Icons.pin size={16} color={theme.gold} stroke={1.8} />} label="Suivi temps réel jusqu'à la remise" />
               <Trust theme={theme} icon={<Icons.sig size={16} color={theme.gold} stroke={1.8} />} label="Signature électronique à la livraison" />
               <Trust theme={theme} icon={<Icons.phone size={16} color={theme.gold} stroke={1.8} />} label="Coursier appelle 30 min avant la remise" />

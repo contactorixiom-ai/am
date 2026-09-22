@@ -5,6 +5,7 @@ import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
+import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -149,18 +150,21 @@ export function ServicePickerScreen() {
           ))}
         </View>
 
-        {/* Insurance preview */}
-        <Surface variant="alt" style={{ marginTop: 18, padding: 14, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <Icons.shield size={28} color={theme.gold} stroke={1.6} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>
-              Assurance tous risques incluse
-            </Text>
-            <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
-              Jusqu'à 250 000 €, signature électronique des documents
-            </Text>
-          </View>
-        </Surface>
+        {/* Promesse d'assurance : affichée seulement si une couverture a
+            réellement été souscrite et renseignée. */}
+        {hasInsurance() ? (
+          <Surface variant="alt" style={{ marginTop: 18, padding: 14, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+            <Icons.shield size={28} color={theme.gold} stroke={1.6} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>
+                Marchandise assurée pendant le transport
+              </Text>
+              <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
+                Jusqu'à {coverageLabel()} · {INSURANCE.insurer}
+              </Text>
+            </View>
+          </Surface>
+        ) : null}
       </ScrollView>
 
       {/* Sticky CTA */}

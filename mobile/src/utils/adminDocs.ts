@@ -18,6 +18,7 @@ import {
   generatePackingListPdf,
   patchDoc,
   signatureFromSvgDataUrl,} from './pdf';
+import { INSURANCE } from '../config/company';
 import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -737,9 +738,11 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     defaults: (ctx) => ({
       number: ctx.reference,
       date: ctx.dateLong,
-      insurer: 'AXA Transport & Logistique',
-      policyNumber: 'TRP-2026-44821',
-      coverageAmount: '25000',
+      // Pré-remplis depuis la police réellement souscrite (app.json), vides
+      // tant qu'elle n'est pas renseignée.
+      insurer: INSURANCE.insurer,
+      policyNumber: INSURANCE.policyNumber,
+      coverageAmount: INSURANCE.coverageEur > 0 ? String(INSURANCE.coverageEur) : '',
       insured: 'Axis Import SAS pour le compte de qui il appartiendra',
       goods: '',
       route: '',

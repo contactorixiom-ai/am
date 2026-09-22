@@ -188,7 +188,7 @@ export const DOCUMENT_CATALOG: CatalogDoc[] = [
     source: 'generated',
     mandatory: true,
     appliesTo: ['parcel', 'commercial', 'vehicle'],
-    issuer: 'Assureur (AXA / Allianz via Axis)',
+    issuer: "L'assureur d'Axis",
     description: 'Couvre la marchandise pendant tout le transport. Le plafond et la nature des risques figurent sur l\'attestation.',
     generator: 'insuranceCertificate',
   },

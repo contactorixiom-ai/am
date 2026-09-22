@@ -1660,7 +1660,10 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
   doc.setFontSize(9.5);
   setColor(doc, INK, 'text');
   doc.text(doc.splitTextToSize(
-    `${data.insurer ?? 'AXA Transport & Logistique'} atteste que la marchandise désignée ci-dessous est couverte pendant toute la durée de son transport, conformément aux conditions générales de la police n° ${data.policyNumber ?? 'TRP-2026-44821'}.`,
+    // Aucun assureur par défaut : le générateur produisait une attestation au
+    // nom d'AXA, avec un numéro de police inventé, pour un document remis au
+    // client ou à la douane.
+    `${orTodo(data.insurer)} atteste que la marchandise désignée ci-dessous est couverte pendant toute la durée de son transport, conformément aux conditions générales de la police n° ${orTodo(data.policyNumber)}.`,
     W - 2 * M,
   ), M, y);
 
@@ -1673,8 +1676,8 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
     doc.setLineWidth(0.2);
     doc.line(M, y - 2.5, W - M, y - 2.5);
   };
-  row('Assureur', data.insurer ?? 'AXA Transport & Logistique');
-  row('N° de police', data.policyNumber ?? 'TRP-2026-44821');
+  row('Assureur', orTodo(data.insurer));
+  row('N° de police', orTodo(data.policyNumber));
   row('Assuré', data.insured ?? 'Axis Import SAS pour le compte de qui il appartiendra');
   row('Marchandise assurée', data.goods ?? '');
   row('Trajet couvert', data.route ?? 'Le Havre (FR) → Dakar (SN), maritime');

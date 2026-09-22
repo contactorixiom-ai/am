@@ -194,11 +194,13 @@ function mockOcrFor(key: string): Record<string, string> | undefined {
       'Prochain contrôle': '02/04/2027',
       'Résultat': 'Favorable',
     };
+    // Exemple d'aperçu : aucun assureur réel n'est nommé tant que le
+    // convoyeur n'a pas déposé son attestation.
     case 'ass': return {
-      'Assureur': 'AXA Assurances',
-      'N° contrat': 'AX-PRO-2026-4189',
-      'Couverture': 'Tous risques',
-      'Valide jusqu\'au': '31/12/2026',
+      'Assureur': '—',
+      'N° contrat': '—',
+      'Couverture': '—',
+      'Valide jusqu\'au': '—',
     };
     default: return undefined;
   }

@@ -72,8 +72,10 @@ réellement souscrite. Si des particuliers sont clients, l'adhésion à un
 **médiateur de la consommation** est obligatoire (art. L612-1 du code de la
 consommation) et ses coordonnées doivent figurer à l'article 13.
 
-Reste aussi à prévoir une **page de support** avec une adresse de contact
-réelle : App Store Connect en demande l'URL.
+La **page de support** est également écrite et publiée :
+<https://contactorixiom-ai.github.io/am/support.html> — questions fréquentes
+et coordonnées. L'adresse et le téléphone y sont à compléter, et l'adresse
+indiquée doit être relevée : App Store Connect vérifie que la page existe.
 
 ### 3. Questionnaire « confidentialité » d'App Store Connect
 
@@ -95,7 +97,17 @@ son véhicule, que le suivi ne démarre qu'au lancement explicite d'une mission
 et s'arrête à la livraison. Joindre une courte vidéo de l'écran « Mode
 chauffeur » évite un aller-retour.
 
-### 6. Visuels et fiche
+### 6. Visuels et fiche — captures prêtes
+
+Six captures par format sont générées dans `design/store/` :
+
+- `6.9/` — 1290 × 2796, le format qu'App Store Connect exige ;
+- `6.5/` — 1242 × 2688, pour les anciens modèles.
+
+Elles montrent l'accueil avec un envoi en cours, le suivi, le choix du
+service, les documents, le mode chauffeur et l'espace Axis. Elles sont
+produites à partir de l'application réelle, avec des données d'exemple
+cohérentes — pas de maquette.
 
 Captures d'écran iPhone (6,9" et 6,5"). `supportsTablet` est passé à
 `false` : l'application est pensée en portrait téléphone, inutile de

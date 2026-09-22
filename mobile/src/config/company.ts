@@ -15,6 +15,28 @@
 // impossible à envoyer par inadvertance, contrairement à un faux numéro
 // parfaitement crédible.
 
+/**
+ * Couverture d'assurance réellement souscrite par Axis.
+ *
+ * L'application annonçait « Assurance tous risques incluse · jusqu'à
+ * 250 000 € · AXA Transport / Allianz Marine » au moment où le client choisit
+ * son service et paie, et le générateur d'attestation produisait un document
+ * au nom d'AXA avec un numéro de police inventé. Promettre une couverture
+ * qu'on n'a pas, en nommant un assureur tiers, engage lourdement — et
+ * l'annonce intervient précisément au moment de la décision d'achat.
+ *
+ * Tant que ces valeurs ne sont pas renseignées, l'application n'annonce
+ * aucune assurance : mieux vaut ne rien promettre que promettre à faux.
+ */
+export interface InsuranceCover {
+  /** Nom de l'assureur, tel qu'il figure sur la police. */
+  insurer: string;
+  /** Numéro de la police souscrite. */
+  policyNumber: string;
+  /** Plafond d'indemnisation, en euros. 0 = non renseigné. */
+  coverageEur: number;
+}
+
 export interface CompanyIdentity {
   name: string;
   address: string;
@@ -56,6 +78,31 @@ function fromAppConfig(): Partial<CompanyIdentity> {
 }
 
 export const COMPANY: CompanyIdentity = { ...EMPTY, ...fromAppConfig() };
+
+const EMPTY_COVER: InsuranceCover = { insurer: '', policyNumber: '', coverageEur: 0 };
+
+function coverFromAppConfig(): Partial<InsuranceCover> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Constants = require('expo-constants').default;
+    const extra = Constants?.expoConfig?.extra as { insurance?: Partial<InsuranceCover> } | undefined;
+    return extra?.insurance ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export const INSURANCE: InsuranceCover = { ...EMPTY_COVER, ...coverFromAppConfig() };
+
+/** Vrai seulement si une couverture réelle a été renseignée. */
+export function hasInsurance(): boolean {
+  return Boolean(INSURANCE.insurer.trim()) && INSURANCE.coverageEur > 0;
+}
+
+/** « 250 000 € » — à n'appeler que si hasInsurance() est vrai. */
+export function coverageLabel(): string {
+  return `${INSURANCE.coverageEur.toLocaleString('fr-FR')} €`;
+}
 
 export const TODO = '[À COMPLÉTER]';
 
