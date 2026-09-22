@@ -2,7 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import { Linking, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import { LEGAL_PRIVACY_URL } from '../config/company';
 import { confirmAction, notify } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
 import { Avatar } from '../components/Avatar';
@@ -171,6 +172,18 @@ export function ProfileScreen() {
               onPress={() => nav.navigate('Conversations')}
             />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
+            {/* L'App Store impose que la politique de confidentialité soit
+                accessible ; la garder à portée de main dans l'application
+                évite d'avoir à la chercher sur le site. */}
+            <MenuRow
+              iconKey="shield"
+              label="Confidentialité et conditions"
+              sub="Ce que nous collectons, et pourquoi"
+              onPress={() => Linking.openURL(LEGAL_PRIVACY_URL).catch(() => notify(
+                'Page indisponible',
+                'Impossible d\'ouvrir la page. Réessaie avec une connexion.',
+              ))}
+            />
           </MenuSection>
 
           {/* Accès réservés : n'apparaissent que pour les rôles concernés. */}

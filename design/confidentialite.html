@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Politique de confidentialité — Axis Import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="_legal.css"/>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="brand">Axis Import</p>
+    <h1>Politique de confidentialité</h1>
+    <p>Dernière mise à jour : 22 septembre 2026</p>
+  </div>
+</header>
+
+<main>
+
+<div class="todo">
+  <strong>À compléter avant publication.</strong> Les mentions entre crochets
+  doivent être renseignées : identité de la société, adresse de contact, et
+  région d'hébergement de la base de données. Ce texte décrit fidèlement ce
+  que l'application fait aujourd'hui ; une relecture juridique reste
+  recommandée avant la mise en ligne.
+</div>
+
+<h2>1. Qui est responsable de vos données</h2>
+<p>
+  Le responsable du traitement est <strong>[RAISON SOCIALE]</strong>,
+  [FORME JURIDIQUE] immatriculée sous le numéro SIRET [SIRET], dont le siège
+  est situé [ADRESSE COMPLÈTE].
+</p>
+<p>Contact pour toute question relative aux données : <strong>[ADRESSE E-MAIL]</strong>.</p>
+
+<h2>2. Ce que nous collectons, et pourquoi</h2>
+<p>
+  Nous ne collectons que ce dont l'exécution du transport a besoin. Chaque
+  catégorie ci-dessous correspond à une donnée réellement enregistrée par
+  l'application.
+</p>
+
+<h3>Pour tout le monde</h3>
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th><th>Base légale</th></tr>
+  <tr><td>Nom, prénom, adresse e-mail, téléphone</td><td>Créer le compte, vous joindre au sujet d'un transport</td><td>Exécution du contrat</td></tr>
+  <tr><td>Mot de passe</td><td>Protéger l'accès. Il n'est jamais conservé en clair : seule une empreinte cryptographique (argon2id) est stockée</td><td>Exécution du contrat</td></tr>
+  <tr><td>Raison sociale, SIRET, n° de TVA, adresse (comptes professionnels)</td><td>Établir les factures et les documents douaniers</td><td>Obligation légale</td></tr>
+  <tr><td>Date de dernière connexion, journal des actions sensibles</td><td>Sécurité du compte, preuve en cas de litige</td><td>Intérêt légitime</td></tr>
+</table>
+
+<h3>Pour les clients expéditeurs</h3>
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th><th>Base légale</th></tr>
+  <tr><td>Adresses d'enlèvement et de livraison, dates</td><td>Organiser le transport</td><td>Exécution du contrat</td></tr>
+  <tr><td>Nom, téléphone et e-mail du destinataire</td><td>Remettre le colis ou le véhicule</td><td>Exécution du contrat</td></tr>
+  <tr><td>Véhicule confié : marque, modèle, immatriculation, numéro de série</td><td>Identifier le véhicule sur le contrat et l'état des lieux</td><td>Exécution du contrat</td></tr>
+  <tr><td>Nature, poids et valeur déclarée de la marchandise, code SH</td><td>Établir la liasse douanière</td><td>Obligation légale</td></tr>
+  <tr><td>Signature manuscrite tracée dans l'application</td><td>Signer le contrat de convoyage et l'état des lieux</td><td>Exécution du contrat</td></tr>
+  <tr><td>Référence du règlement, montant, statut</td><td>Suivre le paiement et émettre la facture</td><td>Obligation légale</td></tr>
+</table>
+
+<h3>Pour les convoyeurs</h3>
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th><th>Base légale</th></tr>
+  <tr><td>Pièce d'identité ou passeport, permis de conduire, justificatif de domicile</td><td>Vérifier que la personne à qui un véhicule est confié est bien celle qu'elle prétend être</td><td>Intérêt légitime, prévention de la fraude</td></tr>
+  <tr><td><strong>Position géographique précise, y compris en arrière-plan</strong></td><td>Permettre au client de suivre son véhicule pendant le convoyage</td><td>Exécution du contrat</td></tr>
+  <tr><td>Photos de l'état des lieux du véhicule</td><td>Constater l'état au départ et à l'arrivée, trancher un éventuel litige</td><td>Exécution du contrat</td></tr>
+</table>
+
+<h3>Dans tous les cas</h3>
+<ul>
+  <li><strong>Messages</strong> échangés entre le client, le convoyeur et Axis à propos d'un transport.</li>
+  <li><strong>Jeton de notification</strong> de l'appareil, pour vous prévenir d'un événement sur votre envoi.</li>
+  <li><strong>Modèle d'appareil et version du système</strong>, pour diagnostiquer un dysfonctionnement.</li>
+</ul>
+
+<h2>3. La géolocalisation, en détail</h2>
+<p>
+  C'est la donnée la plus sensible que nous traitons, et elle ne concerne que
+  les convoyeurs.
+</p>
+<ul>
+  <li>Le partage de position <strong>ne démarre pas tout seul</strong> : le convoyeur
+    lance explicitement une mission depuis le mode chauffeur.</li>
+  <li>Il <strong>s'arrête à la livraison</strong>, ou lorsque le convoyeur l'arrête
+    lui-même.</li>
+  <li>Pendant qu'il est actif, la position continue d'être transmise
+    <strong>écran verrouillé</strong> : sans cela le suivi s'interromprait dès que le
+    convoyeur range son téléphone, ce qui est le cas normal en conduisant.
+    Un indicateur du système le signale en permanence.</li>
+  <li>La position est visible <strong>du client concerné par ce transport</strong> et
+    d'Axis. Jamais d'un autre client, jamais d'un autre convoyeur.</li>
+  <li>Hors mission, l'application <strong>ne relève aucune position</strong>.</li>
+</ul>
+
+<h2>4. Le paiement</h2>
+<p>
+  Les paiements sont traités par <strong>Stripe</strong>, qui héberge la page de
+  paiement. <strong>Aucune donnée bancaire ne transite par nos serveurs et nous
+  n'en conservons aucune</strong> : nous enregistrons uniquement la référence de la
+  transaction, son montant, sa devise et son statut. Stripe agit comme
+  responsable de traitement distinct pour ces données ; sa politique est
+  consultable sur <a href="https://stripe.com/fr/privacy">stripe.com/fr/privacy</a>.
+</p>
+
+<h2>5. Qui voit vos données</h2>
+<p>Nous ne vendons aucune donnée et n'en cédons à aucun annonceur. Elles sont accessibles :</p>
+<ul>
+  <li>à <strong>vous</strong>, depuis votre espace ;</li>
+  <li>à <strong>l'équipe d'Axis Import</strong>, pour organiser et suivre vos transports ;</li>
+  <li>au <strong>convoyeur affecté</strong> à votre transport, limité à ce dossier :
+    trajet, véhicule, et votre nom pour la remise ;</li>
+  <li>aux <strong>autorités douanières</strong> du pays de destination, pour les seuls
+    documents que la réglementation impose (facture commerciale, certificat
+    d'origine, bordereau de suivi de cargaison) ;</li>
+  <li>à nos <strong>sous-traitants techniques</strong> : hébergement de l'application et
+    de la base de données (Railway), paiement (Stripe).</li>
+</ul>
+
+<h2>6. Où vos données sont hébergées</h2>
+<p>
+  L'application et sa base de données sont hébergées chez <strong>Railway</strong>,
+  dans la région <strong>[RÉGION D'HÉBERGEMENT]</strong>. Si cette région se situe
+  hors de l'Union européenne, le transfert s'appuie sur les clauses
+  contractuelles types de la Commission européenne.
+</p>
+
+<h2>7. Combien de temps nous les conservons</h2>
+<table>
+  <tr><th>Donnée</th><th>Durée</th><th>Pourquoi</th></tr>
+  <tr><td>Compte et profil</td><td>Jusqu'à sa suppression par vous</td><td>—</td></tr>
+  <tr><td>Factures et pièces comptables</td><td>10 ans</td><td>Article L102 B du Livre des procédures fiscales</td></tr>
+  <tr><td>Contrats signés, états des lieux, signatures</td><td>5 ans après la fin du transport</td><td>Valeur probante en cas de litige (art. L110-4 du code de commerce)</td></tr>
+  <tr><td>Documents douaniers</td><td>3 ans</td><td>Contrôle a posteriori de l'administration</td></tr>
+  <tr><td>Positions géographiques d'une mission</td><td>1 an après la livraison</td><td>Preuve du déroulement du convoyage</td></tr>
+  <tr><td>Pièces d'identité (KYC)</td><td>Supprimées à la suppression du compte</td><td>—</td></tr>
+  <tr><td>Messages</td><td>3 ans après le dernier échange</td><td>Suivi de la relation client</td></tr>
+</table>
+
+<h2>8. Supprimer votre compte</h2>
+<p>
+  Vous pouvez supprimer votre compte <strong>depuis l'application</strong> :
+  <em>Profil → Sécurité du compte → Supprimer mon compte</em>. La suppression est
+  immédiate et irréversible.
+</p>
+<p>Concrètement : votre accès est révoqué, vos sessions sont fermées, vos
+  pièces d'identité sont effacées, et votre nom, votre adresse e-mail et votre
+  téléphone sont retirés de nos systèmes.</p>
+<p>
+  <strong>Ce qui est conservé malgré la suppression</strong> : les factures, les
+  contrats signés et les états des lieux, pour les durées indiquées ci-dessus.
+  Le RGPD réserve expressément ces cas (article 17.3, b et e) : nous y sommes
+  tenus par la loi, et ces pièces établissent des droits en cas de litige.
+</p>
+
+<h2>9. Vos droits</h2>
+<p>
+  Vous disposez d'un droit d'accès, de rectification, d'effacement, de
+  limitation, d'opposition et de portabilité. Pour les exercer, écrivez à
+  <strong>[ADRESSE E-MAIL]</strong> ; nous répondons sous un mois.
+</p>
+<p>
+  Si notre réponse ne vous satisfait pas, vous pouvez saisir la CNIL —
+  3 place de Fontenoy, 75007 Paris — ou déposer une plainte sur
+  <a href="https://www.cnil.fr/fr/plaintes">cnil.fr</a>.
+</p>
+
+<h2>10. Sécurité</h2>
+<ul>
+  <li>Les échanges entre l'application et nos serveurs sont chiffrés (HTTPS).</li>
+  <li>Les mots de passe ne sont jamais stockés en clair.</li>
+  <li>Les fichiers que vous transmettez — pièces d'identité, photos d'état des
+    lieux — ne sont pas accessibles publiquement : leur consultation exige une
+    authentification, et une pièce d'identité n'est visible que de la personne
+    qui l'a transmise et d'Axis.</li>
+  <li>Les accès sont cloisonnés par dossier : un client ne voit que ses envois,
+    un convoyeur que les missions qui lui sont affectées.</li>
+</ul>
+
+<h2>11. Mineurs</h2>
+<p>
+  L'application n'est pas destinée aux personnes de moins de 18 ans et nous ne
+  collectons pas sciemment leurs données.
+</p>
+
+<h2>12. Modifications</h2>
+<p>
+  Toute modification substantielle de cette politique vous sera signalée dans
+  l'application avant son entrée en vigueur.
+</p>
+
+</main>
+
+<footer>
+  <p>Axis Import — transport et convoyage. <a href="cgu.html">Conditions générales d'utilisation</a></p>
+</footer>
+</body>
+</html>

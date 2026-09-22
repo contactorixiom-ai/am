@@ -14,7 +14,7 @@
       "backgroundColor": "#0B2545"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.axisimport.app",
       "buildNumber": "1",
       "infoPlist": {

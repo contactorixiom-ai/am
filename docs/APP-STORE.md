@@ -51,13 +51,29 @@ en parallèle, celui-là bloque.
 
 Pas besoin de Mac : EAS Build compile sur des machines Apple chez Expo.
 
-### 2. Pages légales publiques
+### 2. Pages légales publiques — rédigées, à compléter
 
-- **Politique de confidentialité** : l'URL est obligatoire dans App Store
-  Connect. Doit couvrir la géolocalisation en arrière-plan, les photos, les
-  pièces d'identité KYC et la durée de conservation.
-- **Conditions générales** et une **page de support** avec une adresse de
-  contact réelle.
+Deux pages sont écrites et publiées avec le site :
+
+- <https://contactorixiom-ai.github.io/am/confidentialite.html>
+- <https://contactorixiom-ai.github.io/am/cgu.html>
+
+Elles décrivent ce que l'application fait réellement : géolocalisation en
+arrière-plan du convoyeur, pièces d'identité, photos d'état des lieux,
+signatures, paiement par Stripe, durées de conservation et suppression du
+compte. La première est celle à renseigner dans App Store Connect.
+
+**Il reste à les compléter** : identité de la société, adresse de contact et
+région d'hébergement Railway sont entre crochets. Deux articles des CGU —
+l'assurance et la responsabilité — engagent directement la société : ils sont
+rédigés à partir du droit applicable au transport mais **doivent être relus
+par un professionnel du droit** et alignés sur la police d'assurance
+réellement souscrite. Si des particuliers sont clients, l'adhésion à un
+**médiateur de la consommation** est obligatoire (art. L612-1 du code de la
+consommation) et ses coordonnées doivent figurer à l'article 13.
+
+Reste aussi à prévoir une **page de support** avec une adresse de contact
+réelle : App Store Connect en demande l'URL.
 
 ### 3. Questionnaire « confidentialité » d'App Store Connect
 
@@ -81,10 +97,10 @@ chauffeur » évite un aller-retour.
 
 ### 6. Visuels et fiche
 
-Captures d'écran iPhone (6,9" et 6,5"). `supportsTablet` est à `true` :
-soit fournir aussi les captures iPad et vérifier l'affichage sur tablette,
-soit **passer ce réglage à `false`** — l'application est pensée en portrait
-téléphone, c'est le plus simple.
+Captures d'écran iPhone (6,9" et 6,5"). `supportsTablet` est passé à
+`false` : l'application est pensée en portrait téléphone, inutile de
+répondre à la revue de défauts d'affichage sur une tablette que personne n'a
+demandée. Aucune capture iPad n'est donc à fournir.
 
 ### 7. Paiements
 

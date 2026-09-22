@@ -90,3 +90,9 @@ export function companyContactLine(): string {
 export function companyRegistrationLine(): string {
   return `RCS ${orTodo(COMPANY.rcs)} · SIRET ${orTodo(COMPANY.siret)}`;
 }
+
+// Pages légales publiées avec le site : l'App Store exige une politique de
+// confidentialité accessible, et l'application y renvoie directement.
+const LEGAL_BASE = 'https://contactorixiom-ai.github.io/am';
+export const LEGAL_PRIVACY_URL = `${LEGAL_BASE}/confidentialite.html`;
+export const LEGAL_TERMS_URL = `${LEGAL_BASE}/cgu.html`;
