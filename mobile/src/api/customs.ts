@@ -72,8 +72,9 @@ export async function getRequirements(
   countryCode: string,
   parcelId?: string,
 ): Promise<CountryRequirements> {
+  // Appel authentifié : l'avancement d'un colis précis ne regarde que son
+  // expéditeur. La liste brute des réglementations reste publique.
   return apiFetch<CountryRequirements>(`/customs/requirements/${countryCode}`, {
-    skipAuth: true,
     params: { parcelId },
   });
 }

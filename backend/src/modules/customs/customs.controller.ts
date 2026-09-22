@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CustomsService } from './customs.service';
@@ -39,7 +40,10 @@ export class CustomsController {
     return this.customs.listRegulations();
   }
 
-  @Public()
+  // Route authentifiée : sur une route publique, le jeton n'est jamais
+  // validé et l'appartenance du colis ne peut donc pas être vérifiée. La
+  // réglementation brute d'un pays reste accessible via /regulations.
+  @ApiBearerAuth()
   @Get('requirements/:countryCode')
   @ApiOperation({
     summary: 'Réglementation + checklist des documents requis pour un pays',
@@ -53,10 +57,13 @@ export class CustomsController {
   })
   getRequirements(
     @Param('countryCode') countryCode: string,
+    @CurrentUser() user?: AuthenticatedUser,
     @Query('parcelId') parcelId?: string,
     @Query('kind') kind?: 'parcel' | 'vehicle' | 'personalParcel' | 'commercial',
   ) {
-    return this.customs.getRequirements(countryCode, parcelId, kind);
+    // La réglementation d'un pays reste publique ; l'avancement d'un colis
+    // précis exige d'être connecté et d'en être l'expéditeur.
+    return this.customs.getRequirements(countryCode, parcelId, kind, user);
   }
 
   @ApiBearerAuth()
@@ -100,21 +107,25 @@ export class CustomsController {
   @ApiBearerAuth()
   @Post('cargo-notes')
   @ApiOperation({ summary: 'Créer un bordereau de suivi pour un colis' })
-  createCargoNote(@Body() dto: CreateCargoNoteDto) {
-    return this.customs.createCargoNote(dto);
+  createCargoNote(@Body() dto: CreateCargoNoteDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.customs.createCargoNote(dto, user);
   }
 
   @ApiBearerAuth()
   @Get('cargo-notes')
   @ApiOperation({ summary: 'Lister les bordereaux (filtre par colis)' })
   @ApiQuery({ name: 'parcelId', required: false })
-  listCargoNotes(@Query('parcelId') parcelId?: string) {
-    return this.customs.listCargoNotes(parcelId);
+  listCargoNotes(@CurrentUser() user: AuthenticatedUser, @Query('parcelId') parcelId?: string) {
+    return this.customs.listCargoNotes(user, parcelId);
   }
 
+  // Déclarer un bordereau validé ou émis engage Axis auprès de l'autorité du
+  // pays de destination (COSEC, OIC…). N'importe quel client authentifié
+  // pouvait le faire, et inscrire le numéro de son choix.
   @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
   @Patch('cargo-notes/:id/status')
-  @ApiOperation({ summary: 'Mettre à jour le statut d\'un bordereau' })
+  @ApiOperation({ summary: 'Mettre à jour le statut d\'un bordereau (admin)' })
   updateCargoNoteStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateCargoNoteStatusDto,

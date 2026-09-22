@@ -1,14 +1,18 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   CargoTrackingStatus,
   CargoTrackingType,
   Prisma,
+  UserRole,
 } from '@prisma/client';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   COUNTRY_REGULATIONS,
@@ -128,8 +132,17 @@ export class CustomsService {
    * Si un parcelId est fourni, calcule l'état "fourni / manquant" de chaque
    * document à partir des documents douaniers déjà rattachés au colis.
    */
-  async getRequirements(countryCode: string, parcelId?: string, kind?: ShipmentKind) {
+  async getRequirements(
+    countryCode: string,
+    parcelId?: string,
+    kind?: ShipmentKind,
+    user?: AuthenticatedUser,
+  ) {
     const reg = await this.getRegulation(countryCode);
+    // La réglementation d'un pays est publique ; l'état d'avancement d'un
+    // envoi précis ne l'est pas. Sans ce contrôle, n'importe qui pouvait
+    // savoir quels documents manquaient au colis d'un autre client.
+    if (parcelId) await this.assertOwnsParcel(parcelId, user);
     const allDocs = (reg.requiredDocuments as unknown as RequiredDocument[]) ?? [];
     // Filtrage par type d'envoi : un colis ne demande pas les docs véhicule.
     const requiredDocuments = kind ? filterDocumentsForShipment(allDocs, kind) : allDocs;
@@ -184,7 +197,7 @@ export class CustomsService {
 
   // ─── CargoTrackingNote ───────────────────────────────────────────────────
 
-  async createCargoNote(dto: CreateCargoNoteDto) {
+  async createCargoNote(dto: CreateCargoNoteDto, user: AuthenticatedUser) {
     const destinationCountry = dto.destinationCountry.toUpperCase();
 
     // Type requis : explicite, sinon déduit du pays, sinon générique.
@@ -193,13 +206,9 @@ export class CustomsService {
       trackingTypeForCountry(destinationCountry) ??
       CargoTrackingType.CARGO_WAIVER;
 
-    if (dto.parcelId) {
-      const parcel = await this.prisma.parcel.findUnique({
-        where: { id: dto.parcelId },
-        select: { id: true },
-      });
-      if (!parcel) throw new BadRequestException('Colis introuvable');
-    }
+    // On ne rattache un bordereau qu'à un colis dont on est l'expéditeur :
+    // l'existence du colis était vérifiée, pas son propriétaire.
+    if (dto.parcelId) await this.assertOwnsParcel(dto.parcelId, user);
 
     const regulation = await this.prisma.countryRegulation.findUnique({
       where: { countryCode: destinationCountry },
@@ -224,14 +233,39 @@ export class CustomsService {
     });
   }
 
-  listCargoNotes(parcelId?: string) {
-    const where: Prisma.CargoTrackingNoteWhereInput = {};
-    if (parcelId) where.parcelId = parcelId;
+  /**
+   * Bordereaux de l'expéditeur connecté, ou tous pour un administrateur.
+   *
+   * La liste n'était filtrée par rien : tout utilisateur authentifié
+   * récupérait l'ensemble des bordereaux, numéro de connaissement, code SH et
+   * valeur FOB de la marchandise compris — les données commerciales de tous
+   * les clients.
+   */
+  async listCargoNotes(user: AuthenticatedUser, parcelId?: string) {
+    if (parcelId) await this.assertOwnsParcel(parcelId, user);
+    const where: Prisma.CargoTrackingNoteWhereInput = parcelId
+      ? { parcelId }
+      : user.role === UserRole.ADMIN
+        ? {}
+        : { parcel: { senderId: user.id } };
     return this.prisma.cargoTrackingNote.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: { regulation: true },
     });
+  }
+
+  /** Le colis doit appartenir au demandeur, sauf pour un administrateur. */
+  private async assertOwnsParcel(parcelId: string, user?: AuthenticatedUser): Promise<void> {
+    if (!user) throw new UnauthorizedException('Connexion requise pour ce colis.');
+    const parcel = await this.prisma.parcel.findUnique({
+      where: { id: parcelId },
+      select: { senderId: true },
+    });
+    if (!parcel) throw new BadRequestException('Colis introuvable');
+    if (parcel.senderId !== user.id && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Ce colis ne vous appartient pas.');
+    }
   }
 
   async updateCargoNoteStatus(id: string, dto: UpdateCargoNoteStatusDto) {
