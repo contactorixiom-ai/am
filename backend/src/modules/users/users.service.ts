@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
@@ -46,6 +46,65 @@ export class UsersService {
       data: dto,
       select: this.safeSelect,
     });
+  }
+
+  /**
+   * Suppression du compte à la demande de son titulaire.
+   *
+   * Exigée par l'App Store : une application qui permet de créer un compte
+   * doit permettre de le supprimer depuis l'application elle-même, un lien
+   * de contact ne suffit pas (règle 5.1.1(v)).
+   *
+   * Suppression logique : les identifiants directs sont effacés et l'accès
+   * est révoqué, mais les pièces à valeur probante ou comptable sont
+   * conservées — factures (dix ans, art. L102 B du LPF), contrats signés et
+   * procès-verbaux d'état des lieux. Le RGPD réserve expressément ce cas
+   * (art. 17.3 b et e : obligation légale et constatation d'un droit).
+   */
+  async deleteAccount(userId: string): Promise<{ deletedAt: Date }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, deletedAt: true },
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    if (user.deletedAt) return { deletedAt: user.deletedAt };
+
+    const deletedAt = new Date();
+    // L'adresse et le téléphone sont uniques : on les neutralise au lieu de
+    // les vider, pour que la personne puisse se réinscrire ensuite.
+    const tombstone = `supprime+${userId}@axis-import.invalid`;
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          deletedAt,
+          status: UserStatus.DELETED,
+          email: tombstone,
+          phone: null,
+          firstName: 'Compte',
+          lastName: 'supprimé',
+          avatarUrl: null,
+          companyName: null,
+          companyVatId: null,
+          companySiret: null,
+          companyAddress: null,
+        },
+      }),
+      // Révocation de toutes les sessions ouvertes.
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.pushToken.deleteMany({ where: { userId } }),
+      // Les pièces d'identité n'ont plus lieu d'être conservées.
+      this.prisma.kycDocument.deleteMany({ where: { userId } }),
+    ]);
+
+    await this.prisma.auditLog
+      .create({
+        data: { userId, action: 'ACCOUNT_DELETE', entity: 'User', entityId: userId },
+      })
+      .catch(() => { /* la suppression reste effective */ });
+
+    return { deletedAt };
   }
 
   async upsertDriverProfile(userId: string, dto: UpsertDriverProfileDto) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -24,6 +24,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Mettre à jour son profil' })
   updateMe(@CurrentUser('id') userId: string, @Body() dto: UpdateUserDto) {
     return this.users.updateProfile(userId, dto);
+  }
+
+  // Exigée par l'App Store (règle 5.1.1(v)) : la suppression du compte doit
+  // pouvoir être lancée depuis l'application, pas seulement par courriel.
+  @Delete('me')
+  @ApiOperation({ summary: 'Supprimer son compte' })
+  deleteMe(@CurrentUser('id') userId: string) {
+    return this.users.deleteAccount(userId);
   }
 
   @Put('me/driver-profile')

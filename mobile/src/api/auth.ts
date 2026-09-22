@@ -53,3 +53,16 @@ export async function logout(): Promise<void> {
 export async function fetchMe(): Promise<SessionUser> {
   return apiFetch<SessionUser>('/users/me');
 }
+
+/**
+ * Supprime définitivement son compte.
+ *
+ * L'App Store exige que la suppression puisse être lancée depuis
+ * l'application (règle 5.1.1(v)) : renvoyer vers une adresse de contact ne
+ * suffit pas. Les pièces comptables et les documents signés sont conservés
+ * au titre des obligations légales, l'accès et les données personnelles
+ * directes sont supprimés.
+ */
+export async function deleteAccount(): Promise<{ deletedAt: string }> {
+  return apiFetch<{ deletedAt: string }>('/users/me', { method: 'DELETE' });
+}

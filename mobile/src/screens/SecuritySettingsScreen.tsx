@@ -9,11 +9,12 @@ import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
-import { notify } from '../utils/notify';
+import { confirmAction, notify } from '../utils/notify';
+import { deleteAccount } from '../api/auth';
+import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { fetchSessions, revokeSession, type AuthSession } from '../api/security';
-import { COMPANY, orTodo } from '../config/company';
 
 const STORAGE_KEY = 'axis.security.v1';
 
@@ -86,6 +87,32 @@ function toScreenSession(s: AuthSession): Session {
 }
 
 export function SecuritySettingsScreen() {
+  const { logout } = useSession();
+  const [deleting, setDeleting] = useState(false);
+
+  // L'App Store impose que la suppression du compte se lance depuis
+  // l'application (règle 5.1.1(v)) : l'écran renvoyait vers une adresse de
+  // contact, ce qui vaut un refus à la revue.
+  const removeAccount = () => {
+    confirmAction(
+      'Supprimer définitivement ton compte',
+      "Ton accès et tes informations personnelles seront supprimés immédiatement. Les factures, contrats signés et états des lieux sont conservés : la loi nous y oblige. Cette action est irréversible.",
+      async () => {
+        setDeleting(true);
+        try {
+          await deleteAccount();
+          notify('Compte supprimé', 'Ton compte a été supprimé. Tu peux en créer un nouveau à tout moment.');
+          await logout();
+        } catch {
+          notify('Suppression impossible', 'Le serveur est injoignable. Réessaie dans un instant.');
+        } finally {
+          setDeleting(false);
+        }
+      },
+      'Supprimer',
+    );
+  };
+
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [s, setS] = useState<State>(DEFAULT);
@@ -283,7 +310,7 @@ export function SecuritySettingsScreen() {
         {/* RGPD / confidentialité */}
         <Section title="Confidentialité (RGPD)">
           <ActionRow icon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />} label="Exporter mes données" sub="Reçu par email sous 48h" onPress={() => notify('Demande enregistrée', 'Ton archive sera envoyée sous 48h conformément au RGPD.')} />
-          <ActionRow icon={<Icons.x size={18} color={theme.bad} stroke={2} />} label="Supprimer mon compte" sub="Suppression définitive sous 30 j" danger onPress={() => notify('Action sensible', `Contacte ${orTodo(COMPANY.email)} pour confirmer la suppression.`)} />
+          <ActionRow icon={<Icons.x size={18} color={theme.bad} stroke={2} />} label={deleting ? 'Suppression en cours…' : 'Supprimer mon compte'} sub="Immédiate et irréversible" danger onPress={removeAccount} />
         </Section>
       </ScrollView>
 
