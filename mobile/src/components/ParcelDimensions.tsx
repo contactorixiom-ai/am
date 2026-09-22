@@ -57,8 +57,10 @@ export function ParcelDimensions({ value, onChange, onPickPreset }: Props) {
             fontFamily: TYPO.weights.semibold,
             fontSize: 16,
             padding: 0,
-            // @ts-expect-error : web-only outline removal
-            outlineStyle: 'none',
+            // Suppression du liseré de focus sur le web. Depuis React Native
+            // 0.81, outlineStyle est typé et n'accepte plus « none » : on
+            // passe par la largeur, équivalente et typée.
+            outlineWidth: 0,
           }}
         />
         <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.semibold, marginLeft: 4 }}>

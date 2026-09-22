@@ -735,7 +735,7 @@ export function VehicleInspectionScreen() {
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
               <Icons.warn size={18} color={theme.gold} stroke={1.8} />
               <Text style={{ flex: 1, fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
-                Les deux signatures valident l'état des lieux. Signature électronique conforme eIDAS (UE) n°910/2014, valeur d'une signature manuscrite.
+                Les deux signatures valident l'état des lieux. Signature électronique simple au sens du règlement (UE) n° 910/2014 (eIDAS, art. 25) : recevable comme preuve, sans présomption de fiabilité.
               </Text>
             </Surface>
           </>
@@ -821,7 +821,7 @@ export function VehicleInspectionScreen() {
   );
 }
 
-function SignatureBlock({ title, who, padRef, onSign, signed }: { title: string; who: string; padRef: React.RefObject<SignaturePadHandle>; onSign: (v: boolean) => void; signed: boolean }) {
+function SignatureBlock({ title, who, padRef, onSign, signed }: { title: string; who: string; padRef: React.RefObject<SignaturePadHandle | null>; onSign: (v: boolean) => void; signed: boolean }) {
   const { theme } = useTheme();
   return (
     <Surface padded style={{ padding: 14, gap: 10 }}>

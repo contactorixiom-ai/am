@@ -2,31 +2,32 @@
 
 État au 22 septembre 2026.
 
-## Le blocage principal : la version d'Expo
+## La montée de version est faite
 
 Depuis le **28 avril 2026**, Apple refuse toute application qui n'est pas
 compilée avec **Xcode 26 et le SDK iOS 26**
 ([annonce Apple](https://developer.apple.com/news/upcoming-requirements/)).
+Le projet était en **Expo SDK 51** (React Native 0.74.5, mi-2024) et ne
+pouvait donc pas être soumis.
 
-Le projet est sur **Expo SDK 51** (React Native 0.74.5), sorti mi-2024. Il ne
-peut donc pas être soumis en l'état. Expo indique que les projets en **SDK 54
-ou 55** sont compatibles sans rien changer, et que sous SDK 53 il faut soit
-monter de version, soit forcer l'image de compilation — avec une compatibilité
-non garantie selon les bibliothèques utilisées
+Il est désormais en **Expo SDK 54** (React Native 0.81.5, React 19). Expo
+indique que les projets en SDK 54 ou 55 sont compatibles sans intervention :
+l'image de compilation EAS par défaut utilise Xcode 26
 ([blog Expo](https://expo.dev/blog/app-store-connect-minimum-sdk-26)).
 
-**Deux chemins :**
+Le SDK 54 plutôt qu'une version plus récente, pour deux raisons :
 
-| | Monter en SDK 54/55 | Forcer `"image": "latest"` en SDK 51 |
-|---|---|---|
-| Fiabilité | La voie prévue par Expo | Compatibilité non garantie |
-| Effort | Migration à faire, à tester | Une ligne dans `eas.json` |
-| Effet de bord | Débloque aussi **Expo Go**, demandé depuis longtemps | Aucun |
+- c'est la version que sert l'**Expo Go de l'App Store**, donc la seule qui
+  permette d'ouvrir l'application depuis l'Expo Go public, sans installer
+  quoi que ce soit d'autre ;
+- c'est le plus petit saut qui satisfasse Apple, donc le moins risqué à
+  quelques jours d'une bêta.
 
-La migration est le bon choix : elle règle le sujet durablement et rend enfin
-l'application testable dans Expo Go. À prévoir comme un chantier à part
-entière — react-native-maps, expo-location, expo-notifications et jsPDF sont
-à revalider après la montée de version.
+Ce qui a été vérifié ici : compilation TypeScript sans erreur, empaquetage
+web et Android réussis, et parcours des trois rôles dans un navigateur sans
+plantage. Ce qui **ne peut pas** l'être dans cet environnement : la
+compilation native iOS et Android. Le premier `eas build` reste l'étape de
+vérité.
 
 ## Ce qui est déjà en place
 

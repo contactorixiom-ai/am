@@ -140,19 +140,18 @@ versionnés.
 
 ## 7. Avoir l'app sur le téléphone — et pourquoi pas Expo Go
 
-**Expo Go ne peut pas ouvrir cette application.** Deux raisons, chacune
-suffisante :
+**Expo Go fonctionne maintenant** : le projet est passé en SDK 54, et c'est
+précisément la version que sert l'Expo Go de l'App Store. Installer Expo Go,
+lancer `npx expo start` et scanner le QR code suffit pour parcourir
+l'application sur son téléphone.
 
-1. Expo Go de l'App Store ne supporte que le SDK 54 et au-delà. Le projet
-   est en SDK 51 : Expo Go répondrait « Project is incompatible with this
-   version of Expo Go ».
-2. Même après une montée de version, Expo Go **ne sait pas exécuter le suivi
-   GPS en arrière-plan** — ni sur iOS, ni sur Android. C'est justement la
-   fonction centrale du mode chauffeur.
-
-L'équivalent qui fonctionne est le **client de développement** : même
-expérience (on scanne un QR code, l'app se recharge à chaque modification),
-mais avec toutes les fonctions natives.
+**Une limite demeure** : Expo Go **ne sait pas exécuter le suivi GPS en
+arrière-plan**, ni sur iOS ni sur Android. Le mode chauffeur s'ouvre et
+s'utilise, mais la position ne continue pas d'être transmise écran
+verrouillé. Pour éprouver cette fonction — la plus importante du mode
+chauffeur — il faut le **client de développement**, qui offre la même
+expérience (QR code, rechargement à chaque modification) avec toutes les
+fonctions natives.
 
 ### Une fois : construire le client
 
