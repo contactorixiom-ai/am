@@ -135,6 +135,53 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Télécharge un fichier protégé (photo d'état des lieux, pièce KYC) et le
+ * rend sous forme de data URL affichable.
+ *
+ * Les fichiers ne sont plus servis publiquement : une balise image ne peut
+ * pas porter l'en-tête d'autorisation, il faut donc les récupérer soi-même.
+ * Renvoie null si le fichier est inaccessible — l'appelant affiche alors un
+ * emplacement vide plutôt qu'une image cassée.
+ */
+export async function fetchProtectedImage(url: string): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+
+  const load = async (token: string | null): Promise<Response | null> => {
+    try {
+      return await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  let token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY).catch(() => null);
+  let res = await load(token);
+  if (res && res.status === 401) {
+    const fresh = await (refreshing ??= refreshAccessToken());
+    refreshing = null;
+    if (!fresh) return null;
+    token = fresh;
+    res = await load(token);
+  }
+  if (!res || !res.ok) return null;
+
+  try {
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
   const method = opts.method ?? 'GET';
 

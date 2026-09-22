@@ -40,6 +40,8 @@ export interface Inspection {
   driverSignatureUrl?: string | null;
   clientSignedAt?: string | null;
   driverSignedAt?: string | null;
+  /** Signature du client recueillie sur l'appareil du convoyeur. */
+  clientSignedInPerson?: boolean;
   createdAt: string;
   photos?: InspectionPhoto[];
 }

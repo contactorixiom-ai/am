@@ -18,6 +18,9 @@ import {
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
 import { getPaymentsSummary, listPayments, PaymentRecord, PaymentsSummary } from '../api/payments';
 import { contractVerifyUrl, DocumentRecord, listDocuments } from '../api/documents';
+import { Inspection, listInspections } from '../api/inspections';
+import { AuthImage } from '../components/AuthImage';
+import { DAMAGE_META } from '../components/VehicleDiagram';
 import { companyAddress } from '../config/company';
 import { Modal } from 'react-native';
 import { AdminDocForm } from '../components/AdminDocForm';
@@ -296,6 +299,10 @@ export function AdminScreen() {
   // Contrats signés par les clients, indexés par mission : Roger voit qui a
   // signé et récupère la signature sur son exemplaire du contrat.
   const [signedContracts, setSignedContracts] = useState<Map<string, DocumentRecord>>(new Map());
+  // États des lieux par mission. Sans cet écran, tout ce que le convoyeur
+  // relève sur le terrain — croquis, photos, signatures — restait invisible.
+  const [inspections, setInspections] = useState<Map<string, Inspection[]>>(new Map());
+  const [inspectionMission, setInspectionMission] = useState<MissionSummary | null>(null);
 
   // Onglet Documents
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
@@ -324,12 +331,28 @@ export function AdminScreen() {
       setParcels(DEMO_PARCELS);
     } else {
       setOffline(false);
-      setMissions(mOk ? mRes.value.data : []);
+      const ms = mOk ? mRes.value.data : [];
+      setMissions(ms);
       setParcels(pOk ? pRes.value.data : []);
+      void loadInspections(ms);
     }
     setShipmentsLoading(false);
     setRefreshing(false);
   }, []);
+
+  /** États des lieux des convoyages affichés, chargés en parallèle. */
+  const loadInspections = async (ms: MissionSummary[]) => {
+    const entries = await Promise.all(
+      ms.slice(0, 25).map(async (m): Promise<[string, Inspection[]]> => {
+        try {
+          return [m.id, await listInspections(m.id)];
+        } catch {
+          return [m.id, []];
+        }
+      }),
+    );
+    setInspections(new Map(entries.filter(([, list]) => list.length > 0)));
+  };
 
   useEffect(() => {
     loadShipments();
@@ -631,6 +654,7 @@ export function AdminScreen() {
       {renderStatusModal()}
       {renderAssignModal()}
       {renderOrderModal()}
+      {renderInspectionModal()}
     </SafeAreaView>
   );
 
@@ -889,6 +913,60 @@ export function AdminScreen() {
   }
 
   // ─── Modale : affecter un convoyeur ────────────────────────────────────────
+  // ─── États des lieux d'un convoyage ───────────────────────────────────────
+  // Ce que le convoyeur relève sur le terrain n'avait aucun écran côté Axis :
+  // kilométrage, croquis des dommages, photos et signatures existaient en
+  // base sans que personne ne puisse les consulter.
+  function renderInspectionModal() {
+    const m = inspectionMission;
+    const list = m ? (inspections.get(m.id) ?? []) : [];
+    const ordered = [...list].sort((a, b) => (a.type === 'PRE_DEPARTURE' ? -1 : 1) - (b.type === 'PRE_DEPARTURE' ? -1 : 1));
+
+    return (
+      <Modal visible={!!m} transparent animationType="slide" onRequestClose={() => setInspectionMission(null)}>
+        <Pressable onPress={() => setInspectionMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '92%' }}>
+            {m ? (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
+                <View>
+                  <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                    États des lieux
+                  </Text>
+                  <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }} numberOfLines={1}>
+                    {m.reference}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    {m.pickupCity} → {m.deliveryCity} · {m.vehicle.make} {m.vehicle.model}
+                  </Text>
+                </View>
+
+                {ordered.map((insp) => (
+                  <InspectionCard key={insp.id} inspection={insp} theme={theme} />
+                ))}
+
+                {ordered.length < 2 ? (
+                  <Banner
+                    tone="info"
+                    title={ordered.length === 0 ? 'Aucun état des lieux' : "État des lieux d'arrivée manquant"}
+                    message={
+                      ordered.length === 0
+                        ? "Le convoyeur n'a encore rien relevé pour ce convoyage."
+                        : "Il sera rempli à la remise du véhicule. Sans lui, aucune comparaison n'est possible en cas de litige."
+                    }
+                  />
+                ) : null}
+
+                <Button kind="outline" size="md" fullWidth onPress={() => setInspectionMission(null)}>
+                  Fermer
+                </Button>
+              </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
   function renderAssignModal() {
     const m = assignMission;
     return (
@@ -1733,11 +1811,16 @@ export function AdminScreen() {
                   {m.pickupCity} → {m.deliveryCity} · {m.vehicle.make} {m.vehicle.model}
                   {m.driver ? ` · ${m.driver.firstName} ${m.driver.lastName}` : ''}
                 </Text>
-                {signedContracts.has(m.id) ? (
-                  <View style={{ flexDirection: 'row' }}>
-                    <Pill tone="good">Contrat signé par le client</Pill>
-                  </View>
-                ) : null}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {signedContracts.has(m.id) ? <Pill tone="good">Contrat signé par le client</Pill> : null}
+                  {(inspections.get(m.id) ?? []).map((i) => (
+                    <Pill key={i.id} tone={i.status === 'SIGNED' ? 'good' : 'gold'}>
+                      {`${i.type === 'PRE_DEPARTURE' ? 'EDL départ' : "EDL arrivée"} · ${
+                        i.status === 'SIGNED' ? 'signé' : i.status === 'SUBMITTED' ? 'à signer' : 'brouillon'
+                      }`}
+                    </Pill>
+                  ))}
+                </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => openAssign(m)}>
                     {m.driver ? 'Changer' : 'Affecter'}
@@ -1749,6 +1832,17 @@ export function AdminScreen() {
                     Contrat
                   </Button>
                 </View>
+                {(inspections.get(m.id) ?? []).length > 0 ? (
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    fullWidth
+                    leftIcon={<Icons.camera size={15} color={theme.ink} stroke={1.8} />}
+                    onPress={() => setInspectionMission(m)}
+                  >
+                    Voir les états des lieux
+                  </Button>
+                ) : null}
               </Surface>
             ))}
 
@@ -1895,6 +1989,128 @@ export function AdminScreen() {
 // ─── Tuiles du tableau de bord ───────────────────────────────────────────────
 
 type DashTone = 'navy' | 'gold' | 'warn' | 'plain';
+
+/** Faces du croquis, telles que le convoyeur les voit. */
+const VIEW_LABELS: Record<string, string> = {
+  top: 'dessus', front: 'avant', rear: 'arrière', left: 'côté gauche', right: 'côté droit',
+};
+
+/** Contrôles Oui/Non posés au client (VehicleInspectionScreen). */
+const CONTROL_LABELS: Record<string, string> = {
+  clean: 'propreté', docs: 'documents de bord', equip: 'équipements',
+  cleanInt: 'intérieur', cleanExt: 'extérieur', place: 'lieu et heure',
+};
+
+// Un état des lieux vu par Axis : relevés, croquis des dommages, photos et
+// signatures. Lecture seule — Roger constate, il ne rédige pas le PV.
+function InspectionCard({
+  inspection: i,
+  theme,
+}: {
+  inspection: Inspection;
+  theme: ReturnType<typeof useTheme>['theme'];
+}) {
+  const depart = i.type === 'PRE_DEPARTURE';
+  const signed = i.status === 'SIGNED';
+  const damages = i.damages ?? [];
+  const photos = i.photos ?? [];
+  const controls = Object.entries(i.controls ?? {});
+  const fmt = (iso?: string | null) =>
+    iso && !Number.isNaN(new Date(iso).getTime())
+      ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : null;
+
+  return (
+    <Surface padded style={{ padding: 14, gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Icons.truck size={16} color={theme.muted} stroke={1.7} />
+        <Text style={{ flex: 1, fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+          {depart ? 'Prise en charge' : 'Livraison'}
+        </Text>
+        <Pill tone={signed ? 'good' : 'gold'}>
+          {signed ? 'Signé' : i.status === 'SUBMITTED' ? 'À contresigner' : 'Brouillon'}
+        </Pill>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        <View>
+          <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: TYPO.weights.medium }}>
+            Kilométrage
+          </Text>
+          <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
+            {i.mileage != null ? `${i.mileage.toLocaleString('fr-FR')} km` : '—'}
+          </Text>
+        </View>
+        <View>
+          <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: TYPO.weights.medium }}>
+            Carburant
+          </Text>
+          <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
+            {i.fuelLevel != null ? `${i.fuelLevel} %` : '—'}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: TYPO.weights.medium }}>
+            Dommages
+          </Text>
+          <Text style={{ fontSize: 15, color: damages.length ? theme.warn : theme.ink, fontFamily: TYPO.weights.bold }}>
+            {damages.length || 'aucun'}
+          </Text>
+        </View>
+      </View>
+
+      {damages.length > 0 ? (
+        <View style={{ gap: 4 }}>
+          {damages.slice(0, 8).map((d, idx) => (
+            <Text key={`${d.view}-${idx}`} style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
+              · {DAMAGE_META[d.code]?.label ?? d.code} — {VIEW_LABELS[d.view] ?? d.view}
+            </Text>
+          ))}
+          {damages.length > 8 ? (
+            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+              et {damages.length - 8} autre{damages.length - 8 > 1 ? 's' : ''}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {controls.length > 0 ? (
+        <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+          Contrôles client : {controls.map(([k, v]) => `${CONTROL_LABELS[k] ?? k} ${v ? 'OK' : 'NON'}`).join(' · ')}
+        </Text>
+      ) : null}
+
+      {i.generalNotes ? (
+        <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>{i.generalNotes}</Text>
+      ) : null}
+
+      {photos.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {photos.map((ph) => (
+            <View key={ph.id} style={{ gap: 4 }}>
+              <AuthImage url={ph.url} style={{ width: 96, height: 72, borderRadius: RADII.sm }} label={ph.caption ?? undefined} />
+              <Text style={{ fontSize: 10.5, color: theme.muted, fontFamily: TYPO.weights.medium, maxWidth: 96 }} numberOfLines={1}>
+                {ph.caption ?? ph.tag ?? 'Photo'}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      ) : (
+        <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Aucune photo transmise.</Text>
+      )}
+
+      <View style={{ borderTopWidth: 1, borderTopColor: theme.line, paddingTop: 8, gap: 3 }}>
+        <Text style={{ fontSize: 12, color: i.driverSignedAt ? theme.good : theme.muted, fontFamily: TYPO.weights.medium }}>
+          Convoyeur : {i.driverSignedAt ? `signé le ${fmt(i.driverSignedAt)}` : 'non signé'}
+        </Text>
+        <Text style={{ fontSize: 12, color: i.clientSignedAt ? theme.good : theme.muted, fontFamily: TYPO.weights.medium }}>
+          Client : {i.clientSignedAt ? `signé le ${fmt(i.clientSignedAt)}` : 'non signé'}
+          {i.clientSignedAt && i.clientSignedInPerson ? ' — recueillie en présence du convoyeur' : ''}
+        </Text>
+      </View>
+    </Surface>
+  );
+}
 
 function DashTile({
   theme,
