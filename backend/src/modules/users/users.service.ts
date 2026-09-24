@@ -36,7 +36,7 @@ export class UsersService {
       where: { id },
       select: { ...this.safeSelect, driverProfile: true },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Utilisateur introuvable.');
     return user;
   }
 
@@ -109,9 +109,9 @@ export class UsersService {
 
   async upsertDriverProfile(userId: string, dto: UpsertDriverProfileDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Utilisateur introuvable.');
     if (user.role !== UserRole.DRIVER) {
-      throw new ForbiddenException('Only DRIVER accounts can have a driver profile');
+      throw new ForbiddenException('Seuls les comptes convoyeur ont un profil convoyeur.');
     }
     return this.prisma.driverProfile.upsert({
       where: { userId },

@@ -23,6 +23,7 @@ import { AuthImage } from '../components/AuthImage';
 import { DAMAGE_META } from '../components/VehicleDiagram';
 import { companyAddress } from '../config/company';
 import { Modal } from 'react-native';
+import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
@@ -287,6 +288,8 @@ export function AdminScreen() {
 
   // Prise de commande (modale)
   const [orderOpen, setOrderOpen] = useState(false);
+  // Client à qui envoyer son lien d'accès (commande saisie par téléphone).
+  const [accessTarget, setAccessTarget] = useState<{ userId: string; name: string } | null>(null);
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientOption[] | null>(null);
@@ -652,6 +655,7 @@ export function AdminScreen() {
       </ScrollView>
 
       {renderStatusModal()}
+      <AccessLinkSheet target={accessTarget} onClose={() => setAccessTarget(null)} />
       {renderAssignModal()}
       {renderOrderModal()}
       {renderInspectionModal()}
@@ -769,7 +773,14 @@ export function AdminScreen() {
       setMissions((prev) => [created, ...prev]);
       setOrderOpen(false);
       setTab('shipments');
-      notify('Commande enregistrée', `${created.reference} — ${created.pickupCity} vers ${created.deliveryCity}.`);
+      if (!o.clientId && created.client?.id) {
+        // Nouveau client : il n'a pas de mot de passe. On propose tout de
+        // suite de lui envoyer son accès, sinon il ne pourra jamais signer
+        // ni payer depuis l'application.
+        setAccessTarget({ userId: created.client.id, name: `${created.client.firstName} ${created.client.lastName}`.trim() });
+      } else {
+        notify('Commande enregistrée', `${created.reference} — ${created.pickupCity} vers ${created.deliveryCity}.`);
+      }
     } catch (e) {
       setOrderError(e instanceof Error ? e.message : 'Enregistrement impossible. Réessaie dans un instant.');
     } finally {
@@ -1828,6 +1839,16 @@ export function AdminScreen() {
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromMission(m)}>
                     Facture
                   </Button>
+                  {m.client?.id ? (
+                    <Button
+                      kind="outline"
+                      size="sm"
+                      style={{ flex: 1 }}
+                      onPress={() => setAccessTarget({ userId: m.client!.id!, name: `${m.client!.firstName} ${m.client!.lastName}`.trim() })}
+                    >
+                      Accès
+                    </Button>
+                  ) : null}
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => contractFromMission(m)}>
                     Contrat
                   </Button>

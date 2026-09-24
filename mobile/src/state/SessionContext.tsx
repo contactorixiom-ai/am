@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { fetchMe, login as apiLogin, logout as apiLogout, register as apiRegister, SessionUser } from '../api/auth';
+import { fetchMe, login as apiLogin, logout as apiLogout, register as apiRegister, resetPassword as apiResetPassword, SessionUser } from '../api/auth';
 import { hasSession } from '../api/client';
 
 interface SessionContextValue {
@@ -7,6 +7,7 @@ interface SessionContextValue {
   initializing: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -41,6 +42,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     },
     register: async (input) => {
       const r = await apiRegister(input);
+      setUser(r.user);
+    },
+    resetPassword: async (token, password) => {
+      const r = await apiResetPassword(token, password);
       setUser(r.user);
     },
     logout: async () => {

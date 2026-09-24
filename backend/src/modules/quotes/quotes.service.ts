@@ -173,10 +173,10 @@ export class QuotesService {
       where: { id },
       include: { options: true },
     });
-    if (!quote) throw new NotFoundException('Quote not found');
+    if (!quote) throw new NotFoundException('Devis introuvable.');
     // Quotes are accessible by their owner or by anyone who has the id (anonymous quotes).
     if (quote.customerId && user?.id !== quote.customerId && user?.role !== 'ADMIN') {
-      throw new NotFoundException('Quote not found');
+      throw new NotFoundException('Devis introuvable.');
     }
     return quote;
   }

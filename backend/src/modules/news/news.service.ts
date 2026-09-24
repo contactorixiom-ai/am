@@ -41,7 +41,7 @@ export class NewsService {
       },
     });
     if (!article || article.status !== NewsStatus.PUBLISHED) {
-      throw new NotFoundException('Article not found');
+      throw new NotFoundException('Article introuvable.');
     }
     await this.prisma.newsArticle.update({
       where: { id: article.id },
@@ -51,7 +51,7 @@ export class NewsService {
   }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto) {
-    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Admin only');
+    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
     return this.prisma.newsArticle.create({
       data: {
         title: dto.title,

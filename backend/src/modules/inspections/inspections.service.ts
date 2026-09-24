@@ -24,9 +24,9 @@ export class InspectionsService {
       where: { id: missionId },
       select: { clientId: true, driverId: true, reference: true },
     });
-    if (!mission) throw new NotFoundException('Mission not found');
+    if (!mission) throw new NotFoundException('Mission introuvable.');
     if (inspectorId !== mission.clientId && inspectorId !== mission.driverId) {
-      throw new ForbiddenException('Not a mission participant');
+      throw new ForbiddenException('Vous ne participez pas à cette mission.');
     }
 
     const data = {
@@ -84,7 +84,7 @@ export class InspectionsService {
       where: { id: missionId },
       select: { clientId: true, driverId: true },
     });
-    if (!mission) throw new NotFoundException('Mission not found');
+    if (!mission) throw new NotFoundException('Mission introuvable.');
     this.assertParticipant(mission, user);
     return this.prisma.inspection.findMany({
       where: { missionId },
@@ -114,7 +114,7 @@ export class InspectionsService {
   async submit(id: string, user: AuthenticatedUser) {
     const insp = await this.findOne(id, user);
     if (insp.status !== InspectionStatus.DRAFT) {
-      throw new BadRequestException('Already submitted');
+      throw new BadRequestException('Déjà envoyé.');
     }
     return this.prisma.inspection.update({
       where: { id },
@@ -147,7 +147,7 @@ export class InspectionsService {
       data.clientSignedAt = new Date();
       data.clientSignedInPerson = inPerson;
     } else {
-      if (user.id !== insp.mission.driverId) throw new ForbiddenException('Only driver can sign as DRIVER');
+      if (user.id !== insp.mission.driverId) throw new ForbiddenException('Seul le convoyeur peut signer en tant que convoyeur.');
       if (insp.driverSignedAt) throw new BadRequestException('Le convoyeur a déjà signé cet état des lieux.');
       data.driverSignatureUrl = dto.signatureUrl;
       data.driverSignedAt = new Date();

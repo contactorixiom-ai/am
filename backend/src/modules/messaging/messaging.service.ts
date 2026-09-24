@@ -158,7 +158,7 @@ export class MessagingService {
 
   async updateCall(callId: string, userId: string, status: CallStatus) {
     const call = await this.prisma.call.findUnique({ where: { id: callId } });
-    if (!call) throw new NotFoundException('Call not found');
+    if (!call) throw new NotFoundException('Appel introuvable.');
     await this.requireMember(call.conversationId, userId);
 
     const data: Record<string, unknown> = { status };
@@ -177,7 +177,7 @@ export class MessagingService {
     const part = await this.prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
-    if (!part) throw new ForbiddenException('Not a conversation participant');
+    if (!part) throw new ForbiddenException('Vous ne participez pas à cette conversation.');
     return { id: conversationId };
   }
 }

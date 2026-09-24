@@ -36,7 +36,7 @@ export class VehiclesService {
       where: { id, deletedAt: null },
       include: { photos: { orderBy: { position: 'asc' } } },
     });
-    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (!vehicle) throw new NotFoundException('Véhicule introuvable.');
     return vehicle;
   }
 
@@ -61,7 +61,7 @@ export class VehiclesService {
 
   private async assertOwner(id: string, userId: string): Promise<void> {
     const v = await this.prisma.vehicle.findUnique({ where: { id }, select: { ownerId: true } });
-    if (!v) throw new NotFoundException('Vehicle not found');
-    if (v.ownerId !== userId) throw new ForbiddenException('Not vehicle owner');
+    if (!v) throw new NotFoundException('Véhicule introuvable.');
+    if (v.ownerId !== userId) throw new ForbiddenException('Ce véhicule ne vous appartient pas.');
   }
 }

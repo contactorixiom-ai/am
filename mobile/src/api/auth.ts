@@ -45,6 +45,39 @@ export async function login(email: string, password: string): Promise<AuthResult
   return r;
 }
 
+/** « Mot de passe oublié » : la réponse ne dit pas si l'adresse existe. */
+export async function forgotPassword(email: string): Promise<{ emailSent: boolean }> {
+  return apiFetch<{ emailSent: boolean }>('/auth/password/forgot', {
+    method: 'POST',
+    body: { email },
+    skipAuth: true,
+  });
+}
+
+/** Choisit un mot de passe à partir d'un lien reçu, puis ouvre la session. */
+export async function resetPassword(token: string, password: string): Promise<AuthResult> {
+  const r = await apiFetch<AuthResult>('/auth/password/reset', {
+    method: 'POST',
+    body: { token, password },
+    skipAuth: true,
+  });
+  await setSession(r.accessToken, r.refreshToken);
+  return r;
+}
+
+export interface AccessLink {
+  url: string;
+  expiresAt: string;
+  email: string;
+  phone: string | null;
+  firstName: string;
+}
+
+/** Admin : lien d'accès à transmettre au client (WhatsApp, SMS). */
+export async function createAccessLink(userId: string): Promise<AccessLink> {
+  return apiFetch<AccessLink>('/auth/access-link', { method: 'POST', body: { userId } });
+}
+
 export async function logout(): Promise<void> {
   try { await apiFetch('/auth/logout', { method: 'POST', body: {} }); } catch { /* ignore */ }
   await clearSession();

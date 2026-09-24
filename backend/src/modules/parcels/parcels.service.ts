@@ -163,7 +163,7 @@ export class ParcelsService {
       where: { id },
       include: { items: true, trackingEvents: { orderBy: { occurredAt: 'asc' } } },
     });
-    if (!parcel) throw new NotFoundException('Parcel not found');
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
     if (user.role !== UserRole.ADMIN && parcel.senderId !== user.id) {
       throw new ForbiddenException();
     }
@@ -189,14 +189,14 @@ export class ParcelsService {
         trackingEvents: { orderBy: { occurredAt: 'asc' } },
       },
     });
-    if (!parcel) throw new NotFoundException('Parcel not found');
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
     return this.withCoords(parcel);
   }
 
   async addEvent(id: string, dto: AddParcelEventDto, user: AuthenticatedUser) {
-    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Admin only');
+    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
     const parcel = await this.prisma.parcel.findUnique({ where: { id } });
-    if (!parcel) throw new NotFoundException('Parcel not found');
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
 
     await this.prisma.parcelTrackingEvent.create({
       data: {

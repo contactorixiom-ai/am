@@ -180,7 +180,7 @@ export function HomeScreen() {
             conduire : le réclamer à un client qui envoie un colis n'a aucun
             sens, et c'est ce qu'il voyait dès l'ouverture de l'application.
             Masquée aussi hors ligne, l'API n'ayant alors pas répondu. */}
-        {isDriver && kycStatus !== null && kycStatus !== 'APPROVED' ? (
+        {isDriverOnly && kycStatus !== null && kycStatus !== 'APPROVED' ? (
           <Banner
             tone={kycStatus === 'REJECTED' ? 'error' : 'info'}
             title={

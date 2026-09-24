@@ -58,7 +58,7 @@ export class DocumentsService {
       where: { id },
       include: { mission: { select: { clientId: true, driverId: true } } },
     });
-    if (!doc) throw new NotFoundException('Document not found');
+    if (!doc) throw new NotFoundException('Document introuvable.');
     if (doc.ownerId !== user.id && doc.visibility === 'PRIVATE') {
       const m = doc.mission;
       const isParticipant = m && (m.clientId === user.id || m.driverId === user.id);
@@ -69,7 +69,7 @@ export class DocumentsService {
 
   async remove(id: string, user: AuthenticatedUser) {
     const doc = await this.prisma.document.findUnique({ where: { id }, select: { ownerId: true } });
-    if (!doc) throw new NotFoundException('Document not found');
+    if (!doc) throw new NotFoundException('Document introuvable.');
     if (doc.ownerId !== user.id && user.role !== 'ADMIN') throw new ForbiddenException();
     return this.prisma.document.delete({ where: { id } });
   }

@@ -15,6 +15,8 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   Register: undefined;
+  ForgotPassword: { email?: string } | undefined;
+  ResetPassword: { token?: string } | undefined;
   TrackByReference: undefined;
   AppTabs: undefined;
   ServicePicker: undefined;

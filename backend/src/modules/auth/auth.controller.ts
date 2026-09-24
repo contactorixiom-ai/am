@@ -13,12 +13,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { AccessLinkDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -28,6 +32,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
   @Post('register')
   @ApiOperation({ summary: 'Créer un compte (client, convoyeur ou pro)' })
   register(@Body() dto: RegisterDto) {
@@ -35,6 +40,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
   @ApiOperation({ summary: 'Connexion par email + mot de passe' })
@@ -51,6 +57,32 @@ export class AuthController {
   @ApiOperation({ summary: 'Renouveler les tokens via refresh token' })
   refresh(@Body() dto: RefreshDto) {
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('password/forgot')
+  @ApiOperation({ summary: 'Recevoir un lien pour choisir un nouveau mot de passe' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.requestPasswordReset(dto.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 15 * 60 * 1000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Choisir un mot de passe à partir d\'un lien (connecte l\'utilisateur)' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.token, dto.password);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Post('access-link')
+  @ApiOperation({ summary: 'Admin : créer un lien d\'accès à envoyer au client (WhatsApp, SMS)' })
+  accessLink(@CurrentUser('id') adminId: string, @Body() dto: AccessLinkDto) {
+    return this.auth.createAccessLink(adminId, dto.userId);
   }
 
   @UseGuards(JwtAuthGuard)

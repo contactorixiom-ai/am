@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { Platform } from 'react-native';
 import { CustomTabBar } from '../components/CustomTabBar';
 import { SplashScreen } from '../components/SplashScreen';
 import { BookingConfirmationScreen } from '../screens/BookingConfirmationScreen';
@@ -10,7 +11,9 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { KycVerificationScreen } from '../screens/KycVerificationScreen';
+import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { ConversationsScreen } from '../screens/ConversationsScreen';
 import { DriverModeScreen } from '../screens/DriverModeScreen';
@@ -78,10 +81,30 @@ function AppTabs() {
   );
 }
 
+// Lien de réinitialisation ouvert dans le navigateur :
+// …/app/?reinitialisation=JETON. Lu une seule fois au démarrage, puis
+// retiré de la barre d'adresse (il ne doit pas rester dans l'historique ni
+// être recopié par erreur).
+function takeResetTokenFromUrl(): string | undefined {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+  try {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('reinitialisation') ?? undefined;
+    if (token) {
+      url.searchParams.delete('reinitialisation');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+    return token || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function RootNavigator() {
   const { theme } = useTheme();
   const { user, initializing } = useSession();
   const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
+  const [resetToken] = React.useState(takeResetTokenFromUrl);
 
   const [minElapsed, setMinElapsed] = React.useState(false);
 
@@ -113,6 +136,15 @@ export function RootNavigator() {
           headerShown: false,
         }}
       >
+        {resetToken && !user ? (
+          // Arrivée par un lien : on va droit au choix du mot de passe,
+          // sans passer par l'introduction.
+          <RootStack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            initialParams={{ token: resetToken }}
+          />
+        ) : null}
         {user ? (
           <>
             <RootStack.Screen name="AppTabs" component={AppTabs} />
@@ -148,6 +180,8 @@ export function RootNavigator() {
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Register" component={RegisterScreen} />
+            <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            {!resetToken ? <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} /> : null}
             <RootStack.Screen name="TrackByReference" component={TrackByReferenceScreen} />
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
           </>

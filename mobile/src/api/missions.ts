@@ -27,7 +27,7 @@ export interface MissionSummary {
     type?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER' | null;
   };
   driver?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
-  client?: { firstName: string; lastName: string } | null;
+  client?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
 }
 
 export interface MissionStatusEvent {

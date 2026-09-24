@@ -25,9 +25,9 @@ export class MissionsService {
 
   async create(clientId: string, dto: CreateMissionDto) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
-    if (!vehicle || vehicle.deletedAt) throw new NotFoundException('Vehicle not found');
+    if (!vehicle || vehicle.deletedAt) throw new NotFoundException('Véhicule introuvable.');
     if (vehicle.ownerId !== clientId) {
-      throw new ForbiddenException('You can only create missions for your own vehicles');
+      throw new ForbiddenException('Vous ne pouvez créer une mission que pour vos propres véhicules.');
     }
 
     return this.prisma.mission.create({
@@ -244,16 +244,16 @@ export class MissionsService {
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
-    if (!mission) throw new NotFoundException('Mission not found');
+    if (!mission) throw new NotFoundException('Mission introuvable.');
     this.assertCanView(mission, user);
     return mission;
   }
 
   async publish(id: string, userId: string) {
     const mission = await this.requireMission(id);
-    if (mission.clientId !== userId) throw new ForbiddenException('Only the client can publish');
+    if (mission.clientId !== userId) throw new ForbiddenException('Seul le client peut publier la mission.');
     if (mission.status !== MissionStatus.DRAFT) {
-      throw new BadRequestException(`Cannot publish from status ${mission.status}`);
+      throw new BadRequestException(`Publication impossible : la mission est au statut ${mission.status}.`);
     }
     return this.transition(id, MissionStatus.PUBLISHED, userId);
   }
@@ -261,7 +261,7 @@ export class MissionsService {
   async accept(id: string, driverId: string) {
     const mission = await this.requireMission(id);
     if (mission.status !== MissionStatus.PUBLISHED) {
-      throw new BadRequestException('Mission not available');
+      throw new BadRequestException('Cette mission n\'est plus disponible.');
     }
     // On confie un véhicule à cette personne : son identité et son permis
     // doivent avoir été vérifiés par Axis. N'importe quel compte, client
@@ -296,10 +296,10 @@ export class MissionsService {
 
     const finalStatuses: MissionStatus[] = [MissionStatus.COMPLETED, MissionStatus.CANCELLED];
     if (finalStatuses.includes(mission.status)) {
-      throw new BadRequestException('Mission cloturee : affectation impossible');
+      throw new BadRequestException('Mission clôturée : affectation impossible.');
     }
     if (mission.status === MissionStatus.DELIVERED) {
-      throw new BadRequestException('Mission deja livree : affectation impossible');
+      throw new BadRequestException('Mission déjà livrée : affectation impossible.');
     }
 
     const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
@@ -386,9 +386,9 @@ export class MissionsService {
 
   async start(id: string, driverId: string) {
     const mission = await this.requireMission(id);
-    if (mission.driverId !== driverId) throw new ForbiddenException('Not assigned driver');
+    if (mission.driverId !== driverId) throw new ForbiddenException('Vous n\'êtes pas le convoyeur affecté à cette mission.');
     if (mission.status !== MissionStatus.ACCEPTED) {
-      throw new BadRequestException(`Cannot start from status ${mission.status}`);
+      throw new BadRequestException(`Départ impossible : la mission est au statut ${mission.status}.`);
     }
     const updated = await this.prisma.mission.update({
       where: { id },
@@ -410,9 +410,9 @@ export class MissionsService {
 
   async deliver(id: string, driverId: string) {
     const mission = await this.requireMission(id);
-    if (mission.driverId !== driverId) throw new ForbiddenException('Not assigned driver');
+    if (mission.driverId !== driverId) throw new ForbiddenException('Vous n\'êtes pas le convoyeur affecté à cette mission.');
     if (mission.status !== MissionStatus.IN_PROGRESS) {
-      throw new BadRequestException(`Cannot deliver from status ${mission.status}`);
+      throw new BadRequestException(`Livraison impossible : la mission est au statut ${mission.status}.`);
     }
     const updated = await this.prisma.mission.update({
       where: { id },
@@ -434,9 +434,9 @@ export class MissionsService {
 
   async complete(id: string, userId: string) {
     const mission = await this.requireMission(id);
-    if (mission.clientId !== userId) throw new ForbiddenException('Only client can complete');
+    if (mission.clientId !== userId) throw new ForbiddenException('Seul le client peut clôturer la mission.');
     if (mission.status !== MissionStatus.DELIVERED) {
-      throw new BadRequestException(`Cannot complete from status ${mission.status}`);
+      throw new BadRequestException(`Clôture impossible : la mission est au statut ${mission.status}.`);
     }
     return this.prisma.mission.update({
       where: { id },
@@ -455,7 +455,7 @@ export class MissionsService {
     }
     const finalStatuses: MissionStatus[] = [MissionStatus.COMPLETED, MissionStatus.CANCELLED];
     if (finalStatuses.includes(mission.status)) {
-      throw new BadRequestException(`Cannot cancel from status ${mission.status}`);
+      throw new BadRequestException(`Annulation impossible : la mission est au statut ${mission.status}.`);
     }
     return this.prisma.mission.update({
       where: { id },
@@ -651,7 +651,7 @@ export class MissionsService {
 
   private async requireMission(id: string) {
     const mission = await this.prisma.mission.findUnique({ where: { id } });
-    if (!mission) throw new NotFoundException('Mission not found');
+    if (!mission) throw new NotFoundException('Mission introuvable.');
     return mission;
   }
 

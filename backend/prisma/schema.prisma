@@ -78,6 +78,7 @@ model User {
   auditLogs       AuditLog[]
   quotes          Quote[]                   @relation("QuoteCustomer")
   payments        Payment[]                 @relation("PaymentClient")
+  passwordResets  PasswordResetToken[]
 
   @@index([email])
   @@index([phone])
@@ -1086,4 +1087,27 @@ model Payment {
   @@index([status, createdAt])
   @@index([missionId])
   @@index([parcelId])
+}
+
+// ============================================================================
+//  RÉINITIALISATION DU MOT DE PASSE
+// ============================================================================
+
+// Lien à usage unique pour définir ou redéfinir son mot de passe. Sert aussi
+// à activer les comptes créés par Axis lors d'une prise de commande : ces
+// clients reçoivent un mot de passe aléatoire qu'ils ne connaissent pas.
+// Seule l'empreinte du jeton est stockée : une fuite de la base ne donne
+// aucun lien utilisable.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  // Administrateur à l'origine du lien, si ce n'est pas le titulaire.
+  createdBy String?   @db.Uuid
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

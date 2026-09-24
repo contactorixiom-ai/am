@@ -139,6 +139,25 @@ npm run promote:admin -- roger@exemple.fr
 
 Ensuite, l'espace apparaît dans *Profil → Espace admin*.
 
+## Donner l'accès à un client pris au téléphone
+
+Quand Roger saisit une commande pour un **nouveau client**, le compte de ce
+client est créé sans mot de passe connu. Juste après l'enregistrement,
+l'application affiche **« Accès client »** avec un lien à envoyer :
+
+- **Envoyer par WhatsApp** si un numéro a été saisi (message déjà rédigé) ;
+- sinon **Copier le message** et l'envoyer par SMS ou e-mail.
+
+Le client ouvre le lien, choisit son mot de passe et arrive directement dans
+son espace : suivi, contrat à signer, facture à régler. Le lien est valable
+7 jours et ne sert qu'une fois. Pour en renvoyer un : *Espace admin → Envois*,
+bouton **« Accès »** sur la mission du client.
+
+Un client qui a perdu son mot de passe touche **« Mot de passe oublié ? »**
+sur l'écran de connexion. Tant que l'envoi d'e-mails n'est pas branché
+(clé `RESEND_API_KEY` sur Railway), il est invité à contacter Axis : Roger lui
+envoie alors un lien avec le bouton « Accès ».
+
 ---
 
 # En résumé

@@ -2,18 +2,24 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { assertProductionSecrets } from './common/security/assert-secrets';
+import { frenchValidationErrors } from './common/validation/french-errors';
 
 async function bootstrap() {
   // Avant toute chose : un serveur signé avec une clé connue est un serveur
   // où n'importe qui peut se faire passer pour l'administrateur.
   assertProductionSecrets();
 
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  // Railway place l'API derrière un proxy : sans cela, toutes les requêtes
+  // semblent venir de la même adresse et la limitation de débit bloquerait
+  // tout le monde à la fois.
+  app.set('trust proxy', 1);
   const config = app.get(ConfigService);
 
   const port = config.get<number>('port', 3000);
@@ -42,6 +48,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: frenchValidationErrors,
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());

@@ -33,7 +33,9 @@ export function LoginScreen() {
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) {
-          setError('Email ou mot de passe incorrect.');
+          setError('Email ou mot de passe incorrect. Compte créé par Axis ? Utilisez « Mot de passe oublié » pour choisir votre mot de passe.');
+        } else if (e.status === 429) {
+          setError('Trop de tentatives. Patientez une minute avant de réessayer.');
         } else if (e.isNetworkError) {
           setError(`Impossible de joindre le serveur. ${e.message}`);
         } else {
@@ -104,6 +106,9 @@ export function LoginScreen() {
           <View style={{ gap: SPACING.md }}>
             <Button kind="primary" size="lg" fullWidth onPress={submit} loading={loading}>
               Se connecter
+            </Button>
+            <Button kind="ghost" onPress={() => nav.navigate('ForgotPassword', { email: email.trim() || undefined })}>
+              Mot de passe oublié ?
             </Button>
             <Button kind="ghost" onPress={() => nav.navigate('Register')}>
               Pas encore de compte ? Créer un compte

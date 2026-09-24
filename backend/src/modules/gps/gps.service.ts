@@ -12,10 +12,10 @@ export class GpsService {
       where: { id: missionId },
       select: { driverId: true, status: true },
     });
-    if (!mission) throw new NotFoundException('Mission not found');
-    if (mission.driverId !== driverId) throw new ForbiddenException('Not assigned driver');
+    if (!mission) throw new NotFoundException('Mission introuvable.');
+    if (mission.driverId !== driverId) throw new ForbiddenException('Vous n\'êtes pas le convoyeur affecté à cette mission.');
     if (mission.status !== MissionStatus.IN_PROGRESS) {
-      throw new ForbiddenException('Mission not in progress');
+      throw new ForbiddenException('La mission n\'est pas en cours.');
     }
     return this.prisma.missionLocation.create({
       data: {

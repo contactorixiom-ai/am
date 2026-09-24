@@ -61,7 +61,19 @@ export default () => ({
 
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60', 10),
-    limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '300', 10),
+  },
+
+  // Adresse de l'application pour les clients (web). Les liens de
+  // réinitialisation du mot de passe pointent vers elle.
+  appUrl: (process.env.PUBLIC_APP_URL ?? 'https://contactorixiom-ai.github.io/am/app/').replace(/\/?$/, '/'),
+
+  // Envoi d'e-mails transactionnels (facultatif). Sans clé, les liens de
+  // réinitialisation sont seulement générés côté administrateur, à
+  // transmettre par WhatsApp ou SMS.
+  mail: {
+    resendApiKey: process.env.RESEND_API_KEY,
+    from: process.env.MAIL_FROM ?? 'Axis Import <no-reply@axis-import.fr>',
   },
 
   stripe: {

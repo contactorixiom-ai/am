@@ -30,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       select: { id: true, email: true, role: true, status: true },
     });
     if (!user || user.status === UserStatus.DELETED || user.status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedException('Invalid or inactive user');
+      throw new UnauthorizedException('Session expirée ou compte inactif. Reconnectez-vous.');
     }
     return { id: user.id, email: user.email, role: user.role };
   }
