@@ -46,6 +46,8 @@ export interface PaymentRecord {
   currency: string;
   status: PaymentRecordStatus;
   paidAt?: string | null;
+  /** Numéro de facture légal, attribué au règlement. */
+  invoiceNumber?: string | null;
   createdAt: string;
   missionId?: string | null;
   parcelId?: string | null;

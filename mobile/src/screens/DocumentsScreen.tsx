@@ -72,13 +72,15 @@ export function DocumentsScreen() {
         const signed = safeParse<Record<string, { signed?: boolean; signedAt?: string }>>(signedRaw);
         const paid = safeParse<Record<string, { paid?: boolean }>>(paidRaw);
 
-        // Dossiers réglés d'après le serveur — source de vérité.
-        const settled = new Set<string>();
+        // Dossiers réglés d'après le serveur — seule source de vérité, avec le
+        // numéro de facture légal attribué au règlement.
+        const settled = new Map<string, { invoiceNumber?: string | null; paidAt?: string | null }>();
         (payRes?.data ?? [])
           .filter((r) => r.status === 'PAID')
           .forEach((r) => {
-            if (r.missionId) settled.add(`m-${r.missionId}`);
-            if (r.parcelId) settled.add(`p-${r.parcelId}`);
+            const info = { invoiceNumber: r.invoiceNumber, paidAt: r.paidAt };
+            if (r.missionId) settled.set(`m-${r.missionId}`, info);
+            if (r.parcelId) settled.set(`p-${r.parcelId}`, info);
           });
 
         // Contrats signés d'après le serveur — source de vérité.
@@ -108,13 +110,16 @@ export function DocumentsScreen() {
           }),
         );
         setInvoices(
-          invoicesFrom(missions, parcels).map((i) =>
-            settled.has(i.id)
-              ? { ...i, paid: true }
-              : paid[i.id]?.paid != null
-                ? { ...i, paid: !!paid[i.id].paid }
-                : i,
-          ),
+          invoicesFrom(missions, parcels).map((i) => {
+            const s = settled.get(i.id);
+            if (!s) return i;
+            return {
+              ...i,
+              paid: true,
+              title: s.invoiceNumber ?? i.title,
+              date: s.paidAt ? new Date(s.paidAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : i.date,
+            };
+          }),
         );
         setLoading(false);
       })();
@@ -231,7 +236,7 @@ export function DocumentsScreen() {
       number: inv.title, date: inv.date, amountEur: inv.amountEur, paid: inv.paid,
       description: inv.ref, clientName, clientEmail,
     });
-    notify('Facture téléchargée', `${inv.title}.pdf enregistré dans tes fichiers.`);
+    notify(inv.paid ? 'Facture téléchargée' : 'Bon de commande téléchargé', `${inv.title}.pdf enregistré dans tes fichiers.`);
   };
 
   const payInvoice = (inv: Invoice) => {
@@ -311,7 +316,7 @@ export function DocumentsScreen() {
                 <Pill tone={inv.paid ? 'good' : 'warn'}>{inv.paid ? 'Payé' : 'À régler'}</Pill>
                 <Text style={{ fontSize: 14, color: theme.ink, marginTop: 6, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{inv.title}</Text>
                 <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
-                  {`${inv.amountEur.toLocaleString('fr-FR')} € · ${inv.ref}`}
+                  {`${inv.amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € · ${inv.ref}`}
                 </Text>
               </View>
               {inv.paid ? (

@@ -1083,6 +1083,9 @@ model Payment {
   currency    String        @default("EUR")
   status      PaymentStatus @default(PENDING)
   paidAt      DateTime?
+  // Numéro de facture, attribué au règlement dans une suite chronologique et
+  // continue par année (FA-2026-000001), comme l'exige la loi.
+  invoiceNumber String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1114,4 +1117,10 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// Compteur de numérotation des factures, un par année civile.
+model InvoiceSequence {
+  year Int @id
+  last Int @default(0)
 }

@@ -87,10 +87,11 @@ export function invoicesFrom(missions: MissionSummary[], parcels: ParcelSummary[
     .filter((m) => m.status !== 'CANCELLED' && (m.priceCents ?? 0) > 0)
     .map((m) => ({
       id: `m-${m.id}`,
-      title: `FA-${m.reference}`,
+      // Pas encore une facture : le numéro légal n'existe qu'une fois réglé.
+      title: `Commande ${m.reference}`,
       ref: `Convoyage ${m.pickupCity} → ${m.deliveryCity}`,
       date: fmtDate(m.pickupAt),
-      amountEur: Math.round((m.priceCents ?? 0) / 100),
+      amountEur: (m.priceCents ?? 0) / 100, // au centime : arrondir à l'euro faisait payer 500 € au lieu de 499,56 €
       paid: false,
       kind: 'mission' as const,
       shipmentId: m.id,
@@ -99,10 +100,10 @@ export function invoicesFrom(missions: MissionSummary[], parcels: ParcelSummary[
     .filter((p) => p.status !== 'CANCELLED' && (p.priceCents ?? 0) > 0)
     .map((p) => ({
       id: `p-${p.id}`,
-      title: `FA-${p.reference}`,
+      title: `Commande ${p.reference}`,
       ref: `Envoi ${p.originCity} → ${p.destinationCity} · ${p.weightKg.toLocaleString('fr-FR')} kg`,
       date: fmtDate(p.createdAt),
-      amountEur: Math.round((p.priceCents ?? 0) / 100),
+      amountEur: (p.priceCents ?? 0) / 100,
       paid: false,
       kind: 'parcel' as const,
       shipmentId: p.id,

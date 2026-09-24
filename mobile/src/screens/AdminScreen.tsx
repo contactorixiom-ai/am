@@ -1362,7 +1362,7 @@ export function AdminScreen() {
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.bold, fontVariant: ['tabular-nums'] }}>
-                          {fmtEuro(Math.round(pay.amountCents / 100))}
+                          {(pay.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: pay.currency || 'EUR' })}
                         </Text>
                         <Text style={{ fontSize: 11, color: tone, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>
                           {done ? 'Réglé' : pay.status === 'PENDING' ? 'En attente' : 'Échoué'}

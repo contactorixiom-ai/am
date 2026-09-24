@@ -129,7 +129,7 @@ export class PaymentsService {
     // L'enregistrement ne doit jamais faire échouer un paiement déjà engagé
     // chez Stripe : en cas de souci base, on journalise et on laisse passer.
     try {
-      await this.prisma.payment.create({
+      const created = await this.prisma.payment.create({
         data: {
           clientId,
           missionId,
@@ -146,6 +146,7 @@ export class PaymentsService {
           paidAt: provider === 'simulation' ? new Date() : null,
         },
       });
+      if (created.status === PaymentStatus.PAID) await this.assignInvoiceNumber(created.id);
     } catch (e) {
       this.logger.error(`Session ${id} non enregistrée : ${(e as Error).message}`);
     }
@@ -315,7 +316,34 @@ export class PaymentsService {
       },
     });
     if (status === PaymentStatus.PAID) {
+      await this.assignInvoiceNumber(record.id);
       await this.announcePaid({ ...record, amountCents: s.amount_total ?? record.amountCents });
+    }
+  }
+
+  /**
+   * Numéro de facture à l'encaissement : FA-<année>-<n° sur 6 chiffres>,
+   * sans trou ni doublon. Le compteur est incrémenté dans la même transaction
+   * que l'écriture du numéro ; un paiement déjà numéroté ne l'est pas deux fois.
+   */
+  private async assignInvoiceNumber(paymentId: string): Promise<string | null> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const current = await tx.payment.findUnique({ where: { id: paymentId }, select: { invoiceNumber: true, paidAt: true } });
+        if (!current || current.invoiceNumber) return current?.invoiceNumber ?? null;
+        const year = (current.paidAt ?? new Date()).getFullYear();
+        const seq = await tx.invoiceSequence.upsert({
+          where: { year },
+          create: { year, last: 1 },
+          update: { last: { increment: 1 } },
+        });
+        const number = `FA-${year}-${String(seq.last).padStart(6, '0')}`;
+        await tx.payment.update({ where: { id: paymentId }, data: { invoiceNumber: number } });
+        return number;
+      });
+    } catch (e) {
+      this.logger.error(`Numéro de facture non attribué (${paymentId}) : ${(e as Error).message}`);
+      return null;
     }
   }
 

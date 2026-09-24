@@ -291,7 +291,9 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
   const ht = +(ttc / (1 + vatRate)).toFixed(2);
   const tva = +(ttc - ht).toFixed(2);
 
-  invoiceHeader(doc, `Facture ${data.number}`, data.date);
+  // Tant qu'elle n'est pas réglée, il n'y a pas de facture (le numéro légal
+  // est attribué au règlement) : c'est un bon de commande.
+  invoiceHeader(doc, data.paid === false ? `Bon de commande — ${data.number}` : `Facture ${data.number}`, data.date);
 
   // Émetteur / Destinataire
   let y = 40;
