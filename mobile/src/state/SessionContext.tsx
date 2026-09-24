@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { fetchMe, login as apiLogin, logout as apiLogout, register as apiRegister, resetPassword as apiResetPassword, SessionUser } from '../api/auth';
 import { hasSession } from '../api/client';
+import { registerForPush, unregisterPush } from '../utils/push';
 
 interface SessionContextValue {
   user: SessionUser | null;
@@ -33,6 +34,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // Dès qu'un compte est connecté, l'appareil s'inscrit aux notifications.
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId) void registerForPush();
+  }, [userId]);
+
   const value: SessionContextValue = {
     user,
     initializing,
@@ -49,6 +56,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setUser(r.user);
     },
     logout: async () => {
+      // Avant de fermer la session : la route exige d'être connecté.
+      await unregisterPush();
       await apiLogout();
       setUser(null);
     },

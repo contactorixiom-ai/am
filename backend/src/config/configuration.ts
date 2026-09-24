@@ -76,6 +76,12 @@ export default () => ({
     from: process.env.MAIL_FROM ?? 'Axis Import <no-reply@axis-import.fr>',
   },
 
+  // Jeton d'accès Expo, seulement si la « sécurité renforcée des
+  // notifications » est activée dans le projet Expo.
+  push: {
+    expoAccessToken: process.env.EXPO_ACCESS_TOKEN || undefined,
+  },
+
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
     currency: process.env.STRIPE_CURRENCY ?? 'eur',

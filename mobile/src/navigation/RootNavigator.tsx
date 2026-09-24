@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { Platform } from 'react-native';
@@ -40,11 +40,13 @@ import { VehicleInspectionScreen } from '../screens/VehicleInspectionScreen';
 import { CustomsRequirementsScreen } from '../screens/CustomsRequirementsScreen';
 import { ShipmentInfoScreen } from '../screens/ShipmentInfoScreen';
 import { useSession } from '../state/SessionContext';
+import { onNotificationTap } from '../utils/push';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { AppTabParamList, RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const Tabs = createBottomTabNavigator<AppTabParamList>();
 
 // Placeholder écran pour la position centrale (jamais affiché, juste pour
@@ -106,6 +108,23 @@ export function RootNavigator() {
   const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
   const [resetToken] = React.useState(takeResetTokenFromUrl);
 
+  // Appui sur une notification : on ouvre l'écran qui la concerne.
+  const signedIn = !!user;
+  React.useEffect(() => {
+    if (!signedIn) return;
+    return onNotificationTap((data) => {
+      const go = () => {
+        if (!navigationRef.isReady()) return false;
+        const type = String(data.type ?? '');
+        if (type.startsWith('KYC_')) navigationRef.navigate('KycVerification');
+        else navigationRef.navigate('Notifications');
+        return true;
+      };
+      // Au lancement à froid, la navigation n'est pas encore montée.
+      if (!go()) setTimeout(go, 800);
+    });
+  }, [signedIn]);
+
   const [minElapsed, setMinElapsed] = React.useState(false);
 
   React.useEffect(() => {
@@ -125,7 +144,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: theme.bg },

@@ -45,6 +45,25 @@ eas build:configure
 `app.json`. C'est la seule commande qui modifie le dépôt — pense à
 committer le changement.
 
+Cet identifiant (`extra.eas.projectId`) est aussi celui des **notifications
+push** : sans lui, l'application n'inscrit pas le téléphone et le client ne
+reçoit rien quand son véhicule part ou arrive.
+
+### Notifications push
+
+- **iPhone** : rien à faire. Au premier `eas build --platform ios`, EAS
+  propose de créer la clé de notification Apple — répondre oui.
+- **Android** : il faut une clé Firebase (gratuit). Créer un projet sur
+  console.firebase.google.com, y ajouter une application Android
+  `com.axisimport.app`, télécharger `google-services.json` dans `mobile/`
+  et ajouter `"googleServicesFile": "./google-services.json"` sous
+  `expo.android` dans `app.json`. Puis, dans Firebase → Paramètres → Comptes
+  de service, générer une clé privée et la déposer sur expo.dev →
+  projet → Credentials → Android → FCM V1.
+- **Expo Go** ne reçoit plus de push sur Android : il faut une version
+  installée. Le web n'en reçoit pas ; les notifications restent visibles
+  dans l'écran Notifications de l'application.
+
 ---
 
 ## 2. Android — l'APK à distribuer tout de suite
@@ -193,6 +212,7 @@ cours : le **client de développement**.
 | Compte Google Play | 25 $ une fois | APK seulement, pas de store |
 | Compte Apple Developer | 99 $/an | Aucune installation sur iPhone |
 | Clés Stripe dans Railway | gratuit | Les paiements restent en simulation |
+| Clé Firebase (FCM) | gratuit | Pas de notification push sur Android |
 
 Le chemin recommandé pour la bêta : **APK Android + version web**. Aucun
 compte payant, aucune validation, et la distribution se fait par un simple

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { KycDocument, KycStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { ReviewKycDto } from './dto/review-kyc.dto';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 
@@ -17,9 +18,19 @@ export interface KycOverview {
   counts: { total: number; pending: number; approved: number; rejected: number };
 }
 
+const KYC_LABELS: Record<string, string> = {
+  IDENTITY_CARD: 'Pièce d\'identité',
+  PASSPORT: 'Passeport',
+  DRIVER_LICENSE: 'Permis de conduire',
+  PROOF_OF_ADDRESS: 'Justificatif de domicile',
+};
+
 @Injectable()
 export class KycService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   /** Dépose un document KYC (le fichier a déjà été uploadé via /storage). */
   async submit(userId: string, dto: SubmitKycDto): Promise<KycDocument> {
@@ -83,6 +94,22 @@ export class KycService {
         metadata: { targetUserId: doc.userId, type: doc.type, notes: dto.notes },
       },
     });
+
+    // Le convoyeur attendait sans savoir : il devait rouvrir l'application
+    // pour découvrir qu'il pouvait enfin accepter des missions, ou qu'un
+    // document était à refaire.
+    const label = KYC_LABELS[doc.type] ?? 'Document';
+    await this.notifications
+      .notify(
+        doc.userId,
+        dto.status === KycStatus.APPROVED ? 'KYC_APPROVED' : 'KYC_REJECTED',
+        dto.status === KycStatus.APPROVED ? `${label} validé` : `${label} à refaire`,
+        dto.status === KycStatus.APPROVED
+          ? 'Votre document a été vérifié par Axis Import.'
+          : `Motif : ${dto.notes?.trim()}. Déposez un nouveau document depuis votre profil.`,
+        { kycDocumentId: documentId },
+      )
+      .catch(() => { /* la décision est enregistrée même si l'envoi échoue */ });
 
     return updated;
   }

@@ -4,6 +4,7 @@ import { Payment, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import Stripe from 'stripe';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CreateCheckoutInput {
   amountCents: number;
@@ -45,6 +46,7 @@ export class PaymentsService {
   constructor(
     config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
   ) {
     const key = config.get<string>('stripe.secretKey');
     this.defaultCurrency = config.get<string>('stripe.currency', 'eur');
@@ -296,6 +298,41 @@ export class PaymentsService {
         amountCents: s.amount_total ?? record.amountCents,
       },
     });
+    if (status === PaymentStatus.PAID) {
+      await this.announcePaid({ ...record, amountCents: s.amount_total ?? record.amountCents });
+    }
+  }
+
+  /** Prévient le client (reçu) et l'équipe Axis (encaissement à suivre). */
+  private async announcePaid(record: Payment) {
+    try {
+      const amount = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: record.currency }).format(
+        record.amountCents / 100,
+      );
+      const what = record.reference ? ` — ${record.reference}` : '';
+      const payload = { paymentId: record.id, missionId: record.missionId, parcelId: record.parcelId };
+      await this.notifications.notify(
+        record.clientId,
+        'PAYMENT_RECEIVED',
+        'Paiement confirmé',
+        `Nous avons bien reçu ${amount}${what}. Merci !`,
+        payload,
+      );
+      const client = await this.prisma.user.findUnique({
+        where: { id: record.clientId },
+        select: { firstName: true, lastName: true },
+      });
+      const admins = await this.prisma.user.findMany({
+        where: { role: UserRole.ADMIN, deletedAt: null },
+        select: { id: true },
+      });
+      const who = client ? `${client.firstName} ${client.lastName}`.trim() : 'Un client';
+      for (const a of admins) {
+        await this.notifications.notify(a.id, 'PAYMENT_RECEIVED', 'Paiement reçu', `${who} a réglé ${amount}${what}.`, payload);
+      }
+    } catch (e) {
+      this.logger.warn(`Notification de paiement non envoyée : ${(e as Error).message}`);
+    }
   }
 
   private async ownedMissionId(clientId: string, missionId?: string): Promise<string | null> {
