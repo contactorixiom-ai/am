@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Payment, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import Stripe from 'stripe';
@@ -42,6 +49,7 @@ export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly stripe: Stripe | null;
   private readonly defaultCurrency: string;
+  private readonly allowSimulation: boolean;
 
   constructor(
     config: ConfigService,
@@ -50,10 +58,13 @@ export class PaymentsService {
   ) {
     const key = config.get<string>('stripe.secretKey');
     this.defaultCurrency = config.get<string>('stripe.currency', 'eur');
+    this.allowSimulation = config.get<boolean>('stripe.allowSimulation', false);
     this.stripe = key ? new Stripe(key) : null;
     if (!this.stripe) {
       this.logger.warn(
-        'STRIPE_SECRET_KEY absent — paiements en mode SIMULATION (aucun débit réel).',
+        this.allowSimulation
+          ? 'STRIPE_SECRET_KEY absent — paiements en mode SIMULATION (aucun débit réel).'
+          : 'STRIPE_SECRET_KEY absent — paiement en ligne désactivé.',
       );
     }
   }
@@ -78,6 +89,11 @@ export class PaymentsService {
     let id: string;
     let url: string | null;
 
+    if (!this.stripe && !this.allowSimulation) {
+      throw new ServiceUnavailableException(
+        'Le paiement en ligne n\'est pas encore activé. Contactez Axis Import pour régler votre commande.',
+      );
+    }
     if (!this.stripe) {
       // Mode simulation : on renvoie l'URL de succès (aucun débit).
       provider = 'simulation';

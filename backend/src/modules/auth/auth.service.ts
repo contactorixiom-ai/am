@@ -294,6 +294,31 @@ export class AuthService {
     return this.buildAuthResult(updated);
   }
 
+  /** Changement de mot de passe depuis l'application, l'ancien étant connu. */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    meta?: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Session expirée. Reconnectez-vous.');
+    const valid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!valid) throw new BadRequestException('Mot de passe actuel incorrect.');
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent de l\'actuel.');
+    }
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    const now = new Date();
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      // Tous les appareils sont déconnectés ; celui-ci reçoit une nouvelle session.
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+      this.prisma.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } }),
+    ]);
+    return this.buildAuthResult(updated, meta);
+  }
+
   private async createResetToken(userId: string, ttlMs: number, createdBy?: string) {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + ttlMs);

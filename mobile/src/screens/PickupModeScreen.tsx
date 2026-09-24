@@ -13,8 +13,8 @@ import { ParcelDraft, RootStackParamList } from '../navigation/types';
 import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
+import { OPERATIONS } from '../config/company';
 import { notify } from '../utils/notify';
-import { selectPartner } from '../utils/logisticsPartners';
 
 interface ModeMeta {
   kind: PickupMode;
@@ -26,35 +26,49 @@ interface ModeMeta {
   details: string[];
 }
 
-const MODES: ModeMeta[] = [
-  {
-    kind: 'HUB_DROP_OFF',
-    emoji: '🏢',
-    title: 'Je dépose au hub Axis',
-    subtitle: 'Paris, Lyon, Marseille',
-    perKgHint: 'Gratuit',
-    badge: 'GRATUIT',
-    details: ['Aucun frais de prise en charge', 'Récépissé tamponné immédiat', 'Ouvert 6 j / 7'],
-  },
-  {
-    kind: 'RELAY_DROP_OFF',
-    emoji: '🏪',
-    title: 'Je dépose en point relais',
-    subtitle: 'Mondial Relay · Chronopost · DPD · La Poste',
-    perKgHint: 'Forfait 5 €',
-    badge: 'POPULAIRE',
-    details: ['Plus de 20 000 points en Europe', 'Dépôt sous 7 j avec QR code', 'Ouvert le samedi'],
-  },
-  {
-    kind: 'HOME_PICKUP',
-    emoji: '🚪',
-    title: 'On vient chercher chez moi',
-    subtitle: 'Enlèvement à domicile sur créneau de 2h',
-    perKgHint: 'Forfait 25 €',
-    badge: 'PREMIUM',
-    details: ['Créneau de 2h le lendemain', 'Étiquette imprimée par le transporteur', 'Notification SMS 30 min avant'],
-  },
-];
+// Chaque ligne doit décrire ce qu'Axis fait réellement. Les versions
+// précédentes promettaient des hubs à Paris, Lyon et Marseille, 20 000 points
+// relais, un créneau de 2 h et un SMS 30 min avant : rien de cela n'existait.
+function buildModes(): ModeMeta[] {
+  const modes: ModeMeta[] = [
+    {
+      kind: 'HUB_DROP_OFF',
+      emoji: '🏢',
+      title: 'Je dépose chez Axis',
+      subtitle: OPERATIONS.dropOffAddress || 'Adresse de dépôt communiquée à la confirmation',
+      perKgHint: 'Gratuit',
+      badge: 'GRATUIT',
+      details: [
+        'Aucun frais de prise en charge',
+        'Reçu de dépôt remis sur place',
+        OPERATIONS.dropOffHours || 'Horaires convenus avec Axis',
+      ],
+    },
+  ];
+  if (OPERATIONS.relayPoints) {
+    modes.push({
+      kind: 'RELAY_DROP_OFF',
+      emoji: '🏪',
+      title: 'Je dépose en point relais',
+      subtitle: 'Point relais proche de chez toi',
+      perKgHint: 'Forfait 5 €',
+      details: ['Étiquette fournie par Axis', 'Dépôt sous 7 jours'],
+    });
+  }
+  if (OPERATIONS.homePickup) {
+    modes.push({
+      kind: 'HOME_PICKUP',
+      emoji: '🚪',
+      title: 'On vient chercher chez moi',
+      subtitle: 'Enlèvement à ton adresse',
+      perKgHint: 'Forfait 25 €',
+      details: ['Créneau convenu avec toi par Axis', 'Forfait inclus dans le devis'],
+    });
+  }
+  return modes;
+}
+
+const MODES = buildModes();
 
 // Réutilisé par RelayPointPicker et HomePickupAddress
 export async function buildQuoteFromDraft(
@@ -85,13 +99,6 @@ export function PickupModeScreen() {
   const { set: setParcelDraft, saveForLater } = useParcelDraft();
   const [mode, setMode] = useState<PickupMode>('HUB_DROP_OFF');
   const [loading, setLoading] = useState(false);
-
-  // Partenaire premier kilomètre (information pré-achat)
-  const partner = selectPartner({
-    fromCountry: draft.from.country,
-    weightKg: draft.weightKg,
-    toCountry: draft.to.country,
-  });
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -131,37 +138,10 @@ export function PickupModeScreen() {
             Comment on récupère ton colis ?
           </Text>
           <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-            3 options en {draft.from.country}. Tu peux changer d'avis jusqu'au paiement.
+            {MODES.length > 1 ? `${MODES.length} options. ` : ''}Tu peux changer d'avis jusqu'au paiement.
           </Text>
         </View>
 
-        {/* Partenaire 1er km */}
-        <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line, padding: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                backgroundColor: partner.color,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontFamily: TYPO.weights.bold, fontSize: 13 }}>
-                {partner.name.slice(0, 2).toUpperCase()}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 10.5, letterSpacing: 0.9, textTransform: 'uppercase' }}>
-                Transporteur premier km
-              </Text>
-              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 2 }}>
-                {partner.name} · {partner.pickupEta}
-              </Text>
-            </View>
-          </View>
-        </Surface>
 
         <View style={{ gap: SPACING.md }}>
           {MODES.map((m) => {

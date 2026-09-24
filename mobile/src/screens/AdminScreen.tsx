@@ -25,6 +25,8 @@ import { companyAddress } from '../config/company';
 import { Modal } from 'react-native';
 import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
+import { KycReviewPanel } from '../components/KycReviewPanel';
+import { listPendingKyc } from '../api/kyc';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -60,13 +62,14 @@ import { downloadCsv } from '../utils/csv';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents';
+type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Tableau' },
   { id: 'generate', label: 'Générer' },
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
+  { id: 'drivers', label: 'Convoyeurs' },
 ];
 
 const ACTIVITY_LABEL: Record<AdminActivity, string> = {
@@ -90,47 +93,6 @@ const PARCEL_EXCEPTIONS: { status: ParcelStatus; label: string; hint: string }[]
 ];
 const parcelStatusLabel = (status: string): string =>
   [...PARCEL_PIPELINE, ...PARCEL_EXCEPTIONS].find((s) => s.status === status)?.label ?? status;
-
-// ─── Repli démo (hors-ligne) pour l'onglet Envois ───────────────────────────
-
-const DEMO_MISSIONS: MissionSummary[] = [
-  {
-    id: 'demo-m1',
-    reference: 'MIS-2026-0412',
-    status: 'IN_PROGRESS',
-    pickupCity: 'Paris',
-    pickupCountry: 'FR',
-    pickupAt: '2026-07-06T08:30:00.000Z',
-    deliveryCity: 'Lisbonne',
-    deliveryCountry: 'PT',
-    vehicle: { make: 'BMW', model: 'Série 3', year: 2022, licensePlate: 'AB-123-CD' },
-    driver: { firstName: 'Karim', lastName: 'Diallo' },
-  },
-];
-
-const DEMO_PARCELS: ParcelSummary[] = [
-  {
-    id: 'demo-p1',
-    reference: 'AX-2026-8841',
-    status: 'IN_TRANSIT',
-    originCountry: 'FR',
-    originCity: 'Paris',
-    destinationCountry: 'SN',
-    destinationCity: 'Dakar',
-    weightKg: 12.5,
-  },
-  {
-    id: 'demo-p2',
-    reference: 'AX-2026-8850',
-    status: 'CUSTOMS',
-    originCountry: 'FR',
-    originCity: 'Lyon',
-    destinationCountry: 'CI',
-    destinationCity: 'Abidjan',
-    weightKg: 4,
-  },
-];
-
 
 // ─── Pré-remplissage d'une liasse depuis un envoi réel ───────────────────────
 // Les clés couvrent l'ensemble des types de documents : chaque formulaire ne
@@ -247,6 +209,11 @@ function prefillFromMission(m: MissionSummary): AdminValues {
 export function AdminScreen() {
   const { theme } = useTheme();
   const [tab, setTab] = useState<TabId>('dashboard');
+  // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
+  const [kycPending, setKycPending] = useState(0);
+  useEffect(() => {
+    listPendingKyc().then((l) => setKycPending(l.length)).catch(() => undefined);
+  }, []);
 
   // Onglet Générer
   const [selectedType, setSelectedType] = useState<AdminDocType | null>(null);
@@ -328,10 +295,11 @@ export function AdminScreen() {
     const mOk = mRes.status === 'fulfilled';
     const pOk = pRes.status === 'fulfilled';
     if (!mOk && !pOk) {
-      // Hors-ligne : envois d'exemple pour que Roger puisse tester le flux.
+      // Serveur injoignable : on n'affiche plus d'envois d'exemple, que Roger
+      // aurait pu prendre pour de vraies commandes.
       setOffline(true);
-      setMissions(DEMO_MISSIONS);
-      setParcels(DEMO_PARCELS);
+      setMissions([]);
+      setParcels([]);
     } else {
       setOffline(false);
       const ms = mOk ? mRes.value.data : [];
@@ -602,7 +570,12 @@ export function AdminScreen() {
       <AppBar title="Espace admin" subtitle="Gestion Roger · documents & envois" />
 
       {/* Onglets internes */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}
+      >
         {TABS.map((t) => {
           const on = tab === t.id;
           return (
@@ -610,7 +583,7 @@ export function AdminScreen() {
               key={t.id}
               onPress={() => setTab(t.id)}
               style={{
-                flex: 1,
+                paddingHorizontal: 14,
                 paddingVertical: 9,
                 borderRadius: RADII.pill,
                 borderWidth: 1,
@@ -626,12 +599,12 @@ export function AdminScreen() {
                   fontFamily: TYPO.weights.semibold,
                 }}
               >
-                {t.label}
+                {t.id === 'drivers' && kycPending > 0 ? `${t.label} · ${kycPending}` : t.label}
               </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 12 }}
@@ -652,6 +625,7 @@ export function AdminScreen() {
         {tab === 'generate' && renderGenerateTab()}
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
+        {tab === 'drivers' && <KycReviewPanel onCountChange={setKycPending} />}
       </ScrollView>
 
       {renderStatusModal()}
@@ -1270,9 +1244,18 @@ export function AdminScreen() {
         {offline ? (
           <Banner
             tone="warn"
-            title="Hors ligne — données de démonstration"
-            message="Le serveur est injoignable. Les chiffres ci-dessous s'appuient sur des exemples."
+            title="Serveur injoignable"
+            message="Impossible de charger les chiffres. Vérifie la connexion puis réessaie."
             action={{ label: 'Réessayer', onPress: () => { setRefreshing(true); loadShipments(); } }}
+          />
+        ) : null}
+
+        {kycPending > 0 ? (
+          <Banner
+            tone="info"
+            title={`${kycPending} document${kycPending > 1 ? 's' : ''} de convoyeur à vérifier`}
+            message="Un convoyeur ne peut accepter de mission qu'une fois sa pièce d'identité et son permis validés."
+            action={{ label: 'Vérifier', onPress: () => setTab('drivers') }}
           />
         ) : null}
 
@@ -1785,8 +1768,8 @@ export function AdminScreen() {
         {offline ? (
           <Banner
             tone="warn"
-            title="Hors ligne — données de démonstration"
-            message="Impossible de joindre le serveur. Les envois affichés sont des exemples."
+            title="Serveur injoignable"
+            message="Impossible de charger les envois. Vérifie la connexion puis réessaie."
             action={{ label: 'Réessayer', onPress: () => { setShipmentsLoading(true); loadShipments(); } }}
           />
         ) : null}

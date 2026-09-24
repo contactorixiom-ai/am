@@ -22,7 +22,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { AccessLinkDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
+import { AccessLinkDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -75,6 +75,18 @@ export class AuthController {
   @ApiOperation({ summary: 'Choisir un mot de passe à partir d\'un lien (connecte l\'utilisateur)' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto.token, dto.password, dto.acceptedTermsVersion);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 15 * 60 * 1000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('password/change')
+  @ApiOperation({ summary: 'Changer son mot de passe (déconnecte les autres appareils)' })
+  changePassword(@CurrentUser('id') userId: string, @Body() dto: ChangePasswordDto, @Req() req: Request) {
+    return this.auth.changePassword(userId, dto.currentPassword, dto.newPassword, {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip,
+    });
   }
 
   @ApiBearerAuth()

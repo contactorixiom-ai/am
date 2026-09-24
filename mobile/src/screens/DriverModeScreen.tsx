@@ -47,20 +47,6 @@ interface PhonePosition {
 
 type DriverStatus = 'IDLE' | 'ROLLING' | 'PAUSED' | 'STOPPED';
 
-// Mission de repli si aucune mission active / hors-ligne : l'écran reste
-// entièrement utilisable en démo (rien n'est envoyé au backend).
-const DEMO_MISSION: MissionSummary = {
-  id: 'demo',
-  reference: 'AX-CV-0042 (démo)',
-  status: 'IN_PROGRESS',
-  pickupCity: 'Paris',
-  pickupCountry: 'FR',
-  pickupAt: new Date().toISOString(),
-  deliveryCity: 'Bruxelles',
-  deliveryCountry: 'BE',
-  vehicle: { make: 'BMW', model: 'Série 3', year: 2022, licensePlate: 'AX-2847' },
-  driver: { firstName: 'Karim', lastName: 'Diallo' },
-};
 
 // Trajectoire simulée (Paris → Bruxelles) quand la géolocalisation du
 // téléphone n'est pas disponible (natif sans module GPS, permission refusée).
@@ -83,6 +69,7 @@ export function DriverModeScreen() {
   const [missions, setMissions] = useState<MissionSummary[]>([]);
   const [missionId, setMissionId] = useState<string | null>(null);
   const [missionIsDemo, setMissionIsDemo] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [missionLoading, setMissionLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
 
@@ -100,15 +87,16 @@ export function DriverModeScreen() {
           return wanted && mine.some((m) => m.id === wanted) ? wanted : mine[0].id;
         });
       } else {
-        setMissions([DEMO_MISSION]);
-        setMissionId(DEMO_MISSION.id);
-        setMissionIsDemo(true);
+        // Plus de mission de démonstration : un état des lieux rempli dessus,
+        // après une simple coupure réseau, était perdu sans que le convoyeur
+        // s'en rende compte.
+        setMissions([]);
+        setMissionId(null);
+        setMissionIsDemo(false);
       }
-    } catch {
-      // Hors-ligne / non connecté : repli démo, l'écran reste utilisable.
-      setMissions([DEMO_MISSION]);
-      setMissionId(DEMO_MISSION.id);
-      setMissionIsDemo(true);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Connexion impossible.');
     } finally {
       setMissionLoading(false);
     }
@@ -589,14 +577,21 @@ export function DriverModeScreen() {
 
         {sendError ? <Banner tone="warn" title="Positions non transmises" message={sendError} /> : null}
 
-        {missionIsDemo && !missionLoading ? (
+        {!missionLoading && !mission ? (
           <Banner
-            tone="info"
-            title="Mode démonstration"
-            message="Aucune mission ne t'est affectée pour l'instant (ou tu es hors ligne). Le suivi reste utilisable pour t'entraîner, mais aucune position n'est envoyée au serveur."
+            tone={loadError ? 'warn' : 'info'}
+            title={loadError ? 'Missions indisponibles' : 'Aucune mission en cours'}
+            message={
+              loadError
+                ? `Impossible de charger tes missions (${loadError}). Vérifie ta connexion.`
+                : 'Dès qu\'Axis t\'affecte un convoyage, il apparaît ici : état des lieux, départ, suivi GPS et livraison.'
+            }
+            action={{ label: 'Actualiser', onPress: () => { setMissionLoading(true); void loadMissions(); } }}
           />
         ) : null}
 
+        {mission ? (
+        <>
         {/* État des lieux — départ (à la prise en charge) et arrivée (livraison).
             Génère le PV/contrat signé avec le croquis véhicule et les photos. */}
         <Surface padded>
@@ -746,6 +741,8 @@ export function DriverModeScreen() {
             </Text>
           </View>
         </Surface>
+        </>
+        ) : null}
       </ScrollView>
 
       {/* Alerte plein écran « Tout va bien ? » */}

@@ -15,13 +15,19 @@ import { LivePriceBar } from '../components/LivePriceBar';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
 import { Surface } from '../components/Surface';
+import { hasInsurance } from '../config/company';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
+// « Assurance Premium » n'est proposée qu'avec une police réellement
+// souscrite (app.json → extra.insurance) : vendre une garantie qui n'existe
+// pas engagerait Axis, et la distribution d'assurance est réglementée.
 const OPTIONS: { kind: QuoteOptionKind; label: string; hint: string }[] = [
   { kind: 'EXPRESS',           label: 'Express 24h',           hint: '+15 %' },
-  { kind: 'PREMIUM_INSURANCE', label: 'Assurance Premium',     hint: '+29,61 € · plafond 350 k€' },
+  ...(hasInsurance()
+    ? [{ kind: 'PREMIUM_INSURANCE' as QuoteOptionKind, label: 'Garantie étendue', hint: '+29,61 € · plafond 350 k€' }]
+    : []),
   { kind: 'DOOR_TO_DOOR',      label: 'Porte-à-porte',         hint: 'Gratuit' },
   { kind: 'WEEKEND_PICKUP',    label: 'Enlèvement weekend',    hint: '+60 €' },
 ];

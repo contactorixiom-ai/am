@@ -25,6 +25,13 @@ export class KycController {
     return this.kyc.overview(userId);
   }
 
+  @Get('kyc/pending')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '[ADMIN] Documents KYC en attente de vérification' })
+  pending() {
+    return this.kyc.pending();
+  }
+
   @Patch('kyc/:id/review')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: '[ADMIN] Approuver ou rejeter un document KYC' })

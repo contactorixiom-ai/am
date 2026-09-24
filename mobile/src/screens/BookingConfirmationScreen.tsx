@@ -7,7 +7,6 @@ import QRCode from 'qrcode';
 import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
-import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -16,7 +15,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { generateShippingLabelPdf } from '../utils/pdf';
-import { selectPartner } from '../utils/logisticsPartners';
 import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 
 // Instructions personnalisées selon le mode de récupération.
@@ -60,13 +58,6 @@ export function BookingConfirmationScreen() {
   // instructions selon le mode de récupération choisi.
   const { lastBooking } = useParcelDraft();
   const pickupMode = lastBooking?.pickupMode ?? 'HUB_DROP_OFF';
-  const partner = kind === 'parcel'
-    ? selectPartner({
-        fromCountry: lastBooking?.from?.country ?? 'FR',
-        weightKg: lastBooking?.weightKg ?? 12,
-        toCountry: lastBooking?.to?.country ?? 'SN',
-      })
-    : null;
 
   // Génération du QR code
   const [qrSvg, setQrSvg] = useState<string | null>(null);
@@ -314,22 +305,6 @@ export function BookingConfirmationScreen() {
         ) : null}
 
         {/* Partenaire premier kilomètre */}
-        {partner ? (
-          <View style={{ gap: SPACING.sm }}>
-            <Text
-              style={{
-                color: theme.muted,
-                fontFamily: TYPO.weights.semibold,
-                fontSize: TYPO.sizes.label,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-              }}
-            >
-              Transporteur partenaire
-            </Text>
-            <LogisticsPartnerCard partner={partner} />
-          </View>
-        ) : null}
 
         {/* Garanties */}
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>

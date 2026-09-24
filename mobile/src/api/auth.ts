@@ -80,6 +80,21 @@ export async function createAccessLink(userId: string): Promise<AccessLink> {
   return apiFetch<AccessLink>('/auth/access-link', { method: 'POST', body: { userId } });
 }
 
+/** Change le mot de passe ; les autres appareils sont déconnectés. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<AuthResult> {
+  const r = await apiFetch<AuthResult>('/auth/password/change', {
+    method: 'POST',
+    body: { currentPassword, newPassword },
+  });
+  await setSession(r.accessToken, r.refreshToken);
+  return r;
+}
+
+/** Export RGPD de ses données (JSON). */
+export async function exportMyData(): Promise<unknown> {
+  return apiFetch<unknown>('/users/me/export');
+}
+
 export async function logout(): Promise<void> {
   try { await apiFetch('/auth/logout', { method: 'POST', body: {} }); } catch { /* ignore */ }
   await clearSession();

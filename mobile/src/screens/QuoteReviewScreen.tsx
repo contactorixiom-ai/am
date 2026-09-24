@@ -15,7 +15,6 @@ import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 import { linkPayment } from '../api/payments';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
-import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
 import { Pill } from '../components/Pill';
 import { SectionHead } from '../components/SectionHead';
 import { RouteMap } from '../components/RouteMap';
@@ -26,7 +25,6 @@ import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { fmtEur, fmtLocal } from '../utils/currency';
-import { selectPartner } from '../utils/logisticsPartners';
 
 export function QuoteReviewScreen() {
   const { theme } = useTheme();
@@ -44,7 +42,6 @@ export function QuoteReviewScreen() {
 
   // Pour les colis : on pré-sélectionne le transporteur partenaire (tronçon 1)
   // pour informer le client AVANT achat. Numéro de tracking caché à ce stade.
-  const partner = isParcel ? selectPartner({ fromCountry: quote.fromCountry, weightKg: quote.weightKg ?? undefined, toCountry: quote.toCountry }) : null;
 
   // Réservation réelle d'un convoyage : créer le véhicule puis la mission.
   const bookConvoy = async (paymentSessionId: string | null) => {
@@ -338,9 +335,11 @@ export function QuoteReviewScreen() {
               included
             />
           ) : null}
+          {/* Seul le convoyage a un GPS (le téléphone du convoyeur). Un colis
+              est suivi par étapes, saisies par Axis à chaque passage. */}
           <DetailRow
-            label="Suivi GPS temps réel"
-            sub="Mise à jour toutes les 30 secondes"
+            label={isConvoy ? 'Suivi GPS en direct' : 'Suivi de l\'envoi'}
+            sub={isConvoy ? 'Position du convoyeur pendant le trajet' : 'Étapes mises à jour par Axis jusqu\'à la remise'}
             value="Inclus"
             included
           />
@@ -362,8 +361,8 @@ export function QuoteReviewScreen() {
           ) : null}
           {isParcel ? (
             <DetailRow
-              label="Démarches douanières"
-              sub="Bordereaux et documents gérés par Axis"
+              label="Documents de douane"
+              sub="Préparés par Axis · droits et taxes à l'arrivée non compris"
               value="Inclus"
               included
             />
@@ -415,27 +414,25 @@ export function QuoteReviewScreen() {
           ) : null}
         </Surface>
 
-        {/* Transporteur partenaire (premier tronçon) — uniquement colis */}
-        {partner ? (
-          <View>
-            <SectionHead title="Premier kilomètre" />
-            <LogisticsPartnerCard partner={partner} showTracking={false} />
-          </View>
-        ) : null}
 
         {/* Comparison strip : 4 badges trust */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {(isConvoy
             ? [
-                { Ic: Icons.shield, l: 'Assurance 250k€' },
+                // Aucune assurance affichée sans police réelle.
+                hasInsurance()
+                  ? { Ic: Icons.shield, l: `Assurance ${coverageLabel()}` }
+                  : { Ic: Icons.shield, l: 'Paiement sécurisé' },
                 { Ic: Icons.pin,    l: 'Suivi temps réel' },
                 { Ic: Icons.doc,    l: 'Contrat signé PDF' },
                 { Ic: Icons.camera, l: 'État des lieux photos' },
               ]
             : [
-                { Ic: Icons.shield, l: 'Assurance 250k€' },
-                { Ic: Icons.pin,    l: 'Suivi temps réel' },
-                { Ic: Icons.box,    l: 'Emballage vérifié' },
+                hasInsurance()
+                  ? { Ic: Icons.shield, l: `Assurance ${coverageLabel()}` }
+                  : { Ic: Icons.shield, l: 'Paiement sécurisé' },
+                { Ic: Icons.pin,    l: 'Suivi de l\'envoi' },
+                { Ic: Icons.box,    l: 'Aide aux formalités' },
                 { Ic: Icons.doc,    l: 'Étiquette QR' },
               ]
           ).map((b) => (
@@ -572,7 +569,7 @@ const HINT_EMOJI: Record<string, string> = {
 
 function pickupModeLabel(mode: string, relayLabel?: string): string {
   switch (mode) {
-    case 'HUB_DROP_OFF':   return 'Hub Axis';
+    case 'HUB_DROP_OFF':   return 'Dépôt chez Axis';
     case 'RELAY_DROP_OFF': return relayLabel ? '🏪 Relais' : '🏪 Point relais';
     case 'HOME_PICKUP':    return '🚪 Domicile';
     default:               return '—';

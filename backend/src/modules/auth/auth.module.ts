@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { DefaultAccountsGuard } from './default-accounts.guard';
 import { MailService } from './mail.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -27,6 +28,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   providers: [
     AuthService,
     MailService,
+    DefaultAccountsGuard,
     JwtStrategy,
     // Limitation du nombre de requêtes par adresse IP. Le module était
     // configuré mais son garde jamais branché : aucune limite ne

@@ -1,3 +1,4 @@
+import { ApiError } from '../api/client';
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { Icons } from './Icons';
@@ -13,7 +14,6 @@ import { createCheckoutSession, getPaymentSession } from '../api/payments';
 // 3 étapes : choix moyen → traitement → confirmation.
 
 type Step = 'pick' | 'processing' | 'success';
-type Method = 'card' | 'apple_pay' | 'sepa';
 type Provider = 'stripe' | 'simulation';
 
 interface Props {
@@ -52,7 +52,6 @@ function returnUrls(): { successUrl: string; cancelUrl: string } {
 export function PaymentSheet({ visible, amountEur, reference, description, missionId, parcelId, onClose, onPaid }: Props) {
   const { theme } = useTheme();
   const [step, setStep] = useState<Step>('pick');
-  const [method, setMethod] = useState<Method>('apple_pay');
   const [provider, setProvider] = useState<Provider>('simulation');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +64,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
   // Si la feuille est masquée, on stoppe tout sondage en cours.
   useEffect(() => { if (!visible) activeRef.current = false; else activeRef.current = true; }, [visible]);
 
-  const reset = () => { setStep('pick'); setMethod('apple_pay'); setError(null); setSessionId(null); };
+  const reset = () => { setStep('pick'); setError(null); setSessionId(null); };
 
   // Sonde le statut de la session Stripe jusqu'au règlement (≤ 3 min).
   const pollPaid = async (id: string): Promise<boolean> => {
@@ -114,9 +113,14 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
         if (!activeRef.current) return;
         setStep('success');
       }
-    } catch {
+    } catch (e) {
       if (!activeRef.current) return;
-      setError('Paiement indisponible pour le moment. Réessaie dans un instant.');
+      // Le serveur explique pourquoi (paiement pas encore activé, montant…).
+      setError(
+        e instanceof ApiError && !e.isNetworkError && e.message
+          ? e.message
+          : 'Paiement indisponible pour le moment. Réessaie dans un instant.',
+      );
       setStep('pick');
     }
   };
@@ -152,28 +156,17 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                 </Pressable>
               </View>
 
-              <View style={{ gap: 8 }}>
-                <MethodRow
-                  active={method === 'apple_pay'}
-                  onPress={() => setMethod('apple_pay')}
-                  label="Apple Pay"
-                  sub="Authentification Face ID / Touch ID"
-                  icon={<Text style={{ fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold }}> Pay</Text>}
-                />
-                <MethodRow
-                  active={method === 'card'}
-                  onPress={() => setMethod('card')}
-                  label="Carte bancaire"
-                  sub="Visa, Mastercard, CB · 3D Secure"
-                  icon={<Icons.card size={18} color={theme.ink} stroke={1.8} />}
-                />
-                <MethodRow
-                  active={method === 'sepa'}
-                  onPress={() => setMethod('sepa')}
-                  label="Prélèvement SEPA"
-                  sub="Sous 1-2 j ouvrés"
-                  icon={<Icons.euro size={18} color={theme.ink} stroke={1.8} />}
-                />
+              {/* Le moyen de paiement se choisit sur la page Stripe : un choix ici
+                  n'était transmis nulle part, et le bouton imitant Apple Pay
+                  n'ouvrait pas Apple Pay (règles d'Apple). */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface }}>
+                <Icons.card size={18} color={theme.ink} stroke={1.8} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Carte, Apple Pay ou Google Pay</Text>
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
+                    Tu choisis sur la page de paiement sécurisée qui s'ouvre
+                  </Text>
+                </View>
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 10, backgroundColor: theme.surface2 }}>
@@ -195,23 +188,16 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                 style={({ pressed }) => ({
                   height: 52,
                   borderRadius: RADII.lg,
-                  backgroundColor: method === 'apple_pay' ? '#000' : pressed ? theme.goldDeep : theme.gold,
+                  backgroundColor: pressed ? theme.goldDeep : theme.gold,
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
                   gap: 8,
                 })}
               >
-                {method === 'apple_pay' ? (
-                  <>
-                    <Text style={{ color: '#fff', fontSize: 16, fontFamily: TYPO.weights.semibold }}>Payer avec</Text>
-                    <Text style={{ color: '#fff', fontSize: 18, fontFamily: TYPO.weights.bold }}> Pay</Text>
-                  </>
-                ) : (
-                  <Text style={{ color: theme.navy, fontSize: 16, fontFamily: TYPO.weights.bold }}>
-                    Payer {amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                  </Text>
-                )}
+                <Text style={{ color: theme.navy, fontSize: 16, fontFamily: TYPO.weights.bold }}>
+                  Payer {amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </Text>
               </Pressable>
             </>
           ) : step === 'processing' ? (
@@ -264,36 +250,6 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
         </View>
       </View>
     </Modal>
-  );
-}
-
-function MethodRow({ active, onPress, label, sub, icon }: { active: boolean; onPress: () => void; label: string; sub: string; icon: React.ReactNode }) {
-  const { theme } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 14,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: active ? theme.navy : theme.line,
-        backgroundColor: pressed ? theme.bgSoft : theme.surface,
-      })}
-    >
-      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-        {icon}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{label}</Text>
-        <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{sub}</Text>
-      </View>
-      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: active ? theme.navy : theme.line, alignItems: 'center', justifyContent: 'center' }}>
-        {active ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: theme.navy }} /> : null}
-      </View>
-    </Pressable>
   );
 }
 

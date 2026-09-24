@@ -104,6 +104,13 @@
         "insurer": "",
         "policyNumber": "",
         "coverageEur": 0
+      },
+      "operations": {
+        "_note": "Modes de remise des colis proposés au client. relayPoints : seulement avec un contrat transporteur (Mondial Relay, La Poste…) et ses étiquettes. dropOffAddress : adresse où déposer un colis chez Axis ; vide = communiquée à la confirmation.",
+        "relayPoints": false,
+        "dropOffAddress": "",
+        "dropOffHours": "",
+        "homePickup": true
       }
     },
     "icon": "./assets/icon.png",

@@ -107,3 +107,12 @@ export async function reviewKycDocument(
     body: { status, notes },
   });
 }
+
+export interface PendingKycDocument extends KycDocument {
+  user: { id: string; firstName: string; lastName: string; email: string; phone: string | null; role: string };
+}
+
+/** [ADMIN] Documents en attente de vérification, les plus anciens d'abord. */
+export async function listPendingKyc(): Promise<PendingKycDocument[]> {
+  return apiFetch<PendingKycDocument[]>('/users/kyc/pending');
+}

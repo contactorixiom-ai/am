@@ -67,7 +67,7 @@ export function ServicePickerScreen() {
             fontFamily: TYPO.weights.medium,
           }}
         >
-          Choisis le service, nos équipes te rappellent sous 2h avec un devis personnalisé.
+          Choisis le service : le prix s'affiche tout de suite, puis Axis confirme ta commande.
         </Text>
 
         {/* 2x2 grid */}

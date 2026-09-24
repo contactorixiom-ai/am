@@ -18,52 +18,6 @@ import { SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { buildQuoteFromDraft } from './PickupModeScreen';
 
-// Données de repli si l'API ne renvoie aucun point (mode démo).
-const DEMO_POINTS = (city: string, country: string): RelayPoint[] => [
-  {
-    id: 'demo-mr-1',
-    carrier: 'MONDIAL_RELAY',
-    externalId: 'MR-DEMO-001',
-    name: `Mondial Relay · ${city} Centre`,
-    address: '14 rue de la République',
-    postalCode: '75001',
-    city,
-    country,
-    latitude: 0,
-    longitude: 0,
-    openingHours: 'Lun-Sam 9h-19h',
-    distanceKm: 0.4,
-  },
-  {
-    id: 'demo-chrono-1',
-    carrier: 'CHRONOPOST',
-    externalId: 'CHR-DEMO-002',
-    name: `Tabac-Presse Le Central · ${city}`,
-    address: '8 avenue Victor Hugo',
-    postalCode: '75001',
-    city,
-    country,
-    latitude: 0,
-    longitude: 0,
-    openingHours: 'Lun-Dim 7h-21h',
-    distanceKm: 0.9,
-  },
-  {
-    id: 'demo-dpd-1',
-    carrier: 'DPD',
-    externalId: 'DPD-DEMO-003',
-    name: `Carrefour Express · ${city}`,
-    address: "23 place de l'Étoile",
-    postalCode: '75002',
-    city,
-    country,
-    latitude: 0,
-    longitude: 0,
-    openingHours: 'Lun-Dim 8h-22h',
-    distanceKm: 1.6,
-  },
-];
-
 export function RelayPointPickerScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -89,10 +43,12 @@ export function RelayPointPickerScreen() {
           limit: 30,
         });
         if (cancelled) return;
-        setPoints(r.length > 0 ? r : DEMO_POINTS(draft.from.city, draft.from.country));
+        // Jamais de points inventés : une adresse fictive enverrait le colis
+        // dans un commerce qui ne l'attend pas.
+        setPoints(r);
       } catch {
         if (cancelled) return;
-        setPoints(DEMO_POINTS(draft.from.city, draft.from.country));
+        setPoints([]);
       } finally {
         if (!cancelled) setLoading(false);
       }

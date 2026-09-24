@@ -84,6 +84,11 @@ export default () => ({
 
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
+    // Sans clé Stripe, le « paiement » est simulé et enregistré comme payé.
+    // Acceptable en développement ; en production, un client réglerait sans
+    // être débité. Il faut donc le demander explicitement.
+    allowSimulation:
+      process.env.PAYMENTS_SIMULATION === 'true' || (process.env.NODE_ENV ?? 'development') !== 'production',
     currency: process.env.STRIPE_CURRENCY ?? 'eur',
   },
 

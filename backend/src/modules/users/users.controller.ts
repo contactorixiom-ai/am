@@ -20,6 +20,12 @@ export class UsersController {
     return this.users.findById(userId);
   }
 
+  @Get('me/export')
+  @ApiOperation({ summary: 'Exporter ses données personnelles (RGPD)' })
+  exportMe(@CurrentUser('id') userId: string) {
+    return this.users.exportData(userId);
+  }
+
   @Patch('me')
   @ApiOperation({ summary: 'Mettre à jour son profil' })
   updateMe(@CurrentUser('id') userId: string, @Body() dto: UpdateUserDto) {

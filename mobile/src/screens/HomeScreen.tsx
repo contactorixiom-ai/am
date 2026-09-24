@@ -194,7 +194,7 @@ export function HomeScreen() {
               kycStatus === 'REJECTED'
                 ? 'Reprends les pièces refusées pour pouvoir continuer.'
                 : kycStatus === 'PENDING'
-                  ? 'Notre équipe valide tes documents sous 24 h.'
+                  ? 'Axis vérifie tes documents et te prévient dès que c\'est fait.'
                   : isDriverOnly
                     ? '2 min : permis et pièce d\'identité pour pouvoir convoyer.'
                     : '2 min pour pouvoir envoyer un colis ou un véhicule.'

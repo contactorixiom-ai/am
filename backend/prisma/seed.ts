@@ -5,6 +5,11 @@ import { COUNTRY_REGULATIONS, zoneForCountry } from '../src/modules/customs/cust
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
+  // Les comptes créés ici ont un mot de passe publié dans le dépôt : ils
+  // n'ont rien à faire sur la base de production.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    throw new Error('Seed refusé en production (comptes de démonstration au mot de passe public).');
+  }
   // eslint-disable-next-line no-console
   console.log('🌱 Seeding database...');
 

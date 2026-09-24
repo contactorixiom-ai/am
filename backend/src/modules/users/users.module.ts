@@ -7,7 +7,8 @@ import { SignaturesController } from './signatures/signatures.controller';
 import { SignaturesService } from './signatures/signatures.service';
 
 @Module({
-  controllers: [UsersController, KycController, SignaturesController],
+  // KycController d'abord : ses routes fixes (kyc/pending) doivent passer avant /users/:id.
+  controllers: [KycController, UsersController, SignaturesController],
   providers: [UsersService, KycService, SignaturesService],
   exports: [UsersService, KycService],
 })

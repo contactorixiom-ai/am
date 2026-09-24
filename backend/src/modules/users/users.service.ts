@@ -40,6 +40,51 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Export de ses données (RGPD, droits d'accès et à la portabilité).
+   * L'application affichait « archive envoyée sous 48 h » sans rien faire.
+   * Les empreintes de mot de passe, jetons et journaux techniques sont exclus.
+   */
+  async exportData(userId: string) {
+    const [profile, vehicles, missionsAsClient, missionsAsDriver, parcels, payments, documents, kyc, quotes, messages, notifications] =
+      await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId }, select: { ...this.safeSelect, driverProfile: true } }),
+        this.prisma.vehicle.findMany({ where: { ownerId: userId } }),
+        this.prisma.mission.findMany({ where: { clientId: userId }, include: { statusHistory: true } }),
+        this.prisma.mission.findMany({ where: { driverId: userId } }),
+        this.prisma.parcel.findMany({ where: { senderId: userId } }),
+        this.prisma.payment.findMany({ where: { clientId: userId } }),
+        this.prisma.document.findMany({ where: { ownerId: userId } }),
+        this.prisma.kycDocument.findMany({
+          where: { userId },
+          select: { id: true, type: true, status: true, fileName: true, createdAt: true, reviewedAt: true, notes: true },
+        }),
+        this.prisma.quote.findMany({ where: { customerId: userId } }),
+        this.prisma.message.findMany({
+          where: { senderId: userId },
+          select: { id: true, conversationId: true, type: true, body: true, createdAt: true },
+        }),
+        this.prisma.notification.findMany({ where: { userId } }),
+      ]);
+    if (!profile) throw new NotFoundException('Utilisateur introuvable.');
+    return {
+      exportedAt: new Date().toISOString(),
+      notice:
+        'Données personnelles détenues par Axis Import vous concernant. Les fichiers (photos, pièces) sont référencés par leur adresse ; ils restent accessibles depuis l\'application.',
+      profile,
+      vehicles,
+      missionsAsClient,
+      missionsAsDriver,
+      parcels,
+      payments,
+      documents,
+      identityDocuments: kyc,
+      quotes,
+      messagesSent: messages,
+      notifications,
+    };
+  }
+
   async updateProfile(userId: string, dto: UpdateUserDto) {
     return this.prisma.user.update({
       where: { id: userId },

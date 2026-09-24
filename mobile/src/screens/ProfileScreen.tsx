@@ -159,7 +159,7 @@ export function ProfileScreen() {
             <MenuRow
               iconKey="shield"
               label="Sécurité du compte"
-              sub="Face ID, double authentification, sessions"
+              sub="Mot de passe, appareils connectés, mes données"
               onPress={() => nav.navigate('SecuritySettings')}
             />
           </MenuSection>

@@ -148,3 +148,33 @@ export const LEGAL_TERMS_URL = `${LEGAL_BASE}/cgu.html`;
  * de design/cgu.html). À changer à chaque modification des CGU.
  */
 export const TERMS_VERSION = '2026-09-22';
+
+// ─── Organisation opérationnelle (app.json → expo.extra.operations) ─────────
+
+export interface Operations {
+  /** Dépôt en point relais : seulement avec un contrat transporteur réel. */
+  relayPoints: boolean;
+  /** Adresse de dépôt chez Axis ; vide = communiquée à la confirmation. */
+  dropOffAddress: string;
+  dropOffHours: string;
+  homePickup: boolean;
+}
+
+function operationsFromAppConfig(): Partial<Operations> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Constants = require('expo-constants').default;
+    const extra = Constants?.expoConfig?.extra as { operations?: Partial<Operations> } | undefined;
+    return extra?.operations ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export const OPERATIONS: Operations = {
+  relayPoints: false,
+  dropOffAddress: '',
+  dropOffHours: '',
+  homePickup: true,
+  ...operationsFromAppConfig(),
+};

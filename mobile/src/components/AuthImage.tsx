@@ -9,6 +9,8 @@ interface Props {
   style?: StyleProp<ImageStyle>;
   /** Légende affichée sous l'image, et en cas d'échec. */
   label?: string;
+  /** Afficher l'image entière (agrandissement) plutôt que recadrée. */
+  contain?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface Props {
  * pièces KYC ne sont plus accessibles publiquement : une balise image ne
  * pouvant pas porter de jeton, on récupère le fichier puis on l'affiche.
  */
-export function AuthImage({ url, style, label }: Props) {
+export function AuthImage({ url, style, label, contain }: Props) {
   const { theme } = useTheme();
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -34,7 +36,7 @@ export function AuthImage({ url, style, label }: Props) {
     return () => { cancelled = true; };
   }, [url]);
 
-  if (src) return <Image source={{ uri: src }} style={style} resizeMode="cover" />;
+  if (src) return <Image source={{ uri: src }} style={style} resizeMode={contain ? 'contain' : 'cover'} />;
 
   return (
     <View

@@ -34,6 +34,19 @@ export class KycService {
 
   /** Dépose un document KYC (le fichier a déjà été uploadé via /storage). */
   async submit(userId: string, dto: SubmitKycDto): Promise<KycDocument> {
+    // Le fichier doit venir de notre stockage, dossier kyc, et n'appartenir à
+    // personne d'autre : l'accès aux pièces d'identité se fonde sur ce lien,
+    // on ne peut donc pas laisser quelqu'un « déclarer » le fichier d'autrui.
+    if (!/\/storage\/file\/kyc\/[0-9a-f-]{36}(\.[a-z0-9]{1,8})?$/i.test(dto.fileUrl)) {
+      throw new BadRequestException('Fichier invalide : envoyez la photo depuis l\'application.');
+    }
+    const suffix = dto.fileUrl.slice(dto.fileUrl.indexOf('/storage/file/kyc/'));
+    const taken = await this.prisma.kycDocument.findFirst({
+      where: { fileUrl: { endsWith: suffix }, userId: { not: userId } },
+      select: { id: true },
+    });
+    if (taken) throw new BadRequestException('Fichier déjà utilisé.');
+
     return this.prisma.kycDocument.create({
       data: {
         userId,
@@ -63,6 +76,18 @@ export class KycService {
     };
 
     return { status: this.aggregateStatus(documents), documents, counts };
+  }
+
+  /** Admin : documents en attente de vérification, les plus anciens d'abord. */
+  async pending() {
+    return this.prisma.kycDocument.findMany({
+      where: { status: KycStatus.PENDING, user: { deletedAt: null } },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true } },
+      },
+    });
   }
 
   /** Revue admin : approuve ou rejette un document. */

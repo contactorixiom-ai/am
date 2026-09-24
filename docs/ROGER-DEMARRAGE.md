@@ -139,6 +139,31 @@ npm run promote:admin -- roger@exemple.fr
 
 Ensuite, l'espace apparaît dans *Profil → Espace admin*.
 
+## Valider les convoyeurs
+
+Un convoyeur s'inscrit avec « Je suis chauffeur », puis envoie ses pièces
+depuis l'application. Elles arrivent dans *Espace admin → Convoyeurs* (un
+bandeau le signale sur le tableau de bord). Pour chaque photo : **Valider**,
+ou **Refuser…** avec un motif, qui est envoyé au convoyeur.
+
+Un convoyeur peut accepter des missions dès que sa **pièce d'identité (ou son
+passeport)** et son **permis** sont validés.
+
+## Ce que l'application promet aux clients
+
+Tout ce qui s'affiche doit être vrai. Réglages dans `mobile/app.json`,
+rubrique `extra.operations` :
+
+- `dropOffAddress` / `dropOffHours` : où et quand un client dépose un colis
+  chez Axis. Vide = « adresse communiquée à la confirmation ».
+- `relayPoints` : laisser à `false` tant qu'il n'y a pas de contrat avec un
+  réseau de points relais (Mondial Relay, La Poste…) et ses étiquettes.
+- `homePickup` : enlèvement à domicile proposé ou non.
+
+L'assurance (`extra.insurance`) n'apparaît nulle part tant qu'elle n'est pas
+renseignée, et l'option « Garantie étendue » n'est proposée qu'avec une
+police réelle.
+
 ## Donner l'accès à un client pris au téléphone
 
 Quand Roger saisit une commande pour un **nouveau client**, le compte de ce
