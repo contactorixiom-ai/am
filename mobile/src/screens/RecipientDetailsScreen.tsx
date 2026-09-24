@@ -169,7 +169,7 @@ export function RecipientDetailsScreen() {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 placeholder="+221 77 123 45 67"
-                hint="Indispensable pour la livraison — le coursier appelle 30 min avant"
+                hint="Indispensable : Axis appelle le destinataire pour organiser la remise"
               />
               <Field
                 label="Email (optionnel)"
@@ -236,9 +236,9 @@ export function RecipientDetailsScreen() {
               {hasInsurance() ? (
                 <Trust theme={theme} icon={<Icons.shield size={16} color={theme.gold} stroke={1.8} />} label={`Marchandise assurée jusqu'à ${coverageLabel()}`} />
               ) : null}
-              <Trust theme={theme} icon={<Icons.pin size={16} color={theme.gold} stroke={1.8} />} label="Suivi temps réel jusqu'à la remise" />
-              <Trust theme={theme} icon={<Icons.sig size={16} color={theme.gold} stroke={1.8} />} label="Signature électronique à la livraison" />
-              <Trust theme={theme} icon={<Icons.phone size={16} color={theme.gold} stroke={1.8} />} label="Coursier appelle 30 min avant la remise" />
+              <Trust theme={theme} icon={<Icons.pin size={16} color={theme.gold} stroke={1.8} />} label="Suivi de l'envoi, étape par étape" />
+              <Trust theme={theme} icon={<Icons.doc size={16} color={theme.gold} stroke={1.8} />} label="Documents de douane préparés par Axis" />
+              <Trust theme={theme} icon={<Icons.phone size={16} color={theme.gold} stroke={1.8} />} label="Destinataire contacté pour la remise" />
             </View>
           </Surface>
 

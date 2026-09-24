@@ -311,14 +311,21 @@ export function BookingConfirmationScreen() {
           </Surface>
         ) : null}
 
-        {/* Partenaire premier kilomètre */}
-
         {/* Garanties */}
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {hasInsurance() ? <Pill tone="ghost">{`Assuré jusqu'à ${coverageLabel()}`}</Pill> : null}
-            <Pill tone="ghost">Suivi temps réel</Pill>
-            <Pill tone="ghost">Signature à la livraison</Pill>
+            {kind === 'mission' ? (
+              <>
+                <Pill tone="ghost">Suivi GPS en direct</Pill>
+                <Pill tone="ghost">État des lieux signé à l'arrivée</Pill>
+              </>
+            ) : (
+              <>
+                <Pill tone="ghost">Suivi étape par étape</Pill>
+                <Pill tone="ghost">Documents de douane par Axis</Pill>
+              </>
+            )}
           </View>
         </Surface>
 
