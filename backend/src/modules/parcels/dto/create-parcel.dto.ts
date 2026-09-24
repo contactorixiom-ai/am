@@ -117,6 +117,12 @@ export class CreateParcelDto {
   @IsString() @MaxLength(200)
   destinationAddress!: string;
 
+  // Devis accepté : le prix en est repris côté serveur.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  quoteId?: string;
+
   @ApiPropertyOptional({ type: [ParcelItemDto] })
   @IsOptional()
   @IsArray()

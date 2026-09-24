@@ -108,7 +108,7 @@ export function TrackByReferenceScreen() {
               {showTimeline ? 'Statut en temps réel' : 'Suivre un envoi'}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body, marginTop: 8 }}>
-              Pas besoin de compte. Saisis la référence reçue par SMS.
+              Pas besoin de compte. Saisis la référence de l'envoi (elle figure sur la confirmation).
             </Text>
           </View>
 

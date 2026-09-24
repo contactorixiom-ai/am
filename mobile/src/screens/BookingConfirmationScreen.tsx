@@ -15,37 +15,40 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { generateShippingLabelPdf } from '../utils/pdf';
-import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
+import { coverageLabel, hasInsurance, INSURANCE, OPERATIONS } from '../config/company';
 
 // Instructions personnalisées selon le mode de récupération.
 // Inspiré de FedEx / UPS qui montrent un guide pas-à-pas après réservation.
+// Étapes décrites telles qu'Axis les fait réellement : pas de SMS (aucun
+// envoi n'existe), pas de réseau de hubs ni de transporteur fictif.
 const PICKUP_INSTRUCTIONS: Record<string, { title: string; steps: string[]; cta: string }> = {
   HUB_DROP_OFF: {
-    title: 'Dépôt au hub Axis',
+    title: 'Dépôt chez Axis',
     steps: [
-      'Imprime ou présente cette confirmation à l\'accueil du hub.',
-      'Dépose ton colis fermé et étiqueté sous 14 jours.',
-      'Réceptionne ton récépissé tamponné — preuve de prise en charge.',
+      OPERATIONS.dropOffAddress
+        ? `Dépose ton colis fermé : ${OPERATIONS.dropOffAddress}${OPERATIONS.dropOffHours ? ` (${OPERATIONS.dropOffHours})` : ''}.`
+        : 'Axis te communique l\'adresse et l\'horaire de dépôt.',
+      'Présente cette confirmation (référence ou QR code).',
+      'Un reçu de dépôt t\'est remis : c\'est la preuve de prise en charge.',
     ],
-    cta: 'Voir les hubs',
+    cta: '',
   },
   RELAY_DROP_OFF: {
     title: 'Dépôt en point relais',
     steps: [
       'Montre le QR code ci-dessus au relais que tu as choisi.',
-      'Le commerçant scanne, prend ton colis et te remet un reçu.',
-      'Suivi disponible 4h après le dépôt.',
+      'Le commerçant prend ton colis et te remet un reçu.',
     ],
-    cta: 'Trouver mon relais',
+    cta: '',
   },
   HOME_PICKUP: {
     title: 'Enlèvement à domicile',
     steps: [
-      'Notre transporteur partenaire passe sur le créneau réservé.',
-      'Tu reçois un SMS 30 min avant le passage du coursier.',
-      'Garde ton colis emballé prêt — le coursier apporte l\'étiquette.',
+      'Axis te contacte pour convenir du jour et de l\'heure de passage.',
+      'Prépare ton colis fermé ; l\'étiquette est apportée au passage.',
+      'Tu es prévenu dans l\'application à chaque étape.',
     ],
-    cta: 'Modifier l\'adresse',
+    cta: '',
   },
 };
 
@@ -128,7 +131,9 @@ export function BookingConfirmationScreen() {
               ? unpaid
                 ? 'Ta commande est enregistrée. Règle-la depuis l\'onglet Documents : Axis affecte ensuite un convoyeur et te confirme le créneau.'
                 : 'Commande payée. Axis affecte un convoyeur et te confirme le créneau : tu es prévenu dans l\'application.'
-              : 'Ton colis est enregistré. Tu es prévenu dans l\'application à chaque étape.'}
+              : unpaid
+                ? 'Ton envoi est enregistré. Règle-le depuis l\'onglet Documents pour qu\'Axis le prenne en charge.'
+                : 'Envoi payé. Tu es prévenu dans l\'application à chaque étape.'}
           </Text>
         </View>
 

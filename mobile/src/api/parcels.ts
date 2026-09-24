@@ -44,6 +44,8 @@ export interface ParcelSummary {
 }
 
 export interface CreateParcelInput {
+  /** Devis accepté : le serveur en reprend le prix. */
+  quoteId?: string;
   category?: ParcelCategory;
   transportMode?: ParcelTransportMode;
   pickupMode?: PickupMode;

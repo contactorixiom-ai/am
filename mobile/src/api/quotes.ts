@@ -97,6 +97,8 @@ export interface QuoteResponse {
   pickupFeeCents: number;
   addonsPriceCents: number;
   subtotalCents: number;
+  taxRate: number;
+  taxCents: number;
   totalCents: number;
   currency: string;
   uncertaintyPct: number | null;

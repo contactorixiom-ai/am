@@ -229,7 +229,7 @@ function StepTrajet() {
           D'où part ton colis et où va-t-il ?
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-          On organise la collecte, le transport multimodal et la livraison à domicile.
+          On organise le transport jusqu'au destinataire et les documents de douane.
         </Text>
       </View>
 
@@ -268,7 +268,7 @@ function StepTrajet() {
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <Icons.shield size={18} color={theme.gold} stroke={1.8} />
             <Text style={{ flex: 1, color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>
-              Formalités douanières incluses — Axis s'occupe des bordereaux et documents à l'import. Tu n'as qu'à déclarer ton envoi.
+              Documents de douane préparés par Axis (bordereaux, déclarations). Tu n'as qu'à décrire ton envoi. Les droits et taxes à l'arrivée restent à la charge du destinataire.
             </Text>
           </View>
         </Surface>
@@ -331,21 +331,25 @@ function StepTrajet() {
 // ─── Heuristique d'éligibilité par pays ────────────────────────────────────
 function computeEligibility(countryCode?: string): { headline: string; detail: string } {
   const c = (countryCode ?? '').toUpperCase();
+  // Délais indicatifs seulement. Les « hubs » et zones de livraison par pays
+  // annoncés auparavant (Hub Dakar, 14 villes…) n'étaient pas vérifiés.
+  const DETAIL = 'Délais indicatifs, confirmés par Axis à la prise en charge. Livraison à l\'adresse indiquée ou remise convenue avec le destinataire.';
   const map: Record<string, { headline: string; detail: string }> = {
-    SN: { headline: 'Sénégal — aérien 5-7 j, maritime 28 j', detail: 'Hub Dakar (DSS + port autonome). Livraison à domicile dans 14 villes.' },
-    CI: { headline: "Côte d'Ivoire — aérien 5-7 j, maritime 30 j", detail: 'Hub Abidjan (port autonome). Livraison Abidjan, Bouaké, San Pédro.' },
-    CM: { headline: 'Cameroun — aérien 6-8 j, maritime 32 j', detail: 'Hub Douala. Livraison Douala et Yaoundé.' },
-    BJ: { headline: 'Bénin — aérien 6-8 j, maritime 30 j', detail: 'Hub Cotonou.' },
-    TG: { headline: 'Togo — aérien 6-8 j, maritime 28 j', detail: 'Hub Lomé.' },
-    GA: { headline: 'Gabon — aérien 7-9 j, maritime 35 j', detail: "Hub Libreville / port d'Owendo." },
-    CD: { headline: 'RDC — aérien 7-10 j, maritime 38 j', detail: 'Hub Kinshasa, livraison Matadi/Lubumbashi.' },
-    BF: { headline: 'Burkina Faso — aérien 6-8 j', detail: 'Pas de mer — uniquement aérien via Ouagadougou.' },
-    ML: { headline: 'Mali — aérien 6-8 j', detail: 'Pas de mer — uniquement aérien via Bamako.' },
+    SN: { headline: 'Sénégal — aérien 5-7 j, maritime 28 j', detail: DETAIL },
+    CI: { headline: "Côte d'Ivoire — aérien 5-7 j, maritime 30 j", detail: DETAIL },
+    CM: { headline: 'Cameroun — aérien 6-8 j, maritime 32 j', detail: DETAIL },
+    BJ: { headline: 'Bénin — aérien 6-8 j, maritime 30 j', detail: DETAIL },
+    TG: { headline: 'Togo — aérien 6-8 j, maritime 28 j', detail: DETAIL },
+    GA: { headline: 'Gabon — aérien 7-9 j, maritime 35 j', detail: DETAIL },
+    CD: { headline: 'RDC — aérien 7-10 j, maritime 38 j', detail: DETAIL },
+    BF: { headline: 'Burkina Faso — aérien 6-8 j', detail: 'Pays sans façade maritime : envoi aérien uniquement. ' + DETAIL },
+    ML: { headline: 'Mali — aérien 6-8 j', detail: 'Pays sans façade maritime : envoi aérien uniquement. ' + DETAIL },
   };
+
   return (
     map[c] ?? {
       headline: 'Couverture standard',
-      detail: 'Aérien 5-10 j ou maritime 28-45 j selon le port.',
+      detail: 'Aérien 5-10 j ou maritime 28-45 j selon le port. Délais indicatifs, confirmés par Axis.',
     }
   );
 }

@@ -1,3 +1,4 @@
+import type { QuoteResponse } from '../api/quotes';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useRef, useState } from 'react';
@@ -213,7 +214,7 @@ export function QuoteReviewScreen() {
               fontFamily: TYPO.weights.medium,
             }}
           >
-            TVA 20 % incluse · valide 30 jours
+            {quote.taxCents > 0 ? `TVA ${taxPct(quote)} % incluse` : 'TVA non applicable'} · valide 30 jours
           </Text>
         </Surface>
 
@@ -371,6 +372,20 @@ export function QuoteReviewScreen() {
               addon
             />
           ))}
+          {/* Les lignes doivent expliquer le total : le minimum de facturation
+              et la TVA n'apparaissaient pas (68 € affichés, 102 € à payer). */}
+          {minimumAdjustmentCents(quote) > 0 ? (
+            <DetailRow
+              label="Minimum de facturation"
+              sub={`Montant minimum HT pour ce type d'envoi : ${fmtEur(quote.subtotalCents)}`}
+              value={`+ ${fmtEur(minimumAdjustmentCents(quote))}`}
+              addon
+            />
+          ) : null}
+          <DetailRow label="Total HT" sub="Avant TVA" value={fmtEur(quote.subtotalCents)} />
+          {quote.taxCents > 0 ? (
+            <DetailRow label={`TVA ${taxPct(quote)} %`} sub="Taxe sur la valeur ajoutée" value={`+ ${fmtEur(quote.taxCents)}`} addon />
+          ) : null}
 
           <View style={{ height: 1.5, backgroundColor: theme.line, marginTop: 12, marginBottom: 0 }} />
           <View style={{ flexDirection: 'row', alignItems: 'baseline', paddingTop: 14 }}>
@@ -379,7 +394,7 @@ export function QuoteReviewScreen() {
                 Total TTC
               </Text>
               <Text style={{ fontSize: 11, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
-                TVA 20 % incluse
+                {quote.taxCents > 0 ? `TVA ${taxPct(quote)} % incluse` : 'TVA non applicable'}
               </Text>
             </View>
             <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 28, color: theme.ink, letterSpacing: -0.3, fontVariant: ['tabular-nums'] }}>
@@ -654,4 +669,15 @@ function defaultPickupAt(): string {
   d.setDate(d.getDate() + 2);
   d.setHours(8, 0, 0, 0);
   return d.toISOString();
+}
+
+/** Écart entre le total HT et la somme des lignes : minimum de facturation. */
+function minimumAdjustmentCents(q: QuoteResponse): number {
+  const lines = q.basePriceCents + q.variablePriceCents + q.pickupFeeCents + q.options.reduce((a, o) => a + o.priceCents, 0);
+  return Math.max(0, q.subtotalCents - lines);
+}
+
+function taxPct(q: QuoteResponse): string {
+  const rate = q.subtotalCents > 0 ? (q.taxCents / q.subtotalCents) * 100 : 0;
+  return (Math.round(rate * 10) / 10).toLocaleString('fr-FR');
 }

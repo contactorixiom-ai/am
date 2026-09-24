@@ -66,7 +66,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
           Que contient ton colis ?
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-          Ces informations servent à la déclaration douanière et à l'assurance.
+          Ces informations servent à la déclaration en douane.
         </Text>
       </View>
 
@@ -144,7 +144,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
           placeholder="ex : 350"
           hint={highValue
             ? '⚠️ Au-dessus de 1 000 € : facture commerciale obligatoire pour la douane'
-            : 'Sert à la déclaration douanière et au remboursement en cas de perte'}
+            : 'Sert à la déclaration en douane'}
         />
       </Surface>
 
@@ -179,45 +179,19 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
         </Pressable>
       </Surface>
 
-      {/* Mention douane dynamique selon le pays */}
+      {/* Côté client, on reste simple : Axis prépare les documents de
+          douane (bordereau, déclarations) dans son espace. La liste des pièces
+          commerciales (facture, colisage, connaissement…) affichée ici
+          effrayait pour un simple envoi d'effets personnels. */}
       {country ? (
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
             <Icons.shield size={18} color={theme.gold} stroke={1.8} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>
-                Réglementation {requirements?.countryName ?? country}
-              </Text>
-              {loadingReqs ? (
-                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 6 }}>
-                  Chargement de la fiche pays…
-                </Text>
-              ) : requirements ? (
-                <>
-                  <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 6, lineHeight: 17 }}>
-                    Documents à fournir : {requirements.checklist
-                      .filter((d) => d.mandatory)
-                      .map((d) => d.label)
-                      .slice(0, 4)
-                      .join(' · ')}
-                  </Text>
-                  {requirements.cargoMandatory && requirements.cargoTrackingType ? (
-                    <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      <Pill tone="warn">
-                        {requirements.cargoTrackingType} obligatoire
-                      </Pill>
-                      {requirements.authority ? (
-                        <Pill tone="ghost">Émis par {requirements.authority}</Pill>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </>
-              ) : (
-                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 6 }}>
-                  Fiche réglementaire indisponible. Tu seras guidé après réservation.
-                </Text>
-              )}
-            </View>
+            <Text style={{ flex: 1, color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>
+              Axis prépare les documents de douane{requirements?.countryName ? ` pour ${requirements.countryName}` : ''}
+              {requirements?.cargoMandatory && requirements.cargoTrackingType ? ` (dont le ${requirements.cargoTrackingType})` : ''}.
+              S'il manque une pièce, Axis te la demande.
+            </Text>
           </View>
         </Surface>
       ) : null}

@@ -1,6 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { createParcel } from '../api/parcels';
@@ -10,7 +10,6 @@ import { Icons } from '../components/Icons';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
-import { linkPayment } from '../api/payments';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -57,30 +56,40 @@ export function RecipientDetailsScreen() {
     if (!deliverToRelay && !address.trim()) {
       notify(
         'Adresse manquante',
-        "Indique une adresse de livraison ou choisis l'option « Livraison en point relais Axis ».",
+        "Indique une adresse de livraison ou choisis « Pas d'adresse précise — remise à convenir ».",
       );
       return false;
     }
     return true;
   };
 
-  const handlePay = () => {
+  // Le colis est enregistré D'ABORD, puis réglé avec son identifiant. Dans
+  // l'ordre inverse, une coupure réseau après paiement laissait un paiement
+  // sans colis (« référence locale », jamais synchronisée).
+  const [created, setCreated] = useState<{ id: string; reference: string } | null>(null);
+  const doneRef = useRef(false);
+
+  const handlePay = async () => {
     if (!validate()) return;
+    if (created) {
+      setShowPayment(true);
+      return;
+    }
+    const destinationAddress = deliverToRelay
+      ? `Remise à convenir avec le destinataire (${quote.toCity})`
+      : address.trim();
     setDraft({
       recipientFirstName: firstName.trim(),
       recipientLastName: lastName.trim(),
       recipientPhone: phone.trim(),
       recipientEmail: email.trim() || undefined,
-      destinationAddress: deliverToRelay ? `Point relais Axis ${quote.toCity}` : address.trim(),
+      destinationAddress,
       deliverToAxisRelay: deliverToRelay,
     });
-    setShowPayment(true);
-  };
-
-  const finalizeBooking = async (paymentSessionId: string | null) => {
     setLoading(true);
     try {
       const parcel = await createParcel({
+        quoteId: quote.id,
         category: mapKindToApiCategory(parcelDraft.kind, parcelDraft.customsCategory),
         transportMode: quote.transportMode === 'SEA' ? 'SEA' : 'AIR',
         pickupMode: parcelDraft.pickupMode ?? 'HUB_DROP_OFF',
@@ -93,45 +102,32 @@ export function RecipientDetailsScreen() {
         originCity: quote.fromCity,
         destinationCountry: quote.toCountry,
         destinationCity: quote.toCity,
-        destinationAddress: deliverToRelay ? `Point relais Axis ${quote.toCity}` : address.trim(),
+        destinationAddress,
         recipientFirstName: firstName.trim(),
         recipientLastName: lastName.trim(),
         recipientPhone: phone.trim(),
         recipientEmail: email.trim() || undefined,
       });
-      // Le règlement a eu lieu avant la création du colis : on le rattache
-      // maintenant, sinon la facture réapparaîtrait comme « à régler ».
-      if (paymentSessionId) {
-        await linkPayment(paymentSessionId, { parcelId: parcel.id }).catch(() => {});
-      }
-      resetDraft();
-      nav.replace('BookingConfirmation', {
-        kind: 'parcel',
-        reference: parcel.reference,
-        id: parcel.id,
-      });
+      setCreated({ id: parcel.id, reference: parcel.reference });
+      setShowPayment(true);
     } catch (e) {
-      // Repli démo : on génère une référence locale pour pouvoir tester l'écran
-      // de confirmation même si le backend est down.
-      const msg = e instanceof ApiError ? (e.message ?? 'Erreur') : 'Erreur réseau.';
-      const isNetwork = !(e instanceof ApiError);
-      if (isNetwork) {
-        const localRef = `AXP-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Date.now()
-          .toString(36)
-          .slice(-4)
-          .toUpperCase()}`;
-        resetDraft();
-        nav.replace('BookingConfirmation', {
-          kind: 'parcel',
-          reference: localRef,
-          id: 'local-demo',
-        });
-        return;
-      }
-      notify('Réservation impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      const msg =
+        e instanceof ApiError && e.isNetworkError
+          ? 'Pas de connexion : rien n\'a été enregistré ni débité. Réessaie quand tu as du réseau.'
+          : e instanceof Error
+            ? e.message
+            : 'Erreur inconnue.';
+      notify('Réservation impossible', msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const finish = (unpaid: boolean) => {
+    if (!created || doneRef.current) return;
+    doneRef.current = true;
+    resetDraft();
+    nav.replace('BookingConfirmation', { kind: 'parcel', reference: created.reference, id: created.id, unpaid });
   };
 
   return (
@@ -225,10 +221,10 @@ export function RecipientDetailsScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>
-                  Pas d'adresse précise — livraison en point relais Axis
+                  Pas d'adresse précise — remise à convenir
                 </Text>
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 2, lineHeight: 16 }}>
-                  Le destinataire est notifié par SMS et retire son colis sous 14 jours dans le hub Axis le plus proche.
+                  Axis appelle le destinataire au numéro indiqué pour fixer le lieu de remise.
                 </Text>
               </View>
             </Pressable>
@@ -284,7 +280,7 @@ export function RecipientDetailsScreen() {
             kind="gold"
             size="lg"
             fullWidth
-            onPress={handlePay}
+            onPress={() => void handlePay()}
             loading={loading}
             rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
           >
@@ -296,12 +292,16 @@ export function RecipientDetailsScreen() {
       <PaymentSheet
         visible={showPayment}
         amountEur={quote.totalCents / 100}
-        reference={quote.reference}
+        reference={created?.reference ?? quote.reference}
         description={`${quote.fromCity} → ${quote.toCity}`}
-        onClose={() => setShowPayment(false)}
-        onPaid={(sessionId) => {
+        parcelId={created?.id}
+        onClose={() => {
           setShowPayment(false);
-          finalizeBooking(sessionId);
+          finish(true);
+        }}
+        onPaid={() => {
+          setShowPayment(false);
+          finish(false);
         }}
       />
     </SafeAreaView>

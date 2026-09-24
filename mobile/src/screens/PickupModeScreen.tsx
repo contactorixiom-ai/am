@@ -225,7 +225,9 @@ export function PickupModeScreen() {
                 Notre conseil
               </Text>
               <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 4 }}>
-                Le point relais est l'option la plus économique pour les colis &lt; 15 kg. L'enlèvement à domicile (25 €) est pratique ; le point relais (5 €) est plus économique.
+                {OPERATIONS.relayPoints
+                  ? 'Le dépôt chez Axis est gratuit ; le point relais (5 €) est pratique près de chez toi ; l\'enlèvement à domicile coûte 25 €.'
+                  : 'Le dépôt chez Axis est gratuit. L\'enlèvement à domicile (25 €) t\'évite le déplacement.'}
               </Text>
             </View>
           </View>

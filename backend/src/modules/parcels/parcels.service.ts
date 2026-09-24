@@ -77,6 +77,26 @@ export class ParcelsService {
       if (!relay) throw new BadRequestException('Point relais introuvable');
     }
 
+    // Prix du devis accepté, lu côté serveur : le colis était enregistré sans
+    // prix, et Roger ne voyait pas le montant de la commande.
+    let priceCents: number | undefined;
+    if (dto.quoteId) {
+      const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
+      if (!quote) throw new NotFoundException('Devis introuvable.');
+      if (quote.service !== 'PARCEL' && quote.service !== 'MERCHANDISE') {
+        throw new BadRequestException('Ce devis ne concerne pas un envoi de colis.');
+      }
+      if (quote.customerId && quote.customerId !== senderId) {
+        throw new ForbiddenException('Ce devis ne vous appartient pas.');
+      }
+      if (quote.status === 'CONVERTED') throw new BadRequestException('Ce devis a déjà donné lieu à une commande.');
+      if (quote.expiresAt < new Date()) {
+        throw new BadRequestException('Ce devis a expiré. Refais une estimation pour obtenir le tarif du jour.');
+      }
+      priceCents = quote.totalCents;
+      await this.prisma.quote.update({ where: { id: quote.id }, data: { status: 'CONVERTED', customerId: senderId } });
+    }
+
     // Statut initial selon le mode
     const initialStatus = pickupMode === PickupMode.HOME_PICKUP
       ? ParcelStatus.AWAITING_PICKUP
@@ -87,9 +107,10 @@ export class ParcelsService {
     const transitDays = TRANSIT_DAYS[dto.transportMode ?? 'AIR'] ?? TRANSIT_DAYS.AIR;
     const estimatedDelivery = addDays(new Date(), transitDays);
 
-    return this.prisma.parcel.create({
+    const parcel = await this.prisma.parcel.create({
       data: {
         senderId,
+        priceCents,
         estimatedDelivery,
         reference: this.generateReference(),
         status: initialStatus,
@@ -136,6 +157,22 @@ export class ParcelsService {
       },
       include: { items: true, relayPoint: true, trackingEvents: true },
     });
+
+    // Roger doit savoir qu'un envoi vient d'être commandé.
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN, deletedAt: null },
+      select: { id: true },
+    });
+    const price = priceCents != null
+      ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`
+      : '';
+    for (const a of admins) {
+      await this.notifications
+        .notify(a.id, NotificationType.PARCEL_STATUS_UPDATE, 'Nouvel envoi de colis',
+          `${parcel.reference} — ${parcel.originCity} → ${parcel.destinationCity}${price}.`, { parcelId: parcel.id })
+        .catch(() => undefined);
+    }
+    return parcel;
   }
 
   async list(user: AuthenticatedUser, opts: { skip: number; take: number; status?: ParcelStatus }) {
