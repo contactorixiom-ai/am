@@ -1,6 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
@@ -12,7 +12,6 @@ import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
 import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
-import { linkPayment } from '../api/payments';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
@@ -43,85 +42,81 @@ export function QuoteReviewScreen() {
   // Pour les colis : on pré-sélectionne le transporteur partenaire (tronçon 1)
   // pour informer le client AVANT achat. Numéro de tracking caché à ce stade.
 
-  // Réservation réelle d'un convoyage : créer le véhicule puis la mission.
-  const bookConvoy = async (paymentSessionId: string | null) => {
+  // Commande d'un convoyage : la mission est créée D'ABORD, puis réglée.
+  // L'ordre inverse faisait payer le client avant que la commande existe :
+  // une coupure réseau à ce moment-là laissait un paiement sans commande
+  // (« enregistré en local », jamais synchronisé).
+  const [created, setCreated] = useState<{ id: string; reference: string } | null>(null);
+
+  const bookConvoy = async () => {
+    if (created) {
+      setShowPayment(true);
+      return;
+    }
     setBooking(true);
     try {
       const draft = await readConvoyDraft();
-
-      // 1) Véhicule — make/model/plate/year obligatoires côté DTO. À défaut
-      // (brouillon perdu, navigation privée), on met des valeurs neutres pour
-      // que la création reste possible plutôt que de bloquer l'utilisateur.
+      if (!draft?.pickupAddress || !draft.deliveryAddress || !draft.vehicleMake || !draft.vehiclePlate) {
+        notify('Informations manquantes', 'Reviens à l\'écran précédent pour indiquer les adresses et le véhicule.');
+        return;
+      }
       const vehicle = await createVehicle({
         type: quote.service === 'CONVOY_MOTO' ? 'MOTORCYCLE' : 'CAR',
-        make: draft?.vehicleMake || 'Véhicule',
-        model: draft?.vehicleModel || 'À préciser',
-        year: draft?.vehicleYear ?? new Date().getFullYear(),
-        licensePlate: draft?.vehiclePlate || 'TEMP-0000',
+        make: draft.vehicleMake,
+        model: draft.vehicleModel || 'À préciser',
+        year: draft.vehicleYear ?? new Date().getFullYear(),
+        licensePlate: draft.vehiclePlate,
         registrationCountry: quote.fromCountry?.slice(0, 2).toUpperCase() || undefined,
       });
 
-      // 2) Mission — coordonnées dérivées du devis. pickupAt = demain matin.
-      const pickupAt = new Date();
-      pickupAt.setDate(pickupAt.getDate() + 1);
-      pickupAt.setHours(8, 0, 0, 0);
-
       const mission = await createMission({
+        quoteId: quote.id,
         vehicleId: vehicle.id,
-        pickupAddress: draft?.pickupAddress || `${quote.fromCity}, ${quote.fromCountry}`,
+        pickupAddress: draft.pickupAddress,
         pickupCity: quote.fromCity,
         pickupCountry: quote.fromCountry,
+        pickupPostalCode: draft.pickupPostalCode,
         pickupLatitude: quote.fromLatitude ?? 0,
         pickupLongitude: quote.fromLongitude ?? 0,
-        pickupAt: pickupAt.toISOString(),
-        deliveryAddress: draft?.deliveryAddress || `${quote.toCity}, ${quote.toCountry}`,
+        pickupAt: draft.pickupAt ?? defaultPickupAt(),
+        deliveryAddress: draft.deliveryAddress,
         deliveryCity: quote.toCity,
         deliveryCountry: quote.toCountry,
+        deliveryPostalCode: draft.deliveryPostalCode,
         deliveryLatitude: quote.toLatitude ?? 0,
         deliveryLongitude: quote.toLongitude ?? 0,
-        pickupNotes: draft?.notes,
+        pickupNotes: [draft.pickupSlotLabel ? `Créneau souhaité : ${draft.pickupSlotLabel}` : null, draft.notes]
+          .filter(Boolean)
+          .join('\n') || undefined,
       });
-
-      // Le règlement a eu lieu avant la création du convoyage : on le
-      // rattache maintenant, sinon la facture réapparaîtrait « à régler ».
-      if (paymentSessionId) {
-        await linkPayment(paymentSessionId, { missionId: mission.id }).catch(() => {});
-      }
       await clearConvoyDraft();
-      nav.replace('BookingConfirmation', {
-        kind: 'mission',
-        reference: mission.reference,
-        id: mission.id,
-      });
+      setCreated({ id: mission.id, reference: mission.reference });
+      setShowPayment(true);
     } catch (e) {
-      // Repli démo : sur erreur réseau (backend down) on génère une référence
-      // locale et on navigue quand même pour garder l'app démo-able hors-ligne.
-      const isNetwork = e instanceof ApiError ? e.isNetworkError : !(e instanceof ApiError);
-      if (isNetwork) {
-        const localRef = `AX-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Date.now()
-          .toString(36)
-          .slice(-4)
-          .toUpperCase()}`;
-        await clearConvoyDraft();
-        notify('Enregistré en local', 'Pas de réseau : ta réservation est gardée localement et sera synchronisée plus tard.');
-        nav.replace('BookingConfirmation', {
-          kind: 'mission',
-          reference: localRef,
-          id: 'local-demo',
-        });
-        return;
-      }
-      const msg = e instanceof ApiError ? e.message : 'Erreur inconnue.';
-      notify('Réservation impossible', Array.isArray(msg) ? msg.join('\n') : String(msg));
+      const msg =
+        e instanceof ApiError && e.isNetworkError
+          ? 'Pas de connexion : rien n\'a été enregistré ni débité. Réessaie quand tu as du réseau.'
+          : e instanceof Error
+            ? e.message
+            : 'Erreur inconnue.';
+      notify('Réservation impossible', msg);
     } finally {
       setBooking(false);
     }
   };
 
+  // La feuille de paiement appelle onPaid puis onClose : on ne navigue
+  // qu'une fois.
+  const doneRef = useRef(false);
+  const finish = (unpaid: boolean) => {
+    if (!created || doneRef.current) return;
+    doneRef.current = true;
+    nav.replace('BookingConfirmation', { kind: 'mission', reference: created.reference, id: created.id, unpaid });
+  };
+
   const handleBook = () => {
     if (isConvoy) {
-      // Le client règle d'abord le convoyage, puis la mission est créée.
-      setShowPayment(true);
+      void bookConvoy();
       return;
     }
     if (isParcel) {
@@ -507,12 +502,18 @@ export function QuoteReviewScreen() {
         <PaymentSheet
           visible={showPayment}
           amountEur={quote.totalCents / 100}
-          reference={quote.reference}
+          reference={created?.reference ?? quote.reference}
           description={`Convoyage ${quote.fromCity} → ${quote.toCity}`}
-          onClose={() => setShowPayment(false)}
-          onPaid={(sessionId) => {
+          missionId={created?.id}
+          onClose={() => {
+            // Fermé sans payer : la commande existe, elle se règle depuis
+            // Documents.
             setShowPayment(false);
-            bookConvoy(sessionId);
+            finish(true);
+          }}
+          onPaid={() => {
+            setShowPayment(false);
+            finish(false);
           }}
         />
       ) : null}
@@ -645,4 +646,12 @@ function pickupSub(mode: string): string {
     case 'HOME_PICKUP':    return 'Enlèvement à domicile';
     default:               return '';
   }
+}
+
+/** Repli si le brouillon ne porte pas de date : après-demain, 8 h. */
+function defaultPickupAt(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  d.setHours(8, 0, 0, 0);
+  return d.toISOString();
 }

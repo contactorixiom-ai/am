@@ -111,6 +111,16 @@ export interface City {
   latitude: number;
   longitude: number;
   region: 'EU' | 'AFRICA';
+  postalCode?: string;
+}
+
+/** Recherche d'une commune au-delà du catalogue (France, Europe, Afrique). */
+export async function searchCities(q: string, region?: 'EU' | 'AFRICA'): Promise<City[]> {
+  const res = await apiFetch<City[]>('/cities/search', {
+    skipAuth: true,
+    params: region ? { q, region } : { q },
+  });
+  return Array.isArray(res) ? res : [];
 }
 
 export async function createQuote(input: CreateQuoteInput): Promise<QuoteResponse> {

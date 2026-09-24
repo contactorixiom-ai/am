@@ -53,7 +53,7 @@ export function BookingConfirmationScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingConfirmation'>>();
-  const { kind, reference, id } = route.params;
+  const { kind, reference, id, unpaid } = route.params;
   // Snapshot du dernier draft (capturé au reset) pour personnaliser les
   // instructions selon le mode de récupération choisi.
   const { lastBooking } = useParcelDraft();
@@ -125,8 +125,10 @@ export function BookingConfirmationScreen() {
             }}
           >
             {kind === 'mission'
-              ? "Ta mission est publiée. Un convoyeur va l'accepter sous peu."
-              : 'Ton colis est enregistré. Tu reçois un SMS dès qu\'un transporteur le prend en charge.'}
+              ? unpaid
+                ? 'Ta commande est enregistrée. Règle-la depuis l\'onglet Documents : Axis affecte ensuite un convoyeur et te confirme le créneau.'
+                : 'Commande payée. Axis affecte un convoyeur et te confirme le créneau : tu es prévenu dans l\'application.'
+              : 'Ton colis est enregistré. Tu es prévenu dans l\'application à chaque étape.'}
           </Text>
         </View>
 

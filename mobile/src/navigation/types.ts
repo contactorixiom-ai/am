@@ -27,7 +27,7 @@ export type RootStackParamList = {
   HomePickupAddress: { draft: ParcelDraft };
   QuoteReview: { quote: QuoteResponse };
   RecipientDetails: { quote: QuoteResponse };
-  BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string };
+  BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string; unpaid?: boolean };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
   MissionDetails: { reference?: string } | undefined;
   Messaging:

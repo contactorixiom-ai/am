@@ -17,6 +17,13 @@ export class CreateMissionDto {
   @IsUUID()
   vehicleId!: string;
 
+  // Devis accepté par le client : le prix en est tiré côté serveur (jamais
+  // du téléphone) et la mission est publiée directement.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  quoteId?: string;
+
   @ApiPropertyOptional({ enum: MissionPriority })
   @IsOptional()
   @IsEnum(MissionPriority)

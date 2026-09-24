@@ -52,6 +52,10 @@ export async function getMission(id: string): Promise<MissionDetail> {
 }
 
 export interface CreateMissionInput {
+  /** Devis accepté : le serveur en reprend le prix et publie la mission. */
+  quoteId?: string;
+  pickupPostalCode?: string;
+  deliveryPostalCode?: string;
   vehicleId: string;
   pickupAddress: string;
   pickupCity: string;
@@ -188,6 +192,11 @@ export interface ConvoyDraft {
   // Adresses (optionnelles — à défaut on retombe sur ville/pays du devis)
   pickupAddress?: string;
   deliveryAddress?: string;
+  pickupPostalCode?: string;
+  deliveryPostalCode?: string;
+  /** Début du créneau d'enlèvement choisi (ISO). */
+  pickupAt?: string;
+  pickupSlotLabel?: string;
   // Notes saisies par le client
   notes?: string;
   // Référence du devis associé, pour invalider un brouillon obsolète

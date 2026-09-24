@@ -1,6 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
@@ -65,6 +65,16 @@ export function CarRequestScreen() {
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [vehicleYear, setVehicleYear] = useState('');
   const [notes, setNotes] = useState('');
+  // Date et créneau d'enlèvement choisis par le client (ils étaient figés sur
+  // « 22 mai · Matin »), et adresses exactes : sans elles, le convoyeur ne
+  // savait pas où aller.
+  const dates = useMemo(() => nextDays(21), []);
+  const [pickupDay, setPickupDay] = useState<Date>(dates[1]);
+  const [slot, setSlot] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Un enlèvement le samedi ou le dimanche est facturé comme tel.
+  const isWeekend = pickupDay.getDay() === 0 || pickupDay.getDay() === 6;
   const [selectedOptions, setSelectedOptions] = useState<Set<QuoteOptionKind>>(new Set());
   const [loading, setLoading] = useState(false);
 
@@ -88,6 +98,16 @@ export function CarRequestScreen() {
     };
   }, [service, from, to, category, selectedOptions]);
 
+  useEffect(() => {
+    setSelectedOptions((prev) => {
+      if (prev.has('WEEKEND_PICKUP') === isWeekend) return prev;
+      const next = new Set(prev);
+      if (isWeekend) next.add('WEEKEND_PICKUP');
+      else next.delete('WEEKEND_PICKUP');
+      return next;
+    });
+  }, [isWeekend]);
+
   const toggleOption = (k: QuoteOptionKind) =>
     setSelectedOptions((prev) => {
       const next = new Set(prev);
@@ -99,6 +119,14 @@ export function CarRequestScreen() {
   const submit = async () => {
     if (!from || !to) {
       notify('Trajet incomplet', "Choisis une ville de départ et d'arrivée.");
+      return;
+    }
+    if (pickupAddress.trim().length < 5 || deliveryAddress.trim().length < 5) {
+      notify('Adresses manquantes', 'Indique l\'adresse exacte de départ et d\'arrivée du véhicule.');
+      return;
+    }
+    if (!vehicleMake.trim() || !vehicleModel.trim() || !vehiclePlate.trim()) {
+      notify('Véhicule incomplet', 'Indique la marque, le modèle et l\'immatriculation.');
       return;
     }
     setLoading(true);
@@ -126,6 +154,12 @@ export function CarRequestScreen() {
         vehiclePlate: vehiclePlate.trim() || undefined,
         vehicleYear: Number.isFinite(parsedYear) ? parsedYear : undefined,
         notes: notes.trim() || undefined,
+        pickupAddress: pickupAddress.trim(),
+        deliveryAddress: deliveryAddress.trim(),
+        pickupPostalCode: from.postalCode,
+        deliveryPostalCode: to.postalCode,
+        pickupAt: slotStart(pickupDay, slot).toISOString(),
+        pickupSlotLabel: `${formatDay(pickupDay)} · ${slot === 'MORNING' ? 'matin (8h-12h)' : 'après-midi (14h-18h)'}`,
         quoteReference: quote.reference,
       });
       nav.navigate('QuoteReview', { quote });
@@ -155,22 +189,77 @@ export function CarRequestScreen() {
             </View>
           </Surface>
 
+          {/* Adresses exactes */}
+          <Surface padded style={{ padding: 16 }}>
+            <SectionHead title="Adresses" />
+            <View style={{ gap: 10 }}>
+              <Field
+                label={`Adresse de départ${from ? ` (${from.city})` : ''}`}
+                value={pickupAddress}
+                onChangeText={setPickupAddress}
+                placeholder="Numéro et rue"
+                autoComplete="street-address"
+              />
+              <Field
+                label={`Adresse d'arrivée${to ? ` (${to.city})` : ''}`}
+                value={deliveryAddress}
+                onChangeText={setDeliveryAddress}
+                placeholder="Numéro et rue"
+              />
+            </View>
+          </Surface>
+
           {/* Quand */}
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Quand" />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Field
-                containerStyle={{ flex: 1 }}
-                label="Enlèvement"
-                value="22 mai"
-                editable={false}
-              />
-              <Field
-                containerStyle={{ flex: 1 }}
-                label="Créneau"
-                value="Matin (8h-12h)"
-                editable={false}
-              />
+            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginBottom: 8 }}>
+              Jour d'enlèvement souhaité — Axis te confirme le créneau.
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+              {dates.map((d) => {
+                const on = d.getTime() === pickupDay.getTime();
+                return (
+                  <Pressable
+                    key={d.toISOString()}
+                    onPress={() => setPickupDay(d)}
+                    style={{
+                      width: 62, paddingVertical: 8, borderRadius: RADII.md, alignItems: 'center',
+                      borderWidth: 1.5, borderColor: on ? theme.navy : theme.line,
+                      backgroundColor: on ? theme.navy : theme.surface,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: on ? theme.goldHi : theme.muted, fontFamily: TYPO.weights.semibold, textTransform: 'uppercase' }}>
+                      {d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}
+                    </Text>
+                    <Text style={{ fontSize: 17, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
+                      {d.getDate()}
+                    </Text>
+                    <Text style={{ fontSize: 10.5, color: on ? 'rgba(245,241,232,0.7)' : theme.muted, fontFamily: TYPO.weights.medium }}>
+                      {d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              {(['MORNING', 'AFTERNOON'] as const).map((k) => {
+                const on = slot === k;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => setSlot(k)}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: RADII.md, alignItems: 'center',
+                      borderWidth: 1.5, borderColor: on ? theme.navy : theme.line,
+                      backgroundColor: on ? theme.bgSoft : theme.surface,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                      {k === 'MORNING' ? 'Matin · 8h-12h' : 'Après-midi · 14h-18h'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </Surface>
 
@@ -242,43 +331,18 @@ export function CarRequestScreen() {
             </View>
           </Surface>
 
-          {/* Photos */}
-          <Surface padded style={{ padding: 16 }}>
-            <SectionHead title="Photos" action="2 sur 6" />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {[0, 1, 2, 3, 4, 5].map((i) => {
-                const filled = i < 2;
-                return (
-                  <View
-                    key={i}
-                    style={{
-                      width: '31.5%',
-                      aspectRatio: 1,
-                      borderRadius: 10,
-                      backgroundColor: filled ? theme.navy : theme.bgSoft,
-                      borderWidth: 1,
-                      borderColor: filled ? theme.navy : theme.line,
-                      borderStyle: filled ? 'solid' : 'dashed',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {filled ? (
-                      <Icons.check size={20} color={theme.gold} stroke={2} />
-                    ) : (
-                      <Icons.camera size={22} color={theme.muted} stroke={1.6} />
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          </Surface>
 
           {/* Options */}
           <View>
             <SectionHead title="Options" />
             <View style={{ gap: 8 }}>
-              {OPTIONS.map((o) => {
+              {/* Le supplément week-end suit le jour choisi, il ne se coche pas. */}
+              {isWeekend ? (
+                <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
+                  Enlèvement le week-end : supplément de 60 € inclus.
+                </Text>
+              ) : null}
+              {OPTIONS.filter((o) => o.kind !== 'WEEKEND_PICKUP').map((o) => {
                 const active = selectedOptions.has(o.kind);
                 return (
                   <Pressable key={o.kind} onPress={() => toggleOption(o.kind)}>
@@ -386,4 +450,27 @@ function CityPickerRow({
       </View>
     </View>
   );
+}
+
+/** Les N prochains jours, à partir de demain, à minuit. */
+function nextDays(n: number): Date[] {
+  const out: Date[] = [];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  for (let i = 1; i <= n; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    out.push(d);
+  }
+  return out;
+}
+
+function slotStart(day: Date, slot: 'MORNING' | 'AFTERNOON'): Date {
+  const d = new Date(day);
+  d.setHours(slot === 'MORNING' ? 8 : 14, 0, 0, 0);
+  return d;
+}
+
+function formatDay(d: Date): string {
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }

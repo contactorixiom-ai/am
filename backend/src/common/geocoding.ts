@@ -7,6 +7,8 @@ export interface GeoPoint {
   city: string;
   country: string;
   region: 'EU' | 'AFRICA';
+  /** Code postal, quand la recherche en ligne le fournit. */
+  postalCode?: string;
 }
 
 const CITIES: Record<string, GeoPoint> = {

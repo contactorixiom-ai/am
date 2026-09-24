@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
-import { City, listCities } from '../api/quotes';
+import { City, listCities, searchCities } from '../api/quotes';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
@@ -24,13 +24,33 @@ export function CityPicker({ label, value, onChange, region }: Props) {
       .catch(() => setCities([]));
   }, [open, region]);
 
+  // Au-delà des grandes villes du catalogue, on interroge le serveur, qui
+  // cherche dans toutes les communes : sans cela, un client de Dijon ou de
+  // Thiès ne pouvait pas commander.
+  const [remote, setRemote] = useState<City[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setRemote(null); return; }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(() => {
+      searchCities(q, region)
+        .then((r) => { if (!cancelled) setRemote(r); })
+        .catch(() => { if (!cancelled) setRemote(null); })
+        .finally(() => { if (!cancelled) setSearching(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, region]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cities;
+    if (remote) return remote;
     return cities.filter(
       (c) => c.city.toLowerCase().includes(q) || c.country.toLowerCase().includes(q),
     );
-  }, [cities, query]);
+  }, [cities, query, remote]);
 
   return (
     <View style={{ gap: 6 }}>
@@ -63,7 +83,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
             fontSize: TYPO.sizes.body,
           }}
         >
-          {value ? `${value.city} · ${value.country}` : 'Sélectionner une ville'}
+          {value ? `${value.city}${value.postalCode ? ` (${value.postalCode.slice(0, 2)})` : ''} · ${value.country}` : 'Sélectionner une ville'}
         </Text>
       </Pressable>
 
@@ -101,7 +121,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
           </View>
           <FlatList
             data={filtered}
-            keyExtractor={(item) => `${item.country}-${item.city}`}
+            keyExtractor={(item) => `${item.country}-${item.city}-${item.postalCode ?? ''}-${item.latitude}`}
             contentContainerStyle={{ padding: SPACING.lg, paddingTop: 0 }}
             ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: theme.line }} />}
             renderItem={({ item }) => (
@@ -122,7 +142,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
                   {item.city}
                 </Text>
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-                  {item.country} · {item.region === 'EU' ? 'Europe' : 'Afrique'}
+                  {item.postalCode ? `${item.postalCode} · ` : ''}{item.country} · {item.region === 'EU' ? 'Europe' : 'Afrique'}
                 </Text>
               </Pressable>
             )}
@@ -136,7 +156,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
                   marginTop: SPACING.xxl,
                 }}
               >
-                Aucune ville trouvée
+                {searching ? 'Recherche…' : 'Aucune ville trouvée. Vérifie l\'orthographe.'}
               </Text>
             }
           />

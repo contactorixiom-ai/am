@@ -30,12 +30,41 @@ export class MissionsService {
       throw new ForbiddenException('Vous ne pouvez créer une mission que pour vos propres véhicules.');
     }
 
-    return this.prisma.mission.create({
+    // Commande passée depuis un devis : prix du devis, mission publiée.
+    // Auparavant la mission restait en brouillon, sans prix, alors que le
+    // client venait de payer et lisait « Ta mission est publiée ».
+    let priceCents: number | undefined;
+    let currency: string | undefined;
+    if (dto.quoteId) {
+      const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
+      if (!quote) throw new NotFoundException('Devis introuvable.');
+      if (quote.service !== 'CONVOY_CAR' && quote.service !== 'CONVOY_MOTO') {
+        throw new BadRequestException('Ce devis ne concerne pas un convoyage.');
+      }
+      if (quote.customerId && quote.customerId !== clientId) {
+        throw new ForbiddenException('Ce devis ne vous appartient pas.');
+      }
+      if (quote.status === 'CONVERTED') throw new BadRequestException('Ce devis a déjà donné lieu à une commande.');
+      if (quote.expiresAt < new Date()) {
+        throw new BadRequestException('Ce devis a expiré. Refais une estimation pour obtenir le tarif du jour.');
+      }
+      priceCents = quote.totalCents;
+      currency = quote.currency;
+      await this.prisma.quote.update({
+        where: { id: quote.id },
+        data: { status: 'CONVERTED', customerId: clientId },
+      });
+    }
+    const status = dto.quoteId ? MissionStatus.PUBLISHED : MissionStatus.DRAFT;
+
+    const mission = await this.prisma.mission.create({
       data: {
         clientId,
         vehicleId: dto.vehicleId,
         reference: this.generateReference(),
-        status: MissionStatus.DRAFT,
+        status,
+        priceCents,
+        ...(currency ? { currency } : {}),
         priority: dto.priority,
         pickupAddress: dto.pickupAddress,
         pickupCity: dto.pickupCity,
@@ -54,11 +83,30 @@ export class MissionsService {
         deliveryAt: dto.deliveryAt ? new Date(dto.deliveryAt) : null,
         deliveryNotes: dto.deliveryNotes,
         statusHistory: {
-          create: { status: MissionStatus.DRAFT, changedBy: clientId },
+          create: { status, changedBy: clientId },
         },
       },
       include: { vehicle: true },
     });
+
+    if (status === MissionStatus.PUBLISHED) {
+      // Roger doit savoir qu'une commande vient d'arriver.
+      const admins = await this.prisma.user.findMany({
+        where: { role: UserRole.ADMIN, deletedAt: null },
+        select: { id: true },
+      });
+      const price = priceCents != null ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: currency ?? 'EUR' })}` : '';
+      for (const a of admins) {
+        await this.notifySafe(
+          a.id,
+          NotificationType.MISSION_CREATED,
+          'Nouvelle commande de convoyage',
+          `${mission.reference} — ${mission.pickupCity} → ${mission.deliveryCity}${price}. Un convoyeur est à affecter.`,
+          { missionId: mission.id },
+        );
+      }
+    }
+    return mission;
   }
 
   // Prise de commande par Roger (téléphone / e-mail) : il saisit la commande à la
