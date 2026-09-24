@@ -263,6 +263,11 @@ export class MissionsService {
     if (mission.status !== MissionStatus.PUBLISHED) {
       throw new BadRequestException('Mission not available');
     }
+    // On confie un véhicule à cette personne : son identité et son permis
+    // doivent avoir été vérifiés par Axis. N'importe quel compte, client
+    // compris, pouvait jusqu'ici accepter une mission publiée et repartir
+    // avec le véhicule d'un client sans le moindre contrôle.
+    await this.assertVerifiedDriver(driverId);
     return this.prisma.mission.update({
       where: { id },
       data: {
@@ -593,6 +598,30 @@ export class MissionsService {
       // on ne prétend pas alors que le dossier est intact.
       unchanged: doc.contentHash ? doc.contentHash === current : null,
     };
+  }
+
+  /**
+   * Un convoyeur n'est habilité qu'avec une pièce d'identité ET un permis de
+   * conduire approuvés. Le statut KYC global ne suffit pas : il vaut
+   * « approuvé » dès que tous les documents déposés le sont, même si seul un
+   * justificatif de domicile a été déposé.
+   */
+  private async assertVerifiedDriver(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, kycDocuments: { where: { status: 'APPROVED' }, select: { type: true } } },
+    });
+    if (!user || user.role !== UserRole.DRIVER) {
+      throw new ForbiddenException('Seul un convoyeur peut accepter une mission.');
+    }
+    const approved = new Set(user.kycDocuments.map((d) => d.type));
+    const hasId = approved.has('IDENTITY_CARD') || approved.has('PASSPORT');
+    const hasLicense = approved.has('DRIVER_LICENSE');
+    if (!hasId || !hasLicense) {
+      throw new ForbiddenException(
+        'Identité non vérifiée : une pièce d\'identité et un permis de conduire approuvés par Axis sont nécessaires pour accepter une mission.',
+      );
+    }
   }
 
   private async notifySafe(

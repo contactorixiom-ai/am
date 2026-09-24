@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { User, UserStatus } from '@prisma/client';
+import { User, UserRole, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -48,14 +49,24 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResult> {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // Ceinture et bretelles : même si la validation du DTO venait à changer,
+    // l'inscription publique ne crée jamais d'administrateur.
+    if (dto.role === UserRole.ADMIN) {
+      throw new BadRequestException('Ce rôle ne peut pas être choisi à l\'inscription.');
+    }
+    // L'adresse était cherchée telle quelle mais enregistrée en minuscules :
+    // « Marc@Ex.fr » passait la vérification puis heurtait la contrainte
+    // d'unicité, et l'utilisateur recevait une erreur 500 au lieu d'un
+    // message clair.
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already registered');
 
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email.toLowerCase().trim(),
+        email,
         passwordHash,
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),

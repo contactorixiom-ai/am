@@ -6,8 +6,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { assertProductionSecrets } from './common/security/assert-secrets';
 
 async function bootstrap() {
+  // Avant toute chose : un serveur signé avec une clé connue est un serveur
+  // où n'importe qui peut se faire passer pour l'administrateur.
+  assertProductionSecrets();
+
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
 

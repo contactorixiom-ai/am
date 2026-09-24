@@ -3,6 +3,7 @@ import { AccountType, UserRole } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -38,9 +39,16 @@ export class RegisterDto {
   @Matches(/^\+?[0-9\s-]{8,20}$/, { message: 'Invalid phone format' })
   phone?: string;
 
-  @ApiPropertyOptional({ enum: UserRole, default: UserRole.CLIENT })
+  // L'inscription publique ne peut créer qu'un client ou un convoyeur. Le
+  // champ acceptait toute valeur de UserRole, ADMIN compris : une seule
+  // requête suffisait pour obtenir un compte administrateur et lire les
+  // paiements, contrats et pièces d'identité de tous les clients. Le rôle
+  // ADMIN ne s'obtient que par promotion (npm run promote:admin).
+  @ApiPropertyOptional({ enum: [UserRole.CLIENT, UserRole.DRIVER], default: UserRole.CLIENT })
   @IsOptional()
-  @IsEnum(UserRole)
+  @IsIn([UserRole.CLIENT, UserRole.DRIVER], {
+    message: 'Seuls les rôles CLIENT et DRIVER sont possibles à l\'inscription.',
+  })
   role?: UserRole;
 
   @ApiPropertyOptional({ enum: AccountType, default: AccountType.INDIVIDUAL })

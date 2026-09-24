@@ -65,7 +65,8 @@ export class MissionsController {
   }
 
   @Post(':id/accept')
-  @ApiOperation({ summary: 'Un convoyeur accepte la mission' })
+  @Roles(UserRole.DRIVER)
+  @ApiOperation({ summary: 'Un convoyeur vérifié accepte la mission' })
   accept(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') driverId: string) {
     return this.missions.accept(id, driverId);
   }
