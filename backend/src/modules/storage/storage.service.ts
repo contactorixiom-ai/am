@@ -24,7 +24,20 @@ export interface UploadedFile {
 /** Taille maximale d'un fichier uploadé (10 Mo) — protège contre les abus. */
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const ALLOWED_MIME_PREFIXES = ['image/', 'application/pdf'];
+// Types acceptés, et l'extension sous laquelle chacun est rangé. L'extension
+// venait du nom fourni par l'appareil : un fichier déclaré « image/jpeg » mais
+// nommé « page.html » était rangé et resservi tel quel. Le SVG est exclu : il
+// peut contenir du script.
+const EXT_BY_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/heic': '.heic',
+  'image/heif': '.heic',
+  'image/gif': '.gif',
+  'application/pdf': '.pdf',
+};
 
 /** Dossiers de rangement autorisés — mêmes valeurs que le DTO d'upload. */
 export const STORAGE_FOLDERS = ['kyc', 'signatures', 'documents', 'avatars', 'misc'] as const;
@@ -37,7 +50,7 @@ const STORED_NAME = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 const MIME_BY_EXT: Record<string, string> = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
   '.webp': 'image/webp', '.heic': 'image/heic', '.gif': 'image/gif',
-  '.svg': 'image/svg+xml', '.pdf': 'application/pdf',
+  '.pdf': 'application/pdf',
 };
 
 @Injectable()
@@ -136,7 +149,7 @@ export class StorageService {
       // TODO: implement S3 upload using @aws-sdk/client-s3
       throw new Error('S3 driver not yet implemented');
     }
-    const ext = extname(originalName) || '';
+    const ext = EXT_BY_MIME[mimeType.toLowerCase()] ?? '';
     const storedName = `${randomUUID()}${ext}`;
     const dir = join(this.localPath, folder);
     await mkdir(dir, { recursive: true });
@@ -154,6 +167,6 @@ export class StorageService {
   }
 
   private isAllowedMime(mimeType: string): boolean {
-    return ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+    return mimeType.toLowerCase() in EXT_BY_MIME;
   }
 }

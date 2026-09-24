@@ -7,8 +7,8 @@ interface SessionContextValue {
   user: SessionUser | null;
   initializing: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (input: { email: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
-  resetPassword: (token: string, password: string) => Promise<void>;
+  register: (input: Parameters<typeof apiRegister>[0]) => Promise<void>;
+  resetPassword: (token: string, password: string, acceptedTermsVersion?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -51,8 +51,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const r = await apiRegister(input);
       setUser(r.user);
     },
-    resetPassword: async (token, password) => {
-      const r = await apiResetPassword(token, password);
+    resetPassword: async (token, password, acceptedTermsVersion) => {
+      const r = await apiResetPassword(token, password, acceptedTermsVersion);
       setUser(r.user);
     },
     logout: async () => {

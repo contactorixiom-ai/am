@@ -25,10 +25,12 @@ export async function register(input: {
   firstName: string;
   lastName: string;
   phone?: string;
+  role?: 'CLIENT' | 'DRIVER';
+  acceptedTermsVersion: string;
 }): Promise<AuthResult> {
   const r = await apiFetch<AuthResult>('/auth/register', {
     method: 'POST',
-    body: { ...input, role: 'CLIENT' },
+    body: { ...input, role: input.role ?? 'CLIENT' },
     skipAuth: true,
   });
   await setSession(r.accessToken, r.refreshToken);
@@ -55,10 +57,10 @@ export async function forgotPassword(email: string): Promise<{ emailSent: boolea
 }
 
 /** Choisit un mot de passe à partir d'un lien reçu, puis ouvre la session. */
-export async function resetPassword(token: string, password: string): Promise<AuthResult> {
+export async function resetPassword(token: string, password: string, acceptedTermsVersion?: string): Promise<AuthResult> {
   const r = await apiFetch<AuthResult>('/auth/password/reset', {
     method: 'POST',
-    body: { token, password },
+    body: { token, password, acceptedTermsVersion },
     skipAuth: true,
   });
   await setSession(r.accessToken, r.refreshToken);

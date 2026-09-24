@@ -143,3 +143,8 @@ export function companyRegistrationLine(): string {
 const LEGAL_BASE = 'https://contactorixiom-ai.github.io/am';
 export const LEGAL_PRIVACY_URL = `${LEGAL_BASE}/confidentialite.html`;
 export const LEGAL_TERMS_URL = `${LEGAL_BASE}/cgu.html`;
+/**
+ * Version des CGU acceptée à l'inscription (date de « Dernière mise à jour »
+ * de design/cgu.html). À changer à chaque modification des CGU.
+ */
+export const TERMS_VERSION = '2026-09-22';

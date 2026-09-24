@@ -20,6 +20,11 @@ async function bootstrap() {
   // semblent venir de la même adresse et la limitation de débit bloquerait
   // tout le monde à la fois.
   app.set('trust proxy', 1);
+  // Les fichiers (pièces d'identité, photos d'état des lieux, documents de
+  // douane) arrivent encodés en base64 dans le corps JSON. La limite par
+  // défaut d'Express, 100 Ko, refusait toute photo prise au téléphone.
+  // 15 Mo couvrent un fichier de 10 Mo (plafond du stockage) une fois encodé.
+  app.useBodyParser('json', { limit: '15mb' });
   const config = app.get(ConfigService);
 
   const port = config.get<number>('port', 3000);

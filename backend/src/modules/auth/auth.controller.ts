@@ -74,7 +74,7 @@ export class AuthController {
   @Post('password/reset')
   @ApiOperation({ summary: 'Choisir un mot de passe à partir d\'un lien (connecte l\'utilisateur)' })
   resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.auth.resetPassword(dto.token, dto.password);
+    return this.auth.resetPassword(dto.token, dto.password, dto.acceptedTermsVersion);
   }
 
   @ApiBearerAuth()

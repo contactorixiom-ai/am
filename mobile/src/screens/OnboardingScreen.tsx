@@ -73,12 +73,12 @@ export function OnboardingScreen() {
             kind="gold"
             size="lg"
             fullWidth
-            onPress={() => nav.navigate('Register')}
+            onPress={() => nav.navigate('Register', { role: 'CLIENT' })}
             rightIcon={<Icons.arrow size={18} color={theme.navyDeep} stroke={2} />}
           >
             Continuer en tant que client
           </Button>
-          <Button kind="outline" size="lg" fullWidth onPress={() => nav.navigate('Register')}>
+          <Button kind="outline" size="lg" fullWidth onPress={() => nav.navigate('Register', { role: 'DRIVER' })}>
             Je suis chauffeur
           </Button>
           <View style={{ alignItems: 'center', marginTop: 10 }}>

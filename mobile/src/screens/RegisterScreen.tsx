@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ApiError } from '../api/client';
 import React, { useState } from 'react';
@@ -6,6 +6,8 @@ import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } 
 import { AxisLogo } from '../components/AxisLogo';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { TermsCheckbox } from '../components/TermsCheckbox';
+import { TERMS_VERSION } from '../config/company';
 import { ApiUrlHint, ServerStatusBanner } from '../components/ServerStatusBanner';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
@@ -21,6 +23,13 @@ export function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [accepted, setAccepted] = useState(false);
+  // « Je suis chauffeur » crée un compte convoyeur : sans cela, tous les
+  // comptes étaient créés comme clients et aucun convoyeur inscrit par
+  // l'application ne pouvait accepter de mission.
+  const route = useRoute<RouteProp<RootStackParamList, 'Register'>>();
+  const role = route.params?.role === 'DRIVER' ? 'DRIVER' : 'CLIENT';
+  const isDriver = role === 'DRIVER';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,13 +39,23 @@ export function RegisterScreen() {
       setError('Prénom, nom, email et mot de passe sont requis.');
       return;
     }
+    if (isDriver && !phone.trim()) {
+      setError('Le téléphone est nécessaire pour qu\'Axis puisse te joindre pendant une mission.');
+      return;
+    }
     if (password.length < 8) {
       setError('Le mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    if (!accepted) {
+      setError('Merci d\'accepter les conditions générales et la politique de confidentialité.');
       return;
     }
     setLoading(true);
     try {
       await register({
+        role,
+        acceptedTermsVersion: TERMS_VERSION,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim().toLowerCase(),
@@ -71,10 +90,12 @@ export function RegisterScreen() {
 
           <View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayM, letterSpacing: -0.5 }}>
-              Créer un compte
+              {isDriver ? 'Devenir convoyeur' : 'Créer un compte'}
             </Text>
-            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body, marginTop: 6 }}>
-              Quelques infos et tu peux commander un convoyage ou un envoi de colis.
+            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.body, marginTop: 6, lineHeight: 21 }}>
+              {isDriver
+                ? 'Crée ton compte, puis envoie ta pièce d\'identité et ton permis : une fois vérifiés par Axis, tu pourras accepter des missions.'
+                : 'Quelques infos et tu peux commander un convoyage ou un envoi de colis.'}
             </Text>
           </View>
 
@@ -100,9 +121,11 @@ export function RegisterScreen() {
               <Field containerStyle={{ flex: 1 }} label="Nom" value={lastName} onChangeText={setLastName} autoCapitalize="words" />
             </View>
             <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
-            <Field label="Téléphone (optionnel)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33 6 12 34 56 78" />
+            <Field label={isDriver ? 'Téléphone' : 'Téléphone (optionnel)'} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33 6 12 34 56 78" />
             <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry hint="Au moins 8 caractères" />
           </View>
+
+          <TermsCheckbox checked={accepted} onChange={setAccepted} />
 
           <View style={{ gap: SPACING.md }}>
             <Button kind="primary" size="lg" fullWidth onPress={submit} loading={loading}>

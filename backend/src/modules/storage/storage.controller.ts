@@ -73,6 +73,9 @@ export class StorageController {
       'Content-Type': found.mimeType,
       'Content-Length': String(found.size),
       'Cache-Control': 'private, max-age=300',
+      // Le navigateur s'en tient au type annoncé et n'exécute rien.
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
     });
     return new StreamableFile(this.storage.stream(found.path));
   }

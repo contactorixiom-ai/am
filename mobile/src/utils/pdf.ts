@@ -1653,7 +1653,10 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
   const date = data.date ?? new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const currency = data.currency ?? 'EUR';
 
-  invoiceHeader(doc, 'Attestation d\'assurance', `Transport · ${number}`);
+  // Seul l'assureur délivre une attestation. Ce document, émis par Axis,
+  // récapitule la couverture et renvoie à la police : il ne parle jamais au
+  // nom de l'assureur et n'invente aucune garantie.
+  invoiceHeader(doc, 'Récapitulatif de couverture', `Assurance transport · ${number}`);
 
   let y = 42;
   doc.setFont('helvetica', 'normal');
@@ -1663,7 +1666,7 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
     // Aucun assureur par défaut : le générateur produisait une attestation au
     // nom d'AXA, avec un numéro de police inventé, pour un document remis au
     // client ou à la douane.
-    `${orTodo(data.insurer)} atteste que la marchandise désignée ci-dessous est couverte pendant toute la durée de son transport, conformément aux conditions générales de la police n° ${orTodo(data.policyNumber)}.`,
+    `La marchandise désignée ci-dessous est déclarée au titre de la police n° ${orTodo(data.policyNumber)} souscrite auprès de ${orTodo(data.insurer)}. Seules les conditions de cette police font foi ; l'attestation opposable est délivrée par l'assureur sur demande.`,
     W - 2 * M,
   ), M, y);
 
@@ -1678,10 +1681,10 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
   };
   row('Assureur', orTodo(data.insurer));
   row('N° de police', orTodo(data.policyNumber));
-  row('Assuré', data.insured ?? 'Axis Import SAS pour le compte de qui il appartiendra');
+  row('Assuré', orTodo(data.insured));
   row('Marchandise assurée', data.goods ?? '');
-  row('Trajet couvert', data.route ?? 'Le Havre (FR) → Dakar (SN), maritime');
-  row('Validité', `${data.validFrom ?? date} au ${data.validTo ?? '31 décembre 2026'}`);
+  row('Trajet couvert', orTodo(data.route));
+  row('Validité', `${data.validFrom ?? date} au ${orTodo(data.validTo)}`);
 
   // Plafond mis en avant
   y += 4;
@@ -1692,14 +1695,14 @@ export async function generateInsuranceCertificatePdf(data: InsuranceCertificate
   doc.setTextColor(255, 255, 255);
   doc.text('PLAFOND DE GARANTIE', M + 4, y + 6.5);
   doc.setFontSize(15);
-  doc.text(`${EURO(data.coverageAmount ?? 25000)} ${currency}`, W - M - 4, y + 10.5, { align: 'right' });
+  doc.text(data.coverageAmount ? `${EURO(data.coverageAmount)} ${currency}` : '[À COMPLÉTER]', W - M - 4, y + 10.5, { align: 'right' });
 
   y += 24;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   setColor(doc, MUTED, 'text');
   doc.text(doc.splitTextToSize(
-    'Garantie « tous risques transport » (clauses Institute Cargo Clauses A), sous réserve des exclusions des conditions générales. Attestation délivrée à titre justificatif.',
+    'Étendue des garanties, franchises et exclusions : voir les conditions de la police. Document récapitulatif émis par le transporteur, sans valeur d\'attestation de l\'assureur.',
     W - 2 * M,
   ), M, y);
 

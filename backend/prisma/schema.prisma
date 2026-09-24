@@ -51,6 +51,10 @@ model User {
   companyAddress String?
 
   emailVerifiedAt DateTime?
+  // Acceptation des CGU et de la politique de confidentialité : date et
+  // version du texte accepté, pour pouvoir le prouver.
+  termsAcceptedAt DateTime?
+  termsVersion    String?
   phoneVerifiedAt DateTime?
   lastLoginAt     DateTime?
 

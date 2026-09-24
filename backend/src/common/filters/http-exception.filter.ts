@@ -54,6 +54,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
           code = exception.code;
           this.logger.warn(`${exception.code} ${exception.message}`);
       }
+    } else if (isBodyParserError(exception)) {
+      // Erreurs levées avant Nest (corps trop gros, JSON illisible) : elles
+      // portent leur propre code HTTP, qui finissait en 500.
+      status = exception.status;
+      code = exception.type ?? 'BAD_REQUEST';
+      message =
+        status === HttpStatus.PAYLOAD_TOO_LARGE
+          ? 'Fichier trop volumineux (10 Mo maximum).'
+          : 'Requête illisible.';
     } else if (exception instanceof Error) {
       // Erreur imprévue : même logique, le détail reste côté serveur.
       message = 'Une erreur est survenue. Réessayez dans un instant.';
@@ -86,4 +95,10 @@ function duplicateMessage(target: unknown): string {
   }
   if (fields.includes('reference')) return 'Cette référence existe déjà.';
   return 'Cet élément existe déjà.';
+}
+
+function isBodyParserError(e: unknown): e is Error & { status: number; type?: string } {
+  if (!(e instanceof Error)) return false;
+  const status = (e as unknown as { status?: unknown }).status;
+  return typeof status === 'number' && status >= 400 && status < 500;
 }

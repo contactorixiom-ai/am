@@ -56,6 +56,15 @@ export class RegisterDto {
   @IsEnum(AccountType)
   accountType?: AccountType;
 
+  // Case « J'accepte les CGU et la politique de confidentialité ». Facultatif
+  // côté serveur pour ne pas bloquer une ancienne version de l'application
+  // pendant une mise à jour ; l'application l'exige.
+  @ApiPropertyOptional({ description: 'Version des CGU acceptées, ex. 2026-09' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  acceptedTermsVersion?: string;
+
   @ApiPropertyOptional({ example: 'Axis Trans SARL' })
   @IsOptional()
   @IsString()

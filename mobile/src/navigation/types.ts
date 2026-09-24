@@ -14,7 +14,7 @@ export type RootStackParamList = {
   IntroSlides: undefined;
   Onboarding: undefined;
   Login: undefined;
-  Register: undefined;
+  Register: { role?: 'CLIENT' | 'DRIVER' } | undefined;
   ForgotPassword: { email?: string } | undefined;
   ResetPassword: { token?: string } | undefined;
   TrackByReference: undefined;

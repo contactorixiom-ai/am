@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsUUID, Length, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsOptional, IsString, IsUUID, Length, MaxLength, MinLength } from 'class-validator';
 
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'jean.dupont@example.com' })
@@ -18,6 +18,14 @@ export class ResetPasswordDto {
   @MinLength(8)
   @MaxLength(128)
   password!: string;
+
+  // Un client créé par Axis au téléphone accepte les CGU ici, au moment
+  // d'activer son compte.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  acceptedTermsVersion?: string;
 }
 
 export class AccessLinkDto {

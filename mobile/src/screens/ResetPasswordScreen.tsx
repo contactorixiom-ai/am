@@ -6,6 +6,8 @@ import { ApiError } from '../api/client';
 import { AxisLogo } from '../components/AxisLogo';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { TermsCheckbox } from '../components/TermsCheckbox';
+import { TERMS_VERSION } from '../config/company';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -25,6 +27,7 @@ export function ResetPasswordScreen() {
   const token = route.params?.token ?? '';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,11 +41,15 @@ export function ResetPasswordScreen() {
       setError('Les deux mots de passe ne correspondent pas.');
       return;
     }
+    if (!accepted) {
+      setError('Merci d\'accepter les conditions générales et la politique de confidentialité.');
+      return;
+    }
     setLoading(true);
     try {
       // En cas de succès, la session s'ouvre et la navigation bascule
       // d'elle-même vers l'application.
-      await resetPassword(token, password);
+      await resetPassword(token, password, TERMS_VERSION);
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) {
         setError('Trop de tentatives. Réessayez dans quelques minutes.');
@@ -96,6 +103,7 @@ export function ResetPasswordScreen() {
                 placeholder="••••••••"
                 onSubmitEditing={submit}
               />
+              <TermsCheckbox checked={accepted} onChange={setAccepted} />
             </View>
           ) : null}
 

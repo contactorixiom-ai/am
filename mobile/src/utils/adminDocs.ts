@@ -715,8 +715,8 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
   },
   {
     id: 'insurance',
-    label: 'Attestation d\'assurance',
-    description: 'Couverture transport, police et plafond de garantie',
+    label: 'Récapitulatif d\'assurance',
+    description: 'Police, assureur et plafond — l\'attestation officielle vient de l\'assureur',
     icon: 'shield',
     activity: 'marchandise',
     issuer: 'insurer',

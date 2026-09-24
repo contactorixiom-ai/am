@@ -19,9 +19,9 @@ interface Slide {
 }
 
 const SLIDES: Slide[] = [
-  { Icon: Icons.pin,    title: 'Suivi temps réel',                 body: 'Visualise ton convoyage sur une carte interactive : position du chauffeur, étapes, ETA, pauses, tout est là.',           hex: '#0B2545' },
-  { Icon: Icons.sig,    title: 'Signature électronique',           body: 'État des lieux et contrats signés au doigt, avec valeur juridique eIDAS et QR code de vérification d\'authenticité.', hex: '#1E3E63' },
-  { Icon: Icons.shield, title: 'Sécurité bancaire et conformité',  body: 'Paiement Stripe + Apple Pay, données chiffrées AES-256, hébergement France certifié HDS, conforme RGPD.',              hex: '#0F3A60' },
+  { Icon: Icons.pin,    title: 'Suivi temps réel',                 body: 'Suis ton véhicule ou ton colis sur une carte : position du convoyeur, étapes et arrivée prévue.',           hex: '#0B2545' },
+  { Icon: Icons.sig,    title: 'Signature électronique',           body: 'Contrat et états des lieux signés au doigt, avec photos datées et QR code pour vérifier le document.', hex: '#1E3E63' },
+  { Icon: Icons.shield, title: 'Paiement sécurisé',  body: 'Carte bancaire, Apple Pay ou Google Pay sur la page sécurisée de Stripe : Axis Import ne voit jamais ton numéro de carte.',              hex: '#0F3A60' },
 ];
 
 export function IntroSlidesScreen() {

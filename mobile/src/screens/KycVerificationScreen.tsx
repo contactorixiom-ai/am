@@ -1,7 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
@@ -10,6 +9,8 @@ import { Pill, PillTone } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
+import { extOfMime, mimeOfDataUrl, uriToDataUrl } from '../utils/imageData';
+import { capturePhoto } from '../utils/pickImage';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { ApiError } from '../api/client';
@@ -46,57 +47,53 @@ function apiStatusToDocStatus(status: ApiKycStatus): DocStatus {
   return 'uploaded';
 }
 
-type State = Record<string, { status: DocStatus; uri?: string; uploadedAt?: string }>;
-
-const STORAGE_KEY = 'axis.kyc.v1';
+type State = Record<string, { status: DocStatus; uri?: string; uploadedAt?: string; note?: string }>;
 
 export function KycVerificationScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [state, setState] = useState<State>({});
-  // `online` indique si le backend KYC répond ; sinon on reste en mode démo local.
-  const [online, setOnline] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  // Au montage : on tente de charger le statut KYC réel depuis le backend.
-  // En cas d'échec réseau, on retombe gracieusement sur l'état local (démo).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const overview = await fetchKycOverview();
-        if (cancelled) return;
-        // On agrège le dernier statut connu par type de document.
-        const byType: Partial<Record<KycDocumentType, ApiKycStatus>> = {};
-        for (const d of overview.documents) {
-          if (!byType[d.type]) byType[d.type] = d.status; // documents triés par date desc
-        }
-        const next: State = {};
-        REQUIRED_DOCS.forEach((doc) => {
-          const st = byType[doc.apiType];
-          if (st) {
-            next[doc.key] = {
-              status: apiStatusToDocStatus(st),
-              uploadedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-            };
-          }
-        });
-        setState((prev) => ({ ...prev, ...next }));
-        setOnline(true);
-      } catch {
-        // Backend indisponible → on charge l'état local persistant.
-        const raw = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
-        if (!cancelled && raw) {
-          try { setState(JSON.parse(raw)); } catch { /* ignore */ }
+  // Statut réel, tel que le serveur le connaît. Plus de « mode démo » local :
+  // l'écran affichait « envoyé » pour des documents restés sur le téléphone.
+  const load = useCallback(async () => {
+    try {
+      const overview = await fetchKycOverview();
+      // Documents triés du plus récent au plus ancien : le premier trouvé
+      // pour un emplacement est celui qui compte. L'emplacement (recto,
+      // verso…) est retrouvé grâce au nom de fichier ; à défaut, par type.
+      const next: State = {};
+      for (const doc of REQUIRED_DOCS) {
+        const match =
+          overview.documents.find((d) => d.fileName?.startsWith(`${doc.key}.`)) ??
+          (REQUIRED_DOCS.filter((x) => x.apiType === doc.apiType).length === 1
+            ? overview.documents.find((d) => d.type === doc.apiType)
+            : undefined);
+        if (match) {
+          next[doc.key] = {
+            status: apiStatusToDocStatus(match.status),
+            uploadedAt: new Date(match.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+            note: match.status === 'REJECTED' ? match.notes ?? undefined : undefined,
+          };
         }
       }
-    })();
-    return () => { cancelled = true; };
+      setState((prev) => {
+        // On garde l'aperçu local des photos qu'on vient d'envoyer.
+        const merged: State = {};
+        for (const [k, v] of Object.entries(next)) merged[k] = { ...v, uri: prev[k]?.uri };
+        return merged;
+      });
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Statut indisponible.');
+    }
   }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-  }, [state]);
+    void load();
+  }, [load]);
 
   const totalRequired = REQUIRED_DOCS.filter((d) => d.required).length;
   const uploadedRequired = REQUIRED_DOCS.filter((d) => d.required && (state[d.key]?.status === 'uploaded' || state[d.key]?.status === 'verified')).length;
@@ -108,63 +105,39 @@ export function KycVerificationScreen() {
   const todayLabel = () =>
     new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // Marque un document comme déposé localement (état optimiste + persistance).
-  const markUploaded = (key: string, uri?: string) => {
-    setState((prev) => ({
-      ...prev,
-      [key]: { status: 'uploaded', uri, uploadedAt: todayLabel() },
-    }));
-  };
-
-  // Envoie réellement le document au backend (upload + dépôt KYC). En cas
-  // d'échec on garde l'état local pour rester démo-able.
-  const sendToBackend = async (doc: RequiredDoc, dataUrl: string, fileName: string, mimeType: string) => {
+  const pickFile = async (key: string) => {
+    const doc = REQUIRED_DOCS.find((d) => d.key === key);
+    if (!doc || busyKey) return;
+    // Appareil photo sur téléphone (galerie si refusé), sélecteur sur le web.
+    // Auparavant, l'application installée simulait l'envoi : aucun
+    // convoyeur inscrit depuis un téléphone ne pouvait être vérifié.
+    const uri = await capturePhoto();
+    if (!uri) return;
     setBusyKey(doc.key);
     try {
-      await uploadAndSubmitKyc({ type: doc.apiType, fileName, mimeType, data: dataUrl });
-      setOnline(true);
-      notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
+      const dataUrl = await uriToDataUrl(uri);
+      if (!dataUrl) throw new Error('Photo illisible. Réessaie.');
+      const mimeType = mimeOfDataUrl(dataUrl);
+      await uploadAndSubmitKyc({
+        type: doc.apiType,
+        fileName: `${doc.key}.${extOfMime(mimeType)}`,
+        mimeType,
+        data: dataUrl,
+      });
+      setState((prev) => ({ ...prev, [key]: { status: 'uploaded', uri: dataUrl, uploadedAt: todayLabel() } }));
+      notify('Document envoyé', 'Axis Import le vérifie et te prévient dès que c\'est fait.');
+      void load();
     } catch (e) {
-      const msg = e instanceof ApiError && e.isNetworkError
-        ? 'Document enregistré en local (serveur injoignable).'
-        : 'Document enregistré en local (envoi serveur impossible).';
-      notify('Mode hors-ligne', msg);
+      const msg =
+        e instanceof ApiError && e.isNetworkError
+          ? 'Pas de connexion. Le document n\'a pas été envoyé : réessaie quand tu as du réseau.'
+          : e instanceof Error
+            ? e.message
+            : 'Envoi impossible. Réessaie.';
+      notify('Document non envoyé', msg);
     } finally {
       setBusyKey(null);
     }
-  };
-
-  const pickFile = (key: string) => {
-    const doc = REQUIRED_DOCS.find((d) => d.key === key);
-    if (!doc) return;
-
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      // Native fallback — expo-image-picker non configuré dans cette version,
-      // on simule un dépôt pour la démo.
-      simulateUpload(key);
-      return;
-    }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        markUploaded(key, dataUrl);
-        notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
-        void sendToBackend(doc, dataUrl, file.name, file.type || 'image/jpeg');
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
-  };
-
-  const simulateUpload = (key: string) => {
-    markUploaded(key);
-    notify('Document envoyé', 'Notre équipe vérifie ton document sous 24h.');
   };
 
   return (
@@ -185,7 +158,7 @@ export function KycVerificationScreen() {
                 {allVerified ? 'Profil vérifié' : allUploaded ? 'Vérification en cours' : 'À compléter'}
               </Text>
               <Text style={{ fontSize: 18, color: '#F5F1E8', fontFamily: TYPO.weights.bold, marginTop: 2, letterSpacing: -0.2 }}>
-                {allVerified ? 'Tu es habilité à conduire' : `${uploadedRequired}/${totalRequired} documents fournis`}
+                {allVerified ? 'Tu es habilité à conduire' : `${uploadedRequired}/${totalRequired} documents obligatoires fournis`}
               </Text>
             </View>
           </View>
@@ -196,10 +169,16 @@ export function KycVerificationScreen() {
           </View>
           <Text style={{ fontSize: 11.5, color: 'rgba(245,241,232,0.62)', marginTop: 8, fontFamily: TYPO.weights.medium }}>
             {allVerified
-              ? 'Validation conformité réalisée par notre équipe. Tes documents sont chiffrés AES-256.'
-              : 'Tes documents sont chiffrés en transit (TLS 1.3) et au repos (AES-256). Conservés 7 ans (obligation légale convoyage).'}
+              ? 'Documents vérifiés par l\'équipe Axis Import.'
+              : 'Tes documents sont transmis de façon chiffrée (HTTPS) et vérifiés par l\'équipe Axis Import.'}
           </Text>
         </Surface>
+
+        {loadError ? (
+          <Text style={{ fontSize: 12.5, color: theme.bad, fontFamily: TYPO.weights.medium }}>
+            Statut de tes documents indisponible ({loadError}). Tu peux quand même envoyer un document.
+          </Text>
+        ) : null}
 
         {/* Liste des documents */}
         <View style={{ gap: 10 }}>
@@ -214,8 +193,9 @@ export function KycVerificationScreen() {
                 status={s}
                 uri={state[doc.key]?.uri}
                 uploadedAt={state[doc.key]?.uploadedAt}
+                note={state[doc.key]?.note}
                 busy={busyKey === doc.key}
-                onPick={() => pickFile(doc.key)}
+                onPick={() => void pickFile(doc.key)}
               />
             );
           })}
@@ -227,10 +207,13 @@ export function KycVerificationScreen() {
             Sécurité de tes données
           </Text>
           {[
-            { Ic: Icons.shield, t: 'Chiffrement AES-256 au repos, TLS 1.3 en transit' },
-            { Ic: Icons.check,  t: 'Conforme RGPD · serveurs en France (Hébergeur agréé HDS)' },
-            { Ic: Icons.doc,    t: 'Conservation 7 ans (obligation légale convoyage)' },
-            { Ic: Icons.x,      t: 'Aucun partage tiers · droit de suppression sur demande' },
+            // Chaque ligne doit rester vraie et conforme à la politique de
+            // confidentialité : l'écran promettait un hébergement « en France,
+            // agréé HDS » et une conservation de 7 ans, faux tous les deux.
+            { Ic: Icons.shield, t: 'Transmission chiffrée (HTTPS), fichiers accessibles sur connexion uniquement' },
+            { Ic: Icons.check,  t: 'Visibles seulement par toi et l\'équipe Axis Import' },
+            { Ic: Icons.doc,    t: 'Supprimés avec ton compte (Profil → Supprimer mon compte)' },
+            { Ic: Icons.x,      t: 'Jamais vendus ni partagés à des fins commerciales' },
           ].map((r) => (
             <View key={r.t} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
               <r.Ic size={16} color={theme.gold} stroke={1.8} />
@@ -244,8 +227,9 @@ export function KycVerificationScreen() {
 }
 
 function DocCard({
-  title, hint, required, status, uri, uploadedAt, busy, onPick,
+  title, hint, required, status, uri, uploadedAt, note, busy, onPick,
 }: {
+  note?: string;
   title: string;
   hint: string;
   required: boolean;
@@ -283,6 +267,11 @@ function DocCard({
             <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
               {uploadedAt ? `Reçu le ${uploadedAt}` : hint}
             </Text>
+            {status === 'rejected' ? (
+              <Text style={{ fontSize: 12, color: theme.bad, fontFamily: TYPO.weights.semibold, marginTop: 3 }}>
+                {note ? `Motif : ${note}. ` : ''}Touche pour envoyer une nouvelle photo.
+              </Text>
+            ) : null}
           </View>
           <Pill tone={tone}>{label}</Pill>
         </View>

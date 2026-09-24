@@ -83,6 +83,9 @@ export class AuthService {
         accountType: dto.accountType,
         companyName: dto.companyName?.trim(),
         status: UserStatus.PENDING,
+        ...(dto.acceptedTermsVersion
+          ? { termsAcceptedAt: new Date(), termsVersion: dto.acceptedTermsVersion }
+          : {}),
       },
     });
 
@@ -245,7 +248,7 @@ export class AuthService {
   }
 
   /** Définit le mot de passe à partir d'un lien, puis connecte l'utilisateur. */
-  async resetPassword(token: string, password: string): Promise<AuthResult> {
+  async resetPassword(token: string, password: string, acceptedTermsVersion?: string): Promise<AuthResult> {
     const tokenHash = this.hashToken(token);
     const stored = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash },
@@ -273,6 +276,7 @@ export class AuthService {
           // Un lien reçu par e-mail prouve que l'adresse appartient bien au
           // titulaire ; un lien transmis par l'administrateur, non.
           ...(stored.createdBy ? {} : { emailVerifiedAt: user.emailVerifiedAt ?? now }),
+          ...(acceptedTermsVersion ? { termsAcceptedAt: now, termsVersion: acceptedTermsVersion } : {}),
         },
       }),
       // Le lien est à usage unique, et tous les autres liens en cours
