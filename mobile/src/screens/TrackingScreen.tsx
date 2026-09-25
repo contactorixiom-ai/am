@@ -10,6 +10,8 @@ import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
 import { Icons } from '../components/Icons';
+import { listInspections } from '../api/inspections';
+import type { MissionSummary } from '../api/missions';
 import { LiveConvoyMap } from '../components/LiveConvoyMap';
 import { LiveConvoyPanel } from '../components/LiveConvoyPanel';
 import { Pill } from '../components/Pill';
@@ -86,15 +88,21 @@ export function TrackingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [inspectionStatus, setInspectionStatus] = useState({ departureDone: false, arrivalDone: false });
 
-  // Recharge le statut de chaque état des lieux à chaque focus de l'écran.
+  // Statut des états des lieux d'après le serveur. Il était lu dans la
+  // mémoire du téléphone — celle du convoyeur : le client ne le voyait
+  // jamais signé.
   useFocusEffect(useCallback(() => {
-    if (kind !== 'mission') return;
-    const dep = `axis.inspection.v1.${reference}.DÉPART`;
-    const arr = `axis.inspection.v1.${reference}.ARRIVÉE`;
-    Promise.all([AsyncStorage.getItem(dep), AsyncStorage.getItem(arr)]).then(([d, a]) => {
-      setInspectionStatus({ departureDone: !!d, arrivalDone: !!a });
-    });
-  }, [kind, reference]));
+    if (kind !== 'mission' || !route.params.id) return;
+    let cancelled = false;
+    listInspections(route.params.id)
+      .then((list) => {
+        if (cancelled) return;
+        const signed = (t: string) => list.some((i) => i.type === t && i.status === 'SIGNED');
+        setInspectionStatus({ departureDone: signed('PRE_DEPARTURE'), arrivalDone: signed('POST_DELIVERY') });
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [kind, route.params.id]));
 
   const load = useCallback(async () => {
     setError(null);
@@ -191,16 +199,18 @@ export function TrackingScreen() {
       >
         {/* Map + suivi temps réel chauffeur (mission convoyage) */}
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          {kind === 'mission' ? (
+          {kind === 'mission' && missionPoint(mission, 'pickup') && missionPoint(mission, 'delivery') ? (
             <LiveConvoyPanel
-              from={{ latitude: 48.8566, longitude: 2.3522 }}
-              to={{ latitude: 50.8503, longitude: 4.3517 }}
+              // Coordonnées de LA mission : l'écran affichait Paris → Bruxelles
+              // pour toutes les missions.
+              from={missionPoint(mission, 'pickup')!}
+              to={missionPoint(mission, 'delivery')!}
               fromLabel={fromLabel}
               toLabel={toLabel}
               driverName={view?.driverName ?? undefined}
               vehicleLabel={view?.vehicleLabel ?? undefined}
               driverPhone={view?.driverPhone}
-              totalKm={mission?.distanceKm ?? null}
+              totalKm={mission?.distanceKm ?? roadKm(mission)}
               statusProgress={view?.progress ?? 0}
               missionId={mission?.id ?? route.params.id}
             />
@@ -502,4 +512,22 @@ function labelStatus(s: string): string {
     case 'LOST': return 'Perdu';
     default: return s;
   }
+}
+
+function missionPoint(m: MissionSummary | null | undefined, which: 'pickup' | 'delivery') {
+  const lat = which === 'pickup' ? m?.pickupLatitude : m?.deliveryLatitude;
+  const lng = which === 'pickup' ? m?.pickupLongitude : m?.deliveryLongitude;
+  return lat != null && lng != null && (lat !== 0 || lng !== 0) ? { latitude: lat, longitude: lng } : undefined;
+}
+
+/** Distance routière estimée (vol d'oiseau × 1,3) quand la mission n'en porte pas. */
+function roadKm(m: MissionSummary | null | undefined): number | null {
+  const a = missionPoint(m, 'pickup');
+  const b = missionPoint(m, 'delivery');
+  if (!a || !b) return null;
+  const R = 6371;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.latitude * Math.PI) / 180) * Math.cos((b.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.3);
 }

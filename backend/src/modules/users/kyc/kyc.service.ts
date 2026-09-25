@@ -147,9 +147,20 @@ export class KycService {
    * - sinon → PENDING
    */
   private aggregateStatus(documents: KycDocument[]): GlobalKycStatus {
-    if (documents.length === 0) return 'NONE';
-    if (documents.some((d) => d.status === KycStatus.REJECTED)) return 'REJECTED';
-    if (documents.every((d) => d.status === KycStatus.APPROVED)) return 'APPROVED';
+    // Seul le dernier envoi de chaque emplacement compte (recto du permis,
+    // pièce d'identité…) : un ancien document refusé puis remplacé laissait
+    // le compte « refusé » pour toujours. L'emplacement est donné par le nom
+    // de fichier (license_front.jpg), à défaut par le type.
+    const latest = new Map<string, KycDocument>();
+    for (const d of documents) {
+      const slot = d.fileName?.includes('.') ? d.fileName.split('.')[0] : d.type;
+      const prev = latest.get(slot);
+      if (!prev || prev.createdAt < d.createdAt) latest.set(slot, d);
+    }
+    const current = [...latest.values()];
+    if (current.length === 0) return 'NONE';
+    if (current.some((d) => d.status === KycStatus.REJECTED)) return 'REJECTED';
+    if (current.every((d) => d.status === KycStatus.APPROVED)) return 'APPROVED';
     return 'PENDING';
   }
 }

@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { deliverMission, listMissions, MissionSummary, startMission } from '../api/missions';
+import { Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { deliverMission, listMissions, MissionSummary, sendDriverAlert, startMission } from '../api/missions';
 import { trackPosition, TrackPositionInput } from '../api/gps';
 import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
@@ -15,7 +15,8 @@ import { Skeleton } from '../components/Skeleton';
 import { Surface } from '../components/Surface';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
-import { notify } from '../utils/notify';
+import { confirmAction, notify } from '../utils/notify';
+import { COMPANY } from '../config/company';
 import { createStationaryWatch, StationaryWatch } from '../utils/stationaryWatch';
 import { hasNativeLocation, NativeStop, startNativeWatch } from '../utils/nativeLocation';
 import { startBackgroundTracking, stopBackgroundTracking } from '../utils/backgroundLocation';
@@ -31,6 +32,10 @@ import { startBackgroundTracking, stopBackgroundTracking } from '../utils/backgr
 const SEND_INTERVAL_MS = 15000; // envoi backend ~15 s
 const HEARTBEAT_MS = 10000; // ré-injection de la dernière position dans la détection d'arrêt
 const PENDING_MAX = 60; // buffer local max en cas de coupure réseau
+// Trajectoire simulée : outil de développement uniquement. En production,
+// elle aurait montré au client une route inventée pour une vraie mission.
+const ALLOW_SIMULATION = typeof __DEV__ !== 'undefined' && __DEV__;
+
 const ALERT_COUNTDOWN_S = 60; // délai de réponse avant transmission au dispatching
 
 // Position interne, indépendante du type DOM GeolocationPosition pour rester
@@ -294,10 +299,10 @@ export function DriverModeScreen() {
         if (res.ok) {
           nativeStopRef.current = res.stop;
         } else if (res.reason === 'denied') {
-          setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone, ou continue en simulation.');
+          setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone.');
         } else if (res.reason !== 'unavailable') {
-          setGeoError('Géolocalisation indisponible sur cet appareil — trajectoire simulée.');
-          startSimulation();
+          setGeoError('Géolocalisation indisponible sur cet appareil. Le client ne verra pas ta position : préviens Axis.');
+          if (ALLOW_SIMULATION) startSimulation();
         }
       });
     } else if (hasPhoneGeolocation()) {
@@ -319,7 +324,7 @@ export function DriverModeScreen() {
           if (err.code === 1) {
             // PERMISSION_DENIED : message clair + repli simulation proposé.
             setGeoError(
-              'Accès à la position refusé. Autorise la géolocalisation dans les réglages du navigateur, ou continue en simulation.',
+              'Accès à la position refusé. Autorise la géolocalisation dans les réglages du navigateur.',
             );
           } else {
             setGeoError('Position introuvable pour le moment. Nouvelle tentative automatique…');
@@ -329,8 +334,8 @@ export function DriverModeScreen() {
       );
     } else {
       // Natif sans API géoloc (pas de module expo-location installé) : simulation.
-      setGeoError('Géolocalisation du téléphone indisponible sur cet appareil — trajectoire simulée.');
-      startSimulation();
+      setGeoError('Géolocalisation du téléphone indisponible sur cet appareil. Le client ne verra pas ta position : préviens Axis.');
+      if (ALLOW_SIMULATION) startSimulation();
     }
 
     // Envoi backend ~15 s + heartbeat détection d'arrêt : même si le GPS ne
@@ -379,20 +384,24 @@ export function DriverModeScreen() {
   useEffect(() => stopEverything, [stopEverything]);
 
   // ─── Compte à rebours de l'alerte plein écran ────────────────────────────
-  const transmitAlert = useCallback(() => {
+  const transmitAlert = useCallback(async () => {
     setAlertVisible(false);
-    // TODO(backend): créer un endpoint d'alerte dispatching
-    // (ex. POST /missions/:id/alerts { type: 'PROLONGED_STOP', position })
-    // et l'afficher côté dashboard admin. Pour l'instant : notification locale.
-    notify(
-      'Alerte transmise au dispatching',
-      'Le dispatching a été prévenu de l’arrêt prolongé et va tenter de te joindre.',
-    );
-    toast.push({
-      kind: 'security',
-      title: 'Alerte transmise au dispatching',
-      body: 'Arrêt prolongé signalé — le dispatching te contacte.',
-    });
+    const m = missionRef.current;
+    const pos = lastPositionRef.current;
+    // L'alerte part réellement vers Axis (notification à l'équipe). Si elle
+    // ne peut pas partir, on le dit : croire à tort qu'on vient à son aide
+    // serait pire que tout.
+    try {
+      if (!m || missionIsDemoRef.current) throw new Error('Aucune mission');
+      await sendDriverAlert(m.id, { type: 'PROLONGED_STOP', latitude: pos?.latitude, longitude: pos?.longitude });
+      notify('Alerte envoyée à Axis', 'L\'équipe Axis a reçu ta position et va tenter de te joindre.');
+      toast.push({ kind: 'security', title: 'Alerte envoyée à Axis', body: 'Arrêt prolongé signalé — Axis te contacte.' });
+    } catch {
+      notify(
+        'Alerte non envoyée',
+        COMPANY.phone ? `Pas de connexion. En cas de problème, appelle Axis : ${COMPANY.phone}, ou le 112.` : 'Pas de connexion. En cas d\'urgence, appelle le 112.',
+      );
+    }
   }, [toast]);
 
   useEffect(() => {
@@ -469,10 +478,18 @@ export function DriverModeScreen() {
       }
       await loadMissions(mission.id);
     } catch (e) {
-      notify(
-        action === 'start' ? 'Démarrage impossible' : 'Livraison impossible',
-        e instanceof Error ? e.message : 'Réessaie dans un instant.',
-      );
+      const msg = e instanceof Error ? e.message : 'Réessaie dans un instant.';
+      // État des lieux manquant : on y mène directement le convoyeur.
+      if (/état des lieux/i.test(msg)) {
+        confirmAction(
+          action === 'start' ? 'État des lieux de départ' : 'État des lieux d\'arrivée',
+          msg,
+          () => openInspection(action === 'start' ? 'DÉPART' : 'ARRIVÉE'),
+          'Faire l\'état des lieux',
+        );
+      } else {
+        notify(action === 'start' ? 'Démarrage impossible' : 'Livraison impossible', msg);
+      }
     } finally {
       setAdvancing(false);
     }
@@ -543,6 +560,32 @@ export function DriverModeScreen() {
                 {mission.reference} · {mission.vehicle.make} {mission.vehicle.model}
                 {mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}
               </Text>
+            ) : null}
+
+            {/* Où aller, quand, et qui appeler : le convoyeur n'avait que les
+                villes. */}
+            {mission ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <AddressLine
+                  label="Enlèvement"
+                  address={mission.pickupAddress ?? mission.pickupCity}
+                  city={mission.pickupCity}
+                  when={missionSlot(mission)}
+                />
+                <AddressLine label="Livraison" address={mission.deliveryAddress ?? mission.deliveryCity} city={mission.deliveryCity} />
+                {mission.client ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
+                      Client : {mission.client.companyName ? `${mission.client.companyName} · ` : ''}{mission.client.firstName} {mission.client.lastName}
+                    </Text>
+                    {mission.client.phone ? (
+                      <Button kind="outline" size="sm" onPress={() => Linking.openURL(`tel:${mission.client!.phone!.replace(/\s/g, '')}`)}>
+                        Appeler
+                      </Button>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
             ) : null}
 
             {/* Avancement : c'est « Véhicule récupéré » qui autorise le GPS */}
@@ -628,7 +671,7 @@ export function DriverModeScreen() {
             tone="warn"
             title="Géolocalisation"
             message={geoError}
-            action={simulated ? undefined : { label: 'Simulation', onPress: switchToSimulation }}
+            action={simulated || !ALLOW_SIMULATION ? undefined : { label: 'Simulation', onPress: switchToSimulation }}
           />
         ) : null}
 
@@ -737,7 +780,7 @@ export function DriverModeScreen() {
             <Text style={{ flex: 1, fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
               Sécurité : si le véhicule reste immobile plus de 5 minutes sans pause déclarée,
               une alerte te demandera si tout va bien. Sans réponse sous 60 secondes,
-              le dispatching est prévenu automatiquement.
+              l'équipe Axis est prévenue avec ta position.
             </Text>
           </View>
         </Surface>
@@ -774,7 +817,7 @@ export function DriverModeScreen() {
           </Text>
           <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.78)', fontFamily: TYPO.weights.medium, textAlign: 'center', marginTop: 12, lineHeight: 22, maxWidth: 320 }}>
             Le véhicule est à l'arrêt depuis plus de 5 minutes sans pause déclarée.
-            Sans réponse, le dispatching sera prévenu dans
+            Sans réponse, l'équipe Axis sera prévenue dans
           </Text>
           <Text style={{ fontSize: 56, color: '#F2D789', fontFamily: TYPO.weights.bold, marginTop: 10 }}>
             {countdown}
@@ -825,5 +868,34 @@ function StatTile({ label, value, unit }: { label: string; value: string; unit?:
         </Text>
       ) : null}
     </Surface>
+  );
+}
+
+function missionSlot(m: MissionSummary): string {
+  const wished = m.pickupNotes?.match(/Créneau souhaité : ([^\n]+)/)?.[1];
+  if (wished) return wished;
+  const d = new Date(m.pickupAt);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/** Adresse avec lien vers l'application de navigation du téléphone. */
+function AddressLine({ label, address, city, when }: { label: string; address: string; city: string; when?: string }) {
+  const { theme } = useTheme();
+  const full = address.toLowerCase().includes(city.toLowerCase()) ? address : `${address}, ${city}`;
+  const open = () => {
+    const q = encodeURIComponent(full);
+    const url = Platform.OS === 'ios' ? `maps://?daddr=${q}` : Platform.OS === 'android' ? `geo:0,0?q=${q}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+    Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`));
+  };
+  return (
+    <Pressable onPress={open} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+      <Text style={{ width: 78, fontSize: 11, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>
+        {label}
+      </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, color: theme.navy, fontFamily: TYPO.weights.semibold, textDecorationLine: 'underline' }}>{full}</Text>
+        {when ? <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{when}</Text> : null}
+      </View>
+    </Pressable>
   );
 }

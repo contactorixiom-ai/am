@@ -161,7 +161,12 @@ export class InspectionsService {
       });
     }
 
-    await this.announce(insp.missionId, updated.type, updated.status, user.id);
+    // Une seule notification, quand le PV est complet : les deux signatures
+    // se font d'ordinaire sur le téléphone du convoyeur, à quelques secondes
+    // d'intervalle, et chacun recevait deux messages pour un même PV.
+    if (updated.status === InspectionStatus.SIGNED) {
+      await this.announce(insp.missionId, updated.type, updated.status, user.id);
+    }
     return updated;
   }
 

@@ -165,7 +165,7 @@ export function MissionDetailsScreen() {
           <View style={{ flexDirection: 'row', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
             {mission.distanceKm ? <Stat label="Distance" value={`${Math.round(mission.distanceKm)} km`} /> : null}
             <Stat label="Enlèvement" value={fmtDateTime(mission.pickupAt) ?? '—'} />
-            <Stat label="Arrivée" value={view.eta ?? 'À confirmer'} />
+            <Stat label={view.etaLabel === 'Arrivée prévue' ? 'Arrivée' : 'Enlèvement'} value={view.eta ?? 'À confirmer'} />
           </View>
           <View style={{ height: 4, backgroundColor: 'rgba(245,241,232,0.15)', borderRadius: 2, marginTop: 14 }}>
             <View style={{ width: `${Math.round(view.progress * 100)}%`, height: '100%', backgroundColor: theme.gold, borderRadius: 2 }} />

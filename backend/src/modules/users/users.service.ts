@@ -246,9 +246,12 @@ export class UsersService {
   }
 
   async listDrivers(opts: { skip: number; take: number; city?: string }) {
+    // Tous les convoyeurs non suspendus : un convoyeur inscrit depuis
+    // l'application reste « PENDING » et n'apparaissait jamais ici.
     const where: Prisma.UserWhereInput = {
       role: UserRole.DRIVER,
-      status: 'ACTIVE',
+      deletedAt: null,
+      status: { notIn: [UserStatus.SUSPENDED, UserStatus.DELETED] },
       driverProfile: opts.city
         ? { is: { baseCity: { equals: opts.city, mode: 'insensitive' } } }
         : undefined,
@@ -258,11 +261,21 @@ export class UsersService {
         where,
         skip: opts.skip,
         take: opts.take,
-        select: { ...this.safeSelect, driverProfile: true },
+        select: {
+          ...this.safeSelect,
+          driverProfile: true,
+          kycDocuments: { where: { status: 'APPROVED' }, select: { type: true } },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
     ]);
-    return { data, total };
+    // « Vérifié » = pièce d'identité (ou passeport) ET permis validés.
+    const withStatus = data.map(({ kycDocuments, ...u }) => {
+      const types = new Set((kycDocuments as { type: string }[]).map((d) => d.type));
+      const verified = (types.has('IDENTITY_CARD') || types.has('PASSPORT')) && types.has('DRIVER_LICENSE');
+      return { ...u, verified };
+    });
+    return { data: withStatus, total };
   }
 }

@@ -37,8 +37,10 @@ const REQUIRED_DOCS: RequiredDoc[] = [
   { key: 'license_back',  title: 'Permis de conduire — verso', hint: 'Toutes les catégories visibles', required: true, apiType: 'DRIVER_LICENSE' },
   { key: 'id_front',      title: 'Pièce d\'identité — recto', hint: 'CNI ou passeport', required: true, apiType: 'IDENTITY_CARD' },
   { key: 'id_back',       title: 'Pièce d\'identité — verso', hint: 'Sauf si passeport', required: false, apiType: 'IDENTITY_CARD' },
-  { key: 'address',       title: 'Justificatif de domicile', hint: 'Moins de 3 mois (facture, quittance)', required: true, apiType: 'PROOF_OF_ADDRESS' },
-  { key: 'selfie',        title: 'Selfie de contrôle', hint: 'Pour vérification anti-fraude', required: true, apiType: 'OTHER' },
+  // Obligatoires = ce qu'exige le serveur pour confier un véhicule (pièce
+  // d'identité + permis). Les deux suivants aident Axis à vérifier plus vite.
+  { key: 'address',       title: 'Justificatif de domicile', hint: 'Moins de 3 mois (facture, quittance)', required: false, apiType: 'PROOF_OF_ADDRESS' },
+  { key: 'selfie',        title: 'Photo de contrôle (selfie)', hint: 'Aide Axis à comparer avec ta pièce d\'identité', required: false, apiType: 'OTHER' },
 ];
 
 function apiStatusToDocStatus(status: ApiKycStatus): DocStatus {

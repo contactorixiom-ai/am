@@ -35,6 +35,7 @@ export class MissionsService {
     // client venait de payer et lisait « Ta mission est publiée ».
     let priceCents: number | undefined;
     let currency: string | undefined;
+    let distanceKm: number | undefined;
     if (dto.quoteId) {
       const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
       if (!quote) throw new NotFoundException('Devis introuvable.');
@@ -50,6 +51,7 @@ export class MissionsService {
       }
       priceCents = quote.totalCents;
       currency = quote.currency;
+      distanceKm = quote.distanceKm ?? undefined;
       await this.prisma.quote.update({
         where: { id: quote.id },
         data: { status: 'CONVERTED', customerId: clientId },
@@ -64,6 +66,7 @@ export class MissionsService {
         reference: this.generateReference(),
         status,
         priceCents,
+        distanceKm,
         ...(currency ? { currency } : {}),
         priority: dto.priority,
         pickupAddress: dto.pickupAddress,
@@ -271,7 +274,7 @@ export class MissionsService {
         take: query.take,
         include: {
           vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true, type: true } },
-          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true, companyName: true } },
           driver: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
         },
         orderBy: { pickupAt: 'asc' },
@@ -355,6 +358,10 @@ export class MissionsService {
     if (driver.role !== UserRole.DRIVER && driver.role !== UserRole.ADMIN) {
       throw new BadRequestException('Cet utilisateur n\'est pas un convoyeur');
     }
+    // Comme pour l'acceptation : pas de véhicule confié à un convoyeur dont
+    // la pièce d'identité et le permis n'ont pas été validés. Roger peut
+    // s'affecter lui-même.
+    if (driver.role === UserRole.DRIVER) await this.assertVerifiedDriver(driverId);
 
     // DRAFT/PUBLISHED -> ACCEPTED. Une mission déjà démarrée garde son statut.
     const nextStatus =
@@ -438,6 +445,11 @@ export class MissionsService {
     if (mission.status !== MissionStatus.ACCEPTED) {
       throw new BadRequestException(`Départ impossible : la mission est au statut ${mission.status}.`);
     }
+    // Pas de départ sans état des lieux de prise en charge signé des deux
+    // parties : sans lui, aucun dommage constaté à l'arrivée ne peut être
+    // attribué au transport.
+    await this.assertInspectionSigned(id, 'PRE_DEPARTURE',
+      'Fais d\'abord signer l\'état des lieux de départ (bouton « Départ ») par le client.');
     const updated = await this.prisma.mission.update({
       where: { id },
       data: {
@@ -462,6 +474,11 @@ export class MissionsService {
     if (mission.status !== MissionStatus.IN_PROGRESS) {
       throw new BadRequestException(`Livraison impossible : la mission est au statut ${mission.status}.`);
     }
+    // La livraison se constate par l'état des lieux d'arrivée signé : c'est
+    // la pièce qui décharge Axis. Une fois « livrée », la mission quittait
+    // l'écran du convoyeur et l'état des lieux ne pouvait plus être fait.
+    await this.assertInspectionSigned(id, 'POST_DELIVERY',
+      'Fais d\'abord signer l\'état des lieux d\'arrivée (bouton « Arrivée ») par le destinataire.');
     const updated = await this.prisma.mission.update({
       where: { id },
       data: {
@@ -670,6 +687,56 @@ export class MissionsService {
         'Identité non vérifiée : une pièce d\'identité et un permis de conduire approuvés par Axis sont nécessaires pour accepter une mission.',
       );
     }
+  }
+
+  /**
+   * Alerte de sécurité levée par le convoyeur (ou automatiquement quand il ne
+   * répond pas après un arrêt prolongé). L'application annonçait « dispatching
+   * prévenu » sans rien envoyer : chaque administrateur reçoit maintenant une
+   * notification avec le nom, le téléphone et la position du convoyeur.
+   */
+  async driverAlert(
+    id: string,
+    driverId: string,
+    body: { type?: 'PROLONGED_STOP' | 'SOS'; latitude?: number; longitude?: number },
+  ) {
+    const mission = await this.prisma.mission.findUnique({
+      where: { id },
+      include: { driver: { select: { firstName: true, lastName: true, phone: true } } },
+    });
+    if (!mission) throw new NotFoundException('Mission introuvable.');
+    if (mission.driverId !== driverId) {
+      throw new ForbiddenException('Vous n\'êtes pas le convoyeur affecté à cette mission.');
+    }
+    const who = mission.driver ? `${mission.driver.firstName} ${mission.driver.lastName}`.trim() : 'Le convoyeur';
+    const phone = mission.driver?.phone ? ` (${mission.driver.phone})` : '';
+    const where = body.latitude != null && body.longitude != null
+      ? ` Position : https://maps.google.com/?q=${body.latitude.toFixed(5)},${body.longitude.toFixed(5)}`
+      : '';
+    const what = body.type === 'SOS' ? 'a déclenché une alerte SOS' : 'est arrêté depuis plus de 5 minutes et ne répond pas';
+    const text = `${who}${phone} ${what} — mission ${mission.reference}.${where}`;
+
+    await this.prisma.missionStatusHistory.create({
+      data: { missionId: id, status: mission.status, changedBy: driverId, notes: `ALERTE : ${text}` },
+    });
+    const admins = await this.prisma.user.findMany({ where: { role: UserRole.ADMIN, deletedAt: null }, select: { id: true } });
+    for (const a of admins) {
+      await this.notifySafe(a.id, NotificationType.SYSTEM, body.type === 'SOS' ? 'SOS convoyeur' : 'Alerte convoyeur', text, {
+        missionId: id,
+        alert: body.type ?? 'PROLONGED_STOP',
+        latitude: body.latitude,
+        longitude: body.longitude,
+      });
+    }
+    return { notified: admins.length };
+  }
+
+  private async assertInspectionSigned(missionId: string, type: 'PRE_DEPARTURE' | 'POST_DELIVERY', message: string) {
+    const insp = await this.prisma.inspection.findUnique({
+      where: { missionId_type: { missionId, type } },
+      select: { status: true },
+    });
+    if (insp?.status !== 'SIGNED') throw new BadRequestException(message);
   }
 
   private async notifySafe(

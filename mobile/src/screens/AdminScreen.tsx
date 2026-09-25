@@ -992,17 +992,16 @@ export function AdminScreen() {
                   </Surface>
                 ) : (
                   <View style={{ gap: 8 }}>
-                    {drivers.map((d) => {
-                      const current = m.driver
-                        ? `${m.driver.firstName} ${m.driver.lastName}` === `${d.firstName} ${d.lastName}`
-                        : false;
+                    {[...drivers].sort((a, b) => Number(!!b.verified) - Number(!!a.verified)).map((d) => {
+                      const current = m.driver ? m.driver.id === d.id : false;
+                      const blocked = d.verified === false;
                       const initials = `${d.firstName?.[0] ?? ''}${d.lastName?.[0] ?? ''}`.toUpperCase();
                       return (
                         <Pressable
                           key={d.id}
-                          disabled={assigning}
+                          disabled={assigning || blocked}
                           onPress={() => confirmAssign(d.id)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: current ? theme.gold : theme.line, backgroundColor: current ? theme.gold + '18' : theme.surface, opacity: assigning ? 0.6 : 1 }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: current ? theme.gold : theme.line, backgroundColor: current ? theme.gold + '18' : theme.surface, opacity: assigning || blocked ? 0.55 : 1 }}
                         >
                           <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bgSoft }}>
                             <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.bold }}>{initials || '?'}</Text>
@@ -1012,10 +1011,12 @@ export function AdminScreen() {
                               {d.firstName} {d.lastName}
                             </Text>
                             <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
-                              {[d.driverProfile?.baseCity, d.phone].filter(Boolean).join(' · ') || 'Convoyeur Axis'}
+                              {blocked
+                                ? 'Pièces non validées — voir l\'onglet Convoyeurs'
+                                : [d.driverProfile?.baseCity, d.phone].filter(Boolean).join(' · ') || 'Convoyeur vérifié'}
                             </Text>
                           </View>
-                          {current ? <Pill tone="gold">Affecté</Pill> : <Icons.arrow size={16} color={theme.muted} stroke={1.8} />}
+                          {current ? <Pill tone="gold">Affecté</Pill> : blocked ? <Pill tone="ghost">À vérifier</Pill> : <Icons.arrow size={16} color={theme.muted} stroke={1.8} />}
                         </Pressable>
                       );
                     })}
@@ -1805,6 +1806,22 @@ export function AdminScreen() {
                   {m.pickupCity} → {m.deliveryCity} · {m.vehicle.make} {m.vehicle.model}
                   {m.driver ? ` · ${m.driver.firstName} ${m.driver.lastName}` : ''}
                 </Text>
+                {/* L'essentiel pour organiser le convoyage : client, date
+                    souhaitée, prix et règlement. */}
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+                  {m.client ? `${m.client.companyName ? `${m.client.companyName} · ` : ''}${m.client.firstName} ${m.client.lastName}${m.client.phone ? ` · ${m.client.phone}` : ''}\n` : ''}
+                  {`Enlèvement : ${slotLabel(m)}`}
+                  {m.pickupAddress && m.deliveryAddress ? `\n${m.pickupAddress} → ${m.deliveryAddress}` : ''}
+                </Text>
+                {m.priceCents ? (
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {paymentList.some((p) => p.missionId === m.id && p.status === 'PAID') ? (
+                      <Pill tone="good">{`Payé · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                    ) : (
+                      <Pill tone="gold">{`À encaisser · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                    )}
+                  </View>
+                ) : null}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   {signedContracts.has(m.id) ? <Pill tone="good">Contrat signé par le client</Pill> : null}
                   {(inspections.get(m.id) ?? []).map((i) => (
@@ -2184,4 +2201,15 @@ function DashMini({
       </View>
     </View>
   );
+}
+
+/** « sam. 26 sept. · après-midi (14h-18h) » — créneau choisi par le client s'il l'a indiqué. */
+function slotLabel(m: MissionSummary): string {
+  const wished = m.pickupNotes?.match(/Créneau souhaité : ([^\n]+)/)?.[1];
+  if (wished) return wished;
+  const d = new Date(m.pickupAt);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+        ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }

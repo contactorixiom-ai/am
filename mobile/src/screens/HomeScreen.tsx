@@ -312,7 +312,7 @@ export function HomeScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, marginBottom: 14 }}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.9, fontFamily: TYPO.weights.medium }}>
-                  Arrivée prévue
+                  {primary.etaLabel}
                 </Text>
                 <Text style={{ fontFamily: TYPO.weights.bold, fontSize: primary.eta ? 26 : 18, color: primary.eta ? theme.ink : theme.muted, lineHeight: 28, marginTop: 2 }} numberOfLines={1}>
                   {primary.eta ?? 'À confirmer'}
@@ -586,7 +586,7 @@ export function HomeScreen() {
                 </View>
                 {secondary.eta ? (
                   <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                    Arrivée {secondary.eta}
+                    {secondary.etaLabel === 'Arrivée prévue' ? 'Arrivée' : 'Enlèvement'} {secondary.eta}
                   </Text>
                 ) : null}
               </View>

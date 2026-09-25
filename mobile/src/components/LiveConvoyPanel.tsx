@@ -192,7 +192,9 @@ export function LiveConvoyPanel({
     displayState === 'STOP'    ? (live ? '#E0A04D' : theme.gold) :
                                  theme.navy;
 
-  const totalKm = live ? live.totalKm : routeKm ?? null;
+  // Distance routière de la mission quand on la connaît (celle du devis) ;
+  // la distance à vol d'oiseau sous-estimait le trajet d'un quart.
+  const totalKm = routeKm ?? (live ? live.totalKm : null);
   const doneKm = totalKm != null ? Math.round(totalKm * displayProgress) : null;
   const remainKm = totalKm != null && doneKm != null ? totalKm - doneKm : null;
   // ETA : vitesse GPS réelle si le véhicule roule, sinon moyenne 85 km/h

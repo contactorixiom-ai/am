@@ -13,6 +13,10 @@ export interface MissionSummary {
   pickupCountry: string;
   pickupAddress?: string;
   pickupAt: string;
+  pickupLatitude?: number | null;
+  pickupLongitude?: number | null;
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
   deliveryCity: string;
   deliveryCountry: string;
   deliveryAddress?: string;
@@ -27,7 +31,8 @@ export interface MissionSummary {
     type?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER' | null;
   };
   driver?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
-  client?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
+  client?: { id?: string; firstName: string; lastName: string; phone?: string | null; companyName?: string | null } | null;
+  pickupNotes?: string | null;
 }
 
 export interface MissionStatusEvent {
@@ -93,6 +98,14 @@ export async function deliverMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/deliver`, { method: 'POST' });
 }
 
+/** Alerte de sécurité du convoyeur : l'équipe Axis est notifiée avec sa position. */
+export async function sendDriverAlert(
+  id: string,
+  body: { type: 'PROLONGED_STOP' | 'SOS'; latitude?: number; longitude?: number },
+): Promise<{ notified: number }> {
+  return apiFetch(`/missions/${id}/alert`, { method: 'POST', body });
+}
+
 export async function publishMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
 }
@@ -108,6 +121,8 @@ export interface DriverOption {
   phone?: string | null;
   avatarUrl?: string | null;
   driverProfile?: { baseCity?: string | null; rating?: number | null } | null;
+  /** Pièce d'identité et permis validés : seul un convoyeur vérifié peut être affecté. */
+  verified?: boolean;
 }
 
 export interface ClientOption {

@@ -9,7 +9,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsLatitude, IsLongitude, IsOptional, IsString } from 'class-validator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -20,6 +21,22 @@ import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
 import { SignContractDto } from './dto/sign-contract.dto';
 import { MissionsService } from './missions.service';
+
+class DriverAlertDto {
+  @IsOptional()
+  @IsIn(['PROLONGED_STOP', 'SOS'])
+  type?: 'PROLONGED_STOP' | 'SOS';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
+  longitude?: number;
+}
 
 class CancelMissionDto {
   @IsOptional()
@@ -105,6 +122,17 @@ export class MissionsController {
   @ApiOperation({ summary: 'Démarrer le convoyage (après état des lieux pré-départ)' })
   start(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') driverId: string) {
     return this.missions.start(id, driverId);
+  }
+
+  @Post(':id/alert')
+  @Roles(UserRole.DRIVER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Convoyeur : alerte de sécurité (arrêt prolongé sans réponse, SOS)' })
+  alert(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') driverId: string,
+    @Body() body: DriverAlertDto,
+  ) {
+    return this.missions.driverAlert(id, driverId, body);
   }
 
   @Post(':id/deliver')
