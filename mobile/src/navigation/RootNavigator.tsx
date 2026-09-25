@@ -38,7 +38,7 @@ import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
 import { VehicleInspectionScreen } from '../screens/VehicleInspectionScreen';
 import { CustomsRequirementsScreen } from '../screens/CustomsRequirementsScreen';
-import { ShipmentInfoScreen } from '../screens/ShipmentInfoScreen';
+import { ProfileInfoScreen } from '../screens/ProfileInfoScreen';
 import { useSession } from '../state/SessionContext';
 import { onNotificationTap } from '../utils/push';
 import { useTheme } from '../theme/ThemeProvider';
@@ -187,7 +187,7 @@ export function RootNavigator() {
             <RootStack.Screen name="VehicleDocs" component={VehicleDocsScreen} />
             <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
             <RootStack.Screen name="CustomsRequirements" component={CustomsRequirementsScreen} />
-            <RootStack.Screen name="ShipmentInfo" component={ShipmentInfoScreen} />
+            <RootStack.Screen name="ProfileInfo" component={ProfileInfoScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
           </>

@@ -40,20 +40,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (userId) void registerForPush();
   }, [userId]);
 
+  // La réponse de connexion ne contient que l'essentiel ; le profil complet
+  // (type de compte, société, adresse) est relu aussitôt, sinon l'écran
+  // « Mes informations » repartait de valeurs vides.
+  const loadFullProfile = async () => {
+    try { setUser(await fetchMe()); } catch { /* on garde le profil minimal */ }
+  };
+
   const value: SessionContextValue = {
     user,
     initializing,
     login: async (email, password) => {
       const r = await apiLogin(email, password);
       setUser(r.user);
+      void loadFullProfile();
     },
     register: async (input) => {
       const r = await apiRegister(input);
       setUser(r.user);
+      void loadFullProfile();
     },
     resetPassword: async (token, password, acceptedTermsVersion) => {
       const r = await apiResetPassword(token, password, acceptedTermsVersion);
       setUser(r.user);
+      void loadFullProfile();
     },
     logout: async () => {
       // Avant de fermer la session : la route exige d'être connecté.

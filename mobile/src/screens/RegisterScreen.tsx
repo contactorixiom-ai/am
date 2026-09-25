@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ApiError } from '../api/client';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AxisLogo } from '../components/AxisLogo';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
@@ -24,6 +24,12 @@ export function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [accepted, setAccepted] = useState(false);
+  // Client professionnel (garage, concession, loueur, importateur…) : la
+  // société figure sur ses contrats et factures.
+  const [isPro, setIsPro] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [companySiret, setCompanySiret] = useState('');
+  const [companyVatId, setCompanyVatId] = useState('');
   // « Je suis chauffeur » crée un compte convoyeur : sans cela, tous les
   // comptes étaient créés comme clients et aucun convoyeur inscrit par
   // l'application ne pouvait accepter de mission.
@@ -47,6 +53,10 @@ export function RegisterScreen() {
       setError('Le mot de passe doit faire au moins 8 caractères.');
       return;
     }
+    if (!isDriver && isPro && (!companyName.trim() || !companySiret.trim())) {
+      setError('Compte professionnel : raison sociale et SIRET obligatoires.');
+      return;
+    }
     if (!accepted) {
       setError('Merci d\'accepter les conditions générales et la politique de confidentialité.');
       return;
@@ -56,6 +66,14 @@ export function RegisterScreen() {
       await register({
         role,
         acceptedTermsVersion: TERMS_VERSION,
+        ...(!isDriver && isPro
+          ? {
+              accountType: 'PROFESSIONAL' as const,
+              companyName: companyName.trim(),
+              companySiret: companySiret.trim(),
+              companyVatId: companyVatId.trim() || undefined,
+            }
+          : {}),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim().toLowerCase(),
@@ -115,7 +133,34 @@ export function RegisterScreen() {
             </View>
           ) : null}
 
+          {!isDriver ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[{ v: false, l: 'Particulier' }, { v: true, l: 'Professionnel' }].map((o) => (
+                <Pressable
+                  key={o.l}
+                  onPress={() => setIsPro(o.v)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isPro === o.v }}
+                  style={{
+                    flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 12, borderWidth: 1.5,
+                    borderColor: isPro === o.v ? theme.navy : theme.line,
+                    backgroundColor: isPro === o.v ? theme.navy : theme.surface,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, color: isPro === o.v ? theme.bg : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.l}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
           <View style={{ gap: SPACING.md }}>
+            {!isDriver && isPro ? (
+              <>
+                <Field label="Raison sociale" value={companyName} onChangeText={setCompanyName} placeholder="Garage Martin SARL" />
+                <Field label="SIRET" value={companySiret} onChangeText={setCompanySiret} keyboardType="number-pad" placeholder="14 chiffres" />
+                <Field label="N° de TVA (facultatif)" value={companyVatId} onChangeText={setCompanyVatId} autoCapitalize="characters" placeholder="FR12345678901" />
+              </>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: SPACING.md }}>
               <Field containerStyle={{ flex: 1 }} label="Prénom" value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
               <Field containerStyle={{ flex: 1 }} label="Nom" value={lastName} onChangeText={setLastName} autoCapitalize="words" />

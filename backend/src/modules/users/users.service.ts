@@ -1,5 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, UserRole, UserStatus } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { AccountType, Prisma, UserRole, UserStatus } from '@prisma/client';
+import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
@@ -23,6 +24,7 @@ export class UsersService {
       companyVatId: true,
       companySiret: true,
       companyAddress: true,
+      billingAddress: true,
       emailVerifiedAt: true,
       phoneVerifiedAt: true,
       lastLoginAt: true,
@@ -86,11 +88,35 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, dto: UpdateUserDto) {
-    return this.prisma.user.update({
+    const current = await this.prisma.user.findUnique({
       where: { id: userId },
-      data: dto,
-      select: this.safeSelect,
+      select: { accountType: true, companyName: true, companySiret: true },
     });
+    if (!current) throw new NotFoundException('Utilisateur introuvable.');
+    const trim = (v?: string) => (v === undefined ? undefined : v.trim() || null);
+    const data = {
+      firstName: dto.firstName?.trim() || undefined,
+      lastName: dto.lastName?.trim() || undefined,
+      phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
+      avatarUrl: dto.avatarUrl,
+      accountType: dto.accountType,
+      companyName: trim(dto.companyName),
+      companyAddress: trim(dto.companyAddress),
+      billingAddress: trim(dto.billingAddress),
+      companySiret: dto.companySiret === undefined ? undefined : dto.companySiret.trim() ? normalizeSiret(dto.companySiret) : null,
+      companyVatId: dto.companyVatId === undefined ? undefined : dto.companyVatId.trim() ? normalizeVat(dto.companyVatId) : null,
+    };
+    // Un compte pro sans raison sociale ni SIRET donnerait des factures
+    // incomplètes.
+    const type = data.accountType ?? current.accountType;
+    if (type === AccountType.PROFESSIONAL) {
+      const name = data.companyName === undefined ? current.companyName : data.companyName;
+      const siret = data.companySiret === undefined ? current.companySiret : data.companySiret;
+      if (!name || !siret) {
+        throw new BadRequestException('Compte professionnel : raison sociale et SIRET obligatoires.');
+      }
+    }
+    return this.prisma.user.update({ where: { id: userId }, data, select: this.safeSelect });
   }
 
   /**

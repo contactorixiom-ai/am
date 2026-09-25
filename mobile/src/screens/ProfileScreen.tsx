@@ -146,16 +146,12 @@ export function ProfileScreen() {
               cela vit dans les onglets. Le profil ne garde donc que ce qui
               n'a pas sa place ailleurs — et rien qui ne soit branché. */}
           <MenuSection label="Mon compte">
-            {/* Le convoyeur n'expédie rien : ces informations d'expéditeur
-                et de marchandise ne concernent que le client. */}
-            {user?.role === 'DRIVER' ? null : (
-              <MenuRow
-                iconKey="box"
-                label="Mes informations d'envoi"
-                sub="Expéditeur, marchandise — reprises sur tes documents"
-                onPress={() => nav.navigate('ShipmentInfo')}
-              />
-            )}
+            <MenuRow
+              iconKey="user"
+              label="Mes informations"
+              sub={user?.accountType === 'PROFESSIONAL' ? 'Société, SIRET, adresse de facturation' : 'Identité, téléphone, adresse de facturation'}
+              onPress={() => nav.navigate('ProfileInfo')}
+            />
             <MenuRow
               iconKey="shield"
               label="Sécurité du compte"

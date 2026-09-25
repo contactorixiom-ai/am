@@ -48,7 +48,7 @@ export type RootStackParamList = {
   VehicleDocs: undefined;
   VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; missionId?: string; reference?: string; vehicleLabel?: string; clientName?: string } | undefined;
   CustomsRequirements: { countryCode?: string; parcelId?: string; kind?: 'parcel' | 'commercial' | 'vehicle' | 'personalParcel' } | undefined;
-  ShipmentInfo: undefined;
+  ProfileInfo: undefined;
   Notifications: undefined;
   News: undefined;
 };

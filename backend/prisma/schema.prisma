@@ -49,6 +49,8 @@ model User {
   companyVatId   String?
   companySiret   String?
   companyAddress String?
+  // Adresse de facturation (particulier ou pro) : obligatoire sur une facture.
+  billingAddress String?
 
   emailVerifiedAt DateTime?
   // Acceptation des CGU et de la politique de confidentialité : date et

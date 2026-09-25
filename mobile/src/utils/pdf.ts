@@ -277,6 +277,7 @@ export interface InvoicePdfData {
   clientEmail?: string;
   clientAddress?: string;      // obligatoire sur facture B2B
   clientSiren?: string;        // nouveauté 2026 (client assujetti)
+  clientVat?: string;          // n° de TVA intracommunautaire du client pro
   serviceDate?: string;        // date de la prestation (distincte de l'émission)
   dueDate?: string;            // date d'échéance
   operationCategory?: string;  // nouveauté 2026 : biens / services / mixte
@@ -322,7 +323,8 @@ export async function generateInvoicePdf(data: InvoicePdfData, sharedDoc?: jsPDF
     cy += addr.length * 4;
   }
   if (data.clientEmail) { doc.text(data.clientEmail, w / 2 + 4, cy); cy += 4; }
-  if (data.clientSiren) doc.text(`SIREN : ${data.clientSiren}`, w / 2 + 4, cy);
+  if (data.clientSiren) { doc.text(`SIREN : ${data.clientSiren}`, w / 2 + 4, cy); cy += 4; }
+  if (data.clientVat) doc.text(`TVA : ${data.clientVat}`, w / 2 + 4, cy);
   doc.text(companyAddress(), 14, y + 8);
   doc.text(companyRegistrationLine(), 14, y + 12);
   doc.text(`TVA intracommunautaire : ${orTodo(COMPANY.vat)}`, 14, y + 16);

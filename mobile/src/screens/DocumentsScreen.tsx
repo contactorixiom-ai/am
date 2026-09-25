@@ -40,8 +40,18 @@ import { generateContractPdf, generateInvoicePdf, PdfProof, signatureFromSvgData
 export function DocumentsScreen() {
   const { theme } = useTheme();
   const { user } = useSession();
-  const clientName = user ? `${user.firstName} ${user.lastName}` : 'Client Axis Import';
+  // Client pro : la facture est au nom de la société, avec SIREN, TVA et
+  // adresse (mentions obligatoires entre professionnels).
+  const isPro = user?.accountType === 'PROFESSIONAL' && !!user.companyName;
+  const clientName = user
+    ? isPro ? `${user.companyName} (${user.firstName} ${user.lastName})` : `${user.firstName} ${user.lastName}`
+    : 'Client Axis Import';
   const clientEmail = user?.email;
+  const clientBilling = {
+    clientAddress: (isPro ? user?.companyAddress || user?.billingAddress : user?.billingAddress) || undefined,
+    clientSiren: isPro && user?.companySiret ? user.companySiret.slice(0, 9) : undefined,
+    clientVat: isPro ? user?.companyVatId || undefined : undefined,
+  };
 
   // ─── Contrats et factures, dérivés des envois réels du client ────────────
   // Le règlement et la signature font foi côté serveur (tables Payment et
@@ -234,7 +244,7 @@ export function DocumentsScreen() {
   const downloadInvoice = async (inv: Invoice) => {
     await generateInvoicePdf({
       number: inv.title, date: inv.date, amountEur: inv.amountEur, paid: inv.paid,
-      description: inv.ref, clientName, clientEmail,
+      description: inv.ref, clientName, clientEmail, ...clientBilling,
     });
     notify(inv.paid ? 'Facture téléchargée' : 'Bon de commande téléchargé', `${inv.title}.pdf enregistré dans tes fichiers.`);
   };

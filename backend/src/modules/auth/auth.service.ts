@@ -7,10 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { User, UserRole, UserStatus } from '@prisma/client';
+import { AccountType, User, UserRole, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { LoginDto } from './dto/login.dto';
 import { MailService } from './mail.service';
 import { RegisterDto } from './dto/register.dto';
@@ -70,6 +71,15 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou utilisez « Mot de passe oublié ».');
 
+    // Compte pro : raison sociale et SIRET obligatoires, ils figurent sur les
+    // factures et contrats.
+    const isPro = dto.accountType === AccountType.PROFESSIONAL;
+    if (isPro && (!dto.companyName?.trim() || !dto.companySiret?.trim())) {
+      throw new BadRequestException('Compte professionnel : raison sociale et SIRET obligatoires.');
+    }
+    const companySiret = isPro && dto.companySiret ? normalizeSiret(dto.companySiret) : undefined;
+    const companyVatId = isPro && dto.companyVatId?.trim() ? normalizeVat(dto.companyVatId) : undefined;
+
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
 
     const user = await this.prisma.user.create({
@@ -81,7 +91,10 @@ export class AuthService {
         phone: dto.phone?.trim(),
         role: dto.role,
         accountType: dto.accountType,
-        companyName: dto.companyName?.trim(),
+        companyName: isPro ? dto.companyName?.trim() : undefined,
+        companySiret,
+        companyVatId,
+        billingAddress: dto.billingAddress?.trim() || undefined,
         status: UserStatus.PENDING,
         ...(dto.acceptedTermsVersion
           ? { termsAcceptedAt: new Date(), termsVersion: dto.acceptedTermsVersion }

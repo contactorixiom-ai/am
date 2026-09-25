@@ -10,6 +10,13 @@ export interface SessionUser {
   lastName: string;
   role: UserRole;
   status: UserStatus;
+  phone?: string | null;
+  accountType?: 'INDIVIDUAL' | 'PROFESSIONAL';
+  companyName?: string | null;
+  companySiret?: string | null;
+  companyVatId?: string | null;
+  companyAddress?: string | null;
+  billingAddress?: string | null;
 }
 
 export interface AuthResult {
@@ -26,6 +33,11 @@ export async function register(input: {
   lastName: string;
   phone?: string;
   role?: 'CLIENT' | 'DRIVER';
+  accountType?: 'INDIVIDUAL' | 'PROFESSIONAL';
+  companyName?: string;
+  companySiret?: string;
+  companyVatId?: string;
+  billingAddress?: string;
   acceptedTermsVersion: string;
 }): Promise<AuthResult> {
   const r = await apiFetch<AuthResult>('/auth/register', {
@@ -93,6 +105,15 @@ export async function changePassword(currentPassword: string, newPassword: strin
 /** Export RGPD de ses données (JSON). */
 export async function exportMyData(): Promise<unknown> {
   return apiFetch<unknown>('/users/me/export');
+}
+
+export type ProfileUpdate = Partial<Pick<SessionUser,
+  'firstName' | 'lastName' | 'phone' | 'accountType' | 'companyName' | 'companySiret' | 'companyVatId' | 'companyAddress' | 'billingAddress'
+>>;
+
+/** Met à jour son profil (identité, facturation, société). */
+export async function updateProfile(input: ProfileUpdate): Promise<SessionUser> {
+  return apiFetch<SessionUser>('/users/me', { method: 'PATCH', body: input });
 }
 
 export async function logout(): Promise<void> {

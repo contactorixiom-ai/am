@@ -70,4 +70,22 @@ export class RegisterDto {
   @IsString()
   @MaxLength(180)
   companyName?: string;
+
+  @ApiPropertyOptional({ example: '73282932000074' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  companySiret?: string;
+
+  @ApiPropertyOptional({ example: 'FR44732829320' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  companyVatId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  billingAddress?: string;
 }
