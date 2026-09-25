@@ -322,6 +322,56 @@ export class PaymentsService {
   }
 
   /**
+   * Règlement reçu hors de l'application (virement, espèces, chèque, TPE,
+   * mobile money) : Roger l'enregistre, la commande passe « payée » et reçoit
+   * son numéro de facture légal.
+   */
+  async recordManual(adminId: string, dto: { missionId?: string; parcelId?: string; amountCents: number; method: string; note?: string }) {
+    if (!!dto.missionId === !!dto.parcelId) {
+      throw new BadRequestException('Indiquez une mission ou un colis.');
+    }
+    const shipment = dto.missionId
+      ? await this.prisma.mission.findUnique({ where: { id: dto.missionId }, select: { clientId: true, reference: true, pickupCity: true, deliveryCity: true } })
+      : await this.prisma.parcel.findUnique({ where: { id: dto.parcelId }, select: { senderId: true, reference: true, originCity: true, destinationCity: true } });
+    if (!shipment) throw new NotFoundException('Envoi introuvable.');
+    const clientId = 'clientId' in shipment ? shipment.clientId : shipment.senderId;
+    const already = await this.prisma.payment.findFirst({
+      where: { status: PaymentStatus.PAID, ...(dto.missionId ? { missionId: dto.missionId } : { parcelId: dto.parcelId }) },
+      select: { invoiceNumber: true },
+    });
+    if (already) throw new BadRequestException(`Déjà réglé (facture ${already.invoiceNumber ?? 'en cours'}).`);
+
+    const METHOD: Record<string, string> = {
+      TRANSFER: 'Virement', CASH: 'Espèces', CHECK: 'Chèque', CARD_TERMINAL: 'Carte (TPE)', MOBILE_MONEY: 'Mobile money',
+    };
+    const created = await this.prisma.payment.create({
+      data: {
+        clientId,
+        missionId: dto.missionId,
+        parcelId: dto.parcelId,
+        sessionId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        provider: `manual:${dto.method.toLowerCase()}`,
+        reference: shipment.reference,
+        description: `${METHOD[dto.method] ?? dto.method}${dto.note ? ` — ${dto.note}` : ''} (saisi par Axis)`,
+        amountCents: dto.amountCents,
+        currency: 'EUR',
+        status: PaymentStatus.PAID,
+        paidAt: new Date(),
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: { userId: adminId, action: 'PAYMENT_MANUAL', entity: 'Payment', entityId: created.id, metadata: { method: dto.method, amountCents: dto.amountCents } },
+    });
+    const invoiceNumber = await this.assignInvoiceNumber(created.id);
+    await this.notifications
+      .notify(clientId, 'PAYMENT_RECEIVED', 'Paiement enregistré',
+        `Axis a bien reçu ${(dto.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} pour ${shipment.reference}. Ta facture est disponible dans Documents.`,
+        { paymentId: created.id })
+      .catch(() => undefined);
+    return { ...created, invoiceNumber };
+  }
+
+  /**
    * Numéro de facture à l'encaissement : FA-<année>-<n° sur 6 chiffres>,
    * sans trou ni doublon. Le compteur est incrémenté dans la même transaction
    * que l'écriture du numéro ; un paiement déjà numéroté ne l'est pas deux fois.

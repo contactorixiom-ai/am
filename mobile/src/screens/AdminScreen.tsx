@@ -26,6 +26,7 @@ import { DAMAGE_META } from '../components/VehicleDiagram';
 import { COMPANY, companyAddress } from '../config/company';
 import { Modal } from 'react-native';
 import { AccessLinkSheet } from '../components/AccessLinkSheet';
+import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { KycReviewPanel } from '../components/KycReviewPanel';
 import { listPendingKyc } from '../api/kyc';
@@ -259,6 +260,8 @@ export function AdminScreen() {
   const [orderOpen, setOrderOpen] = useState(false);
   // Client à qui envoyer son lien d'accès (commande saisie par téléphone).
   const [accessTarget, setAccessTarget] = useState<{ userId: string; name: string } | null>(null);
+  // Envoi dont Roger enregistre un règlement reçu hors application.
+  const [encashTarget, setEncashTarget] = useState<EncashTarget | null>(null);
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientOption[] | null>(null);
@@ -488,22 +491,47 @@ export function AdminScreen() {
   };
 
   // ─── Actions rapides sur un envoi ──────────────────────────────────────────
+  // Facture = envoi encaissé : le numéro légal vient du règlement. Elle
+  // était pré-remplie au nom du convoyeur et numérotée par le téléphone.
   const invoiceFromMission = (m: MissionSummary) => {
+    const pay = paymentList.find((p) => p.missionId === m.id && p.status === 'PAID');
+    if (!pay?.invoiceNumber) {
+      notify('Pas encore encaissé', 'La facture est émise à l\'encaissement : utilise « Encaisser » si le client a réglé hors de l\'application.');
+      return;
+    }
+    const client = m.client
+      ? `${m.client.companyName ? `${m.client.companyName} — ` : ''}${m.client.firstName} ${m.client.lastName}`.trim()
+      : '';
     openDocForm(
       adminDocTypeById('invoice')!,
       {
+        number: pay.invoiceNumber,
+        date: pay.paidAt ? new Date(pay.paidAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '',
         description: `Convoyage ${m.pickupCity} → ${m.deliveryCity} — réf ${m.reference}`,
-        clientName: m.driver ? `${m.driver.firstName} ${m.driver.lastName}` : '',
+        clientName: client,
+        clientAddress: m.pickupAddress ?? '',
+        amountEur: String(pay.amountCents / 100),
+        paid: true,
       },
       'convoyage',
     );
   };
 
   const invoiceFromParcel = (p: ParcelSummary) => {
+    const pay = paymentList.find((x) => x.parcelId === p.id && x.status === 'PAID');
+    if (!pay?.invoiceNumber) {
+      notify('Pas encore encaissé', 'La facture est émise à l\'encaissement : utilise « Encaisser » si le client a réglé hors de l\'application.');
+      return;
+    }
     openDocForm(
       adminDocTypeById('invoice')!,
       {
+        number: pay.invoiceNumber,
+        date: pay.paidAt ? new Date(pay.paidAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '',
         description: `Envoi colis ${p.originCity} → ${p.destinationCity} (${p.weightKg.toLocaleString('fr-FR')} kg) — réf ${p.reference}`,
+        clientName: pay.client ? `${pay.client.firstName} ${pay.client.lastName}` : '',
+        amountEur: String(pay.amountCents / 100),
+        paid: true,
       },
       'colis',
     );
@@ -632,6 +660,15 @@ export function AdminScreen() {
 
       {renderStatusModal()}
       <AccessLinkSheet target={accessTarget} onClose={() => setAccessTarget(null)} />
+      <ManualPaymentSheet
+        target={encashTarget}
+        onClose={() => setEncashTarget(null)}
+        onDone={(num) => {
+          setEncashTarget(null);
+          notify('Règlement enregistré', num ? `Facture ${num} attribuée. Le client est prévenu.` : 'Le client est prévenu.');
+          loadShipments();
+        }}
+      />
       {renderAssignModal()}
       {renderOrderModal()}
       {renderInspectionModal()}
@@ -1850,7 +1887,14 @@ export function AdminScreen() {
                     {paymentList.some((p) => p.missionId === m.id && p.status === 'PAID') ? (
                       <Pill tone="good">{`Payé · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
                     ) : (
-                      <Pill tone="gold">{`À encaisser · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                      <>
+                        <Pill tone="gold">{`À encaisser · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                        {m.status !== 'CANCELLED' ? (
+                          <Pressable onPress={() => setEncashTarget({ kind: 'mission', id: m.id, reference: m.reference, amountCents: m.priceCents })}>
+                            <Pill tone="navy">Encaisser</Pill>
+                          </Pressable>
+                        ) : null}
+                      </>
                     )}
                   </View>
                 ) : null}
@@ -1925,6 +1969,22 @@ export function AdminScreen() {
                 <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
                   {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {p.weightKg.toLocaleString('fr-FR')} kg
                 </Text>
+                {p.priceCents ? (
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {paymentList.some((x) => x.parcelId === p.id && x.status === 'PAID') ? (
+                      <Pill tone="good">{`Payé · ${(p.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                    ) : (
+                      <>
+                        <Pill tone="gold">{`À encaisser · ${(p.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                        {p.status !== 'CANCELLED' ? (
+                          <Pressable onPress={() => setEncashTarget({ kind: 'parcel', id: p.id, reference: p.reference, amountCents: p.priceCents })}>
+                            <Pill tone="navy">Encaisser</Pill>
+                          </Pressable>
+                        ) : null}
+                      </>
+                    )}
+                  </View>
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => setStatusParcel(p)}>
                     Statut

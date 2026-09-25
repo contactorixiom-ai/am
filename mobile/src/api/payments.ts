@@ -96,3 +96,16 @@ export async function getPaymentsSummary(): Promise<PaymentsSummary> {
 export async function getPaymentsConfig(): Promise<{ configured: boolean }> {
   return apiFetch<{ configured: boolean }>('/payments/config', { skipAuth: true });
 }
+
+export type ManualMethod = 'TRANSFER' | 'CASH' | 'CHECK' | 'CARD_TERMINAL' | 'MOBILE_MONEY';
+
+/** Admin : règlement reçu hors application ; attribue le numéro de facture. */
+export async function recordManualPayment(input: {
+  missionId?: string;
+  parcelId?: string;
+  amountCents: number;
+  method: ManualMethod;
+  note?: string;
+}): Promise<PaymentRecord> {
+  return apiFetch<PaymentRecord>('/payments/manual', { method: 'POST', body: input });
+}

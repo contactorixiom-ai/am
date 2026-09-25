@@ -1,3 +1,4 @@
+import { ManualPaymentDto } from './dto/manual-payment.dto';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -29,6 +30,14 @@ export class PaymentsController {
   }
 
   @ApiBearerAuth()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Post('manual')
+  @ApiOperation({ summary: 'Admin : enregistrer un règlement reçu hors application (virement, espèces…)' })
+  manual(@CurrentUser('id') adminId: string, @Body() dto: ManualPaymentDto) {
+    return this.payments.recordManual(adminId, dto);
+  }
+
   @Get('summary')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Encaissements du mois et restes à encaisser' })

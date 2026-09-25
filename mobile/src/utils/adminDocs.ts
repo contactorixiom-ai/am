@@ -224,14 +224,16 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
   {
     id: 'invoice',
     label: 'Facture client',
-    description: 'Facture TTC avec TVA, tampon payé/à régler',
+    description: 'Depuis un envoi encaissé : numéro légal attribué à l\'encaissement',
     icon: 'card',
     activity: 'convoyage',
     issuer: 'axis',
     refPrefix: '',
     refKey: 'number',
     fields: [
-      { key: 'number', label: 'N° de facture', half: true, required: true },
+      // Le numéro vient de l'encaissement (suite légale tenue par le serveur) :
+      // un compteur propre au téléphone donnait des doublons.
+      { key: 'number', label: 'N° de facture', half: true, required: true, placeholder: 'Attribué à l\'encaissement' },
       { key: 'date', label: 'Date', half: true },
       { key: 'clientName', label: 'Client', required: true, placeholder: 'Nom du client' },
       { key: 'clientAddress', label: 'Adresse du client', required: true, placeholder: '12 rue…, 75000 Paris' },
@@ -245,7 +247,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'paid', label: 'Facture payée', type: 'boolean', half: true },
     ],
     defaults: (ctx) => ({
-      number: ctx.reference,
+      number: '',
       date: ctx.dateLong,
       clientName: '',
       clientAddress: '',
