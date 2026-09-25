@@ -11,6 +11,11 @@ import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
 import { Icons } from '../components/Icons';
 import { listInspections } from '../api/inspections';
+import { COMPANY } from '../config/company';
+import { useSession } from '../state/SessionContext';
+import { confirmAction, notify } from '../utils/notify';
+import { cancelMission, completeMission } from '../api/missions';
+import { Button } from '../components/Button';
 import type { MissionSummary } from '../api/missions';
 import { LiveConvoyMap } from '../components/LiveConvoyMap';
 import { LiveConvoyPanel } from '../components/LiveConvoyPanel';
@@ -19,11 +24,8 @@ import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { formatEta, missionView, parcelView } from '../utils/shipment';
-import { notify } from '../utils/notify';
 import { Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { LogisticsPartnerCard } from '../components/LogisticsPartnerCard';
-import { selectPartner } from '../utils/logisticsPartners';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
 // Étapes d'un convoyage, datées par l'historique de statut du serveur.
@@ -63,18 +65,6 @@ function convoySteps(mission: MissionDetail | null) {
   }));
 }
 
-// Étapes pour un colis Europe→Afrique : 5 tronçons distincts
-function buildParcelLegs(partnerName: string, port: string) {
-  return [
-    { label: `Enlèvement par ${partnerName}`, sub: 'Premier tronçon — chez toi',          done: true,  current: false },
-    { label: `Acheminement au port`,           sub: `${port}`,                              done: true,  current: false },
-    { label: 'Consolidation conteneur',        sub: 'Prise en charge Axis maritime',        done: false, current: true  },
-    { label: 'Traversée maritime',             sub: 'Marseille → Dakar · 14 jours',         done: false, current: false },
-    { label: 'Dédouanement Dakar',             sub: 'BSC + déclaration export',             done: false, current: false },
-    { label: 'Livraison destinataire',         sub: 'Remise au destinataire final',         done: false, current: false },
-  ];
-}
-
 export function TrackingScreen() {
   const { theme } = useTheme();
   const route = useRoute<RouteProp<RootStackParamList, 'Tracking'>>();
@@ -83,6 +73,8 @@ export function TrackingScreen() {
 
   const [parcel, setParcel] = useState<ParcelSummary | null>(null);
   const [mission, setMission] = useState<MissionDetail | null>(null);
+  const { user } = useSession();
+  const [acting, setActing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +204,7 @@ export function TrackingScreen() {
               driverPhone={view?.driverPhone}
               totalKm={mission?.distanceKm ?? roadKm(mission)}
               statusProgress={view?.progress ?? 0}
+              finished={!!mission && ['DELIVERED', 'COMPLETED'].includes(mission.status)}
               missionId={mission?.id ?? route.params.id}
             />
           ) : parcelRoute ? (
@@ -298,17 +291,21 @@ export function TrackingScreen() {
           </View>
         ) : null}
 
-        {/* Transporteur partenaire (tronçon 1) — uniquement colis */}
-        {kind === 'parcel' ? (
+        {/* Transporteur : seulement celui qu'Axis a réellement saisi (la carte
+            en choisissait un au hasard selon le poids). */}
+        {kind === 'parcel' && parcel?.partnerCarrier ? (
           <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-            <LogisticsPartnerCard
-              partner={{
-                ...selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry }),
-                // Le numéro de suivi vient du serveur quand Axis l'a reçu du
-                // transporteur ; sinon la carte n'en affiche aucun.
-                trackingNumber: parcel?.partnerTracking ?? null,
-              }}
-            />
+            <Surface padded style={{ padding: 14, gap: 4 }}>
+              <Text style={{ fontSize: 10.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                Transporteur
+              </Text>
+              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{parcel.partnerCarrier}</Text>
+              {parcel.partnerTracking ? (
+                <Text selectable style={{ fontSize: 13, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
+                  N° de suivi : {parcel.partnerTracking}
+                </Text>
+              ) : null}
+            </Surface>
           </View>
         ) : null}
 
@@ -323,7 +320,7 @@ export function TrackingScreen() {
                   {parcel ? 'Transporteur Axis' : driverLabel}
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }} numberOfLines={1}>
-                  {parcel ? 'Axis Import SAS' : view?.driverPhone ?? vehicleLabel}
+                  {parcel ? COMPANY.name : view?.driverPhone ?? vehicleLabel}
                 </Text>
               </View>
               <Pressable
@@ -375,13 +372,11 @@ export function TrackingScreen() {
                   done: i < arr.length - 1,
                   current: i === arr.length - 1,
                 }))
-              : (kind === 'parcel'
-                  ? buildParcelLegs(
-                      selectPartner({ fromCountry: parcel?.originCountry, weightKg: parcel?.weightKg, toCountry: parcel?.destinationCountry }).name,
-                      'Hub Roissy → Port autonome de Marseille',
-                    )
-                  : []
-                ).map((s, i, arr) => ({ ...s, time: i < (arr.length >> 1) ? '' : i === (arr.length >> 1) ? 'En cours' : 'À venir' }))
+              : kind === 'parcel' && parcel
+                // Aucune étape saisie : on montre l'état réel, pas un parcours
+                // inventé déjà à moitié coché.
+                ? [{ label: labelStatus(parcel.status), sub: 'Axis met à jour chaque étape de ton envoi.', time: 'En cours', done: false, current: true }]
+                : []
             ).map((step, i, arr) => (
               <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
                 {/* Colonne pastille + trait : le padding vertical vit dans la
@@ -444,6 +439,68 @@ export function TrackingScreen() {
             ))}
           </Surface>
         </View>
+        {/* Actions du client sur sa commande */}
+        {kind === 'mission' && mission && user?.role === 'CLIENT' && (!mission.client?.id || mission.client.id === user.id) ? (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 10 }}>
+            {mission.status === 'DELIVERED' ? (
+              <Button
+                kind="primary"
+                size="lg"
+                fullWidth
+                loading={acting}
+                onPress={() =>
+                  confirmAction(
+                    'Confirmer la bonne réception',
+                    'Le véhicule t\'a été remis conformément à l\'état des lieux d\'arrivée ? La mission sera clôturée.',
+                    async () => {
+                      setActing(true);
+                      try {
+                        await completeMission(mission.id);
+                        notify('Mission clôturée', 'Merci pour ta confiance !');
+                        await load();
+                      } catch (e) {
+                        notify('Clôture impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
+                      } finally {
+                        setActing(false);
+                      }
+                    },
+                    'Confirmer',
+                  )
+                }
+              >
+                Confirmer la bonne réception
+              </Button>
+            ) : null}
+            {['DRAFT', 'PUBLISHED', 'ACCEPTED'].includes(mission.status) ? (
+              <Button
+                kind="ghost"
+                fullWidth
+                loading={acting}
+                onPress={() =>
+                  confirmAction(
+                    'Annuler la commande',
+                    'Le convoyage sera annulé. S\'il est déjà réglé, Axis te contacte pour le remboursement selon les conditions générales.',
+                    async () => {
+                      setActing(true);
+                      try {
+                        await cancelMission(mission.id, 'Annulée par le client depuis l\'application');
+                        notify('Commande annulée', 'Axis a été prévenu.');
+                        await load();
+                      } catch (e) {
+                        notify('Annulation impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
+                      } finally {
+                        setActing(false);
+                      }
+                    },
+                    'Annuler la commande',
+                  )
+                }
+              >
+                Annuler la commande
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -503,13 +560,13 @@ function labelStatus(s: string): string {
     case 'DRAFT': return 'Brouillon';
     case 'AWAITING_DROP_OFF': return 'À déposer';
     case 'AWAITING_PICKUP': return 'À récupérer';
-    case 'RECEIVED': return 'Reçu au hub';
+    case 'RECEIVED': return 'Reçu par Axis';
     case 'IN_TRANSIT': return 'En transit';
     case 'CUSTOMS': return 'Douane';
     case 'OUT_FOR_DELIVERY': return 'En livraison';
     case 'DELIVERED': return 'Livré';
     case 'CANCELLED': return 'Annulé';
-    case 'LOST': return 'Perdu';
+    case 'LOST': return 'Incident — Axis te contacte';
     default: return s;
   }
 }

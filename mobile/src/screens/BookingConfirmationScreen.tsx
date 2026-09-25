@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import QRCode from 'qrcode';
-import { fetchKycOverview, GlobalKycStatus } from '../api/kyc';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
@@ -72,12 +71,6 @@ export function BookingConfirmationScreen() {
   }, [reference, kind]);
 
   // KYC nudge
-  const [kyc, setKyc] = useState<GlobalKycStatus>('NONE');
-  useEffect(() => {
-    fetchKycOverview()
-      .then((o) => setKyc(o.status))
-      .catch(() => setKyc('NONE'));
-  }, []);
 
   const copyReference = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -225,7 +218,7 @@ export function BookingConfirmationScreen() {
                   lineHeight: 17,
                 }}
               >
-                Présente ce code au point relais ou au hub Axis.
+                Présente ce code lors du dépôt de ton colis.
                 {'\n'}Valide 14 jours.
               </Text>
             </View>
@@ -277,39 +270,9 @@ export function BookingConfirmationScreen() {
         ) : null}
 
         {/* KYC nudge — colis uniquement (formalité douane pièce d'identité) */}
-        {kind === 'parcel' && (kyc === 'NONE' || kyc === 'PENDING' || kyc === 'REJECTED') ? (
-          <Surface flat style={{ backgroundColor: theme.warn + '12', borderColor: theme.warn + '40' }}>
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-              <Icons.shield size={20} color={theme.warn} stroke={1.8} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.warn, fontFamily: TYPO.weights.semibold, fontSize: 13.5 }}>
-                  {kyc === 'PENDING'
-                    ? 'Vérification d\'identité en cours'
-                    : 'Vérifie ton identité pour finaliser l\'envoi'}
-                </Text>
-                <Text style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 4, lineHeight: 16 }}>
-                  La douane exige une pièce d'identité pour les colis &gt; 1 000 €. Sans KYC validé, ton colis reste bloqué au hub.
-                </Text>
-                <Pressable
-                  onPress={() => nav.navigate('KycVerification')}
-                  style={({ pressed }) => ({
-                    marginTop: 10,
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    backgroundColor: pressed ? theme.warn : theme.warn,
-                    borderRadius: 10,
-                    alignSelf: 'flex-start',
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <Text style={{ color: '#fff', fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
-                    {kyc === 'PENDING' ? 'Voir mon dossier' : 'Vérifier mon identité'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </Surface>
-        ) : null}
+        {/* Plus de renvoi vers la vérification d'identité des convoyeurs
+            (permis de conduire) : si la douane demande une pièce pour un
+            envoi, Axis la réclame au client. */}
 
         {/* Garanties */}
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>

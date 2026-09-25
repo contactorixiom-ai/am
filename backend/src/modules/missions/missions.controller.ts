@@ -143,17 +143,17 @@ export class MissionsController {
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Le client clôture la mission' })
-  complete(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser('id') userId: string) {
-    return this.missions.complete(id, userId);
+  complete(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.missions.complete(id, user);
   }
 
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Annuler la mission' })
   cancel(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: CancelMissionDto,
   ) {
-    return this.missions.cancel(id, userId, body.reason);
+    return this.missions.cancel(id, user, body.reason);
   }
 }

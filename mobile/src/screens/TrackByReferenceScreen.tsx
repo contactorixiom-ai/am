@@ -27,15 +27,34 @@ interface TimelineLeg {
   icon: 'box' | 'truck' | 'pallet' | 'globe' | 'shield' | 'pin';
 }
 
-function buildMockTimeline(from: string, to: string): TimelineLeg[] {
-  return [
-    { key: 'pickup',   label: 'Enlèvement',       sub: `Chez l'expéditeur · ${from}`,             date: 'Lun. 09h12', state: 'done',    icon: 'box' },
-    { key: 'hub',      label: 'Acheminement port', sub: 'Hub Axis → Marseille',                    date: 'Mar. 14h28', state: 'done',    icon: 'truck' },
-    { key: 'consol',   label: 'Consolidation',     sub: 'Préparation conteneur maritime',          date: 'Mer. 11h05', state: 'current', icon: 'pallet' },
-    { key: 'transit',  label: 'Maritime',          sub: 'Marseille → port de débarquement',        date: '— 14 j',     state: 'pending', icon: 'globe' },
-    { key: 'customs',  label: 'Dédouanement',      sub: 'Inspection + BSC + paiement droits',      date: '— 2-3 j',    state: 'pending', icon: 'shield' },
-    { key: 'delivery', label: 'Livraison',         sub: `Remise au destinataire · ${to}`,          date: '— 24h',      state: 'pending', icon: 'pin' },
-  ];
+// Étapes réellement saisies par Axis. L'écran affichait auparavant une
+// chronologie inventée (« Lun. 09h12 », consolidation conteneur…), même pour
+// une référence introuvable.
+const STATUS_LABEL: Record<string, string> = {
+  AWAITING_DROP_OFF: 'En attente de dépôt',
+  AWAITING_PICKUP: 'En attente d\'enlèvement',
+  RECEIVED: 'Reçu par Axis',
+  IN_TRANSIT: 'En transit',
+  CUSTOMS: 'En douane',
+  OUT_FOR_DELIVERY: 'En cours de livraison',
+  DELIVERED: 'Livré',
+  LOST: 'Incident — Axis te contacte',
+  CANCELLED: 'Annulé',
+};
+
+function realTimeline(parcel: ParcelSummary): TimelineLeg[] {
+  const events = parcel.trackingEvents ?? [];
+  if (events.length === 0) {
+    return [{ key: 'status', label: STATUS_LABEL[parcel.status] ?? parcel.status, sub: 'Axis met à jour chaque étape.', state: 'current', icon: 'box' }];
+  }
+  return events.map((e, i) => ({
+    key: `${i}-${e.status}`,
+    label: STATUS_LABEL[e.status] ?? e.status,
+    sub: [e.location, e.notes].filter(Boolean).join(' · '),
+    date: new Date(e.occurredAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+    state: i === events.length - 1 ? (parcel.status === 'DELIVERED' ? 'done' : 'current') : 'done',
+    icon: e.status === 'CUSTOMS' ? 'shield' : e.status === 'DELIVERED' ? 'pin' : e.status === 'IN_TRANSIT' ? 'globe' : 'box',
+  }));
 }
 
 export function TrackByReferenceScreen() {
@@ -44,7 +63,6 @@ export function TrackByReferenceScreen() {
   const [reference, setReference] = useState('');
   const [loading, setLoading] = useState(false);
   const [parcel, setParcel] = useState<ParcelSummary | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
 
   const submit = async () => {
     const ref = reference.trim().toUpperCase();
@@ -56,23 +74,22 @@ export function TrackByReferenceScreen() {
     try {
       const p = await trackParcel(ref);
       setParcel(p);
-      setDemoMode(false);
     } catch (e) {
-      // Repli démo : on affiche une timeline mockée si l'API ne répond pas.
-      if (e instanceof ApiError && e.status === 404) {
-        notify('Référence introuvable', "Vérifie l'orthographe. On t'affiche un exemple visuel.");
-      }
-      setDemoMode(true);
       setParcel(null);
+      if (e instanceof ApiError && e.status === 404) {
+        notify('Référence introuvable', 'Vérifie la référence (elle commence par AXP-).');
+      } else {
+        notify('Suivi indisponible', 'Impossible de joindre Axis pour le moment. Réessaie dans un instant.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fromLabel = parcel?.originCity ?? 'Paris';
-  const toLabel = parcel?.destinationCity ?? 'Dakar';
-  const showTimeline = parcel || demoMode;
-  const timeline = buildMockTimeline(fromLabel, toLabel);
+  const fromLabel = parcel?.originCity ?? '';
+  const toLabel = parcel?.destinationCity ?? '';
+  const showTimeline = !!parcel;
+  const timeline = parcel ? realTimeline(parcel) : [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -139,7 +156,7 @@ export function TrackByReferenceScreen() {
                     {fromLabel} → {toLabel}
                   </Text>
                 </View>
-                {demoMode ? <Pill tone="warn">Exemple démo</Pill> : <Pill tone="good">En cours</Pill>}
+                <Pill tone={parcel?.status === 'DELIVERED' ? 'good' : 'gold'}>{STATUS_LABEL[parcel?.status ?? ''] ?? 'En cours'}</Pill>
               </View>
 
               <View style={{ marginTop: SPACING.md, gap: 0 }}>
@@ -151,16 +168,6 @@ export function TrackByReferenceScreen() {
             </Surface>
           ) : null}
 
-          {parcel ? (
-            <Button
-              kind="gold"
-              fullWidth
-              onPress={() => nav.navigate('Tracking', { kind: 'parcel', id: parcel.id, reference: parcel.reference })}
-              rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
-            >
-              Suivi détaillé en direct
-            </Button>
-          ) : null}
 
           <Pressable onPress={() => nav.goBack()} style={{ alignItems: 'center', paddingVertical: SPACING.md }}>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>

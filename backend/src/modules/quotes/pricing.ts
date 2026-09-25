@@ -105,7 +105,7 @@ export const PRICING = {
 export const PICKUP_PRICING: Record<PickupMode, { baseCents: number; perKgCents: number; minCents: number; label: string }> = {
   HUB_DROP_OFF: {
     baseCents: 0, perKgCents: 0, minCents: 0,
-    label: 'Dépôt au hub Axis',
+    label: 'Dépôt chez Axis',
   },
   RELAY_DROP_OFF: {
     baseCents: 500, perKgCents: 0, minCents: 500,

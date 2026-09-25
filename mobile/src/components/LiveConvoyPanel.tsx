@@ -59,6 +59,8 @@ interface Props {
    * qui l'on doit dire honnêtement que le suivi n'a pas encore démarré.
    */
   demo?: boolean;
+  /** Véhicule livré : plus de position « en direct » ni d'heure d'arrivée. */
+  finished?: boolean;
 }
 
 // Interroge la dernière position GPS réelle de la mission toutes les 10 s.
@@ -92,7 +94,7 @@ function useLiveGps(missionId?: string): GpsPoint | null {
 // démo évolue automatiquement.
 export function LiveConvoyPanel({
   from, to, fromLabel, toLabel, driverName, vehicleLabel, missionId,
-  driverPhone, totalKm: routeKm, statusProgress = 0, demo = false,
+  driverPhone, totalKm: routeKm, statusProgress = 0, demo = false, finished = false,
 }: Props) {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -106,7 +108,7 @@ export function LiveConvoyPanel({
   const pulse = useRef(new Animated.Value(0)).current;
 
   const phase = SCRIPT[phaseIdx];
-  const livePoint = useLiveGps(missionId);
+  const livePoint = useLiveGps(finished ? undefined : missionId);
 
   // Valeurs dérivées de la vraie position GPS (si le chauffeur en a émis).
   // Progression = distance parcourue depuis le départ, projetée sur le trajet.
@@ -174,13 +176,17 @@ export function LiveConvoyPanel({
 
   // Trois cas : position GPS réelle, scénario de démonstration, ou aucune
   // donnée — auquel cas on le dit plutôt que d'inventer une progression.
-  const awaiting = !live && !demo;
-  const displayState: DriverState = live ? (live.moving ? 'ROLLING' : 'STOP') : demo ? phase.state : 'STOP';
-  const displayProgress = live ? live.prog : demo ? progress : statusProgress;
-  const displayLabel = live
+  const awaiting = !live && !demo && !finished;
+  const displayState: DriverState = finished ? 'ARRIVED' : live ? (live.moving ? 'ROLLING' : 'STOP') : demo ? phase.state : 'STOP';
+  const displayProgress = finished ? 1 : live ? live.prog : demo ? progress : statusProgress;
+  const displayLabel = finished
+    ? 'Véhicule livré'
+    : live
     ? (live.moving ? 'En route' : 'Véhicule à l\'arrêt')
     : demo ? phase.label : 'Suivi GPS en attente';
-  const displayDetail = live
+  const displayDetail = finished
+    ? 'Convoyage terminé · état des lieux d\'arrivée signé'
+    : live
     ? (live.speed !== null
         ? `GPS temps réel · ${Math.round(live.speed)} km/h`
         : 'GPS temps réel · position transmise par le chauffeur')
@@ -204,7 +210,9 @@ export function LiveConvoyPanel({
   const phaseRemainMs = Math.max(0, phase.durationMs - (Date.now() - phaseStartRef.current));
   const pauseRemainMin = !live && (phase.state === 'PAUSE' || phase.state === 'STOP') ? phaseRemainMs / 60000 : 0;
   const etaMin = Math.max(0, Math.round(driveMin + pauseRemainMin));
-  const eta = awaiting || remainKm == null
+  const eta = finished
+    ? 'Livré'
+    : awaiting || remainKm == null
     ? null
     : !live && phase.state === 'ARRIVED'
       ? 'Arrivé'

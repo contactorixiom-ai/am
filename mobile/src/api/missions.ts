@@ -106,6 +106,16 @@ export async function sendDriverAlert(
   return apiFetch(`/missions/${id}/alert`, { method: 'POST', body });
 }
 
+/** Client (ou Roger) : confirme la bonne réception et clôture la mission. */
+export async function completeMission(id: string): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>(`/missions/${id}/complete`, { method: 'POST' });
+}
+
+/** Annulation (client avant départ, Roger) ou désistement (convoyeur). */
+export async function cancelMission(id: string, reason?: string): Promise<MissionSummary> {
+  return apiFetch<MissionSummary>(`/missions/${id}/cancel`, { method: 'POST', body: { reason } });
+}
+
 export async function publishMission(id: string): Promise<MissionSummary> {
   return apiFetch<MissionSummary>(`/missions/${id}/publish`, { method: 'POST' });
 }

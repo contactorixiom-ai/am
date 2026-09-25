@@ -7,6 +7,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import {
   adminCreateMission,
+  cancelMission,
+  completeMission,
   assignDriver,
   ClientOption,
   DriverOption,
@@ -21,7 +23,7 @@ import { contractVerifyUrl, DocumentRecord, listDocuments } from '../api/documen
 import { Inspection, listInspections } from '../api/inspections';
 import { AuthImage } from '../components/AuthImage';
 import { DAMAGE_META } from '../components/VehicleDiagram';
-import { companyAddress } from '../config/company';
+import { COMPANY, companyAddress } from '../config/company';
 import { Modal } from 'react-native';
 import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
@@ -56,7 +58,7 @@ import {
   readAdminHistory,
   ISSUER_LABEL,
 } from '../utils/adminDocs';
-import { notify } from '../utils/notify';
+import { confirmAction, notify } from '../utils/notify';
 import { buildFollowUps } from '../utils/followUps';
 import { downloadCsv } from '../utils/csv';
 
@@ -81,7 +83,7 @@ const ACTIVITY_LABEL: Record<AdminActivity, string> = {
 // Pipeline colis/marchandise que Roger fait avancer à la main (import-export).
 const PARCEL_PIPELINE: { status: ParcelStatus; label: string; hint: string }[] = [
   { status: 'AWAITING_DROP_OFF', label: 'À déposer / enlever', hint: 'En attente de prise en charge' },
-  { status: 'RECEIVED', label: 'Reçu au hub', hint: 'Colis réceptionné' },
+  { status: 'RECEIVED', label: 'Reçu par Axis', hint: 'Colis réceptionné' },
   { status: 'IN_TRANSIT', label: 'En transit', hint: 'Acheminement vers destination' },
   { status: 'CUSTOMS', label: 'En douane', hint: 'Formalités douanières en cours' },
   { status: 'OUT_FOR_DELIVERY', label: 'En livraison', hint: 'Dernier kilomètre' },
@@ -144,11 +146,11 @@ function parseFrDate(input: string): string | null {
 }
 
 const AXIS_SENDER = {
-  senderName: 'Axis Import SAS',
+  senderName: COMPANY.name,
   senderAddress: companyAddress(),
-  shipperName: 'Axis Import SAS',
+  shipperName: COMPANY.name,
   shipperAddress: companyAddress(),
-  exporterName: 'Axis Import SAS',
+  exporterName: COMPANY.name,
   exporterAddress: companyAddress(),
 };
 
@@ -188,7 +190,7 @@ function prefillFromMission(m: MissionSummary): AdminValues {
     recipientName: client,
     consigneeName: client,
     driverName: driver,
-    carrierName: 'Axis Import SAS',
+    carrierName: COMPANY.name,
     plate: m.vehicle?.licensePlate ?? '',
     vehicleBrandModel: [m.vehicle?.make, m.vehicle?.model].filter(Boolean).join(' '),
     pickupAddress: pickup,
@@ -665,6 +667,36 @@ export function AdminScreen() {
     } finally {
       setAssigning(false);
     }
+  }
+
+  // ─── Clôture / annulation par Roger ────────────────────────────────────────
+  function adminComplete(m: MissionSummary) {
+    confirmAction('Clôturer la mission', `${m.reference} sera clôturée (le client ne l'a pas fait).`, async () => {
+      try {
+        await completeMission(m.id);
+        notify('Mission clôturée', m.reference);
+        loadShipments();
+      } catch (e) {
+        notify('Clôture impossible', e instanceof Error ? e.message : 'Réessaie.');
+      }
+    }, 'Clôturer');
+  }
+
+  function adminCancel(m: MissionSummary) {
+    confirmAction(
+      'Annuler la mission',
+      `${m.reference} sera annulée ; le client et le convoyeur sont prévenus. Un paiement déjà reçu est à rembourser depuis Stripe.`,
+      async () => {
+        try {
+          await cancelMission(m.id, 'Annulée par Axis');
+          notify('Mission annulée', m.reference);
+          loadShipments();
+        } catch (e) {
+          notify('Annulation impossible', e instanceof Error ? e.message : 'Réessaie.');
+        }
+      },
+      'Annuler la mission',
+    );
   }
 
   // ─── Prise de commande ─────────────────────────────────────────────────────
@@ -1853,6 +1885,20 @@ export function AdminScreen() {
                     Contrat
                   </Button>
                 </View>
+                {m.status === 'DELIVERED' || !['COMPLETED', 'CANCELLED'].includes(m.status) ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {m.status === 'DELIVERED' ? (
+                      <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => adminComplete(m)}>
+                        Clôturer
+                      </Button>
+                    ) : null}
+                    {!['COMPLETED', 'CANCELLED'].includes(m.status) ? (
+                      <Button kind="ghost" size="sm" style={{ flex: 1 }} onPress={() => adminCancel(m)}>
+                        Annuler la mission
+                      </Button>
+                    ) : null}
+                  </View>
+                ) : null}
                 {(inspections.get(m.id) ?? []).length > 0 ? (
                   <Button
                     kind="ghost"

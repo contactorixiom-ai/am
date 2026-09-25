@@ -491,46 +491,107 @@ export class MissionsService {
       mission.clientId,
       NotificationType.MISSION_DELIVERED,
       'Véhicule livré',
-      `Ton convoyage ${updated.reference} est arrivé à ${updated.deliveryCity}. Pense à clôturer le dossier.`,
+      `Ton convoyage ${updated.reference} est arrivé à ${updated.deliveryCity}. Confirme la bonne réception depuis le suivi de ta commande.`,
       { missionId: id, reference: updated.reference },
     );
     return updated;
   }
 
-  async complete(id: string, userId: string) {
+  async complete(id: string, user: AuthenticatedUser) {
     const mission = await this.requireMission(id);
-    if (mission.clientId !== userId) throw new ForbiddenException('Seul le client peut clôturer la mission.');
+    // Le client clôture ; Roger peut le faire à sa place (client injoignable).
+    if (mission.clientId !== user.id && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Seul le client peut clôturer la mission.');
+    }
     if (mission.status !== MissionStatus.DELIVERED) {
       throw new BadRequestException(`Clôture impossible : la mission est au statut ${mission.status}.`);
     }
-    return this.prisma.mission.update({
+    const updated = await this.prisma.mission.update({
       where: { id },
       data: {
         status: MissionStatus.COMPLETED,
         completedAt: new Date(),
-        statusHistory: { create: { status: MissionStatus.COMPLETED, changedBy: userId } },
+        statusHistory: { create: { status: MissionStatus.COMPLETED, changedBy: user.id } },
       },
     });
+    await this.notifySafe(mission.driverId, NotificationType.SYSTEM, 'Mission clôturée',
+      `Le convoyage ${updated.reference} est clôturé. Merci !`, { missionId: id });
+    return updated;
   }
 
-  async cancel(id: string, userId: string, reason?: string) {
+  /**
+   * Annulation, selon qui la demande :
+   * - le client, tant que le véhicule n'est pas parti ;
+   * - le convoyeur ne peut pas annuler la commande du client : il se désiste
+   *   et la mission revient à Roger pour être réaffectée ;
+   * - Roger (administrateur), à tout moment avant la clôture.
+   * Roger est prévenu dans tous les cas, avec le remboursement à faire si le
+   * client avait payé.
+   */
+  async cancel(id: string, user: AuthenticatedUser, reason?: string) {
     const mission = await this.requireMission(id);
-    if (mission.clientId !== userId && mission.driverId !== userId) {
-      throw new ForbiddenException();
-    }
+    const isAdmin = user.role === UserRole.ADMIN;
+    const isClient = mission.clientId === user.id;
+    const isDriver = mission.driverId === user.id;
+    if (!isAdmin && !isClient && !isDriver) throw new ForbiddenException();
+
     const finalStatuses: MissionStatus[] = [MissionStatus.COMPLETED, MissionStatus.CANCELLED];
     if (finalStatuses.includes(mission.status)) {
       throw new BadRequestException(`Annulation impossible : la mission est au statut ${mission.status}.`);
     }
-    return this.prisma.mission.update({
+
+    const admins = await this.prisma.user.findMany({ where: { role: UserRole.ADMIN, deletedAt: null }, select: { id: true } });
+
+    if (isDriver && !isAdmin && !isClient) {
+      if (mission.status !== MissionStatus.ACCEPTED) {
+        throw new BadRequestException('Le véhicule est déjà pris en charge : appelle Axis pour tout changement.');
+      }
+      const updated = await this.prisma.mission.update({
+        where: { id },
+        data: {
+          driverId: null,
+          status: MissionStatus.PUBLISHED,
+          statusHistory: { create: { status: MissionStatus.PUBLISHED, changedBy: user.id, notes: `Désistement du convoyeur${reason ? ` : ${reason}` : ''}` } },
+        },
+      });
+      for (const a of admins) {
+        await this.notifySafe(a.id, NotificationType.SYSTEM, 'Convoyeur désisté',
+          `Le convoyeur s'est retiré de ${updated.reference}${reason ? ` (${reason})` : ''}. Mission à réaffecter.`, { missionId: id });
+      }
+      return updated;
+    }
+
+    const notStarted: MissionStatus[] = [MissionStatus.DRAFT, MissionStatus.PUBLISHED, MissionStatus.ACCEPTED];
+    if (!isAdmin && !notStarted.includes(mission.status)) {
+      throw new BadRequestException('Le véhicule est déjà en route : contacte Axis pour annuler.');
+    }
+    const updated = await this.prisma.mission.update({
       where: { id },
       data: {
         status: MissionStatus.CANCELLED,
         cancelledAt: new Date(),
         cancellationReason: reason,
-        statusHistory: { create: { status: MissionStatus.CANCELLED, changedBy: userId, notes: reason } },
+        statusHistory: { create: { status: MissionStatus.CANCELLED, changedBy: user.id, notes: reason } },
       },
     });
+
+    const paid = await this.prisma.payment.findFirst({ where: { missionId: id, status: 'PAID' } });
+    const refund = paid
+      ? ` Paiement de ${(paid.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: paid.currency })} à rembourser selon les CGU.`
+      : '';
+    const by = isAdmin ? 'par Axis' : 'par le client';
+    for (const a of admins) {
+      if (a.id === user.id) continue;
+      await this.notifySafe(a.id, NotificationType.MISSION_CANCELLED, 'Commande annulée',
+        `${updated.reference} annulée ${by}${reason ? ` (${reason})` : ''}.${refund}`, { missionId: id });
+    }
+    await this.notifySafe(mission.driverId, NotificationType.MISSION_CANCELLED, 'Mission annulée',
+      `Le convoyage ${updated.reference} est annulé. Tu n'as plus à t'en occuper.`, { missionId: id });
+    if (isAdmin && !isClient) {
+      await this.notifySafe(mission.clientId, NotificationType.MISSION_CANCELLED, 'Commande annulée',
+        `Ta commande ${updated.reference} a été annulée par Axis.${paid ? ' Axis te contacte pour le remboursement.' : ''}`, { missionId: id });
+    }
+    return updated;
   }
 
   // Une notification qui échoue ne doit jamais faire échouer l'action métier.

@@ -140,7 +140,7 @@ export class ParcelsService {
               ? 'En attente d\'enlèvement à domicile'
               : pickupMode === PickupMode.RELAY_DROP_OFF
                 ? 'En attente de dépôt au point relais'
-                : 'En attente de dépôt au hub Axis',
+                : 'En attente de dépôt chez Axis',
           },
         },
         items: dto.items

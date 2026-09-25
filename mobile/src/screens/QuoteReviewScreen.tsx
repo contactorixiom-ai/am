@@ -656,7 +656,7 @@ function DetailRow({
 
 function pickupSub(mode: string): string {
   switch (mode) {
-    case 'HUB_DROP_OFF':   return 'Dépôt au hub Axis · gratuit';
+    case 'HUB_DROP_OFF':   return 'Dépôt chez Axis · gratuit';
     case 'RELAY_DROP_OFF': return 'Point relais partenaire';
     case 'HOME_PICKUP':    return 'Enlèvement à domicile';
     default:               return '';

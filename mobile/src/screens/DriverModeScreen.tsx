@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { deliverMission, listMissions, MissionSummary, sendDriverAlert, startMission } from '../api/missions';
+import { cancelMission, deliverMission, listMissions, MissionSummary, sendDriverAlert, startMission } from '../api/missions';
 import { trackPosition, TrackPositionInput } from '../api/gps';
 import { RootStackParamList } from '../navigation/types';
 import { AppBar } from '../components/AppBar';
@@ -614,6 +614,31 @@ export function DriverModeScreen() {
                   Livré
                 </Button>
               </View>
+            ) : null}
+            {mission?.status === 'ACCEPTED' ? (
+              <Button
+                kind="ghost"
+                size="sm"
+                style={{ marginTop: 6 }}
+                onPress={() =>
+                  confirmAction(
+                    'Te désister de cette mission ?',
+                    'Axis sera prévenu et confiera le convoyage à un autre convoyeur.',
+                    async () => {
+                      try {
+                        await cancelMission(mission.id, 'Désistement du convoyeur');
+                        notify('Désistement enregistré', 'Axis a été prévenu.');
+                        await loadMissions();
+                      } catch (e) {
+                        notify('Impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
+                      }
+                    },
+                    'Me désister',
+                  )
+                }
+              >
+                Me désister
+              </Button>
             ) : null}
           </Surface>
         )}

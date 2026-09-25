@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
+import { fetchKycOverview } from '../api/kyc';
 import { LEGAL_PRIVACY_URL } from '../config/company';
 import { confirmAction, notify } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
@@ -20,25 +20,19 @@ export function ProfileScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [kycStatus, setKycStatus] = useState<'verified' | 'pending' | 'incomplete'>('incomplete');
 
+  // Statut d'identité d'après le serveur (il était lu sur le téléphone et
+  // restait « incomplet » une fois les pièces validées par Axis).
   useEffect(() => {
+    if (user?.role !== 'DRIVER') return;
     const refresh = () => {
-      AsyncStorage.getItem('axis.kyc.v1').then((raw) => {
-        if (!raw) return setKycStatus('incomplete');
-        try {
-          const s = JSON.parse(raw) as Record<string, { status: string }>;
-          const required = ['license_front', 'license_back', 'id_front', 'address', 'selfie'];
-          const allVerified = required.every((k) => s[k]?.status === 'verified');
-          const allUploaded = required.every((k) => s[k]?.status === 'verified' || s[k]?.status === 'uploaded');
-          setKycStatus(allVerified ? 'verified' : allUploaded ? 'pending' : 'incomplete');
-        } catch {
-          setKycStatus('incomplete');
-        }
-      });
+      fetchKycOverview()
+        .then((o) => setKycStatus(o.status === 'APPROVED' ? 'verified' : o.status === 'PENDING' ? 'pending' : 'incomplete'))
+        .catch(() => undefined);
     };
     refresh();
     const unsub = nav.addListener('focus', refresh);
     return unsub;
-  }, [nav]);
+  }, [nav, user?.role]);
 
   // Le KYC exige un permis de conduire : il ne concerne que les convoyeurs.
   // Un client qui envoie un colis n'a aucune raison de fournir le sien.
