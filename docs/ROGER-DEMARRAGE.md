@@ -149,6 +149,25 @@ ou **Refuser…** avec un motif, qui est envoyé au convoyeur.
 Un convoyeur peut accepter des missions dès que sa **pièce d'identité (ou son
 passeport)** et son **permis** sont validés.
 
+## Au quotidien
+
+- **Nouvelle commande** : notification, puis *Espace admin → Envois*. Chaque
+  carte montre le client, le créneau souhaité, les adresses, le prix et si
+  c'est payé.
+- **Affecter** : seuls les convoyeurs aux pièces validées peuvent l'être.
+- **Encaisser** : pour un règlement reçu hors de l'application (virement,
+  espèces, chèque, TPE, mobile money). L'envoi passe « payé », le client est
+  prévenu, la facture reçoit son numéro (FA-2026-000001…). La facture se
+  génère ensuite avec le bouton « Facture ».
+- **Messages** : *Profil → Messages*. Les clients et convoyeurs écrivent à
+  Axis depuis « Contacter Axis ».
+- **Alerte convoyeur** : si un convoyeur reste arrêté plus de 5 minutes sans
+  répondre, Roger reçoit son nom, son téléphone et sa position.
+- **Clôturer / Annuler** : sous chaque mission. Une mission annulée alors que
+  le client avait payé est signalée « à rembourser » (depuis Stripe).
+- Le convoyeur ne peut pas partir sans l'état des lieux de départ signé, ni
+  déclarer la livraison sans celui d'arrivée : l'application l'y conduit.
+
 ## Ce que l'application promet aux clients
 
 Tout ce qui s'affiche doit être vrai. Réglages dans `mobile/app.json`,
