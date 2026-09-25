@@ -603,7 +603,9 @@ export function AdminScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
+        // Hauteur figée : sans flexShrink 0, la rangée s'écrasait sous le
+        // contenu de l'onglet et les pastilles étaient rognées.
+        style={{ flexGrow: 0, flexShrink: 0, minHeight: 58 }}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}
       >
         {TABS.map((t) => {

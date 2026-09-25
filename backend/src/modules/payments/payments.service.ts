@@ -245,6 +245,22 @@ export class PaymentsService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
+    // « À encaisser » = commandes chiffrées, non annulées, sans règlement
+    // payé. Il ne comptait que les paiements en ligne en cours (0 € affiché
+    // alors que des commandes restaient dues).
+    const noPaid = { payments: { none: { status: PaymentStatus.PAID } } };
+    const [dueMissions, dueParcels] = await Promise.all([
+      this.prisma.mission.aggregate({
+        _sum: { priceCents: true },
+        _count: true,
+        where: { priceCents: { gt: 0 }, status: { notIn: ['DRAFT', 'CANCELLED'] }, ...noPaid },
+      }),
+      this.prisma.parcel.aggregate({
+        _sum: { priceCents: true },
+        _count: true,
+        where: { priceCents: { gt: 0 }, status: { notIn: ['DRAFT', 'CANCELLED'] }, ...noPaid },
+      }),
+    ]);
     const [monthAgg, pendingAgg, allPaidAgg] = await Promise.all([
       this.prisma.payment.aggregate({
         _sum: { amountCents: true },
@@ -265,8 +281,9 @@ export class PaymentsService {
     return {
       collectedMonthCents: monthAgg._sum.amountCents ?? 0,
       collectedMonthCount: monthAgg._count,
-      pendingCents: pendingAgg._sum.amountCents ?? 0,
-      pendingCount: pendingAgg._count,
+      pendingCents: (dueMissions._sum.priceCents ?? 0) + (dueParcels._sum.priceCents ?? 0),
+      pendingCount: dueMissions._count + dueParcels._count,
+      checkoutPendingCents: pendingAgg._sum.amountCents ?? 0,
       collectedTotalCents: allPaidAgg._sum.amountCents ?? 0,
     };
   }
