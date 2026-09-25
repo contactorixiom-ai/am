@@ -1,6 +1,7 @@
 // Contrats et factures du CLIENT, dérivés de ses envois réels.
 // Partagé entre l'accueil (compteur « à signer ») et l'espace Documents.
 
+import { listDocuments } from '../api/documents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MissionSummary } from '../api/missions';
 import { ParcelSummary } from '../api/parcels';
@@ -10,6 +11,8 @@ export const INVOICE_STORAGE_KEY = 'axis.docs.v1';
 
 export interface ContractDoc {
   id: string;                    // identifiant de l'envoi d'origine
+  /** Mission livrée ou clôturée : le contrat n'est plus « à signer ». */
+  finished?: boolean;
   title: string;
   ref: string;
   kind: 'mission' | 'parcel';
@@ -62,9 +65,13 @@ function vehicleCategoryLabel(type?: string | null): string | undefined {
 // (le récépissé de dépôt tient lieu de preuve).
 export function contractsFrom(missions: MissionSummary[]): ContractDoc[] {
   return missions
-    .filter((m) => m.status !== 'CANCELLED')
+    // Pas de contrat « à signer » pour une commande annulée ou un brouillon ;
+    // une mission terminée garde son contrat (signé ou non) mais n'est plus
+    // à signer — voir DocumentsScreen.
+    .filter((m) => m.status !== 'CANCELLED' && m.status !== 'DRAFT')
     .map((m) => ({
       id: m.id,
+      finished: m.status === 'COMPLETED' || m.status === 'DELIVERED',
       title: 'Contrat de convoyage',
       ref: `${m.pickupCity} → ${m.deliveryCity} · ${m.reference}`,
       kind: 'mission' as const,
@@ -119,7 +126,8 @@ export function safeParse<T>(raw: string | null): T {
 
 // Nombre de contrats que le client doit encore signer (utilisé sur l'accueil).
 export async function countContractsToSign(missions: MissionSummary[]): Promise<number> {
-  const raw = await AsyncStorage.getItem(CONTRACTS_KEY).catch(() => null);
-  const signed = safeParse<Record<string, { signed?: boolean }>>(raw);
-  return contractsFrom(missions).filter((c) => !signed[c.id]?.signed).length;
+  // D'après le serveur (le compteur lisait la mémoire du téléphone).
+  const docs = await listDocuments({ category: 'CONTRACT' }).catch(() => []);
+  const signed = new Set(docs.filter((d) => d.signedAt && d.missionId).map((d) => d.missionId as string));
+  return contractsFrom(missions).filter((c) => !c.finished && !signed.has(c.id)).length;
 }

@@ -258,7 +258,7 @@ export function DocumentsScreen() {
     notify('Paiement enregistré', `La facture ${inv.title} est réglée.`);
   };
 
-  const toSignCount = contracts.filter((c) => !c.signed).length;
+  const toSignCount = contracts.filter((c) => !c.signed && !c.finished).length;
   const toPayCount = invoices.filter((i) => !i.paid).length;
 
   return (
@@ -285,13 +285,13 @@ export function DocumentsScreen() {
                 <Icons.sig size={20} color={theme.navy} stroke={1.7} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Pill tone={c.signed ? 'good' : 'warn'}>{c.signed ? 'Signé' : 'À signer'}</Pill>
+                <Pill tone={c.signed ? 'good' : c.finished ? 'ghost' : 'warn'}>{c.signed ? 'Signé' : c.finished ? 'Mission terminée' : 'À signer'}</Pill>
                 <Text style={{ fontSize: 14, color: theme.ink, marginTop: 6, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{c.title}</Text>
                 <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
                   {c.signed ? `Signé le ${c.signedAt}` : c.ref}
                 </Text>
               </View>
-              {c.signed ? (
+              {c.signed || c.finished ? (
                 <IconBtn onPress={() => downloadContract(c)} theme={theme}>
                   <Icons.arrow size={15} color={theme.ink} stroke={2} />
                 </IconBtn>

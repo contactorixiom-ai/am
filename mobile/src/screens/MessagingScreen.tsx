@@ -363,7 +363,7 @@ export function MessagingScreen() {
               {/* Réponses rapides — uniquement sur un fil réel. */}
               {mode === 'live' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                {QUICK_REPLIES.map((q) => (
+                {(params.subtitle === 'Support' ? ['Merci 🙏', 'J\'ai une question sur ma commande', 'Pouvez-vous me rappeler ?'] : QUICK_REPLIES).map((q) => (
                   <Pressable key={q} onPress={() => send(q)}>
                     <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface }}>
                       <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>{q}</Text>

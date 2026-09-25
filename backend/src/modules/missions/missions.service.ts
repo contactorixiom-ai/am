@@ -437,6 +437,10 @@ export class MissionsService {
       create: { conversationId: existing.id, userId: driverId },
       update: {},
     });
+    // Un convoyeur remplacé n'a plus à lire les échanges avec le client.
+    await this.prisma.conversationParticipant.deleteMany({
+      where: { conversationId: existing.id, userId: { notIn: [clientId, driverId] } },
+    });
   }
 
   async start(id: string, driverId: string) {
@@ -553,6 +557,10 @@ export class MissionsService {
           status: MissionStatus.PUBLISHED,
           statusHistory: { create: { status: MissionStatus.PUBLISHED, changedBy: user.id, notes: `Désistement du convoyeur${reason ? ` : ${reason}` : ''}` } },
         },
+      });
+      // Il quitte aussi la conversation avec le client.
+      await this.prisma.conversationParticipant.deleteMany({
+        where: { userId: user.id, conversation: { missionId: id } },
       });
       for (const a of admins) {
         await this.notifySafe(a.id, NotificationType.SYSTEM, 'Convoyeur désisté',

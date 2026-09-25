@@ -3,6 +3,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
 import { fetchKycOverview } from '../api/kyc';
+import { openSupportConversation } from '../api/messaging';
 import { LEGAL_PRIVACY_URL } from '../config/company';
 import { confirmAction, notify } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
@@ -157,9 +158,17 @@ export function ProfileScreen() {
           <MenuSection label="Aide">
             <MenuRow
               iconKey="chat"
-              label="Contacter Axis"
-              sub={user?.role === 'DRIVER' ? 'Une question sur une mission en cours' : 'Une question sur un envoi en cours'}
-              onPress={() => nav.navigate('Conversations')}
+              label={user?.role === 'ADMIN' ? 'Messages' : 'Contacter Axis'}
+              sub={user?.role === 'ADMIN' ? 'Conversations avec les clients et convoyeurs' : 'Écrire à l\'équipe Axis Import'}
+              onPress={async () => {
+                if (user?.role === 'ADMIN') return nav.navigate('Conversations');
+                try {
+                  const conv = await openSupportConversation();
+                  nav.navigate('Messaging', { conversationId: conv.id, driverName: 'Axis Import', subtitle: 'Support' });
+                } catch {
+                  nav.navigate('Conversations');
+                }
+              }}
             />
             <MenuRow iconKey="news" label="Actualités transport" onPress={() => nav.navigate('News')} />
             {/* L'App Store impose que la politique de confidentialité soit

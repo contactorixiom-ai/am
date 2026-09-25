@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { CallStatus, CallType, NotificationType } from '@prisma/client';
+import { CallStatus, CallType, NotificationType, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -20,7 +20,7 @@ export class MessagingService {
         skip,
         take,
         include: {
-          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } } } },
           mission: { select: { id: true, reference: true, status: true } },
           messages: { take: 1, orderBy: { createdAt: 'desc' } },
         },
@@ -31,12 +31,49 @@ export class MessagingService {
     return { data, total };
   }
 
+  /**
+   * Fil « Support Axis » d'un client ou d'un convoyeur avec l'équipe Axis.
+   * « Contacter Axis » ouvrait les conversations de mission, dont Roger ne
+   * fait pas partie : le message arrivait au convoyeur, ou nulle part.
+   */
+  async openSupport(user: AuthenticatedUser) {
+    if (user.role === UserRole.ADMIN) {
+      throw new ForbiddenException('Les échanges avec les clients se trouvent dans la liste des conversations.');
+    }
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN, deletedAt: null },
+      select: { id: true },
+    });
+    let conv = await this.prisma.conversation.findFirst({
+      where: {
+        type: 'SUPPORT',
+        participants: { some: { userId: user.id } },
+      },
+      select: { id: true },
+    });
+    if (!conv) {
+      conv = await this.prisma.conversation.create({
+        data: { type: 'SUPPORT', participants: { create: [{ userId: user.id }] } },
+        select: { id: true },
+      });
+    }
+    // Tout administrateur, y compris ajouté depuis, reçoit les messages.
+    for (const a of admins) {
+      await this.prisma.conversationParticipant.upsert({
+        where: { conversationId_userId: { conversationId: conv.id, userId: a.id } },
+        create: { conversationId: conv.id, userId: a.id },
+        update: {},
+      });
+    }
+    return conv;
+  }
+
   async getConversation(id: string, user: AuthenticatedUser) {
     const conv = await this.requireMember(id, user.id);
     return this.prisma.conversation.findUnique({
       where: { id: conv.id },
       include: {
-        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } } } },
         mission: true,
       },
     });

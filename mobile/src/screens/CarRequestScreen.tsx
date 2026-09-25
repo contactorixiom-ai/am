@@ -6,6 +6,8 @@ import { ApiError } from '../api/client';
 import { notify } from '../utils/notify';
 import { City, createQuote, CreateQuoteInput, QuoteOptionKind } from '../api/quotes';
 import { saveConvoyDraft } from '../api/missions';
+import { updateProfile } from '../api/auth';
+import { useSession } from '../state/SessionContext';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
@@ -73,6 +75,10 @@ export function CarRequestScreen() {
   const [slot, setSlot] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [pickupAddress, setPickupAddress] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Le convoyeur doit pouvoir joindre le client le jour de l'enlèvement.
+  const { user, refresh } = useSession();
+  const needsPhone = !user?.phone;
+  const [contactPhone, setContactPhone] = useState('');
   // Un enlèvement le samedi ou le dimanche est facturé comme tel.
   const isWeekend = pickupDay.getDay() === 0 || pickupDay.getDay() === 6;
   const [selectedOptions, setSelectedOptions] = useState<Set<QuoteOptionKind>>(new Set());
@@ -125,12 +131,20 @@ export function CarRequestScreen() {
       notify('Adresses manquantes', 'Indique l\'adresse exacte de départ et d\'arrivée du véhicule.');
       return;
     }
+    if (needsPhone && !/^\+?[0-9\s-]{8,20}$/.test(contactPhone.trim())) {
+      notify('Téléphone manquant', 'Indique un numéro où le convoyeur peut te joindre le jour de l\'enlèvement.');
+      return;
+    }
     if (!vehicleMake.trim() || !vehicleModel.trim() || !vehiclePlate.trim()) {
       notify('Véhicule incomplet', 'Indique la marque, le modèle et l\'immatriculation.');
       return;
     }
     setLoading(true);
     try {
+      if (needsPhone) {
+        await updateProfile({ phone: contactPhone.trim() });
+        void refresh();
+      }
       const quote = await createQuote({
         service,
         vehicleCategory: category,
@@ -206,6 +220,16 @@ export function CarRequestScreen() {
                 onChangeText={setDeliveryAddress}
                 placeholder="Numéro et rue"
               />
+              {needsPhone ? (
+                <Field
+                  label="Téléphone de contact"
+                  value={contactPhone}
+                  onChangeText={setContactPhone}
+                  keyboardType="phone-pad"
+                  placeholder="+33 6 12 34 56 78"
+                  hint="Pour que le convoyeur te joigne le jour J. Enregistré dans ton profil."
+                />
+              ) : null}
             </View>
           </Surface>
 

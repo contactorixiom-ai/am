@@ -85,6 +85,11 @@ export async function listConversations(page = 1, pageSize = 50): Promise<Pagina
   });
 }
 
+/** Ouvre (ou retrouve) le fil avec l'équipe Axis. */
+export async function openSupportConversation(): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>('/conversations/support', { method: 'POST' });
+}
+
 export async function getConversation(id: string): Promise<ConversationSummary> {
   return apiFetch<ConversationSummary>(`/conversations/${id}`);
 }
@@ -115,6 +120,15 @@ export async function markRead(conversationId: string): Promise<void> {
 
 /** Nom de l'interlocuteur (les autres participants que moi). */
 export function conversationTitle(conv: ConversationSummary, myUserId?: string): string {
+  // Fil support : « Support Axis » pour le client ; pour Roger, le nom du
+  // client (pas la liste des administrateurs).
+  if (conv.type === 'SUPPORT') {
+    const me = conv.participants?.find((p) => p.userId === myUserId);
+    if ((me?.user as { role?: string } | undefined)?.role !== 'ADMIN') return 'Support Axis';
+    const customer = conv.participants?.find((p) => (p.user as { role?: string } | undefined)?.role !== 'ADMIN');
+    const name = `${customer?.user?.firstName ?? ''} ${customer?.user?.lastName ?? ''}`.trim();
+    return name ? `${name} · support` : 'Support Axis';
+  }
   const others = conv.participants?.filter((p) => p.userId !== myUserId) ?? [];
   if (others.length > 0) {
     return others

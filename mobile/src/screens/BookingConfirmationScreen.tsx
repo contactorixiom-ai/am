@@ -294,6 +294,18 @@ export function BookingConfirmationScreen() {
 
         {/* Liens utiles */}
         <View style={{ gap: SPACING.md, marginTop: SPACING.md }}>
+          {kind === 'mission' ? (
+            // Le contrat se signe maintenant, avant la prise en charge : le
+            // client ne le découvrait qu'en ouvrant l'onglet Documents.
+            <Button
+              kind="gold"
+              size="lg"
+              fullWidth
+              onPress={() => nav.navigate('AppTabs', { screen: 'Documents' } as never)}
+            >
+              Signer mon contrat de convoyage
+            </Button>
+          ) : null}
           <Button
             kind="primary"
             size="lg"

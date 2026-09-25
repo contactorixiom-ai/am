@@ -33,6 +33,12 @@ export class MessagingController {
     return paginate(data, total, pagination.page, pagination.pageSize);
   }
 
+  @Post('conversations/support')
+  @ApiOperation({ summary: 'Ouvrir (ou retrouver) son fil avec l\'équipe Axis' })
+  support(@CurrentUser() user: AuthenticatedUser) {
+    return this.messaging.openSupport(user);
+  }
+
   @Get('conversations/:id')
   getOne(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.messaging.getConversation(id, user);
