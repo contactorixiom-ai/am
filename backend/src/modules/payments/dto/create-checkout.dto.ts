@@ -2,10 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateCheckoutDto {
-  @ApiProperty({ description: 'Montant à débiter, en centimes (min 100 = 1,00).' })
+  // Conservé pour les versions installées de l'application : le serveur
+  // l'ignore et facture le prix de la commande.
+  @ApiPropertyOptional({ description: 'Ignoré — le montant est celui de la commande.' })
+  @IsOptional()
   @IsInt()
-  @Min(100)
-  amountCents!: number;
+  @Min(0)
+  amountCents?: number;
 
   @ApiPropertyOptional({ example: 'eur', description: 'Code devise ISO (défaut : eur).' })
   @IsOptional()

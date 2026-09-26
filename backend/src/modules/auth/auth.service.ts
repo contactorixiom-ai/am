@@ -13,7 +13,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { LoginDto } from './dto/login.dto';
-import { MailService } from './mail.service';
+import { escapeHtml, mailLayout, MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 
 export interface AuthTokens {
@@ -215,12 +215,15 @@ export class AuthService {
         `Pour choisir un nouveau mot de passe, ouvrez ce lien (valable 1 heure) :\n${url}\n\n` +
         `Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : ` +
         `votre mot de passe actuel reste valable.\n\nAxis Import`,
-      html:
-        `<p>Bonjour ${escapeHtml(user.firstName)},</p>` +
-        `<p>Pour choisir un nouveau mot de passe, ouvrez ce lien (valable 1 heure) :</p>` +
-        `<p><a href="${escapeHtml(url)}">Choisir mon mot de passe</a></p>` +
-        `<p>Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : ` +
-        `votre mot de passe actuel reste valable.</p><p>Axis Import</p>`,
+      html: mailLayout({
+        title: 'Nouveau mot de passe',
+        paragraphs: [
+          `Bonjour ${escapeHtml(user.firstName)},`,
+          'Vous avez demandé à changer le mot de passe de votre compte Axis Import. Le lien ci-dessous est valable <strong>1 heure</strong>.',
+        ],
+        cta: { label: 'Choisir mon mot de passe', url },
+        footer: 'Si vous n\'êtes pas à l\'origine de cette demande, ignorez ce message : votre mot de passe actuel reste valable.',
+      }),
     });
     return { emailSent: this.mail.enabled };
   }
@@ -406,10 +409,3 @@ export class AuthService {
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

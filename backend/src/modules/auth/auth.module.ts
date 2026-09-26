@@ -9,7 +9,6 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { DefaultAccountsGuard } from './default-accounts.guard';
-import { MailService } from './mail.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -27,7 +26,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
-    MailService,
     DefaultAccountsGuard,
     JwtStrategy,
     // Limitation du nombre de requêtes par adresse IP. Le module était
@@ -37,6 +35,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [AuthService, MailService],
+  exports: [AuthService],
 })
 export class AuthModule {}

@@ -66,9 +66,10 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
 
   const reset = () => { setStep('pick'); setError(null); setSessionId(null); };
 
-  // Sonde le statut de la session Stripe jusqu'au règlement (≤ 3 min).
+  // Sonde le statut de la session Stripe jusqu'au règlement (≤ 15 min : le
+  // temps de saisir sa carte et de valider auprès de sa banque).
   const pollPaid = async (id: string): Promise<boolean> => {
-    const deadline = Date.now() + 3 * 60 * 1000;
+    const deadline = Date.now() + 15 * 60 * 1000;
     while (Date.now() < deadline && activeRef.current) {
       await new Promise((r) => setTimeout(r, 2500));
       if (!activeRef.current) return false;
@@ -106,7 +107,12 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
         const paid = await pollPaid(session.id);
         if (!activeRef.current) return;
         if (paid) setStep('success');
-        else { setError('Paiement non confirmé. Tu peux réessayer.'); setStep('pick'); }
+        else {
+          // Ne pas pousser à repayer : un paiement passé après ce délai est
+          // enregistré automatiquement par le serveur.
+          setError('Paiement pas encore confirmé. Si tu as payé, ta commande passera « réglée » d\'ici quelques minutes : inutile de repayer.');
+          setStep('pick');
+        }
       } else {
         // Mode simulation (aucune clé Stripe côté serveur) : aucun débit réel.
         await new Promise((r) => setTimeout(r, 1300));

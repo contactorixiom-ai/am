@@ -230,3 +230,20 @@ envoie alors un lien avec le bouton « Accès ».
 | Compte Google Play | Roger | quelques jours | 25 $ une fois |
 | Ouvrir l'app dans le navigateur | Roger | 2 minutes | — |
 | Expo Go | à deux | 10 minutes | — |
+
+## Paiements et e-mails
+
+- **Paiement en ligne** (Stripe) : le client touche « Payer », la page Stripe
+  s'ouvre (carte, Apple Pay, Google Pay), et la commande passe « payée »
+  toute seule : facture numérotée (FA-année-numéro), notification à Roger,
+  e-mail de remerciement au client. Le montant est toujours celui de la
+  commande, lu par le serveur ; une commande ne peut pas être payée deux fois.
+  Si le client ferme la page sans revenir dans l'application, le serveur
+  relit Stripe toutes les 2 minutes : aucun webhook à configurer.
+- **Règlement hors application** (virement, espèces…) : *Espace admin →
+  Envois → Encaisser*. Même résultat : facture et e-mail au client.
+- **Remboursement** : depuis le tableau de bord Stripe (Paiements → le
+  paiement → Rembourser), puis annuler la mission dans l'application.
+- **E-mails** : variables Railway `RESEND_API_KEY`, `MAIL_FROM`
+  (`Axis Import <no-reply@axisimport.fr>`) et `MAIL_REPLY_TO`
+  (`contact@axisimport.fr`, où arrivent les réponses des clients).

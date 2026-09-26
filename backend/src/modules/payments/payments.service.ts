@@ -4,6 +4,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -11,10 +13,12 @@ import { Payment, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import Stripe from 'stripe';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { mailLayout, MailService, escapeHtml } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CreateCheckoutInput {
-  amountCents: number;
+  /** Ignoré : le montant est celui de la commande, lu en base. */
+  amountCents?: number;
   currency?: string;
   reference?: string;
   description?: string;
@@ -30,6 +34,8 @@ const SIM_PREFIX = 'cs_sim_';
 const RECONCILE_WINDOW_DAYS = 7;
 /** Garde-fou : on ne réinterroge pas Stripe plus de N fois par requête. */
 const RECONCILE_MAX = 20;
+/** Relecture automatique des paiements en attente, sans webhook à configurer. */
+const RECONCILE_EVERY_MS = 2 * 60 * 1000;
 
 /**
  * Paiements via Stripe Checkout (cartes + Apple Pay + Google Pay + Link activés
@@ -45,17 +51,21 @@ const RECONCILE_MAX = 20;
  * réglées sur un autre téléphone.
  */
 @Injectable()
-export class PaymentsService {
+export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly stripe: Stripe | null;
   private readonly defaultCurrency: string;
   private readonly allowSimulation: boolean;
+  private readonly appUrl: string;
+  private timer: NodeJS.Timeout | null = null;
 
   constructor(
     config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly mail: MailService,
   ) {
+    this.appUrl = config.get<string>('appUrl', 'https://contactorixiom-ai.github.io/am/app/');
     const key = config.get<string>('stripe.secretKey');
     this.defaultCurrency = config.get<string>('stripe.currency', 'eur');
     this.allowSimulation = config.get<boolean>('stripe.allowSimulation', false);
@@ -73,17 +83,78 @@ export class PaymentsService {
     return this.stripe !== null;
   }
 
-  async createCheckoutSession(clientId: string, input: CreateCheckoutInput) {
-    const amount = Math.round(input.amountCents);
-    if (!Number.isFinite(amount) || amount < 100) {
-      throw new BadRequestException('Montant invalide (minimum 1,00).');
-    }
-    const currency = (input.currency ?? this.defaultCurrency).toLowerCase();
+  // Un client qui paie puis ferme la page Stripe sans revenir dans
+  // l'application : sa commande passe quand même « payée » (reçu, facture,
+  // e-mail, alerte à Roger) dans les 2 minutes, sans webhook à configurer.
+  onModuleInit() {
+    if (!this.stripe || process.env.NODE_ENV === 'test') return;
+    this.timer = setInterval(() => {
+      this.reconcilePending().catch((e) => this.logger.warn(`Relecture des paiements : ${(e as Error).message}`));
+    }, RECONCILE_EVERY_MS);
+    this.timer.unref?.();
+  }
 
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  async createCheckoutSession(clientId: string, input: CreateCheckoutInput) {
     // On rattache le règlement à l'envoi, mais seulement s'il appartient bien
     // au client : un identifiant venu du téléphone ne fait pas foi.
     const missionId = await this.ownedMissionId(clientId, input.missionId);
     const parcelId = await this.ownedParcelId(clientId, input.parcelId);
+    if (!missionId === !parcelId) {
+      throw new BadRequestException('Indiquez la commande à régler.');
+    }
+
+    // Le montant est celui de la commande, lu en base. Il venait du
+    // téléphone : un client pouvait régler 1 € une commande de 427 €.
+    const shipment = missionId
+      ? await this.prisma.mission.findUnique({
+          where: { id: missionId },
+          select: { priceCents: true, currency: true, status: true, reference: true, pickupCity: true, deliveryCity: true },
+        })
+      : await this.prisma.parcel.findUnique({
+          where: { id: parcelId! },
+          select: { priceCents: true, status: true, reference: true, originCity: true, destinationCity: true },
+        });
+    if (!shipment) throw new NotFoundException('Commande introuvable.');
+    if (shipment.status === 'CANCELLED') throw new BadRequestException('Cette commande est annulée.');
+    const amount = shipment.priceCents ?? 0;
+    if (amount < 100) {
+      throw new BadRequestException('Le prix de cette commande n\'est pas encore fixé : Axis vous le communique avant paiement.');
+    }
+    const currency = (('currency' in shipment && shipment.currency) || this.defaultCurrency).toLowerCase();
+    const reference = shipment.reference;
+    const route = 'pickupCity' in shipment
+      ? `Convoyage ${shipment.pickupCity} → ${shipment.deliveryCity}`
+      : `Envoi ${shipment.originCity} → ${shipment.destinationCity}`;
+    const description = `${route} · ${reference}`;
+
+    // Une seule fois : pas de second paiement d'une commande réglée, et une
+    // page Stripe encore ouverte est reprise plutôt que doublée.
+    const where = missionId ? { missionId } : { parcelId: parcelId! };
+    const paid = await this.prisma.payment.findFirst({ where: { ...where, status: PaymentStatus.PAID } });
+    if (paid) throw new BadRequestException('Cette commande est déjà réglée. Merci !');
+    if (this.stripe) {
+      const open = await this.prisma.payment.findFirst({
+        where: { ...where, status: PaymentStatus.PENDING, provider: 'stripe', clientId, createdAt: { gte: new Date(Date.now() - 23 * 3600_000) } },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (open) {
+        try {
+          const s = await this.stripe.checkout.sessions.retrieve(open.sessionId);
+          await this.applyStripeStatus(open, s);
+          if (s.payment_status === 'paid') throw new BadRequestException('Cette commande est déjà réglée. Merci !');
+          if (s.status === 'open' && s.url && s.amount_total === amount) {
+            return { provider: 'stripe' as const, configured: true, id: s.id, url: s.url };
+          }
+        } catch (e) {
+          if (e instanceof BadRequestException) throw e;
+          this.logger.warn(`Session ${open.sessionId} non reprise : ${(e as Error).message}`);
+        }
+      }
+    }
 
     let provider: 'stripe' | 'simulation';
     let id: string;
@@ -100,31 +171,37 @@ export class PaymentsService {
       id = `${SIM_PREFIX}${Date.now()}`;
       url = input.successUrl.replace('{CHECKOUT_SESSION_ID}', id);
     } else {
+      const client = await this.prisma.user.findUnique({ where: { id: clientId }, select: { email: true } });
       const session = await this.stripe.checkout.sessions.create({
         mode: 'payment',
+        locale: 'fr',
         line_items: [
           {
             quantity: 1,
             price_data: {
               currency,
               unit_amount: amount,
-              product_data: { name: input.description || 'Commande Axis Import' },
+              product_data: { name: description },
             },
           },
         ],
+        // E-mail prérempli sur la page Stripe (et reçu Stripe s'il est activé).
+        ...(client?.email ? { customer_email: client.email } : {}),
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
-        client_reference_id: input.reference,
+        client_reference_id: reference,
         metadata: {
-          ...(input.reference ? { reference: input.reference } : {}),
+          reference,
           ...(missionId ? { missionId } : {}),
           ...(parcelId ? { parcelId } : {}),
         },
+        payment_intent_data: { description, metadata: { reference } },
       });
       provider = 'stripe';
       id = session.id;
       url = session.url;
     }
+    input = { ...input, reference, description };
 
     // L'enregistrement ne doit jamais faire échouer un paiement déjà engagé
     // chez Stripe : en cas de souci base, on journalise et on laisse passer.
@@ -146,7 +223,10 @@ export class PaymentsService {
           paidAt: provider === 'simulation' ? new Date() : null,
         },
       });
-      if (created.status === PaymentStatus.PAID) await this.assignInvoiceNumber(created.id);
+      if (created.status === PaymentStatus.PAID) {
+        await this.assignInvoiceNumber(created.id);
+        await this.announcePaid(created);
+      }
     } catch (e) {
       this.logger.error(`Session ${id} non enregistrée : ${(e as Error).message}`);
     }
@@ -324,14 +404,18 @@ export class PaymentsService {
           ? PaymentStatus.CANCELLED
           : PaymentStatus.PENDING;
     if (status === record.status) return;
-    await this.prisma.payment.update({
-      where: { id: record.id },
+    // Mise à jour conditionnelle : le retour du client, la relecture
+    // périodique et l'écran de Roger peuvent confirmer le même paiement au
+    // même instant ; un seul d'entre eux envoie reçu, e-mail et alerte.
+    const res = await this.prisma.payment.updateMany({
+      where: { id: record.id, status: record.status },
       data: {
         status,
         paidAt: status === PaymentStatus.PAID ? new Date() : null,
         amountCents: s.amount_total ?? record.amountCents,
       },
     });
+    if (res.count === 0) return;
     if (status === PaymentStatus.PAID) {
       await this.assignInvoiceNumber(record.id);
       await this.announcePaid({ ...record, amountCents: s.amount_total ?? record.amountCents });
@@ -385,6 +469,7 @@ export class PaymentsService {
         `Axis a bien reçu ${(dto.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} pour ${shipment.reference}. Ta facture est disponible dans Documents.`,
         { paymentId: created.id })
       .catch(() => undefined);
+    await this.sendPurchaseEmail(created.id);
     return { ...created, invoiceNumber };
   }
 
@@ -416,6 +501,7 @@ export class PaymentsService {
 
   /** Prévient le client (reçu) et l'équipe Axis (encaissement à suivre). */
   private async announcePaid(record: Payment) {
+    await this.sendPurchaseEmail(record.id);
     try {
       const amount = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: record.currency }).format(
         record.amountCents / 100,
@@ -443,6 +529,74 @@ export class PaymentsService {
       }
     } catch (e) {
       this.logger.warn(`Notification de paiement non envoyée : ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * E-mail de confirmation et de remerciement envoyé au client dès que son
+   * paiement est encaissé (en ligne ou saisi par Roger). Sans RESEND_API_KEY,
+   * rien n'est envoyé : la notification dans l'application reste.
+   */
+  private async sendPurchaseEmail(paymentId: string) {
+    if (!this.mail.enabled) return;
+    try {
+      const p = await this.prisma.payment.findUnique({
+        where: { id: paymentId },
+        include: {
+          client: { select: { email: true, firstName: true, companyName: true } },
+          mission: { select: { reference: true, pickupCity: true, deliveryCity: true, vehicle: { select: { make: true, model: true } } } },
+          parcel: { select: { reference: true, originCity: true, destinationCity: true, weightKg: true } },
+        },
+      });
+      if (!p?.client?.email) return;
+      const amount = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: p.currency || 'EUR' }).format(p.amountCents / 100);
+      const reference = p.mission?.reference ?? p.parcel?.reference ?? p.reference ?? '';
+      const what = p.mission
+        ? `Convoyage ${p.mission.pickupCity} → ${p.mission.deliveryCity}`
+        : p.parcel
+          ? `Envoi ${p.parcel.originCity} → ${p.parcel.destinationCity}`
+          : (p.description ?? 'Commande Axis Import');
+      const method = p.provider === 'stripe' ? 'Paiement en ligne'
+        : p.provider.startsWith('manual:') ? (p.description?.split(' (')[0].split(' — ')[0] ?? 'Règlement reçu par Axis')
+        : 'Paiement';
+      const rows: Array<[string, string]> = [
+        ['Commande', reference],
+        ['Prestation', what],
+        ...(p.mission?.vehicle ? [['Véhicule', `${p.mission.vehicle.make} ${p.mission.vehicle.model}`] as [string, string]] : []),
+        ...(p.parcel?.weightKg ? [['Poids déclaré', `${p.parcel.weightKg} kg`] as [string, string]] : []),
+        ['Montant réglé', amount],
+        ['Mode de règlement', method],
+        ...(p.invoiceNumber ? [['Facture', p.invoiceNumber] as [string, string]] : []),
+      ];
+      const next = p.mission
+        ? 'Axis vous confirme le créneau d\'enlèvement et le convoyeur affecté. Pendant le trajet, vous suivez le véhicule en direct dans l\'application ; l\'état des lieux et le contrat signés y sont disponibles.'
+        : 'Axis vous tient informé de chaque étape de l\'envoi dans l\'application, jusqu\'à la remise au destinataire.';
+      const help = this.mail.replyTo
+        ? 'Une question ? Répondez simplement à cet e-mail, ou écrivez-nous depuis l\'application (Profil › Contacter Axis).'
+        : 'Une question ? Écrivez-nous depuis l\'application (Profil › Contacter Axis).';
+      await this.mail.send({
+        to: p.client.email,
+        subject: `Merci pour votre commande ${reference} — paiement confirmé`,
+        text:
+          `Bonjour ${p.client.firstName},\n\n` +
+          `Merci pour votre confiance ! Nous avons bien reçu votre paiement de ${amount} pour ${what} (${reference}).\n` +
+          (p.invoiceNumber ? `Votre facture ${p.invoiceNumber} est disponible dans l'application, onglet Documents.\n` : '') +
+          `\n${next}\n\nSuivre ma commande : ${this.appUrl}\n\n${help}\n\nL'équipe Axis Import`,
+        html: mailLayout({
+          title: `Merci ${p.client.firstName} !`,
+          paragraphs: [
+            `Nous avons bien reçu votre paiement : votre commande est <strong>confirmée</strong> et l'équipe Axis Import s'en occupe.`,
+          ],
+          rows,
+          cta: { label: 'Suivre ma commande', url: this.appUrl },
+          footer:
+            `${escapeHtml(next)}<br><br>` +
+            (p.invoiceNumber ? 'Votre facture est disponible dans l\'application, onglet Documents.<br><br>' : '') +
+            `${escapeHtml(help)}<br><br>Merci de votre confiance,<br>L'équipe Axis Import`,
+        }),
+      });
+    } catch (e) {
+      this.logger.warn(`E-mail de confirmation non envoyé (${paymentId}) : ${(e as Error).message}`);
     }
   }
 

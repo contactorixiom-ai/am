@@ -6,8 +6,8 @@ import {
   useFonts,
 } from '@expo-google-fonts/manrope';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DotLoader } from './src/components/DotLoader';
@@ -17,6 +17,27 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { ParcelDraftProvider } from './src/state/ParcelDraftContext';
 import { SessionProvider } from './src/state/SessionContext';
 import { ThemeProvider } from './src/theme/ThemeProvider';
+import { notify } from './src/utils/notify';
+
+// Retour de la page Stripe (?payment=success|cancel). Sur téléphone, Stripe
+// s'ouvre dans le navigateur et y revient : sans message, le client restait
+// sur un accueil web sans savoir si son paiement était passé.
+function useStripeReturnNotice(ready: boolean) {
+  useEffect(() => {
+    if (!ready || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get('payment');
+    if (!outcome) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    setTimeout(() => {
+      if (outcome === 'success') {
+        notify('Paiement reçu ✓', 'Merci ! Ta commande est confirmée. Si tu as payé depuis l\'application, tu peux fermer cette page et y revenir.');
+      } else {
+        notify('Paiement annulé', 'Aucun montant n\'a été débité. Tu peux régler plus tard depuis l\'onglet Documents.');
+      }
+    }, 600);
+  }, [ready]);
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -25,6 +46,7 @@ export default function App() {
     Manrope_600SemiBold,
     Manrope_700Bold,
   });
+  useStripeReturnNotice(fontsLoaded);
 
   if (!fontsLoaded) {
     return (

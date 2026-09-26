@@ -73,7 +73,9 @@ export default () => ({
   // transmettre par WhatsApp ou SMS.
   mail: {
     resendApiKey: process.env.RESEND_API_KEY,
-    from: process.env.MAIL_FROM ?? 'Axis Import <no-reply@axis-import.fr>',
+    from: process.env.MAIL_FROM ?? 'Axis Import <no-reply@axisimport.fr>',
+    // Adresse où arrivent les réponses des clients (ex. contact@axisimport.fr).
+    replyTo: process.env.MAIL_REPLY_TO,
   },
 
   // Jeton d'accès Expo, seulement si la « sécurité renforcée des
