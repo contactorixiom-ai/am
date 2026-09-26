@@ -46,7 +46,14 @@ async function inspect() {
               to_regclass('public."User"')::text               AS users`,
     );
     const r = rows[0] ?? {};
-    return { hasHistory: !!r.history, hasSchema: !!r.users };
+    let failedMigrations = [];
+    if (r.history) {
+      const failedRows = await prisma.$queryRawUnsafe(
+        `SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL`,
+      );
+      failedMigrations = failedRows.map((row) => row.migration_name);
+    }
+    return { hasHistory: !!r.history, hasSchema: !!r.users, failedMigrations };
   } finally {
     await prisma.$disconnect();
   }
@@ -58,7 +65,7 @@ async function inspect() {
     process.exit(1);
   }
 
-  const { hasHistory, hasSchema } = await inspect();
+  const { hasHistory, hasSchema, failedMigrations } = await inspect();
 
   if (!hasHistory && hasSchema) {
     const names = migrationNames();
@@ -66,6 +73,15 @@ async function inspect() {
       `Base existante sans historique de migrations : marquage de ${names.length} migration(s) comme déjà appliquée(s).`,
     );
     for (const name of names) {
+      run(['migrate', 'resolve', '--applied', name]);
+    }
+  }
+
+  if (hasHistory && failedMigrations.length > 0) {
+    console.log(
+      `${failedMigrations.length} migration(s) bloquée(s) en échec détectée(s) : marquage comme déjà appliquée(s) car le schéma existe déjà.`,
+    );
+    for (const name of failedMigrations) {
       run(['migrate', 'resolve', '--applied', name]);
     }
   }
