@@ -27,6 +27,17 @@ function run(args) {
   execFileSync('npx', ['prisma', ...args], { stdio: 'inherit' });
 }
 
+// Migrations écrites pour être rejouables sans risque (IF NOT EXISTS, reprise
+// de données conditionnelle). Elles sont réexécutées à chaque démarrage : si
+// l'une d'elles a été déclarée « appliquée » sans l'avoir été (correctif
+// automatique, échec en cours de route), ce qui manque est créé.
+const REPLAYABLE = [
+  '20260924000000_password_reset',
+  '20260924010000_terms_acceptance',
+  '20260925000000_invoice_numbers',
+  '20260925010000_billing_address',
+];
+
 function migrationNames() {
   if (!existsSync(MIGRATIONS_DIR)) return [];
   return readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
@@ -77,16 +88,43 @@ async function inspect() {
     }
   }
 
+  // Migration restée en échec : on la marque « annulée » pour que
+  // migrate deploy la rejoue. La déclarer « appliquée » (correctif proposé
+  // automatiquement) débloquait le démarrage mais pouvait laisser des tables
+  // ou colonnes manquantes, et l'application planter plus tard.
   if (hasHistory && failedMigrations.length > 0) {
-    console.log(
-      `${failedMigrations.length} migration(s) bloquée(s) en échec détectée(s) : marquage comme déjà appliquée(s) car le schéma existe déjà.`,
-    );
+    console.log(`${failedMigrations.length} migration(s) en échec : nouvelle tentative (${failedMigrations.join(', ')}).`);
     for (const name of failedMigrations) {
-      run(['migrate', 'resolve', '--applied', name]);
+      run(['migrate', 'resolve', '--rolled-back', name]);
     }
   }
 
   run(['migrate', 'deploy']);
+
+  for (const name of REPLAYABLE) {
+    const file = join(MIGRATIONS_DIR, name, 'migration.sql');
+    if (existsSync(file)) {
+      run(['db', 'execute', '--file', file, '--schema', join(__dirname, '..', 'prisma', 'schema.prisma')]);
+    }
+  }
+
+  // Contrôle final, sans rien modifier : la base correspond-elle au schéma
+  // attendu par l'application ? Un écart est signalé en clair dans les logs.
+  try {
+    execFileSync(
+      'npx',
+      ['prisma', 'migrate', 'diff', '--from-url', process.env.DATABASE_URL, '--to-schema-datamodel',
+        join(__dirname, '..', 'prisma', 'schema.prisma'), '--exit-code'],
+      { stdio: 'pipe' },
+    );
+    console.log('Base conforme au schéma de l\'application.');
+  } catch (e) {
+    if (e.status === 2) {
+      console.warn('ATTENTION : la base diffère du schéma attendu :\n' + String(e.stdout || ''));
+    } else {
+      console.warn('Contrôle de la base impossible :', e.message);
+    }
+  }
 })().catch((e) => {
   console.error('Préparation de la base échouée :', e.message);
   process.exit(1);

@@ -2,7 +2,8 @@
 -- retrouver l'accès à son compte, et les clients créés par Axis lors d'une
 -- prise de commande recevaient un mot de passe aléatoire qu'ils ne
 -- pouvaient jamais connaître. Seule l'empreinte du jeton est conservée.
-CREATE TABLE "PasswordResetToken" (
+-- Rejouable sans risque (IF NOT EXISTS) : voir scripts/db-deploy.js.
+CREATE TABLE IF NOT EXISTS "PasswordResetToken" (
     "id" UUID NOT NULL,
     "userId" UUID NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -14,8 +15,12 @@ CREATE TABLE "PasswordResetToken" (
     CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
-CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
+CREATE INDEX IF NOT EXISTS "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
 
-ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey"
-    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'PasswordResetToken_userId_fkey') THEN
+    ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
