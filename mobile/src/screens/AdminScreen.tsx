@@ -2169,6 +2169,7 @@ function InspectionCard({
 }) {
   const depart = i.type === 'PRE_DEPARTURE';
   const signed = i.status === 'SIGNED';
+  const [zoom, setZoom] = useState<number | null>(null);
   const damages = i.damages ?? [];
   const photos = i.photos ?? [];
   const controls = Object.entries(i.controls ?? {});
@@ -2242,19 +2243,56 @@ function InspectionCard({
       ) : null}
 
       {photos.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {photos.map((ph) => (
-            <View key={ph.id} style={{ gap: 4 }}>
-              <AuthImage url={ph.url} style={{ width: 96, height: 72, borderRadius: RADII.sm }} label={ph.caption ?? undefined} />
-              <Text style={{ fontSize: 10.5, color: theme.muted, fontFamily: TYPO.weights.medium, maxWidth: 96 }} numberOfLines={1}>
-                {ph.caption ?? ph.tag ?? 'Photo'}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontSize: 10.5, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: TYPO.weights.medium }}>
+            {photos.length} photo{photos.length > 1 ? 's' : ''} · touche pour agrandir
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 6 }}>
+            {photos.map((ph, idx) => (
+              <Pressable
+                key={ph.id}
+                onPress={() => setZoom(idx)}
+                style={{ width: '23.5%', marginRight: idx % 4 === 3 ? 0 : '2%', gap: 3 }}
+              >
+                <AuthImage url={ph.url} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: RADII.sm }} label={ph.caption ?? undefined} />
+                <Text style={{ fontSize: 10, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                  {ph.caption ?? ph.tag ?? 'Photo'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
       ) : (
         <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Aucune photo transmise.</Text>
       )}
+
+      {/* Visionneuse plein écran, photo par photo. */}
+      <Modal visible={zoom !== null} transparent animationType="fade" onRequestClose={() => setZoom(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(6,24,46,0.95)', justifyContent: 'center', padding: 12 }}>
+          {zoom !== null && photos[zoom] ? (
+            <>
+              <Text style={{ color: '#F5F1E8', textAlign: 'center', marginBottom: 10, fontSize: 15, fontFamily: TYPO.weights.semibold }}>
+                {photos[zoom].caption ?? 'Photo'} · {zoom + 1}/{photos.length}
+              </Text>
+              <AuthImage url={photos[zoom].url} style={{ width: '100%', height: '72%' }} label={photos[zoom].caption ?? undefined} contain />
+              <Text style={{ color: 'rgba(245,241,232,0.7)', textAlign: 'center', marginTop: 8, fontSize: 12, fontFamily: TYPO.weights.medium }}>
+                {depart ? 'Prise en charge' : 'Livraison'}{fmt(photos[zoom].takenAt) ? ` · reçue le ${fmt(photos[zoom].takenAt)}` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <Button kind="outline" size="md" style={{ flex: 1, backgroundColor: "#F5F1E8" }} disabled={zoom === 0} onPress={() => setZoom((z) => (z ? z - 1 : 0))}>
+                  ‹ Précédente
+                </Button>
+                <Button kind="outline" size="md" style={{ flex: 1, backgroundColor: "#F5F1E8" }} disabled={zoom >= photos.length - 1} onPress={() => setZoom((z) => (z !== null && z < photos.length - 1 ? z + 1 : z))}>
+                  Suivante ›
+                </Button>
+              </View>
+              <Button kind="gold" size="md" fullWidth style={{ marginTop: 10 }} onPress={() => setZoom(null)}>
+                Fermer
+              </Button>
+            </>
+          ) : null}
+        </View>
+      </Modal>
 
       <View style={{ borderTopWidth: 1, borderTopColor: theme.line, paddingTop: 8, gap: 3 }}>
         <Text style={{ fontSize: 12, color: i.driverSignedAt ? theme.good : theme.muted, fontFamily: TYPO.weights.medium }}>

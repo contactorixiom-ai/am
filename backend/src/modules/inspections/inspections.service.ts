@@ -96,7 +96,14 @@ export class InspectionsService {
   async addPhoto(inspectionId: string, user: AuthenticatedUser, dto: AddInspectionPhotoDto) {
     const insp = await this.findOne(inspectionId, user);
     if (insp.status !== InspectionStatus.DRAFT && insp.status !== InspectionStatus.SUBMITTED) {
-      throw new BadRequestException('Inspection already signed');
+      // Photo prise avant la signature mais dont l'envoi a échoué (réseau) :
+      // son auteur ou Axis peut encore la transmettre dans les 24 h. La date
+      // d'enregistrement du serveur reste visible sur chaque photo.
+      const signedAt = insp.driverSignedAt ?? insp.clientSignedAt ?? insp.submittedAt;
+      const lateAllowed =
+        (user.role === UserRole.ADMIN || insp.inspectorId === user.id) &&
+        !!signedAt && Date.now() - new Date(signedAt).getTime() < 24 * 3600_000;
+      if (!lateAllowed) throw new BadRequestException('État des lieux signé : photos closes.');
     }
     return this.prisma.inspectionPhoto.create({
       data: {

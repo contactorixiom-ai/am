@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -23,6 +23,7 @@ import {
   submitInspection,
 } from '../api/inspections';
 import { notify } from '../utils/notify';
+import { SHOT_GROUPS, Shot, shotsFor } from '../utils/inspectionShots';
 import { capturePhoto } from '../utils/pickImage';
 import { MOTO_ZONES, sketchKindFor } from '../utils/vehicleViews';
 import { generateContractPdf } from '../utils/pdf';
@@ -74,12 +75,6 @@ const CONTROL_QUESTIONS: Record<'DÉPART' | 'ARRIVÉE', { key: string; label: st
 };
 
 // Correspondance avec les étiquettes de photo du serveur (InspectionPhotoTag).
-const PHOTO_TAGS: Record<string, string> = {
-  front: 'FRONT',
-  rear: 'REAR',
-  sideLeft: 'LEFT_SIDE',
-  sideRight: 'RIGHT_SIDE',
-};
 
 /** Les tracés du pavé de signature, en image SVG transmissible au serveur. */
 function svgDataUrl(sig: { paths: string[]; w: number; h: number }): string {
@@ -92,14 +87,6 @@ function svgDataUrl(sig: { paths: string[]; w: number; h: number }): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// Photos obligatoires de l'état du véhicule (départ ET arrivée) — 4 angles.
-// Servent de preuve horodatée pour la gestion des litiges.
-const VEHICLE_PHOTO_ANGLES: { key: string; label: string }[] = [
-  { key: 'front', label: 'Avant' },
-  { key: 'rear', label: 'Arrière' },
-  { key: 'sideLeft', label: 'Côté gauche' },
-  { key: 'sideRight', label: 'Côté droit' },
-];
 
 // Persistance entre l'état des lieux de DÉPART et d'ARRIVÉE pour pouvoir
 // comparer (km, carburant, dommages déjà signalés au départ).
@@ -146,13 +133,24 @@ export function VehicleInspectionScreen() {
   const [keys, setKeys] = useState('2');
   const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, string>>({});
 
-  const captureVehiclePhoto = async (key: string) => {
+  const captureVehiclePhoto = async (key: string): Promise<boolean> => {
     const uri = await capturePhoto();
     if (uri) setVehiclePhotos((p) => ({ ...p, [key]: uri }));
+    return !!uri;
   };
+  // Mode guidé : chaque prise de vue est annoncée (où se placer, quoi
+  // cadrer) avant d'ouvrir l'appareil photo, puis on enchaîne sur la suivante.
+  const [guided, setGuided] = useState<Shot | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const failedPhotosRef = useRef<{ inspectionId: string; items: { uri: string; tag: string; caption: string }[] }>({ inspectionId: '', items: [] });
 
   // Step 2
   const [view, setView] = useState<ViewKey>('top');
+  const shots = shotsFor(sketchKindFor(vehicleCategory));
+  const nextMissingShot = (after?: string) => {
+    const start = after ? shots.findIndex((x) => x.key === after) + 1 : 0;
+    return [...shots.slice(start), ...shots.slice(0, start)].find((x) => !vehiclePhotos[x.key] && x.key !== after) ?? null;
+  };
   const [damages, setDamages] = useState<Damage[]>([]);
   const [pendingPos, setPendingPos] = useState<{ x: number; y: number; zone?: string } | null>(null);
   const [editing, setEditing] = useState<Damage | null>(null);
@@ -267,16 +265,23 @@ export function VehicleInspectionScreen() {
         controls,
       });
 
-      // Photos des quatre angles, puis celles attachées à un dommage.
-      for (const angle of VEHICLE_PHOTO_ANGLES) {
-        const uri = vehiclePhotos[angle.key];
-        if (uri) await attachInspectionPhoto(inspection.id, uri, PHOTO_TAGS[angle.key], angle.label);
+      // Prises de vue du véhicule, puis photos des dommages. Une photo qui
+      // échoue est retentée une fois ; les échecs restants sont signalés au
+      // convoyeur au lieu d'être perdus en silence.
+      const items = [
+        ...shots.filter((x) => vehiclePhotos[x.key]).map((x) => ({ uri: vehiclePhotos[x.key], tag: x.tag, caption: x.label })),
+        ...damages.filter((d) => d.photoUri).map((d) => ({ uri: d.photoUri as string, tag: 'DAMAGE', caption: `${DAMAGE_META[d.code].label} · ${damagePlace(d)}` })),
+      ];
+      const failed: typeof items = [];
+      setUploadProgress({ done: 0, total: items.length });
+      for (let i = 0; i < items.length; i += 1) {
+        const it = items[i];
+        const ok = (await attachInspectionPhoto(inspection.id, it.uri, it.tag, it.caption))
+          || (await attachInspectionPhoto(inspection.id, it.uri, it.tag, it.caption));
+        if (!ok) failed.push(it);
+        setUploadProgress({ done: i + 1, total: items.length });
       }
-      for (const d of damages) {
-        if (d.photoUri) {
-          await attachInspectionPhoto(inspection.id, d.photoUri, 'DAMAGE', `${DAMAGE_META[d.code].label} · ${d.view}`);
-        }
-      }
+      failedPhotosRef.current = { inspectionId: inspection.id, items: failed };
 
       await submitInspection(inspection.id);
 
@@ -298,6 +303,7 @@ export function VehicleInspectionScreen() {
     } catch {
       return false;
     } finally {
+      setUploadProgress(null);
       setSending(false);
     }
   };
@@ -323,7 +329,9 @@ export function VehicleInspectionScreen() {
     // Persiste l'état des lieux pour cette phase (cache local, comparaison).
     await AsyncStorage.setItem(
       storageKey(reference, phase),
-      JSON.stringify({ km: kmNum, fuel: fuelV, damages, date: dateStr, vehiclePhotos, vehicleCategory, clientName } as SavedInspection),
+      // Sans les photos : 20 images dépassent la capacité du stockage du
+      // navigateur (≈ 5 Mo) et faisaient échouer la finalisation.
+      JSON.stringify({ km: kmNum, fuel: fuelV, damages: damages.map(({ photoUri: _p, ...d }) => d), date: dateStr, vehicleCategory, clientName } as SavedInspection),
     );
 
     // Envoi au serveur : c'est ce qui rend le PV opposable. Sans cela il ne
@@ -406,10 +414,42 @@ export function VehicleInspectionScreen() {
           : 'Le contrat a été téléchargé. Le PV n\'a pas pu être transmis : reprends-le une fois la connexion revenue.',
       );
     }
+    await offerPhotoRetry();
     nav.goBack();
   };
 
-  const allVehiclePhotos = VEHICLE_PHOTO_ANGLES.every((a) => vehiclePhotos[a.key]);
+  // Photos non transmises (réseau faible sur le parking) : on propose de
+  // réessayer tant que le convoyeur est encore sur l'écran.
+  const offerPhotoRetry = async (): Promise<void> => {
+    let pending = failedPhotosRef.current;
+    while (pending.inspectionId && pending.items.length > 0) {
+      const n = pending.items.length;
+      const retry = await askYesNo(
+        `${n} photo${n > 1 ? 's' : ''} non transmise${n > 1 ? 's' : ''}`,
+        'Le PV est enregistré, mais ces photos ne sont pas encore arrivées chez Axis. Réessayer maintenant (de préférence avec du réseau) ?',
+        'Réessayer',
+      );
+      if (!retry) {
+        notify('Photos en attente', `${n} photo(s) non transmise(s). Garde-les dans ta galerie et préviens Axis.`);
+        return;
+      }
+      setSending(true);
+      const still: typeof pending.items = [];
+      setUploadProgress({ done: 0, total: n });
+      for (let i = 0; i < n; i += 1) {
+        const it = pending.items[i];
+        if (!(await attachInspectionPhoto(pending.inspectionId, it.uri, it.tag, it.caption))) still.push(it);
+        setUploadProgress({ done: i + 1, total: n });
+      }
+      setUploadProgress(null);
+      setSending(false);
+      pending = { inspectionId: pending.inspectionId, items: still };
+      failedPhotosRef.current = pending;
+    }
+  };
+
+  const photosDone = shots.filter((x) => vehiclePhotos[x.key]).length;
+  const allVehiclePhotos = photosDone === shots.length;
   const canNext =
     step === 0 ? !!km && fuel !== null && allVehiclePhotos :
     step === 1 ? true :
@@ -530,44 +570,106 @@ export function VehicleInspectionScreen() {
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Photos du véhicule
                 </Text>
-                <Pill tone={allVehiclePhotos ? 'good' : 'warn'}>
-                  {Object.keys(vehiclePhotos).length}/{VEHICLE_PHOTO_ANGLES.length}
-                </Pill>
+                <Pill tone={allVehiclePhotos ? 'good' : 'warn'}>{`${photosDone}/${shots.length}`}</Pill>
+              </View>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.line, overflow: 'hidden' }}>
+                <View style={{ width: `${(photosDone / shots.length) * 100}%`, height: '100%', backgroundColor: allVehiclePhotos ? theme.good : theme.gold }} />
               </View>
               <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 16 }}>
-                Obligatoires — les 4 angles. Preuve horodatée en cas de litige au départ comme à l'arrivée.
+                {shots.length} photos obligatoires, au départ comme à l'arrivée : c'est la preuve de l'état du véhicule en cas de litige. Photographie en pleine lumière, véhicule entier dans le cadre.
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {VEHICLE_PHOTO_ANGLES.map((a) => {
-                  const uri = vehiclePhotos[a.key];
-                  return (
-                    <Pressable
-                      key={a.key}
-                      onPress={() => captureVehiclePhoto(a.key)}
-                      style={{ width: '47%', flexGrow: 1, aspectRatio: 4 / 3, borderRadius: 12, borderWidth: 1.5, borderColor: uri ? theme.good : theme.line, borderStyle: uri ? 'solid' : 'dashed', backgroundColor: theme.surface2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      {uri ? (
-                        <>
-                          <Image source={{ uri }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
-                          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 3 }}>
-                            <Text style={{ color: '#fff', fontSize: 11, fontFamily: TYPO.weights.semibold, textAlign: 'center' }}>{a.label} · ✓</Text>
-                          </View>
-                        </>
-                      ) : (
-                        <>
-                          <Icons.camera size={22} color={theme.muted} stroke={1.7} />
-                          <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 6 }}>{a.label}</Text>
-                        </>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {!allVehiclePhotos ? (
+                <Button
+                  kind="primary"
+                  size="md"
+                  fullWidth
+                  leftIcon={<Icons.camera size={17} color="#fff" stroke={1.9} />}
+                  onPress={() => setGuided(nextMissingShot())}
+                >
+                  {photosDone === 0 ? 'Prendre les photos à la suite' : `Continuer (${shots.length - photosDone} restantes)`}
+                </Button>
+              ) : null}
+              {SHOT_GROUPS.map((g) => {
+                const list = shots.filter((x) => x.group === g);
+                if (list.length === 0) return null;
+                return (
+                  <View key={g} style={{ gap: 8 }}>
+                    <Text style={{ fontSize: 12, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                      {g} · {list.filter((x) => vehiclePhotos[x.key]).length}/{list.length}
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
+                      {list.map((a, idx) => {
+                        const uri = vehiclePhotos[a.key];
+                        return (
+                          <Pressable
+                            key={a.key}
+                            onPress={() => setGuided(a)}
+                            style={{ width: '31.5%', marginRight: idx % 3 === 2 ? 0 : '2.75%', aspectRatio: 1, borderRadius: 10, borderWidth: 1.5, borderColor: uri ? theme.good : theme.line, borderStyle: uri ? 'solid' : 'dashed', backgroundColor: theme.surface2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 4 }}
+                          >
+                            {uri ? (
+                              <>
+                                <Image source={{ uri }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
+                                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.58)', paddingVertical: 3, paddingHorizontal: 2 }}>
+                                  <Text numberOfLines={1} style={{ color: '#fff', fontSize: 10, fontFamily: TYPO.weights.semibold, textAlign: 'center' }}>✓ {a.label}</Text>
+                                </View>
+                              </>
+                            ) : (
+                              <>
+                                <Icons.camera size={18} color={theme.muted} stroke={1.7} />
+                                <Text numberOfLines={2} style={{ fontSize: 10.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 4, textAlign: 'center' }}>{a.label}</Text>
+                              </>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
             </Surface>
+
+            {/* Prise de vue guidée : consigne, puis appareil photo. */}
+            <Modal visible={!!guided} transparent animationType="fade" onRequestClose={() => setGuided(null)}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.6)', justifyContent: 'flex-end' }}>
+                {guided ? (
+                  <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 28, gap: 12 }}>
+                    <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                      Photo {shots.findIndex((x) => x.key === guided.key) + 1} sur {shots.length} · {guided.group}
+                    </Text>
+                    <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold }}>{guided.label}</Text>
+                    <Text style={{ fontSize: 14, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 20 }}>{guided.hint}</Text>
+                    {vehiclePhotos[guided.key] ? (
+                      <Image source={{ uri: vehiclePhotos[guided.key] }} style={{ width: '100%', height: 160, borderRadius: 12 }} resizeMode="cover" />
+                    ) : null}
+                    <Button
+                      kind="gold"
+                      size="lg"
+                      fullWidth
+                      leftIcon={<Icons.camera size={18} color={theme.navy} stroke={1.9} />}
+                      onPress={async () => {
+                        const current = guided;
+                        const ok = await captureVehiclePhoto(current.key);
+                        if (!ok) return;
+                        // Enchaîne sur la prochaine photo manquante.
+                        const next = shots.find((x, i) => i > shots.findIndex((y) => y.key === current.key) && !vehiclePhotos[x.key] && x.key !== current.key)
+                          ?? shots.find((x) => !vehiclePhotos[x.key] && x.key !== current.key)
+                          ?? null;
+                        setGuided(next);
+                      }}
+                    >
+                      {vehiclePhotos[guided.key] ? 'Reprendre la photo' : 'Prendre la photo'}
+                    </Button>
+                    <Button kind="ghost" size="md" fullWidth onPress={() => setGuided(null)}>
+                      Terminer plus tard
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            </Modal>
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
               <Icons.shield size={20} color={theme.gold} stroke={1.8} />
               <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
-                Toutes les données sont horodatées et géolocalisées pour valeur probante en cas de litige.
+                Photos, kilométrage et signatures sont horodatés et enregistrés chez Axis : ils font foi en cas de litige.
               </Text>
             </Surface>
           </>
@@ -668,7 +770,7 @@ export function VehicleInspectionScreen() {
                 <RefKv label="Kilométrage" value={km ? `${parseInt(km, 10).toLocaleString('fr-FR')} km` : '—'} />
                 <RefKv label="Carburant" value={fuelLabel(fuel)} />
                 <RefKv label="Dommages" value={`${damages.length}`} />
-                <RefKv label="Photos" value={`${Object.keys(vehiclePhotos).length}/${VEHICLE_PHOTO_ANGLES.length}`} />
+                <RefKv label="Photos" value={`${photosDone}/${shots.length}`} />
               </View>
               {damages.length > 0 ? (
                 <View style={{ gap: 6, marginTop: 2 }}>
@@ -767,7 +869,7 @@ export function VehicleInspectionScreen() {
             rightIcon={sending ? undefined : <Icons.check size={18} color={theme.navy} stroke={2.4} />}
           >
             {sending
-              ? 'Transmission du PV…'
+              ? (uploadProgress ? `Envoi des photos ${uploadProgress.done}/${uploadProgress.total}…` : 'Transmission du PV…')
               : isArrival
                 ? 'Finaliser le PV de livraison'
                 : 'Finaliser le PV de prise en charge'}
@@ -858,6 +960,20 @@ function RefKv({ label, value }: { label: string; value: string }) {
 function fuelLabel(v: number | null): string {
   if (v === null) return '—';
   return v === 0 ? 'Vide' : v === 1 ? 'Plein' : v === 0.25 ? '¼' : v === 0.5 ? '½' : v === 0.75 ? '¾' : `${v}`;
+}
+
+/** Question Oui / Non qui attend la réponse (web et téléphone). */
+function askYesNo(title: string, message: string, yes: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    return Promise.resolve(typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Plus tard', style: 'cancel', onPress: () => resolve(false) },
+      { text: yes, onPress: () => resolve(true) },
+    ], { cancelable: true, onDismiss: () => resolve(false) });
+  });
 }
 
 /** « Côté gauche », « Réservoir »… : où se trouve le dommage. */

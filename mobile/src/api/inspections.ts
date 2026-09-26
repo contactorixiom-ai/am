@@ -25,6 +25,8 @@ export interface InspectionPhoto {
   url: string;
   tag?: string | null;
   caption?: string | null;
+  /** Horodatage serveur de la photo. */
+  takenAt?: string | null;
 }
 
 export interface Inspection {
