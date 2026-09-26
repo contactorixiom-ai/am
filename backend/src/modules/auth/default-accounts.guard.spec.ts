@@ -34,4 +34,17 @@ describe('DefaultAccountsGuard', () => {
     const prisma = await run('development');
     expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
+
+  it('ADMIN_EMAILS promeut les comptes existants', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.ADMIN_EMAILS = ' Roger@Axis.fr , autre@axis.fr';
+    const prisma = {
+      user: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), count: jest.fn().mockResolvedValue(2) },
+    };
+    await new DefaultAccountsGuard(prisma as never).onApplicationBootstrap();
+    delete process.env.ADMIN_EMAILS;
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ email: { in: ['roger@axis.fr', 'autre@axis.fr'] } }) }),
+    );
+  });
 });
