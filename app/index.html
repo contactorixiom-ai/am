@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+<!-- Installation sur l'écran d'accueil.
+     Sans ces balises, « Ajouter à l'écran d'accueil » crée un raccourci qui
+     rouvre un onglet de navigateur, avec la barre d'adresse et l'icône du
+     site. Avec elles, l'app s'ouvre en plein écran, avec son nom et son
+     icône, comme une application installée.
+     Les chemins sont relatifs : le site est servi sous /am/app/. -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0B2545" />
+<meta name="mobile-web-app-capable" content="yes" />
+<!-- iOS ignore le manifeste : il lui faut ses propres balises. -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Axis Import" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+(function(){
+  try { window.__nativeFetch = window.fetch.bind(window); } catch(e) { window.__nativeFetch = window.fetch; }
+  window.__nativeFetchReady = true;
+  if (navigator && navigator.serviceWorker) {
+    try { navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ try { r.unregister(); } catch(e){} }); }).catch(function(){}); } catch(e) {}
+  }
+  if (typeof caches !== 'undefined' && caches.keys) {
+    try { caches.keys().then(function(names){ names.forEach(function(n){ try { caches.delete(n); } catch(e){} }); }).catch(function(){}); } catch(e) {}
+  }
+})();
+</script>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Axis Import</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  <link rel="preload" href="/am/app/_expo/static/css/leaflet-df687fead8c4838a4e6b8bcb2f176a0e.css" as="style"><link rel="stylesheet" href="/am/app/_expo/static/css/leaflet-df687fead8c4838a4e6b8bcb2f176a0e.css"><link rel="icon" href="/am/app/favicon.ico" /></head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  <script src="/am/app/_expo/static/js/web/AppEntry-3761e6c39dbdb55ea882975d69af6b41.js" defer></script>
+</body>
+</html>

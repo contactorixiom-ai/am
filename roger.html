@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Démarrage Axis Import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F1E8;
+    --surface: #FFFDF8;
+    --ink: #17202B;
+    --muted: #5F6670;
+    --line: #DDD6C8;
+    --navy: #0B2545;
+    --gold: #C9A55C;
+    --gold-ink: #8A6A26;
+    --warn-bg: #FBF0D6;
+    --warn-line: #D9B46A;
+    --ok: #2F7A4F;
+    --code-bg: #EDE7DA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #0F1621;
+      --surface: #16202D;
+      --ink: #ECE7DC;
+      --muted: #9AA3AE;
+      --line: #2A3647;
+      --navy: #0B2545;
+      --gold: #D4B06A;
+      --gold-ink: #D4B06A;
+      --warn-bg: #2A2416;
+      --warn-line: #7A6330;
+      --ok: #6BC293;
+      --code-bg: #1E2A3A;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0F1621;
+    --surface: #16202D;
+    --ink: #ECE7DC;
+    --muted: #9AA3AE;
+    --line: #2A3647;
+    --navy: #0B2545;
+    --gold: #D4B06A;
+    --gold-ink: #D4B06A;
+    --warn-bg: #2A2416;
+    --warn-line: #7A6330;
+    --ok: #6BC293;
+    --code-bg: #1E2A3A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .masthead {
+    background: var(--navy);
+    color: #F5F1E8;
+    padding-block: 36px 30px;
+    padding-inline: 20px;
+  }
+  .wrap { max-width: 680px; margin-inline: auto; }
+  main.wrap { padding-inline: 20px; padding-block: 8px 72px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 8px;
+  }
+  h1 {
+    margin: 0; font-size: clamp(26px, 6vw, 34px); line-height: 1.15;
+    letter-spacing: -0.02em; font-weight: 800; text-wrap: balance;
+  }
+  .masthead p.lede { margin: 12px 0 0; color: rgba(245,241,232,0.78); font-size: 15px; max-width: 34em; }
+
+  h2 {
+    font-size: 21px; line-height: 1.25; letter-spacing: -0.01em;
+    margin: 44px 0 6px; font-weight: 800; text-wrap: balance;
+  }
+  h2 + .sub { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+  h3 { font-size: 16px; margin: 0 0 6px; font-weight: 700; }
+  p { margin: 0 0 12px; }
+  a { color: var(--gold-ink); font-weight: 600; word-break: break-word; }
+  strong { font-weight: 700; }
+
+  /* Tableau récapitulatif en tête : c'est ce que Roger relira. */
+  .glance { margin-top: 26px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--gold-ink);
+    border: 1px solid var(--warn-line); white-space: nowrap;
+  }
+
+  /* Étapes : une vraie séquence, d'où la numérotation. */
+  ol.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: step; }
+  ol.steps > li {
+    counter-increment: step;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 14px 56px;
+    position: relative;
+  }
+  ol.steps > li::before {
+    content: counter(step, upper-alpha);
+    position: absolute; left: 16px; top: 15px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--navy); color: #F5F1E8;
+    font-weight: 800; font-size: 13px;
+    display: grid; place-items: center;
+  }
+  ol.steps .when { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+  ol.inner { margin: 6px 0 8px; padding-left: 20px; }
+  ol.inner li, ul li { margin-bottom: 6px; }
+  ul { padding-left: 20px; margin: 6px 0 12px; }
+
+  .note {
+    background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
+    padding: 12px 14px; font-size: 14.5px; margin: 12px 0;
+  }
+  .note strong { color: var(--gold-ink); }
+
+  .checklist { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+  .checklist li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+    font-size: 15px; margin: 0;
+  }
+  .box {
+    width: 18px; height: 18px; margin-top: 3px; border-radius: 4px;
+    border: 2px solid var(--gold);
+  }
+  .checklist small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  code, .cmd {
+    font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 13.5px;
+  }
+  .cmd {
+    display: block; background: var(--code-bg); border-radius: 8px;
+    padding: 10px 12px; margin: 8px 0 12px; overflow-x: auto; white-space: pre;
+  }
+  .url {
+    display: block; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 14px;
+    background: var(--code-bg); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px;
+    word-break: break-all; user-select: all;
+  }
+  .limit { color: var(--muted); font-size: 14.5px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .two > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .two h3 { font-size: 14px; }
+  .two p { font-size: 14.5px; margin: 0; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+  footer.wrap { padding-inline: 20px; padding-block: 0 48px; color: var(--muted); font-size: 13px; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Axis Import · pour Roger</p>
+    <h1>Mettre l'application sur l'App Store, et l'ouvrir dès maintenant</h1>
+    <p class="lede">Aucune compétence technique n'est nécessaire. Comptez une heure pour ouvrir les comptes, dix minutes pour avoir l'application sur le téléphone.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="glance" aria-label="En un coup d'œil">
+    <table>
+      <thead>
+        <tr><th>Quoi</th><th>Délai</th><th>Coût</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Numéro D-U-N-S</strong> <span class="tag">à lancer en premier</span></td><td class="num">5 à 14 jours</td><td class="num">gratuit</td></tr>
+        <tr><td>Compte développeur Apple</td><td class="num">2 à 7 jours ensuite</td><td class="num">99 € / an</td></tr>
+        <tr><td>Compte Google Play</td><td class="num">quelques jours</td><td class="num">25 $, une fois</td></tr>
+        <tr><td>Ouvrir l'app dans le navigateur</td><td class="num">2 minutes</td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <h2>Ce qu'il faut envoyer à Ahmed</h2>
+  <p class="sub">Tant que ces informations manquent, les factures et les documents douaniers affichent « [À COMPLÉTER] », et l'application ne promet aucune assurance.</p>
+  <ul class="checklist">
+    <li><span class="box" aria-hidden="true"></span><span><strong>La police d'assurance transport</strong> : nom de l'assureur, numéro de police, plafond d'indemnisation.<small>Le point le plus urgent. Sans elle, rien ne couvre la marchandise d'un client.</small></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><strong>L'identité de la société</strong> : raison sociale, forme et capital, SIRET, n° de TVA, RCS, adresse du siège, n° EORI.<small>À recopier exactement depuis l'extrait Kbis.</small></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><strong>Les coordonnées de contact</strong> : adresse e-mail, téléphone, jours et horaires d'ouverture.<small>Pour la page de support, qu'Apple vérifie.</small></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><strong>Le médiateur de la consommation</strong>, si des particuliers sont clients.<small>L'adhésion est obligatoire dans ce cas (article L612-1 du code de la consommation).</small></span></li>
+  </ul>
+
+  <h2>1. Ouvrir le compte développeur Apple</h2>
+  <p class="sub">C'est la seule étape qui prend du temps, à cause du numéro D-U-N-S. Plus tôt elle est lancée, mieux c'est.</p>
+
+  <p><strong>À avoir sous la main :</strong></p>
+  <ul>
+    <li>Un <strong>identifiant Apple</strong> avec la double authentification. De préférence un compte créé pour la société plutôt qu'un compte personnel : il servira pendant des années.</li>
+    <li>Le <strong>nom légal exact</strong> de la société, tel qu'il figure au registre du commerce.</li>
+    <li>Le <strong>numéro SIRET</strong> et une <strong>carte bancaire</strong>.</li>
+  </ul>
+
+  <ol class="steps">
+    <li>
+      <h3>Obtenir le numéro D-U-N-S</h3>
+      <p class="when">Gratuit · 5 à 14 jours ouvrés</p>
+      <ol class="inner">
+        <li>Ouvrir <a href="https://developer.apple.com/enroll/duns-lookup/">developer.apple.com/enroll/duns-lookup</a></li>
+        <li>Chercher la société par son nom. <strong>Si elle apparaît déjà, noter le numéro et passer directement à l'étape B.</strong></li>
+        <li>Sinon, faire la demande depuis cette page. Un courriel confirme l'attribution.</li>
+      </ol>
+      <div class="note"><strong>Piège fréquent :</strong> le nom et l'adresse rattachés au numéro doivent correspondre exactement au registre du commerce. Une correction demandée après coup coûte une semaine de plus.</div>
+    </li>
+    <li>
+      <h3>S'inscrire au programme développeur</h3>
+      <p class="when">99 € par an · 2 à 7 jours après le paiement</p>
+      <ol class="inner">
+        <li>Ouvrir <a href="https://developer.apple.com/programs/enroll/">developer.apple.com/programs/enroll</a></li>
+        <li>Choisir <strong>Company / Organization</strong>, et non Individual.</li>
+        <li>Renseigner le numéro D-U-N-S, le nom légal, l'adresse et le site web.</li>
+        <li>Indiquer votre fonction dans la société : Apple vérifie que vous pouvez l'engager.</li>
+        <li>Payer les 99 €.</li>
+      </ol>
+      <div class="note"><strong>Apple rappelle parfois au téléphone</strong> pour confirmer. Le numéro indiqué doit être joignable, sinon le dossier reste bloqué.</div>
+    </li>
+    <li>
+      <h3>Prévenir Ahmed quand le compte est actif</h3>
+      <p class="when">Le reste est prêt</p>
+      <p>Les captures d'écran, les pages légales et la page de support sont déjà faites. Il faudra seulement ajouter Ahmed comme membre de l'équipe dans App Store Connect pour qu'il publie l'application.</p>
+    </li>
+  </ol>
+
+  <p style="margin-top:18px"><strong>Google Play, en parallèle :</strong> 25 $ une seule fois, sans numéro D-U-N-S, validation en quelques jours. Inscription sur <a href="https://play.google.com/console/signup">play.google.com/console/signup</a>.</p>
+
+  <h2>2. Avoir l'application sur le téléphone, tout de suite</h2>
+  <p class="sub">Pas besoin d'attendre Apple.</p>
+
+  <h3>Le plus simple : le navigateur</h3>
+  <p>Ouvrir cette adresse sur le téléphone :</p>
+  <span class="url">https://contactorixiom-ai.github.io/am/app/</span>
+  <p>Puis l'ajouter à l'écran d'accueil pour qu'elle s'ouvre comme une application :</p>
+  <div class="two">
+    <div><h3>iPhone, dans Safari</h3><p>Bouton Partager (le carré avec une flèche), puis <strong>Sur l'écran d'accueil</strong>.</p></div>
+    <div><h3>Android, dans Chrome</h3><p>Menu (les trois points), puis <strong>Ajouter à l'écran d'accueil</strong>.</p></div>
+  </div>
+  <p class="limit" style="margin-top:12px">Tout fonctionne, sauf le suivi GPS écran verrouillé : un navigateur ne peut pas continuer à transmettre la position quand le téléphone est en veille.</p>
+
+  <h3 style="margin-top:26px">L'autre voie : Expo Go</h3>
+  <p>Pour voir l'application avec son comportement de vraie application mobile.</p>
+  <ol class="inner">
+    <li>Installer <strong>Expo Go</strong> depuis l'App Store ou le Play Store. C'est gratuit.</li>
+    <li>Ahmed lance le serveur de développement sur son ordinateur :
+      <span class="cmd">cd mobile
+npx expo start</span></li>
+    <li>Un <strong>QR code</strong> s'affiche. Sur iPhone, le scanner avec l'appareil photo. Sur Android, avec le bouton <em>Scan QR code</em> d'Expo Go.</li>
+  </ol>
+  <p class="limit">Le téléphone et l'ordinateur doivent être sur le même réseau Wi-Fi. Là non plus, pas de GPS écran verrouillé : pour l'essayer vraiment, il faut une version installée de l'application.</p>
+
+  <h2>3. Accéder à l'espace Axis</h2>
+  <p class="sub">Tableau de bord, prise de commande, documents, états des lieux.</p>
+  <ol class="inner">
+    <li>Créer un compte depuis l'application, avec l'adresse e-mail de votre choix.</li>
+    <li>Envoyer cette adresse à Ahmed : il passe le compte en administrateur, une seule fois.</li>
+    <li>L'espace apparaît ensuite dans <strong>Profil → Espace admin</strong>.</li>
+  </ol>
+
+  <h2>4. Au quotidien</h2>
+  <ol class="inner">
+    <li><strong>Nouvelle commande</strong> : une notification arrive. Dans <strong>Espace admin → Envois</strong>, chaque carte montre client, créneau, adresses, prix et règlement.</li>
+    <li><strong>Convoyeurs</strong> : valider leurs pièces dans l'onglet <strong>Convoyeurs</strong>. Seul un convoyeur validé peut être affecté.</li>
+    <li><strong>Encaisser</strong> : un client a payé par virement, espèces ou chèque ? Bouton <strong>Encaisser</strong> sur l'envoi. Il passe « payé » et la facture reçoit son numéro.</li>
+    <li><strong>Messages</strong> : Profil → Messages. Clients et convoyeurs écrivent à Axis depuis « Contacter Axis ».</li>
+    <li><strong>Alerte</strong> : un convoyeur arrêté plus de 5 minutes sans répondre déclenche une notification avec sa position.</li>
+  </ol>
+
+  <h2>5. Donner l'accès à un client pris au téléphone</h2>
+  <p class="sub">Sans ce lien, le client ne peut ni suivre son véhicule, ni signer, ni payer.</p>
+  <ol class="inner">
+    <li>Saisir la commande : <strong>Espace admin → Envois → Nouvelle commande de convoyage</strong>.</li>
+    <li>Pour un nouveau client, la fenêtre <strong>Accès client</strong> s'ouvre toute seule après l'enregistrement.</li>
+    <li>Toucher <strong>Envoyer par WhatsApp</strong> : le message est déjà rédigé. Sans numéro, <strong>Copier le message</strong> et l'envoyer par SMS ou e-mail.</li>
+    <li>Le client ouvre le lien, choisit son mot de passe et arrive directement dans son espace.</li>
+  </ol>
+  <p class="limit">Le lien est valable 7 jours et ne sert qu'une fois. Pour en renvoyer un, bouton <strong>Accès</strong> sur la mission du client. Un client qui a oublié son mot de passe peut aussi toucher « Mot de passe oublié ? » sur l'écran de connexion.</p>
+
+</main>
+
+<footer class="wrap">
+  <p>Pages déjà en ligne pour Apple : <a href="https://contactorixiom-ai.github.io/am/confidentialite.html">confidentialité</a> · <a href="https://contactorixiom-ai.github.io/am/cgu.html">conditions générales</a> · <a href="https://contactorixiom-ai.github.io/am/support.html">support</a></p>
+</footer>
+
+</body>
+</html>
