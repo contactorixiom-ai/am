@@ -32,8 +32,8 @@ export class QuotesController {
   @Public()
   @Post('estimate')
   @ApiOperation({ summary: 'Estimer un prix sans enregistrer de devis' })
-  estimate(@Body() dto: CreateQuoteDto) {
-    return this.quotes.estimate(dto);
+  estimate(@Body() dto: CreateQuoteDto, @Req() req: Request) {
+    return this.quotes.estimate(dto, req.user as AuthenticatedUser | undefined);
   }
 
   @ApiBearerAuth()

@@ -77,7 +77,7 @@ export function ParcelSizeScreen({ draft, onChange }: Props) {
           Décris ton colis
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-          Une photo et des dimensions précises = un prix fiable, pas de surprise au dépôt.
+          Un poids juste = un prix juste : s'il diffère au dépôt, Axis te préviendra avant d'expédier.
         </Text>
       </View>
 

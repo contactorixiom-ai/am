@@ -5,7 +5,7 @@ import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
-import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
+import { coverageLabel, hasInsurance, INSURANCE, OPERATIONS } from '../config/company';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
@@ -23,10 +23,10 @@ const SERVICES: {
   delay: string;
   enabled: boolean;
 }[] = [
-  { id: 'car',   IconComp: Icons.car,    title: 'Convoyage voiture',       sub: 'Particulier ou pro',           tag: 'Europe',   delay: '2-5 jours',  enabled: true },
-  { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Plateau ou roulé',             tag: 'Europe',   delay: '2-4 jours',  enabled: true },
-  { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: '< 30 kg, multi-points',        tag: 'Eur ⇄ Afr', delay: '5-10 jours', enabled: true },
-  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur ⇄ Afr', delay: '7-21 jours', enabled: true },
+  { id: 'car',   IconComp: Icons.car,    title: 'Convoyage voiture',       sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.car ?? '',   enabled: true },
+  { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.moto ?? '',  enabled: true },
+  { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: 'Cartons, valises, effets personnels', tag: 'Eur ⇄ Afr', delay: OPERATIONS.delays?.colis ?? '', enabled: true },
+  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur ⇄ Afr', delay: OPERATIONS.delays?.merch ?? '', enabled: true },
 ];
 
 export function ServicePickerScreen() {
@@ -136,7 +136,7 @@ export function ServicePickerScreen() {
                     <View style={{ flex: 1 }} />
                     <View style={{ flexDirection: 'row', gap: 6 }}>
                       <Pill tone="default">{s.tag}</Pill>
-                      <Pill tone="ghost">{s.delay}</Pill>
+                      {s.delay ? <Pill tone="ghost">{s.delay}</Pill> : null}
                     </View>
                     {!s.enabled && (
                       <View style={{ position: 'absolute', top: 10, right: 10 }}>

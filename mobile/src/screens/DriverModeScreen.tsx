@@ -73,7 +73,6 @@ export function DriverModeScreen() {
   // (affecté ou déjà démarré) et il choisit celle sur laquelle il travaille.
   const [missions, setMissions] = useState<MissionSummary[]>([]);
   const [missionId, setMissionId] = useState<string | null>(null);
-  const [missionIsDemo, setMissionIsDemo] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [missionLoading, setMissionLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
@@ -86,7 +85,6 @@ export function DriverModeScreen() {
       const mine = data.filter((m) => m.status === 'IN_PROGRESS' || m.status === 'ACCEPTED');
       if (mine.length > 0) {
         setMissions(mine);
-        setMissionIsDemo(false);
         setMissionId((prev) => {
           const wanted = keepId ?? prev;
           return wanted && mine.some((m) => m.id === wanted) ? wanted : mine[0].id;
@@ -97,7 +95,6 @@ export function DriverModeScreen() {
         // s'en rende compte.
         setMissions([]);
         setMissionId(null);
-        setMissionIsDemo(false);
       }
       setLoadError(null);
     } catch (e) {
@@ -132,10 +129,8 @@ export function DriverModeScreen() {
   const pausedRef = useRef(false);
   const lastPositionRef = useRef<PhonePosition | null>(null);
   const missionRef = useRef<MissionSummary | null>(null);
-  const missionIsDemoRef = useRef(false);
   pausedRef.current = paused;
   missionRef.current = mission;
-  missionIsDemoRef.current = missionIsDemo;
 
   const stationaryRef = useRef<StationaryWatch | null>(null);
   const geoWatchIdRef = useRef<number | null>(null);
@@ -176,14 +171,6 @@ export function DriverModeScreen() {
     pendingRef.current.push(point);
     if (pendingRef.current.length > PENDING_MAX) {
       pendingRef.current = pendingRef.current.slice(-PENDING_MAX);
-    }
-
-    if (missionIsDemoRef.current) {
-      // Démo : rien ne part sur le réseau, on compte localement.
-      pendingRef.current = [];
-      setSentCount((n) => n + 1);
-      setLastSentAt(new Date());
-      return;
     }
 
     // Flush du buffer dans l'ordre ; au premier échec on s'arrête en silence,
@@ -280,7 +267,7 @@ export function DriverModeScreen() {
       // 1. La tâche système : c'est elle qui transmet la position écran
       //    verrouillé, pendant tout le trajet.
       const m = missionRef.current;
-      if (m && !missionIsDemoRef.current) {
+      if (m) {
         startBackgroundTracking(m.id).then((res) => {
           if (res.ok) return;
           if (res.reason === 'denied-background') {
@@ -392,7 +379,7 @@ export function DriverModeScreen() {
     // ne peut pas partir, on le dit : croire à tort qu'on vient à son aide
     // serait pire que tout.
     try {
-      if (!m || missionIsDemoRef.current) throw new Error('Aucune mission');
+      if (!m) throw new Error('Aucune mission');
       await sendDriverAlert(m.id, { type: 'PROLONGED_STOP', latitude: pos?.latitude, longitude: pos?.longitude });
       notify('Alerte envoyée à Axis', 'L\'équipe Axis a reçu ta position et va tenter de te joindre.');
       toast.push({ kind: 'security', title: 'Alerte envoyée à Axis', body: 'Arrêt prolongé signalé — Axis te contacte.' });
@@ -450,7 +437,7 @@ export function DriverModeScreen() {
     : '—';
 
   // ─── État des lieux (départ / arrivée) rattachés à la mission courante ─────
-  const inspectionReference = mission?.reference ?? 'AX-DEMO';
+  const inspectionReference = mission?.reference ?? '';
   const inspectionVehicleLabel = mission
     ? `${mission.vehicle.make} ${mission.vehicle.model}${mission.vehicle.licensePlate ? ` · ${mission.vehicle.licensePlate}` : ''}`
     : 'Véhicule';
@@ -462,10 +449,6 @@ export function DriverModeScreen() {
   // la condition pour que les positions GPS soient acceptées.
   const advance = async (action: 'start' | 'deliver') => {
     if (!mission || advancing) return;
-    if (missionIsDemo) {
-      notify('Mode démonstration', 'Aucune mission réelle affectée : rien n\'est envoyé au serveur.');
-      return;
-    }
     setAdvancing(true);
     try {
       if (action === 'start') {
@@ -498,8 +481,7 @@ export function DriverModeScreen() {
   const openInspection = (phase: 'DÉPART' | 'ARRIVÉE') =>
     nav.navigate('VehicleInspection', {
       phase,
-      // missionIsDemo : pas de mission réelle, l'état des lieux reste local.
-      missionId: missionIsDemo ? undefined : mission?.id,
+      missionId: mission?.id,
       reference: inspectionReference,
       vehicleLabel: inspectionVehicleLabel,
       clientName: inspectionClientName,
@@ -509,7 +491,7 @@ export function DriverModeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
         title="Mode chauffeur"
-        subtitle={mission ? `${mission.reference} · ${mission.pickupCity} → ${mission.deliveryCity}` : 'Chargement de la mission…'}
+        subtitle={mission ? `${mission.reference} · ${mission.pickupCity} → ${mission.deliveryCity}` : missionLoading ? 'Chargement…' : 'Aucune mission en cours'}
       />
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}>
@@ -522,7 +504,6 @@ export function DriverModeScreen() {
               <Text style={{ fontSize: TYPO.sizes.label, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, flex: 1 }}>
                 {missions.length > 1 ? `Mes missions · ${missions.length}` : 'Ma mission'}
               </Text>
-              {missionIsDemo ? <Pill tone="gold">Démo</Pill> : null}
               {mission ? (
                 <Pill tone={mission.status === 'IN_PROGRESS' ? 'good' : 'navy'}>
                   {mission.status === 'IN_PROGRESS' ? 'En cours' : 'À démarrer'}
@@ -740,7 +721,7 @@ export function DriverModeScreen() {
             unit="km/h"
           />
           <StatTile
-            label={missionIsDemo ? 'Positions (démo)' : 'Positions envoyées'}
+            label="Positions envoyées"
             value={String(sentCount)}
             unit={pendingRef.current.length > 0 ? `${pendingRef.current.length} en attente` : undefined}
           />
@@ -761,7 +742,7 @@ export function DriverModeScreen() {
             onPress={() => {
               // Le serveur n'accepte les positions que sur une mission démarrée :
               // on le dit avant de lancer le GPS plutôt qu'après 15 s d'échecs.
-              if (mission && !missionIsDemo && mission.status !== 'IN_PROGRESS') {
+              if (mission && mission.status !== 'IN_PROGRESS') {
                 notify(
                   'Démarre d\'abord la mission',
                   'Appuie sur « Véhicule récupéré » : le suivi ne peut être transmis qu\'une fois le convoyage lancé.',

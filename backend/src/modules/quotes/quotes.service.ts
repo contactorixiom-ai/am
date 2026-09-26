@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { QuoteStatus } from '@prisma/client';
+import { QuoteStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { lookupCity } from '../../common/geocoding';
-import { haversineKm, roadKmFromHaversine } from '../../common/haversine';
+import { roadDistanceKm } from '../../common/road-distance';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
 
@@ -16,8 +16,8 @@ export class QuotesService {
   // Estimation en direct : même moteur de prix que create(), mais sans rien
   // écrire en base. Le client la voit se mettre à jour pendant qu'il remplit
   // le formulaire ; créer un devis à chaque frappe polluerait la table.
-  estimate(dto: CreateQuoteDto) {
-    const { distanceKm, computed } = this.price(dto);
+  async estimate(dto: CreateQuoteDto, user?: AuthenticatedUser) {
+    const { distanceKm, computed } = await this.price(dto, user);
     return {
       transportMode: computed.transportMode,
       pickupMode: computed.pickupMode,
@@ -38,7 +38,7 @@ export class QuotesService {
 
   // Géocodage, distance et tarification — la partie commune au devis
   // persisté et à l'estimation volatile.
-  private price(dto: CreateQuoteDto) {
+  private async price(dto: CreateQuoteDto, user?: AuthenticatedUser) {
     const fromGeo = (dto.fromLatitude != null && dto.fromLongitude != null)
       ? { latitude: dto.fromLatitude, longitude: dto.fromLongitude }
       : lookupCity(dto.fromCity);
@@ -46,9 +46,13 @@ export class QuotesService {
       ? { latitude: dto.toLatitude, longitude: dto.toLongitude }
       : lookupCity(dto.toCity);
 
-    let distanceKm = dto.distanceKm;
+    // La distance fait le prix : elle est calculée ici, jamais reprise de la
+    // requête (un « distanceKm: 1 » donnait un convoyage Paris → Lyon au
+    // forfait minimum). Seul Roger peut l'imposer, pour un trajet atypique.
+    const isAdmin = user?.role === UserRole.ADMIN;
+    let distanceKm: number | undefined = isAdmin ? dto.distanceKm : undefined;
     if (distanceKm == null && fromGeo && toGeo) {
-      distanceKm = roadKmFromHaversine(haversineKm(fromGeo, toGeo));
+      distanceKm = await roadDistanceKm(fromGeo, toGeo);
     }
 
     try {
@@ -71,37 +75,7 @@ export class QuotesService {
   }
 
   async create(dto: CreateQuoteDto, user?: AuthenticatedUser) {
-    // Auto-géocodage des villes si lat/lng absents
-    const fromGeo = (dto.fromLatitude != null && dto.fromLongitude != null)
-      ? { latitude: dto.fromLatitude, longitude: dto.fromLongitude }
-      : lookupCity(dto.fromCity);
-    const toGeo = (dto.toLatitude != null && dto.toLongitude != null)
-      ? { latitude: dto.toLatitude, longitude: dto.toLongitude }
-      : lookupCity(dto.toCity);
-
-    // Auto-calcul distance routière si non fournie
-    let distanceKm = dto.distanceKm;
-    if (distanceKm == null && fromGeo && toGeo) {
-      distanceKm = roadKmFromHaversine(haversineKm(fromGeo, toGeo));
-    }
-
-    let computed;
-    try {
-      computed = computeQuote({
-        service: dto.service,
-        transportMode: dto.transportMode,
-        pickupMode: dto.pickupMode,
-        distanceKm,
-        weightKg: dto.weightKg,
-        volumeM3: dto.volumeM3,
-        units: dto.units,
-        options: dto.options ?? [],
-        vehicleCategory: dto.vehicleCategory,
-        pickupDistanceKm: dto.pickupDistanceKm,
-      });
-    } catch (e) {
-      throw new BadRequestException(e instanceof Error ? e.message : 'Invalid quote input');
-    }
+    const { fromGeo, toGeo, distanceKm, computed } = await this.price(dto, user);
 
     const expiresAt = new Date(Date.now() + QUOTE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
 

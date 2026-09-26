@@ -41,6 +41,7 @@ import { SectionHead } from '../components/SectionHead';
 import { Skeleton } from '../components/Skeleton';
 import { StatusBadge } from '../components/StatusBadge';
 import { Surface } from '../components/Surface';
+import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import {
@@ -211,6 +212,7 @@ function prefillFromMission(m: MissionSummary): AdminValues {
 
 export function AdminScreen() {
   const { theme } = useTheme();
+  const { user: me } = useSession();
   const [tab, setTab] = useState<TabId>('dashboard');
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
@@ -597,7 +599,7 @@ export function AdminScreen() {
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Espace admin" subtitle="Gestion Roger · documents & envois" />
+      <AppBar title="Espace admin" subtitle="Axis Import · commandes, documents, encaissements" />
 
       {/* Onglets internes */}
       <ScrollView
@@ -697,10 +699,16 @@ export function AdminScreen() {
     setAssigning(true);
     try {
       const updated = await assignDriver(m.id, driverId);
-      setMissions((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...updated } : x)));
+      // La réponse d'affectation ne détaille pas le client : on garde celui
+      // de la liste (sinon son téléphone disparaissait de la carte).
+      setMissions((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...updated, client: x.client ?? updated.client } : x)));
       setAssignMission(null);
       const d = (drivers ?? []).find((x) => x.id === driverId);
-      notify('Convoyeur affecté', d ? `${m.reference} confié à ${d.firstName} ${d.lastName}.` : m.reference);
+      if (driverId === me?.id) {
+        notify('Mission pour toi', `${m.reference} apparaît dans Profil › Mode chauffeur (état des lieux, GPS, livraison).`);
+      } else {
+        notify('Convoyeur affecté', d ? `${m.reference} confié à ${d.firstName} ${d.lastName}.` : m.reference);
+      }
     } catch (e) {
       notify('Affectation impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
     } finally {
@@ -1051,6 +1059,25 @@ export function AdminScreen() {
                   />
                 ) : null}
 
+                {/* Roger peut conduire lui-même : la mission apparaît alors
+                    dans son « Mode chauffeur ». */}
+                {me ? (
+                  <Pressable
+                    disabled={assigning}
+                    onPress={() => confirmAssign(me.id)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: m.driver?.id === me.id ? theme.gold : theme.line, backgroundColor: m.driver?.id === me.id ? theme.gold + '18' : theme.surface, opacity: assigning ? 0.55 : 1 }}
+                  >
+                    <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.navy }}>
+                      <Icons.user size={16} color="#fff" stroke={1.8} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Je m'en charge moi-même</Text>
+                      <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>Via Profil › Mode chauffeur</Text>
+                    </View>
+                    {m.driver?.id === me.id ? <Pill tone="gold">Affecté</Pill> : <Icons.arrow size={16} color={theme.muted} stroke={1.8} />}
+                  </Pressable>
+                ) : null}
+
                 {drivers === null ? (
                   <Skeleton variant="card" count={3} />
                 ) : drivers.length === 0 ? (
@@ -1058,7 +1085,7 @@ export function AdminScreen() {
                     <EmptyState
                       iconKey="user"
                       title="Aucun convoyeur"
-                      subtitle="Ajoute d'abord des comptes convoyeurs pour pouvoir les affecter."
+                      subtitle="Les convoyeurs s'inscrivent depuis l'application (« Je suis chauffeur » sur l'écran d'accueil) : ils apparaîtront ici une fois inscrits."
                     />
                   </Surface>
                 ) : (

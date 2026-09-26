@@ -126,7 +126,7 @@ export function VehicleInspectionScreen() {
   // être rattaché à rien : il reste local et on le dit.
   const missionId = route.params?.missionId;
   const reference = route.params?.reference ?? '2026-2847-FE12';
-  const vehicleLabel = route.params?.vehicleLabel ?? 'BMW Série 3 · AX-2847';
+  const vehicleLabel = route.params?.vehicleLabel ?? 'Véhicule';
   const isArrival = phase === 'ARRIVÉE';
 
   const [step, setStep] = useState(0);

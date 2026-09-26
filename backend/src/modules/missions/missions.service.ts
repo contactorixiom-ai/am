@@ -11,6 +11,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
+import { haversineKm } from '../../common/haversine';
 import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
@@ -37,7 +38,7 @@ export class MissionsService {
     let currency: string | undefined;
     let distanceKm: number | undefined;
     if (dto.quoteId) {
-      const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
+      const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId }, include: { options: true } });
       if (!quote) throw new NotFoundException('Devis introuvable.');
       if (quote.service !== 'CONVOY_CAR' && quote.service !== 'CONVOY_MOTO') {
         throw new BadRequestException('Ce devis ne concerne pas un convoyage.');
@@ -48,6 +49,28 @@ export class MissionsService {
       if (quote.status === 'CONVERTED') throw new BadRequestException('Ce devis a déjà donné lieu à une commande.');
       if (quote.expiresAt < new Date()) {
         throw new BadRequestException('Ce devis a expiré. Refais une estimation pour obtenir le tarif du jour.');
+      }
+      // Le prix du devis ne vaut que pour son trajet : sans ce contrôle, un
+      // devis Paris → Lyon servait à commander un Paris → Madrid.
+      const far = (
+        q: { lat: number | null; lng: number | null },
+        m: { lat?: number; lng?: number },
+      ) => q.lat != null && q.lng != null && m.lat != null && m.lng != null
+        && haversineKm({ latitude: q.lat, longitude: q.lng }, { latitude: m.lat, longitude: m.lng }) > 40;
+      if (
+        far({ lat: quote.fromLatitude, lng: quote.fromLongitude }, { lat: dto.pickupLatitude, lng: dto.pickupLongitude }) ||
+        far({ lat: quote.toLatitude, lng: quote.toLongitude }, { lat: dto.deliveryLatitude, lng: dto.deliveryLongitude })
+      ) {
+        throw new BadRequestException(
+          `Le trajet ne correspond pas au devis (${quote.fromCity} → ${quote.toCity}). Refais une estimation pour ce trajet.`,
+        );
+      }
+      // Enlèvement le samedi ou le dimanche : le supplément doit figurer au devis.
+      const day = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'Europe/Paris' }).format(new Date(dto.pickupAt));
+      if ((day === 'Sat' || day === 'Sun') && !quote.options.some((o) => o.kind === 'WEEKEND_PICKUP')) {
+        throw new BadRequestException(
+          'Enlèvement un week-end : le devis doit inclure le supplément week-end. Refais une estimation avec cette date.',
+        );
       }
       priceCents = quote.totalCents;
       currency = quote.currency;

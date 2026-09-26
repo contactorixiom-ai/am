@@ -13,7 +13,7 @@ import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
-import { mapKindToApiCategory, useParcelDraft } from '../state/ParcelDraftContext';
+import { mapKindToApiCategory, PARCEL_KINDS, useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
@@ -262,7 +262,7 @@ export function RecipientDetailsScreen() {
               </Pill>
               <Pill tone="ghost">{`${quote.weightKg ?? parcelDraft.weightKg ?? '?'} kg`}</Pill>
               <Pill tone="ghost">{`${quote.fromCity} → ${quote.toCity}`}</Pill>
-              {parcelDraft.kind ? <Pill tone="ghost">{parcelDraft.kind}</Pill> : null}
+              {parcelDraft.kind ? <Pill tone="ghost">{PARCEL_KINDS.find((k) => k.value === parcelDraft.kind)?.label ?? parcelDraft.kind}</Pill> : null}
             </View>
           </Surface>
         </ScrollView>

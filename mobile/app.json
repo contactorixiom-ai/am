@@ -110,7 +110,15 @@
         "relayPoints": false,
         "dropOffAddress": "",
         "dropOffHours": "",
-        "homePickup": true
+        "homePickup": true,
+        "delays": {
+          "car": "",
+          "moto": "",
+          "colis": "",
+          "merch": "",
+          "air": "",
+          "sea": ""
+        }
       }
     },
     "icon": "./assets/icon.png",

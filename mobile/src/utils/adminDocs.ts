@@ -372,7 +372,7 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
       { key: 'docPackingList', label: 'Packing list jointe', type: 'boolean', half: true },
       { key: 'customsByAxis', label: 'Dédouanement export par Axis', type: 'boolean', half: true },
       { key: 'insuranceByAxis', label: 'Assurance transport par Axis', type: 'boolean', half: true },
-      { key: 'signatory', label: 'Signataire', half: true, placeholder: 'R. Diallo' },
+      { key: 'signatory', label: 'Signataire', half: true, placeholder: 'Nom du signataire' },
     ],
     defaults: (ctx) => ({
       number: ctx.reference,

@@ -158,6 +158,11 @@ export interface Operations {
   dropOffAddress: string;
   dropOffHours: string;
   homePickup: boolean;
+  /**
+   * Délais annoncés sur le choix du service (« 2-5 jours »…). Vides tant que
+   * Roger ne s'y est pas engagé : un délai affiché est une promesse.
+   */
+  delays: { car?: string; moto?: string; colis?: string; merch?: string; air?: string; sea?: string };
 }
 
 function operationsFromAppConfig(): Partial<Operations> {
@@ -176,5 +181,6 @@ export const OPERATIONS: Operations = {
   dropOffAddress: '',
   dropOffHours: '',
   homePickup: true,
+  delays: {},
   ...operationsFromAppConfig(),
 };

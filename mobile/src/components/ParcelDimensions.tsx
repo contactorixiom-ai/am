@@ -159,7 +159,7 @@ export function ParcelDimensions({ value, onChange, onPickPreset }: Props) {
             fontFamily: TYPO.weights.regular,
           }}
         >
-          Mesure le carton fermé. On utilise ces dimensions pour calculer le poids volumétrique.
+          Mesure le carton fermé : Axis s'en sert pour préparer le chargement. Le prix dépend du poids.
         </Text>
       </View>
     </View>

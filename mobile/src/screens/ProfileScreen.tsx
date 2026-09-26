@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Constants from 'expo-constants';
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
 import { fetchKycOverview } from '../api/kyc';
@@ -36,8 +37,8 @@ export function ProfileScreen() {
   }, [nav, user?.role]);
 
   // Le KYC exige un permis de conduire : il ne concerne que les convoyeurs.
-  // Un client qui envoie un colis n'a aucune raison de fournir le sien.
-  const isDriver = user?.role === 'DRIVER' || user?.role === 'ADMIN';
+  // Ni un client, ni Roger (qui valide les pièces des autres) n'en fournit.
+  const isDriver = user?.role === 'DRIVER';
 
   const handleLogout = () => {
     confirmAction('Déconnexion', 'Tu es sûr ?', () => logout(), 'Se déconnecter');
@@ -202,16 +203,18 @@ export function ProfileScreen() {
                 <MenuRow
                   iconKey="pin"
                   label="Mode chauffeur"
-                  sub="Suivi GPS, état des lieux, contrat"
+                  sub="Les missions que tu t'affectes : état des lieux, GPS"
                   onPress={() => nav.navigate('DriverMode')}
                 />
               ) : null}
-              <MenuRow
-                iconKey="car"
-                label="Mes pièces d'identité"
-                sub="Pièce d'identité et permis vérifiés par Axis"
-                onPress={() => nav.navigate('KycVerification')}
-              />
+              {isDriver ? (
+                <MenuRow
+                  iconKey="car"
+                  label="Mes pièces d'identité"
+                  sub="Pièce d'identité et permis vérifiés par Axis"
+                  onPress={() => nav.navigate('KycVerification')}
+                />
+              ) : null}
             </MenuSection>
           ) : null}
 
@@ -250,7 +253,7 @@ export function ProfileScreen() {
                 fontFamily: TYPO.weights.medium,
               }}
             >
-              Axis Import · v0.1.0
+              Axis Import · v{Constants.expoConfig?.version ?? '1.0.0'}
             </Text>
           </View>
         </View>

@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnApplicationBootstrap,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -31,10 +32,35 @@ import {
 } from './dto/cargo-note.dto';
 
 @Injectable()
-export class CustomsService {
+export class CustomsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CustomsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  // Les réglementations par pays (BSC, BESC, ECTN…) ne venaient que du script
+  // de démonstration, jamais lancé en production : la table restait vide et
+  // chaque fiche pays répondait 404. On insère au démarrage les pays
+  // manquants, sans toucher à ceux que Roger aurait modifiés.
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const res = await this.prisma.countryRegulation.createMany({
+        data: COUNTRY_REGULATIONS.map((reg) => ({
+          countryCode: reg.countryCode,
+          countryName: reg.countryName,
+          cargoTrackingType: reg.cargoTrackingType,
+          cargoMandatory: reg.cargoMandatory,
+          authority: reg.authority,
+          currency: reg.currency,
+          customsNotes: reg.customsNotes,
+          requiredDocuments: reg.requiredDocuments as unknown as Prisma.InputJsonValue,
+        })),
+        skipDuplicates: true,
+      });
+      if (res.count > 0) this.logger.log(`${res.count} fiche(s) pays de réglementation douanière ajoutée(s).`);
+    } catch (err) {
+      this.logger.warn(`Réglementations douanières non initialisées : ${(err as Error).message}`);
+    }
+  }
 
   // ─── CountryRegulation CRUD ──────────────────────────────────────────────
 

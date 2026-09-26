@@ -173,7 +173,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
               Contient des objets fragiles
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-              Manutention renforcée + sticker rouge
+              Signalé à Axis pour une manutention adaptée
             </Text>
           </View>
         </Pressable>

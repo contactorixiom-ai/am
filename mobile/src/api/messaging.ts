@@ -28,6 +28,8 @@ export interface ConversationUser {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  role?: string;
+  phone?: string | null;
 }
 
 export interface ConversationParticipant {
@@ -137,6 +139,21 @@ export function conversationTitle(conv: ConversationSummary, myUserId?: string):
       .join(', ') || fallbackTitle(conv.type);
   }
   return fallbackTitle(conv.type);
+}
+
+/**
+ * Numéro à appeler depuis le fil : le standard d'Axis pour le client en
+ * support, le client pour Roger, l'autre partie (client ou convoyeur) sur un
+ * dossier. Jamais le numéro personnel d'un administrateur.
+ */
+export function conversationPhone(conv: ConversationSummary, myUserId: string | undefined, axisPhone: string): string | null {
+  const me = conv.participants?.find((p) => p.userId === myUserId);
+  const iAmAdmin = me?.user?.role === 'ADMIN';
+  if (conv.type === 'SUPPORT' && !iAmAdmin) return axisPhone.trim() || null;
+  const other = conv.participants?.find(
+    (p) => p.userId !== myUserId && p.user?.role !== 'ADMIN' && p.user?.phone,
+  );
+  return other?.user?.phone ?? null;
 }
 
 function fallbackTitle(type: ConversationType): string {

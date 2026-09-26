@@ -12,7 +12,7 @@ import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/mission
 import { AppBar } from '../components/AppBar';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
-import { coverageLabel, hasInsurance, INSURANCE } from '../config/company';
+import { coverageLabel, hasInsurance, INSURANCE, OPERATIONS } from '../config/company';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
@@ -35,6 +35,12 @@ export function QuoteReviewScreen() {
 
   const isConvoy = quote.service === 'CONVOY_CAR' || quote.service === 'CONVOY_MOTO';
   const isParcel = quote.service === 'PARCEL' || quote.service === 'MERCHANDISE';
+  // Pas de conseil vers un point relais qu'Axis ne propose pas, ni vers une
+  // assurance tant qu'aucune police n'est renseignée.
+  const visibleHints = (quote.hints ?? []).filter((h) =>
+    (h.kind !== 'CHEAPER_AT_RELAY' || OPERATIONS.relayPoints) &&
+    (h.kind !== 'INSURANCE_RECOMMENDED' || hasInsurance()),
+  );
   const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
 
   const [booking, setBooking] = useState(false);
@@ -294,7 +300,7 @@ export function QuoteReviewScreen() {
                 <Stat
                   label="Transport"
                   value={quote.transportMode === 'AIR' ? '✈️ Aérien' : '🚢 Maritime'}
-                  sub={quote.transportMode === 'AIR' ? '5-10 j' : '30-45 j'}
+                  sub={(quote.transportMode === 'AIR' ? OPERATIONS.delays?.air : OPERATIONS.delays?.sea) || undefined}
                 />
               ) : null}
               {isParcel ? (
@@ -474,11 +480,11 @@ export function QuoteReviewScreen() {
         </View>
 
         {/* Smart hints (conseils maritime/aérien/relais) — propres aux colis */}
-        {isParcel && quote.hints && quote.hints.length > 0 ? (
+        {isParcel && visibleHints.length > 0 ? (
           <View>
             <SectionHead title="Conseils Axis" />
             <View style={{ gap: 10 }}>
-              {quote.hints.map((h, i) => (
+              {visibleHints.map((h, i) => (
                 <HintCard key={i} hint={h} />
               ))}
             </View>

@@ -323,7 +323,7 @@ function computeHints(input: HintInput): QuoteHint[] {
     hints.push({
       kind: 'SAVE_WITH_SEA',
       label: `Économise ~${savePct} % en maritime`,
-      detail: `Pour ${input.weightKg} kg, le maritime coûte environ ${savePct} % de moins. Délai : 30-45 jours.`,
+      detail: `Pour ${input.weightKg} kg, le maritime coûte environ ${savePct} % de moins, pour un acheminement plus long.`,
     });
   }
 
@@ -332,7 +332,7 @@ function computeHints(input: HintInput): QuoteHint[] {
     hints.push({
       kind: 'FAST_WITH_AIR',
       label: 'Pour ce petit colis, l\'aérien est conseillé',
-      detail: 'En dessous de 5 kg, la différence de prix avec l\'aérien est minime et tu reçois en 5-10 jours.',
+      detail: 'En dessous de 5 kg, la différence de prix avec l\'aérien est minime et l\'acheminement bien plus rapide.',
     });
   }
 

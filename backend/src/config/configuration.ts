@@ -92,5 +92,14 @@ export default () => ({
     currency: process.env.STRIPE_CURRENCY ?? 'eur',
   },
 
-  logLevel: process.env.LOG_LEVEL ?? 'info',
+  logLevel: pinoLevel(process.env.LOG_LEVEL),
 });
+
+// pino refuse de démarrer sur un niveau inconnu (« log », « verbose »… sont
+// des niveaux Nest) : une variable mal choisie sur Railway couperait l'API.
+function pinoLevel(raw: string | undefined): string {
+  const v = (raw ?? '').trim().toLowerCase();
+  const aliases: Record<string, string> = { log: 'info', verbose: 'debug', warning: 'warn' };
+  const level = aliases[v] ?? v;
+  return ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'].includes(level) ? level : 'info';
+}

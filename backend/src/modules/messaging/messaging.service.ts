@@ -20,7 +20,7 @@ export class MessagingService {
         skip,
         take,
         include: {
-          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } } } },
+          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true, phone: true } } } },
           mission: { select: { id: true, reference: true, status: true } },
           messages: { take: 1, orderBy: { createdAt: 'desc' } },
         },
@@ -73,7 +73,7 @@ export class MessagingService {
     return this.prisma.conversation.findUnique({
       where: { id: conv.id },
       include: {
-        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } } } },
+        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true, phone: true } } } },
         mission: true,
       },
     });

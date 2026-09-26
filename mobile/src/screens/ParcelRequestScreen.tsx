@@ -12,6 +12,7 @@ import { ParcelWizard } from '../components/ParcelWizard';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
+import { OPERATIONS } from '../config/company';
 import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
@@ -298,7 +299,7 @@ function StepTrajet() {
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Aérien</Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
-              Rapide · 5-10 jours · dès 8,50 €/kg
+              Rapide{OPERATIONS.delays?.air ? ` · ${OPERATIONS.delays.air}` : ''} · dès 8,50 €/kg
             </Text>
           </Pressable>
           <Pressable
@@ -319,7 +320,7 @@ function StepTrajet() {
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Maritime</Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
-              Économique · 28-45 jours · dès 4,50 €/kg
+              Économique{OPERATIONS.delays?.sea ? ` · ${OPERATIONS.delays.sea}` : ''} · dès 4,50 €/kg
             </Text>
           </Pressable>
         </View>
@@ -328,28 +329,22 @@ function StepTrajet() {
   );
 }
 
-// ─── Heuristique d'éligibilité par pays ────────────────────────────────────
+// ─── Délais et remarques par destination ────────────────────────────────────
+// Les délais par pays affichés auparavant (« Sénégal — aérien 5-7 j,
+// maritime 28 j »…) n'avaient été validés par personne : on n'affiche que
+// ceux renseignés dans app.json (extra.operations.delays.air / .sea).
 function computeEligibility(countryCode?: string): { headline: string; detail: string } {
   const c = (countryCode ?? '').toUpperCase();
-  // Délais indicatifs seulement. Les « hubs » et zones de livraison par pays
-  // annoncés auparavant (Hub Dakar, 14 villes…) n'étaient pas vérifiés.
-  const DETAIL = 'Délais indicatifs, confirmés par Axis à la prise en charge. Livraison à l\'adresse indiquée ou remise convenue avec le destinataire.';
-  const map: Record<string, { headline: string; detail: string }> = {
-    SN: { headline: 'Sénégal — aérien 5-7 j, maritime 28 j', detail: DETAIL },
-    CI: { headline: "Côte d'Ivoire — aérien 5-7 j, maritime 30 j", detail: DETAIL },
-    CM: { headline: 'Cameroun — aérien 6-8 j, maritime 32 j', detail: DETAIL },
-    BJ: { headline: 'Bénin — aérien 6-8 j, maritime 30 j', detail: DETAIL },
-    TG: { headline: 'Togo — aérien 6-8 j, maritime 28 j', detail: DETAIL },
-    GA: { headline: 'Gabon — aérien 7-9 j, maritime 35 j', detail: DETAIL },
-    CD: { headline: 'RDC — aérien 7-10 j, maritime 38 j', detail: DETAIL },
-    BF: { headline: 'Burkina Faso — aérien 6-8 j', detail: 'Pays sans façade maritime : envoi aérien uniquement. ' + DETAIL },
-    ML: { headline: 'Mali — aérien 6-8 j', detail: 'Pays sans façade maritime : envoi aérien uniquement. ' + DETAIL },
+  const air = OPERATIONS.delays?.air;
+  const sea = OPERATIONS.delays?.sea;
+  const landlocked = c === 'BF' || c === 'ML' || c === 'NE' || c === 'TD' || c === 'CF';
+  const parts = [air ? `aérien ${air}` : null, sea && !landlocked ? `maritime ${sea}` : null].filter(Boolean);
+  const headline = parts.length > 0
+    ? `Délais indicatifs : ${parts.join(', ')}`
+    : 'Délai confirmé par Axis à la prise en charge';
+  const base = 'Livraison à l\'adresse indiquée ou remise convenue avec le destinataire.';
+  return {
+    headline,
+    detail: landlocked ? `Pays sans façade maritime : l'aérien est le plus simple. ${base}` : base,
   };
-
-  return (
-    map[c] ?? {
-      headline: 'Couverture standard',
-      detail: 'Aérien 5-10 j ou maritime 28-45 j selon le port. Délais indicatifs, confirmés par Axis.',
-    }
-  );
 }

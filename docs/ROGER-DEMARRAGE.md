@@ -178,10 +178,27 @@ rubrique `extra.operations` :
 - `relayPoints` : laisser à `false` tant qu'il n'y a pas de contrat avec un
   réseau de points relais (Mondial Relay, La Poste…) et ses étiquettes.
 - `homePickup` : enlèvement à domicile proposé ou non.
+- `delays` : délais affichés au client (`car`, `moto`, `colis`, `merch` sur
+  le choix du service ; `air`, `sea` sur l'envoi de colis), par exemple
+  `"air": "5-10 jours"`. Vide = aucun délai affiché : un délai est une
+  promesse, seul Roger peut s'y engager.
+
+La date d'arrivée d'un colis n'est plus calculée d'office : le client ne voit
+une date que lorsque Roger la saisit (*Espace admin → Envois*).
+
+Le prix d'un convoyage suit la distance **routière réelle** (service OSRM),
+calculée par le serveur : un devis ne vaut que pour son trajet, et un
+enlèvement le week-end doit inclure le supplément.
 
 L'assurance (`extra.insurance`) n'apparaît nulle part tant qu'elle n'est pas
 renseignée, et l'option « Garantie étendue » n'est proposée qu'avec une
 police réelle.
+
+## Conduire soi-même une mission
+
+*Espace admin → Envois → Affecter* : **« Je m'en charge moi-même »**. La
+mission apparaît alors dans *Profil → Mode chauffeur* (état des lieux, suivi
+GPS, livraison), exactement comme pour un convoyeur.
 
 ## Donner l'accès à un client pris au téléphone
 

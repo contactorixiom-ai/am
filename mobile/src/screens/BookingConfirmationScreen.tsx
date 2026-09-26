@@ -219,7 +219,6 @@ export function BookingConfirmationScreen() {
                 }}
               >
                 Présente ce code lors du dépôt de ton colis.
-                {'\n'}Valide 14 jours.
               </Text>
             </View>
           </Surface>

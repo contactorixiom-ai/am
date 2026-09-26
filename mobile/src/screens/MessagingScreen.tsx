@@ -1,9 +1,10 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import {
   ApiMessage,
+  conversationPhone,
   conversationSubtitle,
   conversationTitle,
   getConversation,
@@ -14,6 +15,7 @@ import {
   sendMessage,
 } from '../api/messaging';
 import { AppBar } from '../components/AppBar';
+import { COMPANY } from '../config/company';
 import { Avatar } from '../components/Avatar';
 import { Icons } from '../components/Icons';
 import { Skeleton } from '../components/Skeleton';
@@ -35,7 +37,19 @@ interface Msg {
   createdAt?: string;
 }
 
-const QUICK_REPLIES = ['Merci 🙏', 'Tout va bien ?', 'Préviens 10 min avant', 'Photos arrivée svp'];
+// Réponses rapides selon qui écrit : le convoyeur annonce, le client
+// demande, Roger répond.
+function quickReplies(role: string | undefined, support: boolean): string[] {
+  if (role === 'ADMIN') return ['Bien reçu, je regarde', 'Je vous rappelle', 'C\'est réglé 👍'];
+  if (role === 'DRIVER') {
+    return support
+      ? ['Merci 🙏', 'J\'ai une question sur une mission', 'Pouvez-vous me rappeler ?']
+      : ['Bien reçu 👍', 'Je suis en route', 'J\'arrive dans 10 min', 'Véhicule livré'];
+  }
+  return support
+    ? ['Merci 🙏', 'J\'ai une question sur ma commande', 'Pouvez-vous me rappeler ?']
+    : ['Merci 🙏', 'Tout va bien ?', 'Préviens 10 min avant', 'Photos arrivée svp'];
+}
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -84,8 +98,10 @@ export function MessagingScreen() {
   const [unavailableReason, setUnavailableReason] = useState<string>(
     'La conversation s\'ouvrira dès qu\'Axis aura affecté un convoyeur à ce dossier.',
   );
-  const [title, setTitle] = useState(params.driverName ?? 'Karim Diallo');
-  const [subtitle, setSubtitle] = useState(params.subtitle ?? (conversationId ? 'Conversation' : 'En route · AX-2847'));
+  const [title, setTitle] = useState(params.driverName ?? 'Conversation');
+  const [subtitle, setSubtitle] = useState(params.subtitle ?? '');
+  const [phone, setPhone] = useState<string | null>(null);
+  const [convType, setConvType] = useState<string | null>(null);
 
   // Live : messages confirmés serveur (ordre chronologique) + envois en cours.
   const [serverMessages, setServerMessages] = useState<ApiMessage[]>([]);
@@ -190,6 +206,8 @@ export function MessagingScreen() {
         knownIdsRef.current = new Set(asc.map((m) => m.id));
         setTitle(params.driverName ?? conversationTitle(conv, myId));
         setSubtitle(params.subtitle ?? conversationSubtitle(conv) ?? 'Conversation');
+        setPhone(conversationPhone(conv, myId, COMPANY.phone));
+        setConvType(conv.type);
         setMode('live');
         // Marquer lu à l'ouverture (fire-and-forget).
         markRead(conversationId).catch(() => {});
@@ -297,10 +315,26 @@ export function MessagingScreen() {
       <AppBar
         title={title}
         subtitle={mode === 'loading' ? 'Chargement…' : subtitle}
-        leading={<Avatar name={title} size={36} tone="gold" />}
-        trailing={
+        leading={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Pressable
+              onPress={() => (nav.canGoBack() ? nav.goBack() : nav.navigate('AppTabs' as never))}
+              accessibilityLabel="Retour"
+              style={({ pressed }) => ({
+                width: 36, height: 36, borderRadius: 10,
+                backgroundColor: pressed ? theme.line : theme.bgSoft,
+                alignItems: 'center', justifyContent: 'center',
+              })}
+            >
+              <Icons.arrowL size={18} color={theme.ink} stroke={1.6} />
+            </Pressable>
+            <Avatar name={title} size={36} tone="gold" />
+          </View>
+        }
+        trailing={phone ? (
           <Pressable
-            onPress={() => nav.goBack()}
+            onPress={() => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => undefined)}
+            accessibilityLabel={`Appeler ${title}`}
             style={({ pressed }) => ({
               width: 36, height: 36, borderRadius: 10,
               backgroundColor: pressed ? theme.line : theme.bgSoft,
@@ -309,7 +343,7 @@ export function MessagingScreen() {
           >
             <Icons.phone size={18} color={theme.ink} stroke={1.8} />
           </Pressable>
-        }
+        ) : undefined}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -363,7 +397,7 @@ export function MessagingScreen() {
               {/* Réponses rapides — uniquement sur un fil réel. */}
               {mode === 'live' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                {(params.subtitle === 'Support' ? ['Merci 🙏', 'J\'ai une question sur ma commande', 'Pouvez-vous me rappeler ?'] : QUICK_REPLIES).map((q) => (
+                {quickReplies(user?.role, convType === 'SUPPORT' || params.subtitle === 'Support').map((q) => (
                   <Pressable key={q} onPress={() => send(q)}>
                     <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface }}>
                       <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.medium }}>{q}</Text>

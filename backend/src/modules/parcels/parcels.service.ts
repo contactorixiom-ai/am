@@ -9,23 +9,9 @@ import { AddParcelEventDto } from './dto/parcel-event.dto';
 
 // Délais de bout en bout annoncés au client au moment du devis. On retient la
 // borne haute : mieux vaut livrer en avance qu'annoncer une date qu'on rate.
-const TRANSIT_DAYS: Record<string, number> = {
-  AIR: 10,
-  SEA: 45,
-};
-
-// Jours restants une fois le colis engagé : à partir de ces étapes, la date
-// d'arrivée ne dépend plus du mode de transport mais de l'avancement réel.
-const REMAINING_DAYS: Partial<Record<ParcelStatus, number>> = {
-  CUSTOMS: 5,
-  OUT_FOR_DELIVERY: 1,
-};
-
-function addDays(from: Date, days: number): Date {
-  const d = new Date(from);
-  d.setDate(d.getDate() + days);
-  return d;
-}
+// Pas de date d'arrivée calculée d'office (+10 j aérien, +45 j maritime,
+// +5 j en douane…) : c'était une promesse que personne n'avait faite. Le client
+// ne voit une date que lorsque Roger la saisit dans l'espace admin.
 
 // Titres lisibles par l'expéditeur, alignés sur le pipeline de l'espace admin.
 const PARCEL_STATUS_LABEL: Partial<Record<ParcelStatus, string>> = {
@@ -93,6 +79,19 @@ export class ParcelsService {
       if (quote.expiresAt < new Date()) {
         throw new BadRequestException('Ce devis a expiré. Refais une estimation pour obtenir le tarif du jour.');
       }
+      // Le prix vaut pour ce que le devis décrit : même destination, même
+      // mode, et pas plus lourd (sinon un devis 2 kg servait pour 30 kg).
+      if (quote.toCountry && quote.toCountry !== dto.destinationCountry.toUpperCase()) {
+        throw new BadRequestException('La destination ne correspond pas au devis. Refais une estimation.');
+      }
+      if (dto.transportMode && quote.transportMode !== 'ROAD' && dto.transportMode !== quote.transportMode) {
+        throw new BadRequestException('Le mode de transport ne correspond pas au devis. Refais une estimation.');
+      }
+      if (quote.weightKg != null && dto.weightKg > quote.weightKg + 0.001) {
+        throw new BadRequestException(
+          `Le poids déclaré (${dto.weightKg} kg) dépasse celui du devis (${quote.weightKg} kg). Refais une estimation.`,
+        );
+      }
       priceCents = quote.totalCents;
       await this.prisma.quote.update({ where: { id: quote.id }, data: { status: 'CONVERTED', customerId: senderId } });
     }
@@ -102,16 +101,10 @@ export class ParcelsService {
       ? ParcelStatus.AWAITING_PICKUP
       : ParcelStatus.AWAITING_DROP_OFF;
 
-    // Date d'arrivée prévue : le client attend plusieurs semaines pour un
-    // envoi maritime, il lui faut une date dès la commande.
-    const transitDays = TRANSIT_DAYS[dto.transportMode ?? 'AIR'] ?? TRANSIT_DAYS.AIR;
-    const estimatedDelivery = addDays(new Date(), transitDays);
-
     const parcel = await this.prisma.parcel.create({
       data: {
         senderId,
         priceCents,
-        estimatedDelivery,
         reference: this.generateReference(),
         status: initialStatus,
         category: dto.category,
@@ -243,15 +236,8 @@ export class ParcelsService {
         notes: dto.notes,
       },
     });
-    // Date d'arrivée : Roger peut la corriger, sinon on la resserre à partir
-    // des étapes où elle ne dépend plus du mode de transport.
-    let estimatedDelivery: Date | undefined;
-    if (dto.estimatedDelivery) {
-      estimatedDelivery = new Date(dto.estimatedDelivery);
-    } else {
-      const remaining = REMAINING_DAYS[dto.status];
-      if (remaining != null) estimatedDelivery = addDays(new Date(), remaining);
-    }
+    // Date d'arrivée : uniquement celle que Roger saisit.
+    const estimatedDelivery = dto.estimatedDelivery ? new Date(dto.estimatedDelivery) : undefined;
 
     const updated = await this.prisma.parcel.update({
       where: { id },
