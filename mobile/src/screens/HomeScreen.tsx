@@ -454,7 +454,7 @@ export function HomeScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => nav.navigate('VehicleDocs')}
+              onPress={() => nav.navigate('KycVerification')}
               style={({ pressed }) => ({
                 flex: 1,
                 borderWidth: 1,
@@ -474,10 +474,10 @@ export function HomeScreen() {
                   fontFamily: TYPO.weights.semibold,
                 }}
               >
-                Documents{'\n'}véhicule
+                Mes pièces{'\n'}d'identité
               </Text>
               <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
-                Carte grise · CT · assurance
+                Pièce d'identité · permis
               </Text>
             </Pressable>
           </View>

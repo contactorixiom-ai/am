@@ -208,9 +208,9 @@ export function ProfileScreen() {
               ) : null}
               <MenuRow
                 iconKey="car"
-                label="Documents véhicule"
-                sub="Carte grise, contrôle technique, assurance"
-                onPress={() => nav.navigate('VehicleDocs')}
+                label="Mes pièces d'identité"
+                sub="Pièce d'identité et permis vérifiés par Axis"
+                onPress={() => nav.navigate('KycVerification')}
               />
             </MenuSection>
           ) : null}
