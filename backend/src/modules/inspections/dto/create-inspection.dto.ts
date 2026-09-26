@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +34,10 @@ export class DamagePointDto {
   @ApiProperty({ enum: ['R', 'F', 'E', 'C', 'M'], description: 'Rayure, Fissure, Enfoncement, Cassé, Manquant' })
   @IsIn(['R', 'F', 'E', 'C', 'M'])
   code!: 'R' | 'F' | 'E' | 'C' | 'M';
+
+  @ApiPropertyOptional({ description: 'Moto : zone touchée (réservoir, flanc gauche…).' })
+  @IsOptional() @IsString() @MaxLength(40)
+  zone?: string;
 }
 
 export class CreateInspectionDto {

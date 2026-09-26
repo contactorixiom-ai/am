@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import React, { useRef, useState } from 'react';
+import { GestureResponderEvent, Image, LayoutChangeEvent, Platform, Pressable, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
+import { MOTO_ZONES, SKETCHES, SketchKind } from '../utils/vehicleViews';
 
 export type ViewKey = 'top' | 'front' | 'rear' | 'left' | 'right';
 export type DamageCode = 'R' | 'F' | 'E' | 'C' | 'M';
@@ -9,9 +9,12 @@ export type DamageCode = 'R' | 'F' | 'E' | 'C' | 'M';
 export interface Damage {
   id: string;
   view: ViewKey;
-  x: number; // 0..1
-  y: number; // 0..1
+  /** Position relative à la vue (0..1), identique sur le contrat PDF. */
+  x: number;
+  y: number;
   code: DamageCode;
+  /** Moto : zone touchée (pas de planche). */
+  zone?: string;
   note?: string;
   photo?: boolean;
   /** URI de la photo jointe au dommage (preuve en cas de litige). */
@@ -26,162 +29,188 @@ export const DAMAGE_META: Record<DamageCode, { label: string; color: string }> =
   M: { label: 'Manquant', color: '#8E5BAE' },
 };
 
+export const VIEW_CAPTION: Record<ViewKey, string> = {
+  top: 'Vue de dessus · avant à gauche',
+  left: 'Côté gauche (conducteur)',
+  right: 'Côté droit (passager)',
+  front: 'Face avant',
+  rear: 'Face arrière',
+};
+
 interface Props {
+  kind: SketchKind;
   view: ViewKey;
   damages: Damage[];
-  onAdd: (x: number, y: number) => void;
+  onAdd: (x: number, y: number, zone?: string) => void;
   onMarkerPress?: (id: string) => void;
   height?: number;
 }
 
-// Diagramme véhicule minimaliste, multi-vues, tappable pour placer un repère
-// de dommage. Trait épuré navy, cohérent avec le design de l'app.
-export function VehicleDiagram({ view, damages, onAdd, onMarkerPress, height = 240 }: Props) {
+const PAD = 14;
+const HINT_H = 34;
+const CAPTION_H = 26;
+
+// Planche technique découpée par vue (la même que sur le contrat PDF). Le
+// convoyeur touche l'endroit abîmé ; le repère est placé en coordonnées de la
+// vue, donc au même endroit sur le PDF.
+export function VehicleDiagram({ kind, view, damages, onAdd, onMarkerPress, height = 280 }: Props) {
   const { theme } = useTheme();
   const [box, setBox] = useState({ w: 0, h: height });
+  const ref = useRef<View>(null);
+
+  if (kind === 'moto') {
+    return <MotoZones damages={damages} onAdd={onAdd} />;
+  }
+
+  const sketch = SKETCHES[kind];
+  const crop = sketch.views[view];
+  const availW = Math.max(0, box.w - PAD * 2);
+  const availH = Math.max(0, box.h - CAPTION_H - HINT_H - PAD);
+  const scale = box.w ? Math.min(availW / crop.w, availH / crop.h) : 0;
+  const rect = {
+    w: crop.w * scale,
+    h: crop.h * scale,
+    left: (box.w - crop.w * scale) / 2,
+    top: CAPTION_H + (availH - crop.h * scale) / 2,
+  };
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height: h } = e.nativeEvent.layout;
     setBox({ w: width, h });
   };
 
-  const handlePress = (e: { nativeEvent: { locationX: number; locationY: number } }) => {
-    if (!box.w || !box.h) return;
-    const x = Math.min(1, Math.max(0, e.nativeEvent.locationX / box.w));
-    const y = Math.min(1, Math.max(0, e.nativeEvent.locationY / box.h));
-    onAdd(x, y);
+  // Position du toucher dans le cadre. Sur le web, locationX n'est pas
+  // fiable (relatif à l'élément touché, parfois absent) : on part des
+  // coordonnées de page et du rectangle du cadre.
+  const pointIn = (e: GestureResponderEvent): { x: number; y: number } | null => {
+    const ne = e.nativeEvent as unknown as { locationX?: number; locationY?: number; pageX?: number; pageY?: number; clientX?: number; clientY?: number };
+    if (Platform.OS === 'web') {
+      const el = ref.current as unknown as { getBoundingClientRect?: () => { left: number; top: number } } | null;
+      const r = el?.getBoundingClientRect?.();
+      const cx = ne.clientX ?? (ne.pageX != null ? ne.pageX - (typeof window !== 'undefined' ? window.scrollX : 0) : undefined);
+      const cy = ne.clientY ?? (ne.pageY != null ? ne.pageY - (typeof window !== 'undefined' ? window.scrollY : 0) : undefined);
+      if (r && cx != null && cy != null) return { x: cx - r.left, y: cy - r.top };
+    }
+    if (Number.isFinite(ne.locationX) && Number.isFinite(ne.locationY)) return { x: ne.locationX as number, y: ne.locationY as number };
+    return null;
   };
 
-  const stroke = theme.navy;
-  const soft = theme.line;
+  const handlePress = (e: GestureResponderEvent) => {
+    if (!rect.w || !rect.h) return;
+    const pt = pointIn(e);
+    if (!pt) return;
+    const rx = (pt.x - rect.left) / rect.w;
+    const ry = (pt.y - rect.top) / rect.h;
+    // Un toucher hors du dessin (marges) n'est pas un dommage.
+    if (!Number.isFinite(rx) || !Number.isFinite(ry) || rx < -0.03 || rx > 1.03 || ry < -0.03 || ry > 1.03) return;
+    onAdd(Math.min(1, Math.max(0, rx)), Math.min(1, Math.max(0, ry)));
+  };
 
   return (
-    <Pressable onPress={handlePress} onLayout={onLayout} style={{ height, borderRadius: 14, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.line, overflow: 'hidden' }}>
-      <Svg width="100%" height="100%" viewBox="0 0 200 240" preserveAspectRatio="xMidYMid meet">
-        {view === 'top' && <CarTop stroke={stroke} soft={soft} />}
-        {view === 'front' && <CarFront stroke={stroke} soft={soft} />}
-        {view === 'rear' && <CarRear stroke={stroke} soft={soft} />}
-        {view === 'left' && <CarSide stroke={stroke} soft={soft} flip={false} />}
-        {view === 'right' && <CarSide stroke={stroke} soft={soft} flip />}
-      </Svg>
+    <Pressable
+      ref={ref}
+      onPress={handlePress}
+      onLayout={onLayout}
+      style={{ height, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: theme.line, overflow: 'hidden' }}
+    >
+      <View pointerEvents="none" style={{ position: 'absolute', top: 10, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: 11, color: '#6B7686', fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+          {kind === 'van' && view === 'top' ? 'Vue de dessus · avant en haut' : VIEW_CAPTION[view]}
+        </Text>
+        {damages.length > 0 ? (
+          <Text style={{ fontSize: 11, color: '#6B7686', fontWeight: '700' }}>
+            {damages.length} repère{damages.length > 1 ? 's' : ''}
+          </Text>
+        ) : null}
+      </View>
 
-      {/* Marqueurs overlay */}
-      {damages.map((d, i) => (
-        <Pressable
-          key={d.id}
-          onPress={() => onMarkerPress?.(d.id)}
-          style={{
-            position: 'absolute',
-            left: d.x * box.w - 11,
-            top: d.y * box.h - 11,
-            width: 22,
-            height: 22,
-            borderRadius: 11,
-            backgroundColor: DAMAGE_META[d.code].color,
-            borderWidth: 2,
-            borderColor: '#fff',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+      {scale > 0 ? (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', left: rect.left, top: rect.top, width: rect.w, height: rect.h, overflow: 'hidden' }}
         >
-          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{d.code}</Text>
-          {d.photo ? (
-            <View style={{ position: 'absolute', right: -3, top: -3, width: 9, height: 9, borderRadius: 5, backgroundColor: theme.navy, borderWidth: 1, borderColor: '#fff' }} />
-          ) : null}
-        </Pressable>
-      ))}
+          <Image
+            source={{ uri: sketch.uri }}
+            style={{
+              position: 'absolute',
+              left: -crop.x * scale,
+              top: -crop.y * scale,
+              width: sketch.width * scale,
+              height: sketch.height * scale,
+            }}
+            resizeMode="stretch"
+          />
+        </View>
+      ) : null}
 
-      {/* Hint */}
+      {scale > 0
+        ? damages.map((d) => (
+            <Pressable
+              key={d.id}
+              onPress={() => onMarkerPress?.(d.id)}
+              hitSlop={8}
+              style={{
+                position: 'absolute',
+                left: rect.left + d.x * rect.w - 12,
+                top: rect.top + d.y * rect.h - 12,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: DAMAGE_META[d.code].color,
+                borderWidth: 2,
+                borderColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOpacity: 0.25,
+                shadowRadius: 3,
+                shadowOffset: { width: 0, height: 1 },
+                elevation: 3,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{d.code}</Text>
+              {d.photo || d.photoUri ? (
+                <View style={{ position: 'absolute', right: -3, top: -3, width: 9, height: 9, borderRadius: 5, backgroundColor: theme.navy, borderWidth: 1, borderColor: '#fff' }} />
+              ) : null}
+            </Pressable>
+          ))
+        : null}
+
       <View pointerEvents="none" style={{ position: 'absolute', bottom: 8, left: 0, right: 0, alignItems: 'center' }}>
         <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: theme.bgSoft }}>
-          <Text style={{ fontSize: 10.5, color: theme.muted, fontWeight: '600' }}>Touche le schéma pour marquer un dommage</Text>
+          <Text style={{ fontSize: 10.5, color: theme.muted, fontWeight: '600' }}>Touche l'endroit exact du dommage</Text>
         </View>
       </View>
     </Pressable>
   );
 }
 
-// ─── Vues véhicule (vector minimaliste) ─────────────────────────────────────
-
-function CarTop({ stroke, soft }: { stroke: string; soft: string }) {
+function MotoZones({ damages, onAdd }: Pick<Props, 'damages' | 'onAdd'>) {
+  const { theme } = useTheme();
   return (
-    <G fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
-      {/* Carrosserie vue de dessus */}
-      <Path d="M70 20 Q100 12 130 20 L138 60 Q140 120 138 180 L130 220 Q100 228 70 220 L62 180 Q60 120 62 60 Z" />
-      {/* Pare-brise avant */}
-      <Path d="M72 56 Q100 50 128 56 L122 84 Q100 80 78 84 Z" fill={soft} fillOpacity={0.5} />
-      {/* Lunette arrière */}
-      <Path d="M78 168 Q100 164 122 168 L128 192 Q100 198 72 192 Z" fill={soft} fillOpacity={0.5} />
-      {/* Toit */}
-      <Rect x={80} y={92} width={40} height={68} rx={6} stroke={soft} />
-      {/* Rétroviseurs */}
-      <Line x1={62} y1={70} x2={52} y2={66} />
-      <Line x1={138} y1={70} x2={148} y2={66} />
-      {/* Roues */}
-      <Rect x={54} y={48} width={8} height={22} rx={3} fill={stroke} stroke="none" />
-      <Rect x={138} y={48} width={8} height={22} rx={3} fill={stroke} stroke="none" />
-      <Rect x={54} y={172} width={8} height={22} rx={3} fill={stroke} stroke="none" />
-      <Rect x={138} y={172} width={8} height={22} rx={3} fill={stroke} stroke="none" />
-    </G>
-  );
-}
-
-function CarFront({ stroke, soft }: { stroke: string; soft: string }) {
-  return (
-    <G fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
-      {/* Toit + capot */}
-      <Path d="M40 150 L52 96 Q60 78 100 78 Q140 78 148 96 L160 150" />
-      {/* Pare-brise */}
-      <Path d="M62 96 Q100 88 138 96 L132 120 Q100 114 68 120 Z" fill={soft} fillOpacity={0.5} />
-      {/* Bas de caisse */}
-      <Rect x={36} y={150} width={128} height={34} rx={8} />
-      {/* Phares */}
-      <Rect x={46} y={156} width={20} height={12} rx={4} stroke={stroke} />
-      <Rect x={134} y={156} width={20} height={12} rx={4} stroke={stroke} />
-      {/* Calandre */}
-      <Rect x={86} y={158} width={28} height={10} rx={3} stroke={soft} />
-      {/* Roues */}
-      <Rect x={40} y={182} width={26} height={10} rx={4} fill={stroke} stroke="none" />
-      <Rect x={134} y={182} width={26} height={10} rx={4} fill={stroke} stroke="none" />
-    </G>
-  );
-}
-
-function CarRear({ stroke, soft }: { stroke: string; soft: string }) {
-  return (
-    <G fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
-      <Path d="M40 150 L52 100 Q60 84 100 84 Q140 84 148 100 L160 150" />
-      {/* Lunette arrière */}
-      <Path d="M62 100 Q100 92 138 100 L132 122 Q100 116 68 122 Z" fill={soft} fillOpacity={0.5} />
-      <Rect x={36} y={150} width={128} height={34} rx={8} />
-      {/* Feux arrière */}
-      <Rect x={44} y={156} width={22} height={12} rx={3} stroke={stroke} />
-      <Rect x={134} y={156} width={22} height={12} rx={3} stroke={stroke} />
-      {/* Plaque */}
-      <Rect x={84} y={158} width={32} height={10} rx={2} stroke={soft} />
-      <Rect x={40} y={182} width={26} height={10} rx={4} fill={stroke} stroke="none" />
-      <Rect x={134} y={182} width={26} height={10} rx={4} fill={stroke} stroke="none" />
-    </G>
-  );
-}
-
-function CarSide({ stroke, soft, flip }: { stroke: string; soft: string; flip: boolean }) {
-  return (
-    <G fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" transform={flip ? 'translate(200,0) scale(-1,1)' : undefined}>
-      {/* Profil */}
-      <Path d="M24 150 L40 150 Q50 120 72 116 L92 92 Q110 86 140 92 L156 116 Q172 120 176 150 L160 150" />
-      <Path d="M24 150 Q22 168 40 168 L160 168 Q178 168 176 150" />
-      {/* Vitres */}
-      <Path d="M82 96 Q100 92 124 96 L132 116 L96 116 Z" fill={soft} fillOpacity={0.5} />
-      <Path d="M70 116 L88 116 L88 100 Q78 104 70 116 Z" fill={soft} fillOpacity={0.5} />
-      {/* Portes */}
-      <Line x1={100} y1={116} x2={100} y2={150} stroke={soft} />
-      <Line x1={92} y1={128} x2={108} y2={128} />
-      {/* Roues */}
-      <Circle cx={62} cy={158} r={16} fill="#fff" stroke={stroke} />
-      <Circle cx={62} cy={158} r={6} fill={stroke} stroke="none" />
-      <Circle cx={144} cy={158} r={16} fill="#fff" stroke={stroke} />
-      <Circle cx={144} cy={158} r={6} fill={stroke} stroke="none" />
-    </G>
+    <View style={{ borderRadius: 14, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.line, padding: 12, gap: 8 }}>
+      <Text style={{ fontSize: 11, color: theme.muted, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+        Touche la zone abîmée
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 }}>
+        {MOTO_ZONES.map((z) => {
+          const here = damages.filter((d) => d.zone === z.key);
+          return (
+            <Pressable
+              key={z.key}
+              onPress={() => onAdd(z.x, z.y, z.key)}
+              style={{ width: '48.5%', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: here.length ? DAMAGE_META[here[0].code].color : theme.line, backgroundColor: theme.surface, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: theme.ink, fontWeight: '600' }}>{z.label}</Text>
+              {here.map((d) => (
+                <View key={d.id} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: DAMAGE_META[d.code].color, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{d.code}</Text>
+                </View>
+              ))}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }

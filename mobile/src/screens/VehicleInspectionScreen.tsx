@@ -24,6 +24,7 @@ import {
 } from '../api/inspections';
 import { notify } from '../utils/notify';
 import { capturePhoto } from '../utils/pickImage';
+import { MOTO_ZONES, sketchKindFor } from '../utils/vehicleViews';
 import { generateContractPdf } from '../utils/pdf';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -125,7 +126,7 @@ export function VehicleInspectionScreen() {
   // Sans mission réelle (mode démo du convoyeur), l'état des lieux ne peut
   // être rattaché à rien : il reste local et on le dit.
   const missionId = route.params?.missionId;
-  const reference = route.params?.reference ?? '2026-2847-FE12';
+  const reference = route.params?.reference ?? route.params?.missionId ?? 'sans-reference';
   const vehicleLabel = route.params?.vehicleLabel ?? 'Véhicule';
   const isArrival = phase === 'ARRIVÉE';
 
@@ -139,7 +140,7 @@ export function VehicleInspectionScreen() {
 
   // Step 1
   const [vehicleCategory, setVehicleCategory] = useState<string>('Berline');
-  const [clientName, setClientName] = useState<string>(route.params?.clientName ?? 'Client Axis Import');
+  const [clientName, setClientName] = useState<string>(route.params?.clientName ?? '');
   const [km, setKm] = useState('');
   const [fuel, setFuel] = useState<number | null>(null);
   const [keys, setKeys] = useState('2');
@@ -153,7 +154,7 @@ export function VehicleInspectionScreen() {
   // Step 2
   const [view, setView] = useState<ViewKey>('top');
   const [damages, setDamages] = useState<Damage[]>([]);
-  const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
+  const [pendingPos, setPendingPos] = useState<{ x: number; y: number; zone?: string } | null>(null);
   const [editing, setEditing] = useState<Damage | null>(null);
 
   // Step 3 (Validation client) — réponses Oui/Non aux contrôles + acceptation.
@@ -167,9 +168,11 @@ export function VehicleInspectionScreen() {
   const driverPad = useRef<SignaturePadHandle>(null);
   const clientPad = useRef<SignaturePadHandle>(null);
 
-  const viewDamages = damages.filter((d) => d.view === view);
+  const sketchKind = sketchKindFor(vehicleCategory);
+  // Moto : un seul écran de zones, sans vues.
+  const viewDamages = sketchKind === 'moto' ? damages : damages.filter((d) => d.view === view);
 
-  const addDamage = (x: number, y: number) => setPendingPos({ x, y });
+  const addDamage = (x: number, y: number, zone?: string) => setPendingPos({ x, y, zone });
 
   const confirmDamage = async (code: DamageCode, withPhoto: boolean) => {
     const pos = pendingPos;
@@ -180,7 +183,7 @@ export function VehicleInspectionScreen() {
     }
     setDamages((prev) => [
       ...prev,
-      { id: `d${Date.now()}`, view, x: pos.x, y: pos.y, code, photo: !!photoUri, photoUri },
+      { id: `d${Date.now()}`, view: sketchKind === 'moto' ? 'top' : view, x: pos.x, y: pos.y, zone: pos.zone, code, photo: !!photoUri, photoUri },
     ]);
     setPendingPos(null);
   };
@@ -223,7 +226,7 @@ export function VehicleInspectionScreen() {
           km: dep.mileage ?? undefined,
           fuel: dep.fuelLevel != null ? dep.fuelLevel / 100 : null,
           damages: (dep.damages ?? []).map((d, i) => ({
-            id: `srv${i}`, view: d.view, x: d.x, y: d.y, code: d.code, photo: false,
+            id: `srv${i}`, view: d.view, x: d.x, y: d.y, zone: d.zone, code: d.code, photo: false,
           })) as Damage[],
           date: new Date(dep.createdAt).toLocaleDateString('fr-FR'),
         });
@@ -312,7 +315,7 @@ export function VehicleInspectionScreen() {
       ? `Contrôle client : ${answered.map((q) => `${q.short} ${controls[q.key] ? 'OK' : 'NON'}`).join(' · ')}.`
       : '';
     const finalObs = [controlSummary, obsText].filter(Boolean).join(' ');
-    const damagePoints = damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code }));
+    const damagePoints = damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code, ...(d.zone ? { zone: d.zone } : {}) }));
     // Signatures manuscrites captées sur le pad (rendu vectoriel dans le PDF).
     const driverSig = driverPad.current?.toPaths() ?? undefined;
     const clientSig = clientPad.current?.toPaths() ?? undefined;
@@ -353,7 +356,7 @@ export function VehicleInspectionScreen() {
           ? new Date(departureServer.clientSignedAt).toLocaleDateString('fr-FR')
           : undefined,
         departureDriverSigned: !!departureServer?.driverSignedAt,
-        departureDamages: departureRef?.damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code })) ?? [],
+        departureDamages: departureRef?.damages.map((d) => ({ view: d.view, x: d.x, y: d.y, code: d.code, ...(d.zone ? { zone: d.zone } : {}) })) ?? [],
         // ARRIVÉE = ce qui vient d'être saisi
         arrivalKm: kmNum,
         arrivalFuel: fuelV,
@@ -570,7 +573,8 @@ export function VehicleInspectionScreen() {
           </>
         ) : step === 1 ? (
           <>
-            {/* Sélecteur de vue */}
+            {/* Sélecteur de vue (pas pour une moto : zones) */}
+            {sketchKind !== 'moto' ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
               {VIEWS.map((v) => {
                 const on = view === v.key;
@@ -587,8 +591,9 @@ export function VehicleInspectionScreen() {
                 );
               })}
             </ScrollView>
+            ) : null}
 
-            <VehicleDiagram view={view} damages={viewDamages} onAdd={addDamage} onMarkerPress={(id) => setEditing(damages.find((d) => d.id === id) ?? null)} height={280} />
+            <VehicleDiagram kind={sketchKind} view={view} damages={viewDamages} onAdd={addDamage} onMarkerPress={(id) => setEditing(damages.find((d) => d.id === id) ?? null)} height={280} />
 
             {/* Légende codes */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -616,7 +621,7 @@ export function VehicleInspectionScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{DAMAGE_META[d.code].label}</Text>
                       <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                        {VIEWS.find((v) => v.key === d.view)?.label}{d.photoUri ? ' · 📷 photo jointe' : ''}
+                        {damagePlace(d)}{d.photoUri ? ' · 📷 photo jointe' : ''}
                       </Text>
                     </View>
                     {d.photoUri ? (
@@ -673,7 +678,7 @@ export function VehicleInspectionScreen() {
                         <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{d.code}</Text>
                       </View>
                       <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
-                        {DAMAGE_META[d.code].label} · {VIEWS.find((v) => v.key === d.view)?.label}{d.photoUri ? ' · 📷' : ''}
+                        {DAMAGE_META[d.code].label} · {damagePlace(d)}{d.photoUri ? ' · 📷' : ''}
                       </Text>
                     </View>
                   ))}
@@ -748,14 +753,14 @@ export function VehicleInspectionScreen() {
           <Button kind="outline" size="lg" onPress={() => setStep((s) => s - 1)}>Retour</Button>
         ) : null}
         {step < STEPS.length - 1 ? (
-          <Button kind="gold" size="lg" fullWidth disabled={!canNext} onPress={() => setStep((s) => s + 1)} rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}>
+          <Button kind="gold" size="lg" style={{ flex: 1 }} disabled={!canNext} onPress={() => setStep((s) => s + 1)} rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}>
             Continuer
           </Button>
         ) : (
           <Button
             kind="gold"
             size="lg"
-            fullWidth
+            style={{ flex: 1 }}
             disabled={!canNext || sending}
             loading={sending}
             onPress={finish}
@@ -855,14 +860,19 @@ function fuelLabel(v: number | null): string {
   return v === 0 ? 'Vide' : v === 1 ? 'Plein' : v === 0.25 ? '¼' : v === 0.5 ? '½' : v === 0.75 ? '¾' : `${v}`;
 }
 
+/** « Côté gauche », « Réservoir »… : où se trouve le dommage. */
+function damagePlace(d: Damage): string {
+  if (d.zone) return MOTO_ZONES.find((z) => z.key === d.zone)?.label ?? d.zone;
+  return ({ top: 'Dessus', left: 'Côté gauche', right: 'Côté droit', front: 'Avant', rear: 'Arrière' } as Record<string, string>)[d.view] ?? d.view;
+}
+
 function summarizeDamages(damages: Damage[]): string {
   if (damages.length === 0) return 'Aucun dommage constaté. Véhicule en parfait état.';
   const byView: Record<string, string[]> = {};
   damages.forEach((d) => {
-    const v = d.view;
+    const v = damagePlace(d);
     if (!byView[v]) byView[v] = [];
     byView[v].push(`${DAMAGE_META[d.code].label}${d.photo ? ' (photo)' : ''}`);
   });
-  const viewLabel: Record<string, string> = { top: 'Dessus', left: 'Gauche', right: 'Droite', front: 'Avant', rear: 'Arrière' };
-  return Object.entries(byView).map(([v, list]) => `${viewLabel[v]} : ${list.join(', ')}`).join(' · ');
+  return Object.entries(byView).map(([v, list]) => `${v} : ${list.join(', ')}`).join(' · ');
 }

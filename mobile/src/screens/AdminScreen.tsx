@@ -546,6 +546,7 @@ export function AdminScreen() {
       adminDocTypeById('contract')!,
       {
         reference: m.reference,
+        missionId: m.id,
         // Reprise de la signature du client si le contrat est déjà signé.
         clientSignatureDataUrl: signed?.signatureUrl ?? '',
         clientSignedDate:

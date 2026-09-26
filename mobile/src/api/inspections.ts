@@ -16,6 +16,8 @@ export interface DamagePoint {
   x: number;
   y: number;
   code: DamageCode;
+  /** Moto : zone touchée. */
+  zone?: string;
 }
 
 export interface InspectionPhoto {

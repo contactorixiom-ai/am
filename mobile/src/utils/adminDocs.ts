@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
 import type { IconName } from '../components/Icons';
+import { inspectionPdfFields } from './inspectionPdf';
 import {
   generateCommercialInvoicePdf,
   generateContractPdf,
@@ -2594,6 +2595,8 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
 
     case 'contract':
       await generateContractPdf({
+        // État des lieux enregistré (km, carburant, dommages) de la mission.
+        ...(await inspectionPdfFields(str(values, 'missionId'))),
         reference,
         copyLabel: 'EXEMPLAIRE\nAXIS',
         vehicleCategory: orU(str(values, 'vehicleCategory')),

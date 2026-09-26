@@ -29,6 +29,7 @@ import {
   INVOICE_STORAGE_KEY,
   safeParse,
 } from '../utils/clientDocs';
+import { inspectionPdfFields } from '../utils/inspectionPdf';
 import { generateContractPdf, generateInvoicePdf, PdfProof, signatureFromSvgDataUrl } from '../utils/pdf';
 
 // Espace « Documents » CLIENT — volontairement simple : le client n'a que
@@ -205,6 +206,7 @@ export function DocumentsScreen() {
     });
     try {
       await generateContractPdf({
+        ...(c.kind === 'mission' ? await inspectionPdfFields(c.id) : {}),
         ...contractPdfBase(c),
         departureClientSigned: true,
         departureClientSignedDate: at,
@@ -231,6 +233,7 @@ export function DocumentsScreen() {
 
   const downloadContract = async (c: ContractDoc) => {
     await generateContractPdf({
+      ...(c.kind === 'mission' ? await inspectionPdfFields(c.id) : {}),
       ...contractPdfBase(c),
       departureClientSigned: c.signed,
       departureClientSignedDate: c.signedAt,

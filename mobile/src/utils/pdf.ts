@@ -11,6 +11,7 @@ import {
   VEHICLE_SKETCH_VAN,
   VEHICLE_SKETCH_VAN_RATIO,
 } from './vehicleSketches';
+import { MOTO_ZONES, SKETCHES } from './vehicleViews';
 
 // Palette neutre noir & blanc pour des documents officiels institutionnels
 // (style transporteur classique). Plus aucun navy/doré dans les PDF — le
@@ -619,6 +620,8 @@ export interface PdfDamage {
   x: number; // 0..1
   y: number; // 0..1
   code: 'R' | 'F' | 'E' | 'C' | 'M';
+  /** Moto : zone touchée. */
+  zone?: string;
 }
 
 // Signature électronique manuscrite : tracés SVG bruts (« Mx,y Lx,y … ») captés
@@ -947,10 +950,60 @@ type VehicleKind = 'car' | 'van' | 'truck' | 'moto';
 // (Dessus + Avant + Arrière + Côtés + habitacle) intégré depuis un visuel JPEG.
 // La voiture et l'utilitaire disposent chacun de leur propre planche ; les
 // dommages relevés lors de l'inspection sont consignés dans les OBSERVATIONS.
-function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: number, kind: VehicleKind) {
+const DAMAGE_PDF: Record<PdfDamage['code'], { label: string; rgb: [number, number, number] }> = {
+  R: { label: 'Rayure', rgb: [201, 165, 92] },
+  F: { label: 'Fissure', rgb: [224, 160, 77] },
+  E: { label: 'Enfoncement', rgb: [217, 122, 78] },
+  C: { label: 'Cassé', rgb: [192, 82, 75] },
+  M: { label: 'Manquant', rgb: [142, 91, 174] },
+};
+
+function drawDamageMarker(doc: jsPDF, cx: number, cy: number, code: PdfDamage['code']) {
+  const [r, g, b] = DAMAGE_PDF[code].rgb;
+  doc.setFillColor(r, g, b);
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.35);
+  doc.circle(cx, cy, 1.9, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(code, cx, cy + 0.7, { align: 'center' });
+}
+
+// Planche technique + repères de dommages, placés en coordonnées de la vue
+// touchée (même découpe que dans l'application). Auparavant la planche était
+// imprimée vierge : le PV signé ne montrait aucun des dommages relevés.
+function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: number, kind: VehicleKind, damages: PdfDamage[] = []) {
+
+  if (kind === 'moto') {
+    // Pas de planche moto : relevé par zone, lisible sans croquis.
+    doc.setFontSize(6.5);
+    const colW = w / 2;
+    const rowH = Math.min(5.4, h / Math.ceil(MOTO_ZONES.length / 2));
+    MOTO_ZONES.forEach((z, i) => {
+      const cx = x + (i % 2) * colW;
+      const cy = y + Math.floor(i / 2) * rowH;
+      setColor(doc, LINE, 'draw');
+      doc.setLineWidth(0.2);
+      doc.rect(cx, cy, colW - 1, rowH - 0.8);
+      setColor(doc, INK, 'text');
+      doc.setFont('helvetica', 'normal');
+      doc.text(z.label, cx + 1.2, cy + rowH / 2 + 0.6);
+      const here = damages.filter((d) => d.zone === z.key);
+      if (here.length === 0) {
+        setColor(doc, MUTED, 'text');
+        doc.text('RAS', cx + colW - 2.5, cy + rowH / 2 + 0.6, { align: 'right' });
+      } else {
+        here.forEach((d, k) => drawDamageMarker(doc, cx + colW - 3.5 - k * 4.2, cy + (rowH - 0.8) / 2, d.code));
+      }
+    });
+    return;
+  }
+
   const isVan = kind === 'van' || kind === 'truck';
   const img = isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
   const ratio = isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
+  const sketch = SKETCHES[isVan ? 'van' : 'car'];
 
   // Ajustement « contain » : on préserve les proportions de la planche et on
   // centre le visuel dans le cadre réservé.
@@ -967,6 +1020,14 @@ function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: nu
     setColor(doc, LINE, 'draw');
     doc.setLineWidth(0.4);
     doc.roundedRect(ix, iy, iw, ih, 2, 2, 'S');
+  }
+
+  for (const d of damages) {
+    const crop = sketch.views[d.view];
+    if (!crop) continue;
+    const px = crop.x + Math.min(1, Math.max(0, d.x)) * crop.w;
+    const py = crop.y + Math.min(1, Math.max(0, d.y)) * crop.h;
+    drawDamageMarker(doc, ix + (px / sketch.width) * iw, iy + (py / sketch.height) * ih, d.code);
   }
 }
 
@@ -1036,7 +1097,7 @@ function drawEtatDesLieux(doc: jsPDF, y: number, label: 'DÉPART' | 'ARRIVÉE', 
   doc.rect(M + leftW, y, rightW, blockH);
 
   // Croquis véhicule multi-vues (planche professionnelle voiture / utilitaire)
-  drawVehicleSchematic(doc, M + 4, y + 4, leftW - 8, blockH - 8, kind);
+  drawVehicleSchematic(doc, M + 4, y + 4, leftW - 8, blockH - 8, kind, d.damages ?? []);
 
   // Colonne droite : champs
   const rx = M + leftW + 3;
