@@ -29,6 +29,7 @@ import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { KycReviewPanel } from '../components/KycReviewPanel';
+import { InspectionCompare } from '../components/InspectionCompare';
 import { listPendingKyc } from '../api/kyc';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
@@ -213,6 +214,7 @@ function prefillFromMission(m: MissionSummary): AdminValues {
 export function AdminScreen() {
   const { theme } = useTheme();
   const { user: me } = useSession();
+  const [compareMode, setCompareMode] = useState(false);
   const [tab, setTab] = useState<TabId>('dashboard');
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
@@ -1005,9 +1007,24 @@ export function AdminScreen() {
                   </Text>
                 </View>
 
-                {ordered.map((insp) => (
-                  <InspectionCard key={insp.id} inspection={insp} theme={theme} />
-                ))}
+                {ordered.length === 2 ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Button kind={compareMode ? 'outline' : 'primary'} size="sm" style={{ flex: 1 }} onPress={() => setCompareMode(false)}>
+                      Détail
+                    </Button>
+                    <Button kind={compareMode ? 'primary' : 'outline'} size="sm" style={{ flex: 1 }} onPress={() => setCompareMode(true)}>
+                      Comparer départ / arrivée
+                    </Button>
+                  </View>
+                ) : null}
+
+                {ordered.length === 2 && compareMode ? (
+                  <InspectionCompare departure={ordered[0]} arrival={ordered[1]} />
+                ) : (
+                  ordered.map((insp) => (
+                    <InspectionCard key={insp.id} inspection={insp} theme={theme} />
+                  ))
+                )}
 
                 {ordered.length < 2 ? (
                   <Banner
