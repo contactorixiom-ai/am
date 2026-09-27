@@ -21,6 +21,8 @@ import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { notify } from '../utils/notify';
+import { Stagger } from '../components/Stagger';
+import { listPayments } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
 
@@ -51,6 +53,9 @@ export function HomeScreen() {
   // Aucune donnée d'exemple — si le client n'a rien, il voit un appel à l'action.
   const [shipments, setShipments] = useState<ShipmentView[] | null>(null);
   const [toSign, setToSign] = useState(0);
+  // Commandes chiffrées pas encore réglées (la tuile disait « Tout est à
+  // jour » alors qu'une facture attendait son règlement).
+  const [toPay, setToPay] = useState(0);
   const [unread, setUnread] = useState(0);
   const [latestNews, setLatestNews] = useState<NewsArticle | null>(null);
   useFocusEffect(
@@ -76,9 +81,19 @@ export function HomeScreen() {
         setShipments(sortForClient(views));
         if (isDriverOnly) {
           setToSign(0);
+          setToPay(0);
         } else {
           const n = await countContractsToSign(missions);
           if (!cancelled) setToSign(n);
+          const parcels = pRes.status === 'fulfilled' ? pRes.value.data : [];
+          const pays = await listPayments().catch(() => ({ data: [] as Awaited<ReturnType<typeof listPayments>>['data'] }));
+          const paid = new Set(
+            pays.data.filter((x) => x.status === 'PAID').flatMap((x) => [x.missionId, x.parcelId, x.mission?.id, x.parcel?.id]).filter(Boolean) as string[],
+          );
+          const due =
+            missions.filter((m) => (m.priceCents ?? 0) > 0 && m.status !== 'CANCELLED' && m.status !== 'DRAFT' && !paid.has(m.id)).length +
+            parcels.filter((x) => (x.priceCents ?? 0) > 0 && x.status !== 'CANCELLED' && !paid.has(x.id)).length;
+          if (!cancelled) setToPay(due);
         }
 
         // Pastille de notifications et aperçu actualités : silencieux si
@@ -176,6 +191,7 @@ export function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24, gap: 18 }}>
+        <Stagger>
         {/* Bannière KYC — convoyeurs uniquement. Le KYC exige un permis de
             conduire : le réclamer à un client qui envoie un colis n'a aucun
             sens, et c'est ce qu'il voyait dès l'ouverture de l'application.
@@ -550,7 +566,7 @@ export function HomeScreen() {
               Documents{'\n'}& factures
             </Text>
             <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
-              {toSign > 0 ? `${toSign} à signer` : 'Tout est à jour'}
+              {[toSign > 0 ? `${toSign} à signer` : null, toPay > 0 ? `${toPay} à régler` : null].filter(Boolean).join(' · ') || 'Tout est à jour'}
             </Text>
           </Pressable>
         </View>
@@ -627,6 +643,7 @@ export function HomeScreen() {
             </Pressable>
           </View>
         ) : null}
+        </Stagger>
       </ScrollView>
     </SafeAreaView>
   );

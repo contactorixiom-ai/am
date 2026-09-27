@@ -10,6 +10,7 @@ import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { useParcelDraft } from '../state/ParcelDraftContext';
+import { SuccessCheck } from '../components/SuccessCheck';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
@@ -86,20 +87,7 @@ export function BookingConfirmationScreen() {
       <ScrollView contentContainerStyle={{ padding: SPACING.lg, paddingBottom: 24, gap: SPACING.lg }}>
         {/* Hero confirmation */}
         <View style={{ alignItems: 'center', gap: SPACING.md, paddingTop: SPACING.lg }}>
-          <View
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: theme.good + '22',
-              borderWidth: 2,
-              borderColor: theme.good,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 44 }}>✓</Text>
-          </View>
+          <SuccessCheck size={104} />
           <Text
             style={{
               color: theme.ink,

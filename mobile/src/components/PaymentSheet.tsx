@@ -1,7 +1,9 @@
 import { ApiError } from '../api/client';
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { AxisLoader } from './AxisLoader';
 import { Icons } from './Icons';
+import { SuccessCheck } from './SuccessCheck';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { createCheckoutSession, getPaymentSession } from '../api/payments';
@@ -208,9 +210,9 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
             </>
           ) : step === 'processing' ? (
             <View style={{ paddingVertical: 30, alignItems: 'center', gap: 18 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: theme.gold, borderTopColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.shield size={26} color={theme.gold} stroke={1.8} />
-              </View>
+              <AxisLoader size={76}>
+                <Icons.shield size={24} color={theme.gold} stroke={1.8} />
+              </AxisLoader>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 16, color: theme.ink, fontFamily: TYPO.weights.bold }}>
                   {provider === 'stripe' ? 'Paiement sécurisé Stripe…' : 'Traitement du paiement…'}
@@ -224,9 +226,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
             </View>
           ) : (
             <View style={{ paddingVertical: 20, alignItems: 'center', gap: 16 }}>
-              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: theme.good + '22', borderWidth: 2, borderColor: theme.good, alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.check size={32} color={theme.good} stroke={3} />
-              </View>
+              <SuccessCheck size={88} />
               <View style={{ alignItems: 'center', gap: 4 }}>
                 <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold, letterSpacing: -0.3 }}>
                   {provider === 'stripe' ? 'Paiement confirmé' : 'Commande validée'}
