@@ -5,7 +5,7 @@
 
 import type { SketchKind } from './vehicleViews';
 
-export type ShotGroup = 'Tour du véhicule' | 'Roues' | 'Habitacle et équipements';
+export type ShotGroup = 'Extérieur' | 'Roues' | 'Coffre, vitrages et intérieur';
 
 export interface Shot {
   key: string;
@@ -15,62 +15,55 @@ export interface Shot {
   /** Catégorie côté serveur (InspectionPhotoTag). */
   tag: 'FRONT' | 'REAR' | 'LEFT_SIDE' | 'RIGHT_SIDE' | 'INTERIOR' | 'DASHBOARD' | 'ENGINE' | 'TRUNK' | 'ODOMETER' | 'DOCUMENT' | 'OTHER';
   group: ShotGroup;
+  /** Photo facultative : le convoyeur peut la passer (« non concerné »). */
+  optional?: string;
 }
 
-const TOUR: Shot[] = [
-  { key: 'front', label: 'Face avant', hint: 'Face au véhicule, à 3 m, plaque et pare-chocs entiers dans le cadre.', tag: 'FRONT', group: 'Tour du véhicule' },
-  { key: 'frontLeft', label: '3/4 avant gauche', hint: 'À l\'angle avant gauche : face avant et côté gauche visibles ensemble.', tag: 'FRONT', group: 'Tour du véhicule' },
-  { key: 'sideLeft', label: 'Côté gauche', hint: 'Perpendiculaire au côté conducteur, du pare-chocs avant au pare-chocs arrière.', tag: 'LEFT_SIDE', group: 'Tour du véhicule' },
-  { key: 'rearLeft', label: '3/4 arrière gauche', hint: 'À l\'angle arrière gauche : côté gauche et face arrière ensemble.', tag: 'REAR', group: 'Tour du véhicule' },
-  { key: 'rear', label: 'Face arrière', hint: 'Derrière le véhicule, à 3 m, plaque et pare-chocs entiers.', tag: 'REAR', group: 'Tour du véhicule' },
-  { key: 'rearRight', label: '3/4 arrière droit', hint: 'À l\'angle arrière droit : face arrière et côté droit ensemble.', tag: 'REAR', group: 'Tour du véhicule' },
-  { key: 'sideRight', label: 'Côté droit', hint: 'Perpendiculaire au côté passager, d\'un pare-chocs à l\'autre.', tag: 'RIGHT_SIDE', group: 'Tour du véhicule' },
-  { key: 'frontRight', label: '3/4 avant droit', hint: 'À l\'angle avant droit : côté droit et face avant ensemble.', tag: 'FRONT', group: 'Tour du véhicule' },
-];
-
-const WHEELS_4: Shot[] = [
-  { key: 'wheelFL', label: 'Jante avant gauche', hint: 'Accroupi, la jante et le pneu entiers : rayures de trottoir visibles.', tag: 'OTHER', group: 'Roues' },
-  { key: 'wheelRL', label: 'Jante arrière gauche', hint: 'Accroupi, la jante et le pneu entiers.', tag: 'OTHER', group: 'Roues' },
-  { key: 'wheelRR', label: 'Jante arrière droite', hint: 'Accroupi, la jante et le pneu entiers.', tag: 'OTHER', group: 'Roues' },
-  { key: 'wheelFR', label: 'Jante avant droite', hint: 'Accroupi, la jante et le pneu entiers.', tag: 'OTHER', group: 'Roues' },
-];
-
-const CAR_DETAILS: Shot[] = [
-  { key: 'windshield', label: 'Pare-brise', hint: 'De l\'extérieur, tout le pare-brise : impacts et fissures.', tag: 'FRONT', group: 'Habitacle et équipements' },
-  { key: 'roof', label: 'Toit', hint: 'Bras levé ou depuis une marche : la surface du toit.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'dashboard', label: 'Compteur allumé', hint: 'Contact mis : kilométrage, jauge de carburant et voyants lisibles.', tag: 'ODOMETER', group: 'Habitacle et équipements' },
-  { key: 'interiorFront', label: 'Intérieur avant', hint: 'Depuis la portière conducteur : sièges avant, volant, tableau de bord.', tag: 'INTERIOR', group: 'Habitacle et équipements' },
-  { key: 'interiorRear', label: 'Intérieur arrière', hint: 'Banquette et plancher arrière, portière ouverte.', tag: 'INTERIOR', group: 'Habitacle et équipements' },
-  { key: 'trunk', label: 'Coffre ouvert', hint: 'Coffre ouvert : contenu, tapis, roue de secours ou kit anti-crevaison.', tag: 'TRUNK', group: 'Habitacle et équipements' },
-  { key: 'keys', label: 'Clés remises', hint: 'Toutes les clés et cartes remises, posées côte à côte.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'documents', label: 'Documents de bord', hint: 'Carte grise (ou copie) et attestation d\'assurance, lisibles.', tag: 'DOCUMENT', group: 'Habitacle et équipements' },
-];
-
-const VAN_DETAILS: Shot[] = [
-  { key: 'windshield', label: 'Pare-brise', hint: 'De l\'extérieur, tout le pare-brise : impacts et fissures.', tag: 'FRONT', group: 'Habitacle et équipements' },
-  { key: 'roof', label: 'Toit / haut de caisse', hint: 'Depuis une marche ou bras levé : haut de caisse et toit.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'dashboard', label: 'Compteur allumé', hint: 'Contact mis : kilométrage, jauge de carburant et voyants lisibles.', tag: 'ODOMETER', group: 'Habitacle et équipements' },
-  { key: 'interiorFront', label: 'Cabine', hint: 'Depuis la portière conducteur : sièges, volant, tableau de bord.', tag: 'INTERIOR', group: 'Habitacle et équipements' },
-  { key: 'cargo', label: 'Zone de chargement', hint: 'Portes arrière ouvertes : plancher, parois et contenu.', tag: 'TRUNK', group: 'Habitacle et équipements' },
-  { key: 'sideDoor', label: 'Porte latérale ouverte', hint: 'Porte coulissante ouverte : seuil, rail et paroi.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'keys', label: 'Clés remises', hint: 'Toutes les clés et cartes remises, posées côte à côte.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'documents', label: 'Documents de bord', hint: 'Carte grise (ou copie) et attestation d\'assurance, lisibles.', tag: 'DOCUMENT', group: 'Habitacle et équipements' },
+// Liste validée par Roger (Axis Import), dans son ordre de prise de vue.
+const ROGER_LIST = (van: boolean): Shot[] => [
+  { key: 'front', label: 'Face avant', hint: 'Face au véhicule, à 3 m : plaque, calandre et pare-chocs entiers.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'frontLeft', label: 'Angle avant gauche', hint: 'À l\'angle avant gauche : face avant et flanc gauche visibles ensemble.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'frontRight', label: 'Angle avant droit', hint: 'À l\'angle avant droit : face avant et flanc droit visibles ensemble.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'rearLeft', label: 'Angle arrière gauche', hint: 'À l\'angle arrière gauche : flanc gauche et face arrière ensemble.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rear', label: 'Face arrière', hint: 'Derrière le véhicule, à 3 m : plaque et pare-chocs entiers.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rearRight', label: 'Angle arrière droit', hint: 'À l\'angle arrière droit : face arrière et flanc droit ensemble.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'wheelFR', label: 'Roue avant droite', hint: 'Accroupi, jante et pneu entiers : rayures de trottoir visibles.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelFL', label: 'Roue avant gauche', hint: 'Accroupi, jante et pneu entiers.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelRR', label: 'Roue arrière droite', hint: 'Accroupi, jante et pneu entiers.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelRL', label: 'Roue arrière gauche', hint: 'Accroupi, jante et pneu entiers.', tag: 'OTHER', group: 'Roues' },
+  { key: 'trunk', label: van ? 'Zone de chargement (intérieur)' : 'Coffre (intérieur)', hint: van ? 'Portes arrière ouvertes : plancher, parois et contenu.' : 'Coffre ouvert : contenu, tapis et roue de secours ou kit.', tag: 'TRUNK', group: 'Coffre, vitrages et intérieur' },
+  { key: 'windshieldOut', label: 'Pare-brise extérieur', hint: 'De l\'extérieur, tout le pare-brise : impacts et fissures.', tag: 'FRONT', group: 'Coffre, vitrages et intérieur' },
+  { key: 'windshieldIn', label: 'Pare-brise intérieur', hint: 'Depuis le siège conducteur : pare-brise, rétroviseur central, tableau de bord.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'rearWindow', label: 'Pare-brise arrière', hint: 'De l\'extérieur, toute la lunette arrière.', tag: 'REAR', group: 'Coffre, vitrages et intérieur', ...(van ? { optional: 'si portes vitrées' } : {}) },
+  { key: 'mirrorLeft', label: 'Coque rétro gauche', hint: 'De près, la coque et le miroir du rétroviseur gauche.', tag: 'LEFT_SIDE', group: 'Coffre, vitrages et intérieur' },
+  { key: 'mirrorRight', label: 'Coque rétro droite', hint: 'De près, la coque et le miroir du rétroviseur droit.', tag: 'RIGHT_SIDE', group: 'Coffre, vitrages et intérieur' },
+  { key: 'roof', label: 'Toit du véhicule', hint: 'Bras levé ou depuis une marche : la surface du toit.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur', optional: 'si possible' },
+  { key: 'chargingCable', label: 'Câble de recharge', hint: 'Le câble de recharge déroulé, prises visibles.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur', optional: 'si véhicule électrique' },
+  { key: 'interiorFront', label: 'Intérieur avant', hint: 'Depuis la portière : sièges avant, volant, console.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'rearSeat', label: van ? 'Banquette / cabine arrière' : 'Banquette arrière', hint: 'Portière arrière ouverte : assise, dossier et plancher.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur', ...(van ? { optional: 'si présente' } : {}) },
 ];
 
 const MOTO: Shot[] = [
-  ...TOUR,
+  { key: 'front', label: 'Face avant', hint: 'Face à la moto, à 2 m : optique, garde-boue, fourche.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'frontLeft', label: 'Angle avant gauche', hint: 'À l\'angle avant gauche : avant et flanc gauche ensemble.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'sideLeft', label: 'Flanc gauche', hint: 'Perpendiculaire au côté gauche, moto entière.', tag: 'LEFT_SIDE', group: 'Extérieur' },
+  { key: 'rearLeft', label: 'Angle arrière gauche', hint: 'À l\'angle arrière gauche.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rear', label: 'Face arrière', hint: 'Derrière la moto : feu, plaque, garde-boue.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rearRight', label: 'Angle arrière droit', hint: 'À l\'angle arrière droit.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'sideRight', label: 'Flanc droit', hint: 'Perpendiculaire au côté droit, moto entière.', tag: 'RIGHT_SIDE', group: 'Extérieur' },
+  { key: 'frontRight', label: 'Angle avant droit', hint: 'À l\'angle avant droit.', tag: 'FRONT', group: 'Extérieur' },
   { key: 'wheelF', label: 'Roue avant', hint: 'Jante, pneu, disque et fourche.', tag: 'OTHER', group: 'Roues' },
   { key: 'wheelR', label: 'Roue arrière', hint: 'Jante, pneu, chaîne ou cardan.', tag: 'OTHER', group: 'Roues' },
-  { key: 'dashboard', label: 'Compteur allumé', hint: 'Contact mis : kilométrage, carburant et voyants lisibles.', tag: 'ODOMETER', group: 'Habitacle et équipements' },
-  { key: 'tank', label: 'Réservoir et selle', hint: 'De dessus : réservoir, bouchon et selle.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'keys', label: 'Clés remises', hint: 'Toutes les clés remises, posées côte à côte.', tag: 'OTHER', group: 'Habitacle et équipements' },
-  { key: 'documents', label: 'Documents de bord', hint: 'Carte grise (ou copie) et attestation d\'assurance, lisibles.', tag: 'DOCUMENT', group: 'Habitacle et équipements' },
+  { key: 'dashboard', label: 'Compteur allumé', hint: 'Contact mis : kilométrage, carburant et voyants lisibles.', tag: 'ODOMETER', group: 'Coffre, vitrages et intérieur' },
+  { key: 'tank', label: 'Réservoir et selle', hint: 'De dessus : réservoir, bouchon et selle.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur' },
+  { key: 'keys', label: 'Clés remises', hint: 'Toutes les clés remises, posées côte à côte.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur' },
+  { key: 'documents', label: 'Documents de bord', hint: 'Carte grise (ou copie) et attestation d\'assurance, lisibles.', tag: 'DOCUMENT', group: 'Coffre, vitrages et intérieur' },
 ];
 
-/** Voiture et utilitaire : 20 photos. Moto : 14. */
+/** Voiture et utilitaire : liste de Roger (20). Moto : 14. */
 export function shotsFor(kind: SketchKind): Shot[] {
   if (kind === 'moto') return MOTO;
-  return [...TOUR, ...WHEELS_4, ...(kind === 'van' ? VAN_DETAILS : CAR_DETAILS)];
+  return ROGER_LIST(kind === 'van');
 }
 
-export const SHOT_GROUPS: ShotGroup[] = ['Tour du véhicule', 'Roues', 'Habitacle et équipements'];
+export const SHOT_GROUPS: ShotGroup[] = ['Extérieur', 'Roues', 'Coffre, vitrages et intérieur'];

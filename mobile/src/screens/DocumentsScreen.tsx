@@ -379,7 +379,7 @@ export function DocumentsScreen() {
                 <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.semibold }}>Effacer</Text>
               </Pressable>
               <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium, flex: 1, textAlign: 'right', marginLeft: 12 }}>
-                Valeur juridique d'une signature manuscrite (eIDAS).
+                Signature électronique horodatée, vérifiable par QR code (eIDAS, art. 25).
               </Text>
             </View>
 

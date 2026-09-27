@@ -25,7 +25,7 @@ import {
 import { notify } from '../utils/notify';
 import { SHOT_GROUPS, Shot, shotsFor } from '../utils/inspectionShots';
 import { capturePhoto } from '../utils/pickImage';
-import { MOTO_ZONES, sketchKindFor } from '../utils/vehicleViews';
+import { sketchKindFor } from '../utils/vehicleViews';
 import { generateContractPdf } from '../utils/pdf';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -141,15 +141,34 @@ export function VehicleInspectionScreen() {
   // Mode guidé : chaque prise de vue est annoncée (où se placer, quoi
   // cadrer) avant d'ouvrir l'appareil photo, puis on enchaîne sur la suivante.
   const [guided, setGuided] = useState<Shot | null>(null);
+  const sendErrorRef = useRef<string | null>(null);
+  // État des lieux de cette phase déjà soumis ou signé : on ne le refait pas.
+  const [alreadyDone, setAlreadyDone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!missionId) return;
+    let cancelled = false;
+    listInspections(missionId)
+      .then((list) => {
+        const mine = list.find((i) => i.type === (isArrival ? 'POST_DELIVERY' : 'PRE_DEPARTURE'));
+        if (!cancelled && mine && mine.status !== 'DRAFT') {
+          setAlreadyDone(new Date(mine.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
+        }
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [missionId, isArrival]);
+  // Photos facultatives déclarées « non concerné » (pas de câble, toit inaccessible…).
+  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const failedPhotosRef = useRef<{ inspectionId: string; items: { uri: string; tag: string; caption: string }[] }>({ inspectionId: '', items: [] });
 
   // Step 2
   const [view, setView] = useState<ViewKey>('top');
   const shots = shotsFor(sketchKindFor(vehicleCategory));
+  const pendingShot = (x: Shot) => !vehiclePhotos[x.key] && !skipped[x.key];
   const nextMissingShot = (after?: string) => {
     const start = after ? shots.findIndex((x) => x.key === after) + 1 : 0;
-    return [...shots.slice(start), ...shots.slice(0, start)].find((x) => !vehiclePhotos[x.key] && x.key !== after) ?? null;
+    return [...shots.slice(start), ...shots.slice(0, start)].find((x) => pendingShot(x) && x.key !== after) ?? null;
   };
   const [damages, setDamages] = useState<Damage[]>([]);
   const [pendingPos, setPendingPos] = useState<{ x: number; y: number; zone?: string } | null>(null);
@@ -164,11 +183,12 @@ export function VehicleInspectionScreen() {
   const [driverSigned, setDriverSigned] = useState(false);
   const [clientSigned, setClientSigned] = useState(false);
   const driverPad = useRef<SignaturePadHandle>(null);
+  // Pendant un tracé de signature, la page ne défile plus.
+  const [drawing, setDrawing] = useState(false);
   const clientPad = useRef<SignaturePadHandle>(null);
 
   const sketchKind = sketchKindFor(vehicleCategory);
-  // Moto : un seul écran de zones, sans vues.
-  const viewDamages = sketchKind === 'moto' ? damages : damages.filter((d) => d.view === view);
+  const viewDamages = damages.filter((d) => d.view === view);
 
   const addDamage = (x: number, y: number, zone?: string) => setPendingPos({ x, y, zone });
 
@@ -181,7 +201,7 @@ export function VehicleInspectionScreen() {
     }
     setDamages((prev) => [
       ...prev,
-      { id: `d${Date.now()}`, view: sketchKind === 'moto' ? 'top' : view, x: pos.x, y: pos.y, zone: pos.zone, code, photo: !!photoUri, photoUri },
+      { id: `d${Date.now()}`, view, x: pos.x, y: pos.y, zone: pos.zone, code, photo: !!photoUri, photoUri },
     ]);
     setPendingPos(null);
   };
@@ -253,6 +273,7 @@ export function VehicleInspectionScreen() {
     clientSig?: { paths: string[]; w: number; h: number } | null;
   }): Promise<boolean> => {
     if (!missionId) return false;
+    sendErrorRef.current = null;
     setSending(true);
     try {
       const inspection = await createInspection(missionId, {
@@ -300,7 +321,8 @@ export function VehicleInspectionScreen() {
         await signInspection(inspection.id, 'CLIENT', clientUrl).catch(() => undefined);
       }
       return true;
-    } catch {
+    } catch (e) {
+      sendErrorRef.current = e instanceof Error && e.message ? e.message : null;
       return false;
     } finally {
       setUploadProgress(null);
@@ -382,7 +404,7 @@ export function VehicleInspectionScreen() {
         'PV de livraison finalisé',
         sent
           ? 'Le PV est transmis à Axis et au client. Le contrat avec les deux états des lieux a été téléchargé.'
-          : 'Le contrat a été téléchargé. Le PV n\'a pas pu être transmis : reprends-le une fois la connexion revenue.',
+          : `Le contrat a été téléchargé. Le PV n'a pas pu être transmis${sendErrorRef.current ? ` : ${sendErrorRef.current}` : ' : reprends-le une fois la connexion revenue.'}`,
       );
     } else {
       // PV de prise en charge : juste le DÉPART
@@ -411,7 +433,7 @@ export function VehicleInspectionScreen() {
         'PV de prise en charge finalisé',
         sent
           ? 'Le PV est transmis à Axis et au client. L\'état des lieux d\'arrivée sera signé à la livraison.'
-          : 'Le contrat a été téléchargé. Le PV n\'a pas pu être transmis : reprends-le une fois la connexion revenue.',
+          : `Le contrat a été téléchargé. Le PV n'a pas pu être transmis${sendErrorRef.current ? ` : ${sendErrorRef.current}` : ' : reprends-le une fois la connexion revenue.'}`,
       );
     }
     await offerPhotoRetry();
@@ -448,9 +470,12 @@ export function VehicleInspectionScreen() {
     }
   };
 
-  const photosDone = shots.filter((x) => vehiclePhotos[x.key]).length;
-  const allVehiclePhotos = photosDone === shots.length;
+  const requiredShots = shots.filter((x) => !x.optional);
+  const photosDone = requiredShots.filter((x) => vehiclePhotos[x.key]).length;
+  const allVehiclePhotos = photosDone === requiredShots.length;
+  const optionalTaken = shots.filter((x) => x.optional && vehiclePhotos[x.key]).length;
   const canNext =
+    alreadyDone ? false :
     step === 0 ? !!km && fuel !== null && allVehiclePhotos :
     step === 1 ? true :
     step === 2 ? clientAccepted :
@@ -475,7 +500,7 @@ export function VehicleInspectionScreen() {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 24, gap: 14 }}>
+      <ScrollView scrollEnabled={!drawing} contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 24, gap: 14 }}>
         {/* Sans convoyage rattaché, le PV ne part nulle part : il faut le
             dire avant que le convoyeur ne passe vingt minutes à le remplir. */}
         {!missionId ? (
@@ -505,6 +530,15 @@ export function VehicleInspectionScreen() {
                 Distance parcourue : <Text style={{ fontFamily: TYPO.weights.bold }}>{Math.max(0, parseInt(km, 10) - departureRef.km).toLocaleString('fr-FR')} km</Text>
               </Text>
             ) : null}
+          </Surface>
+        ) : null}
+
+        {alreadyDone ? (
+          <Surface padded flat style={{ padding: 14, backgroundColor: theme.good + '15', borderColor: theme.good + '40', borderWidth: 1, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <Icons.check size={18} color={theme.good} stroke={2} />
+            <Text style={{ flex: 1, fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+              L'état des lieux {isArrival ? "d'arrivée" : 'de départ'} de ce convoyage est déjà enregistré ({alreadyDone}). Il ne peut plus être modifié : Axis le retrouve dans son espace.
+            </Text>
           </Surface>
         ) : null}
 
@@ -570,13 +604,13 @@ export function VehicleInspectionScreen() {
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Photos du véhicule
                 </Text>
-                <Pill tone={allVehiclePhotos ? 'good' : 'warn'}>{`${photosDone}/${shots.length}`}</Pill>
+                <Pill tone={allVehiclePhotos ? 'good' : 'warn'}>{`${photosDone}/${requiredShots.length}`}</Pill>
               </View>
               <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.line, overflow: 'hidden' }}>
-                <View style={{ width: `${(photosDone / shots.length) * 100}%`, height: '100%', backgroundColor: allVehiclePhotos ? theme.good : theme.gold }} />
+                <View style={{ width: `${(photosDone / requiredShots.length) * 100}%`, height: '100%', backgroundColor: allVehiclePhotos ? theme.good : theme.gold }} />
               </View>
               <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 16 }}>
-                {shots.length} photos obligatoires, au départ comme à l'arrivée : c'est la preuve de l'état du véhicule en cas de litige. Photographie en pleine lumière, véhicule entier dans le cadre.
+                {requiredShots.length} photos obligatoires{shots.length > requiredShots.length ? ` (+ ${shots.length - requiredShots.length} selon le véhicule)` : ''}, au départ comme à l'arrivée : c'est la preuve de l'état du véhicule en cas de litige. Photographie en pleine lumière, véhicule entier dans le cadre.
               </Text>
               {!allVehiclePhotos ? (
                 <Button
@@ -586,7 +620,7 @@ export function VehicleInspectionScreen() {
                   leftIcon={<Icons.camera size={17} color="#fff" stroke={1.9} />}
                   onPress={() => setGuided(nextMissingShot())}
                 >
-                  {photosDone === 0 ? 'Prendre les photos à la suite' : `Continuer (${shots.length - photosDone} restantes)`}
+                  {photosDone === 0 ? 'Prendre les photos à la suite' : `Continuer (${requiredShots.length - photosDone} restantes)`}
                 </Button>
               ) : null}
               {SHOT_GROUPS.map((g) => {
@@ -595,7 +629,7 @@ export function VehicleInspectionScreen() {
                 return (
                   <View key={g} style={{ gap: 8 }}>
                     <Text style={{ fontSize: 12, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
-                      {g} · {list.filter((x) => vehiclePhotos[x.key]).length}/{list.length}
+                      {g} · {list.filter((x) => !x.optional && vehiclePhotos[x.key]).length}/{list.filter((x) => !x.optional).length}{list.some((x) => x.optional) ? ' + facultatives' : ''}
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
                       {list.map((a, idx) => {
@@ -617,6 +651,11 @@ export function VehicleInspectionScreen() {
                               <>
                                 <Icons.camera size={18} color={theme.muted} stroke={1.7} />
                                 <Text numberOfLines={2} style={{ fontSize: 10.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 4, textAlign: 'center' }}>{a.label}</Text>
+                                {a.optional ? (
+                                  <Text numberOfLines={1} style={{ fontSize: 9.5, color: skipped[a.key] ? theme.good : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 2 }}>
+                                    {skipped[a.key] ? 'Non concerné' : 'Facultatif'}
+                                  </Text>
+                                ) : null}
                               </>
                             )}
                           </Pressable>
@@ -634,7 +673,7 @@ export function VehicleInspectionScreen() {
                 {guided ? (
                   <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 28, gap: 12 }}>
                     <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
-                      Photo {shots.findIndex((x) => x.key === guided.key) + 1} sur {shots.length} · {guided.group}
+                      Photo {shots.findIndex((x) => x.key === guided.key) + 1} sur {shots.length} · {guided.optional ? `facultative, ${guided.optional}` : guided.group}
                     </Text>
                     <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold }}>{guided.label}</Text>
                     <Text style={{ fontSize: 14, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 20 }}>{guided.hint}</Text>
@@ -651,14 +690,26 @@ export function VehicleInspectionScreen() {
                         const ok = await captureVehiclePhoto(current.key);
                         if (!ok) return;
                         // Enchaîne sur la prochaine photo manquante.
-                        const next = shots.find((x, i) => i > shots.findIndex((y) => y.key === current.key) && !vehiclePhotos[x.key] && x.key !== current.key)
-                          ?? shots.find((x) => !vehiclePhotos[x.key] && x.key !== current.key)
-                          ?? null;
-                        setGuided(next);
+                        setSkipped((sk) => ({ ...sk, [current.key]: false }));
+                        setGuided(nextMissingShot(current.key));
                       }}
                     >
                       {vehiclePhotos[guided.key] ? 'Reprendre la photo' : 'Prendre la photo'}
                     </Button>
+                    {guided.optional && !vehiclePhotos[guided.key] ? (
+                      <Button
+                        kind="outline"
+                        size="md"
+                        fullWidth
+                        onPress={() => {
+                          const current = guided;
+                          setSkipped((sk) => ({ ...sk, [current.key]: true }));
+                          setGuided(shots.find((x, i) => i > shots.findIndex((y) => y.key === current.key) && !vehiclePhotos[x.key] && !skipped[x.key]) ?? shots.find((x) => x.key !== current.key && !vehiclePhotos[x.key] && !skipped[x.key]) ?? null);
+                        }}
+                      >
+                        Passer — non concerné
+                      </Button>
+                    ) : null}
                     <Button kind="ghost" size="md" fullWidth onPress={() => setGuided(null)}>
                       Terminer plus tard
                     </Button>
@@ -675,8 +726,7 @@ export function VehicleInspectionScreen() {
           </>
         ) : step === 1 ? (
           <>
-            {/* Sélecteur de vue (pas pour une moto : zones) */}
-            {sketchKind !== 'moto' ? (
+            {/* Sélecteur de vue */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
               {VIEWS.map((v) => {
                 const on = view === v.key;
@@ -693,7 +743,6 @@ export function VehicleInspectionScreen() {
                 );
               })}
             </ScrollView>
-            ) : null}
 
             <VehicleDiagram kind={sketchKind} view={view} damages={viewDamages} onAdd={addDamage} onMarkerPress={(id) => setEditing(damages.find((d) => d.id === id) ?? null)} height={280} />
 
@@ -770,7 +819,7 @@ export function VehicleInspectionScreen() {
                 <RefKv label="Kilométrage" value={km ? `${parseInt(km, 10).toLocaleString('fr-FR')} km` : '—'} />
                 <RefKv label="Carburant" value={fuelLabel(fuel)} />
                 <RefKv label="Dommages" value={`${damages.length}`} />
-                <RefKv label="Photos" value={`${photosDone}/${shots.length}`} />
+                <RefKv label="Photos" value={`${photosDone + optionalTaken}`} />
               </View>
               {damages.length > 0 ? (
                 <View style={{ gap: 6, marginTop: 2 }}>
@@ -837,8 +886,8 @@ export function VehicleInspectionScreen() {
           </>
         ) : (
           <>
-            <SignatureBlock title="Signature du conducteur" who={driverName} padRef={driverPad} onSign={setDriverSigned} signed={driverSigned} />
-            <SignatureBlock title={isArrival ? 'Signature du destinataire' : 'Signature du client'} who={isArrival ? 'Personne qui réceptionne le véhicule' : 'À faire signer au client'} padRef={clientPad} onSign={setClientSigned} signed={clientSigned} />
+            <SignatureBlock title="Signature du conducteur" who={driverName} padRef={driverPad} onSign={setDriverSigned} signed={driverSigned} onDrawingChange={setDrawing} />
+            <SignatureBlock title={isArrival ? 'Signature du destinataire' : 'Signature du client'} who={isArrival ? 'Personne qui réceptionne le véhicule' : 'À faire signer au client'} padRef={clientPad} onSign={setClientSigned} signed={clientSigned} onDrawingChange={setDrawing} />
             <Surface padded style={{ padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
               <Icons.warn size={18} color={theme.gold} stroke={1.8} />
               <Text style={{ flex: 1, fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
@@ -928,7 +977,7 @@ export function VehicleInspectionScreen() {
   );
 }
 
-function SignatureBlock({ title, who, padRef, onSign, signed }: { title: string; who: string; padRef: React.RefObject<SignaturePadHandle | null>; onSign: (v: boolean) => void; signed: boolean }) {
+function SignatureBlock({ title, who, padRef, onSign, signed, onDrawingChange }: { title: string; who: string; padRef: React.RefObject<SignaturePadHandle | null>; onSign: (v: boolean) => void; signed: boolean; onDrawingChange?: (d: boolean) => void }) {
   const { theme } = useTheme();
   return (
     <Surface padded style={{ padding: 14, gap: 10 }}>
@@ -939,7 +988,7 @@ function SignatureBlock({ title, who, padRef, onSign, signed }: { title: string;
         </View>
         {signed ? <Pill tone="good">✓ Signé</Pill> : null}
       </View>
-      <SignaturePad ref={padRef} height={150} onChange={onSign} />
+      <SignaturePad ref={padRef} height={170} onChange={onSign} onDrawingChange={onDrawingChange} />
       <Pressable onPress={() => { padRef.current?.clear(); onSign(false); }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, padding: 4 }}>
         <Icons.x size={14} color={theme.muted} stroke={2} />
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.semibold }}>Effacer</Text>
@@ -978,7 +1027,7 @@ function askYesNo(title: string, message: string, yes: string): Promise<boolean>
 
 /** « Côté gauche », « Réservoir »… : où se trouve le dommage. */
 function damagePlace(d: Damage): string {
-  if (d.zone) return MOTO_ZONES.find((z) => z.key === d.zone)?.label ?? d.zone;
+  if (d.zone) return d.zone;
   return ({ top: 'Dessus', left: 'Côté gauche', right: 'Côté droit', front: 'Avant', rear: 'Arrière' } as Record<string, string>)[d.view] ?? d.view;
 }
 

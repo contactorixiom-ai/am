@@ -8,10 +8,12 @@ import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyR
 import {
   VEHICLE_SKETCH_CAR,
   VEHICLE_SKETCH_CAR_RATIO,
+  VEHICLE_SKETCH_MOTO,
+  VEHICLE_SKETCH_MOTO_RATIO,
   VEHICLE_SKETCH_VAN,
   VEHICLE_SKETCH_VAN_RATIO,
 } from './vehicleSketches';
-import { MOTO_ZONES, SKETCHES } from './vehicleViews';
+import { SKETCHES } from './vehicleViews';
 
 // Palette neutre noir & blanc pour des documents officiels institutionnels
 // (style transporteur classique). Plus aucun navy/doré dans les PDF — le
@@ -975,35 +977,11 @@ function drawDamageMarker(doc: jsPDF, cx: number, cy: number, code: PdfDamage['c
 // imprimée vierge : le PV signé ne montrait aucun des dommages relevés.
 function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: number, kind: VehicleKind, damages: PdfDamage[] = []) {
 
-  if (kind === 'moto') {
-    // Pas de planche moto : relevé par zone, lisible sans croquis.
-    doc.setFontSize(6.5);
-    const colW = w / 2;
-    const rowH = Math.min(5.4, h / Math.ceil(MOTO_ZONES.length / 2));
-    MOTO_ZONES.forEach((z, i) => {
-      const cx = x + (i % 2) * colW;
-      const cy = y + Math.floor(i / 2) * rowH;
-      setColor(doc, LINE, 'draw');
-      doc.setLineWidth(0.2);
-      doc.rect(cx, cy, colW - 1, rowH - 0.8);
-      setColor(doc, INK, 'text');
-      doc.setFont('helvetica', 'normal');
-      doc.text(z.label, cx + 1.2, cy + rowH / 2 + 0.6);
-      const here = damages.filter((d) => d.zone === z.key);
-      if (here.length === 0) {
-        setColor(doc, MUTED, 'text');
-        doc.text('RAS', cx + colW - 2.5, cy + rowH / 2 + 0.6, { align: 'right' });
-      } else {
-        here.forEach((d, k) => drawDamageMarker(doc, cx + colW - 3.5 - k * 4.2, cy + (rowH - 0.8) / 2, d.code));
-      }
-    });
-    return;
-  }
-
   const isVan = kind === 'van' || kind === 'truck';
-  const img = isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
-  const ratio = isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
-  const sketch = SKETCHES[isVan ? 'van' : 'car'];
+  const isMoto = kind === 'moto';
+  const img = isMoto ? VEHICLE_SKETCH_MOTO : isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
+  const ratio = isMoto ? VEHICLE_SKETCH_MOTO_RATIO : isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
+  const sketch = SKETCHES[isMoto ? 'moto' : isVan ? 'van' : 'car'];
 
   // Ajustement « contain » : on préserve les proportions de la planche et on
   // centre le visuel dans le cadre réservé.

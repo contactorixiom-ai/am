@@ -5,6 +5,7 @@
 
 import {
   VEHICLE_SKETCH_CAR,
+  VEHICLE_SKETCH_MOTO,
   VEHICLE_SKETCH_VAN,
 } from './vehicleSketches';
 
@@ -26,7 +27,7 @@ const pad = (x0: number, y0: number, x1: number, y1: number, p = 14): Crop => ({
 
 // Rectangles mesurés sur les planches (pixels de l'image source).
 // Profil « gauche » = côté conducteur : véhicule tourné vers la gauche.
-export const SKETCHES: Record<'car' | 'van', Sketch> = {
+export const SKETCHES: Record<SketchKind, Sketch> = {
   car: {
     uri: VEHICLE_SKETCH_CAR,
     width: 1402,
@@ -51,6 +52,18 @@ export const SKETCHES: Record<'car' | 'van', Sketch> = {
       rear: pad(84, 454, 306, 703),
     },
   },
+  moto: {
+    uri: VEHICLE_SKETCH_MOTO,
+    width: 1400,
+    height: 900,
+    views: {
+      top: pad(789, 545, 1309, 755),
+      left: pad(95, 60, 615, 401),
+      right: pad(65, 500, 585, 841),
+      front: pad(753, 51, 987, 401),
+      rear: pad(1093, 51, 1327, 401),
+    },
+  },
 };
 
 /** Planche à utiliser selon la catégorie saisie (« Utilitaire », « Moto »…). */
@@ -60,18 +73,3 @@ export function sketchKindFor(category?: string | null): SketchKind {
   if (c.includes('utilit') || c.includes('poids') || c.includes('camion') || c.includes('camping') || c === 'van' || c === 'truck') return 'van';
   return 'car';
 }
-
-// Moto : pas de planche fiable, on note le dommage par zone. Chaque zone a
-// une position fixe (0..1) pour rester compatible avec le format des repères.
-export const MOTO_ZONES: { key: string; label: string; x: number; y: number }[] = [
-  { key: 'front_fairing', label: 'Carénage / optique avant', x: 0.1, y: 0.1 },
-  { key: 'handlebar', label: 'Guidon, leviers, rétroviseurs', x: 0.3, y: 0.1 },
-  { key: 'tank', label: 'Réservoir', x: 0.5, y: 0.1 },
-  { key: 'seat', label: 'Selle', x: 0.7, y: 0.1 },
-  { key: 'rear', label: 'Coque arrière / feu', x: 0.9, y: 0.1 },
-  { key: 'left_side', label: 'Flanc gauche', x: 0.1, y: 0.5 },
-  { key: 'right_side', label: 'Flanc droit', x: 0.3, y: 0.5 },
-  { key: 'exhaust', label: 'Échappement', x: 0.5, y: 0.5 },
-  { key: 'front_wheel', label: 'Roue / fourche avant', x: 0.7, y: 0.5 },
-  { key: 'rear_wheel', label: 'Roue / bras arrière', x: 0.9, y: 0.5 },
-];

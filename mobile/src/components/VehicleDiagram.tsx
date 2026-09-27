@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { GestureResponderEvent, Image, LayoutChangeEvent, Platform, Pressable, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { MOTO_ZONES, SKETCHES, SketchKind } from '../utils/vehicleViews';
+import { SKETCHES, SketchKind } from '../utils/vehicleViews';
 
 export type ViewKey = 'top' | 'front' | 'rear' | 'left' | 'right';
 export type DamageCode = 'R' | 'F' | 'E' | 'C' | 'M';
@@ -13,7 +13,7 @@ export interface Damage {
   x: number;
   y: number;
   code: DamageCode;
-  /** Moto : zone touchée (pas de planche). */
+  /** Ancien relevé moto par zone (avant la planche moto). */
   zone?: string;
   note?: string;
   photo?: boolean;
@@ -57,10 +57,6 @@ export function VehicleDiagram({ kind, view, damages, onAdd, onMarkerPress, heig
   const { theme } = useTheme();
   const [box, setBox] = useState({ w: 0, h: height });
   const ref = useRef<View>(null);
-
-  if (kind === 'moto') {
-    return <MotoZones damages={damages} onAdd={onAdd} />;
-  }
 
   const sketch = SKETCHES[kind];
   const crop = sketch.views[view];
@@ -182,35 +178,5 @@ export function VehicleDiagram({ kind, view, damages, onAdd, onMarkerPress, heig
         </View>
       </View>
     </Pressable>
-  );
-}
-
-function MotoZones({ damages, onAdd }: Pick<Props, 'damages' | 'onAdd'>) {
-  const { theme } = useTheme();
-  return (
-    <View style={{ borderRadius: 14, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.line, padding: 12, gap: 8 }}>
-      <Text style={{ fontSize: 11, color: theme.muted, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-        Touche la zone abîmée
-      </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 }}>
-        {MOTO_ZONES.map((z) => {
-          const here = damages.filter((d) => d.zone === z.key);
-          return (
-            <Pressable
-              key={z.key}
-              onPress={() => onAdd(z.x, z.y, z.key)}
-              style={{ width: '48.5%', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: here.length ? DAMAGE_META[here[0].code].color : theme.line, backgroundColor: theme.surface, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-            >
-              <Text style={{ flex: 1, fontSize: 13, color: theme.ink, fontWeight: '600' }}>{z.label}</Text>
-              {here.map((d) => (
-                <View key={d.id} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: DAMAGE_META[d.code].color, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{d.code}</Text>
-                </View>
-              ))}
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
   );
 }
