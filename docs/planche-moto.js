@@ -1,230 +1,218 @@
-// Générateur de la planche moto (vues profil G/D, face avant, face arrière, dessus).
+// Planche moto Axis Import (roadster) — générateur SVG.
+// Usage : node docs/planche-moto.js → planche2.svg (1400×900), à exporter en JPEG
+// puis à coller dans mobile/src/utils/vehicleSketches.ts (VEHICLE_SKETCH_MOTO).
+// Planche moto v2 — roadster moderne, traits techniques (contours 2.6 / détails 1.4).
 const fs = require('fs');
-const F = 'fill="#fff"';
-const r2 = (n) => Math.round(n * 10) / 10;
-const pol = (cx, cy, r, deg) => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
+const W = 'fill="#fff"';
+const D = 'stroke-width="1.4"';
+const r1 = (n) => Math.round(n * 10) / 10;
+const P = (cx, cy, r, deg) => [r1(cx + r * Math.cos((deg * Math.PI) / 180)), r1(cy + r * Math.sin((deg * Math.PI) / 180))];
 
-function wheelSide(cx, cy, { disc = true, sprocket = false } = {}) {
-  let s = `<circle cx="${cx}" cy="${cy}" r="84" ${F}/>`;
-  s += `<circle cx="${cx}" cy="${cy}" r="71"/>`;
-  s += `<circle cx="${cx}" cy="${cy}" r="65" stroke-width="1.6"/>`;
-  // 3 bâtons doubles (jante coulée)
-  for (const a of [-90, 30, 150]) {
-    for (const off of [-7, 7]) {
-      const [x1, y1] = pol(cx, cy, 16, a + off * 1.6);
-      const [x2, y2] = pol(cx, cy, 64, a + off * 0.55);
-      s += `<path d="M${r2(x1)} ${r2(y1)} L${r2(x2)} ${r2(y2)}" stroke-width="1.8"/>`;
-    }
+function wheel(cx, cy, { front }) {
+  let s = `<circle cx="${cx}" cy="${cy}" r="84" ${W}/>`;          // pneu
+  s += `<circle cx="${cx}" cy="${cy}" r="72" ${D}/>`;              // flanc
+  s += `<circle cx="${cx}" cy="${cy}" r="68" ${W}/>`;              // jante
+  s += `<circle cx="${cx}" cy="${cy}" r="63" ${D}/>`;
+  // 5 bâtons fins (jante coulée)
+  for (let k = 0; k < 5; k++) {
+    const a = -90 + k * 72;
+    const [x1, y1] = P(cx, cy, 17, a - 9), [x2, y2] = P(cx, cy, 63, a - 4);
+    const [x3, y3] = P(cx, cy, 63, a + 4), [x4, y4] = P(cx, cy, 17, a + 9);
+    s += `<path d="M${x1} ${y1} L${x2} ${y2} A63 63 0 0 1 ${x3} ${y3} L${x4} ${y4}" ${W} ${D}/>`;
   }
-  if (disc) {
-    s += `<circle cx="${cx}" cy="${cy}" r="46" stroke-width="1.8"/><circle cx="${cx}" cy="${cy}" r="36" stroke-width="1.3"/>`;
-    for (let k = 0; k < 12; k++) { const [x, y] = pol(cx, cy, 41, k * 30 + 15); s += `<circle cx="${r2(x)}" cy="${r2(y)}" r="1.6" stroke-width="1"/>`; }
+  if (front) {
+    s += `<circle cx="${cx}" cy="${cy}" r="50" ${D}/><circle cx="${cx}" cy="${cy}" r="38" ${D}/>`;
+    for (let k = 0; k < 18; k++) { const [x, y] = P(cx, cy, 44, k * 20 + 10); s += `<circle cx="${x}" cy="${y}" r="1.7" ${D}/>`; }
+  } else {
+    s += `<circle cx="${cx}" cy="${cy}" r="34" ${W} ${D}/>`; // couronne
+    for (let k = 0; k < 36; k++) { const [x1, y1] = P(cx, cy, 31, k * 10), [x2, y2] = P(cx, cy, 34, k * 10 + 5); s += `<path d="M${x1} ${y1} L${x2} ${y2}" stroke-width="1"/>`; }
   }
-  if (sprocket) s += `<circle cx="${cx}" cy="${cy}" r="30" stroke-width="1.8" stroke-dasharray="2.5 2.5"/>`;
-  s += `<circle cx="${cx}" cy="${cy}" r="14" ${F}/><circle cx="${cx}" cy="${cy}" r="5"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="17" ${W}/><circle cx="${cx}" cy="${cy}" r="7" ${D}/>`;
   return s;
 }
 
-// ─── Profil gauche : avant à gauche. Repère 600×380, sol y=370 ───────────
+// Profil gauche, avant à gauche. Repère 620×380, sol y=370.
 function side() {
-  const FX = 140, RX = 480, WY = 286;
+  const FX = 142, RX = 482, Y = 286;
   let s = '';
-  s += wheelSide(RX, WY, { disc: false, sprocket: true });
-  // Garde-boue arrière (lèche-roue)
-  s += `<path d="M${RX - 52} ${WY - 78} A92 92 0 0 1 ${RX + 30} ${WY - 88} L${RX + 26} ${WY - 80} A84 84 0 0 0 ${RX - 48} ${WY - 70} Z" ${F}/>`;
-  // Chaîne + pignon
-  s += `<path d="M366 244 L${RX} ${WY - 30} M366 264 L${RX} ${WY + 30}" stroke-width="1.8"/>`;
-  s += `<circle cx="366" cy="254" r="11" ${F}/>`;
-  // Amortisseur arrière
-  s += `<path d="M392 150 L414 236 M402 148 L424 234" /><path d="M398 176 l14 -4 M402 192 l14 -4 M406 208 l14 -4" stroke-width="1.4"/>`;
-  // Bras oscillant (effilé)
-  s += `<path d="M364 222 L${RX} ${WY - 9} L${RX} ${WY + 9} L360 246 Z" ${F}/><circle cx="366" cy="232" r="9" ${F}/><circle cx="366" cy="232" r="3.5"/>`;
-  // Cadre (treillis visible sous la selle)
-  s += `<path d="M226 128 L300 150 L392 150 M300 150 L366 226 M392 150 L366 226" stroke-width="2.2"/>`;
-  // Échappement sous moteur (boîtier court)
-  s += `<path d="M262 212 q-14 40 20 70 L318 294" stroke-width="7" stroke="#111"/>`;
-  s += `<path d="M262 212 q-14 40 20 70 L318 294" stroke-width="3.6" stroke="#fff"/>`;
-  s += `<path d="M312 284 L392 278 q10 0 10 10 L400 302 q-2 8 -12 8 L318 312 q-10 0 -10 -10 Z" ${F}/>`;
-  s += `<path d="M390 284 L396 306" stroke-width="1.4"/>`;
-  // Moteur : carters + cylindre
-  s += `<path d="M252 196 L374 190 L382 244 L340 282 L276 282 L246 250 Z" ${F}/>`;
-  s += `<path d="M260 196 L270 154 L334 150 L340 192" ${F}/>`;
-  s += `<path d="M268 166 L336 162 M266 176 L337 172 M264 186 L338 182" stroke-width="1.4"/>`;
-  s += `<circle cx="318" cy="240" r="24" stroke-width="2"/><circle cx="318" cy="240" r="9" stroke-width="1.6"/>`;
-  s += `<path d="M262 256 L300 262" stroke-width="1.4"/>`;
-  // Radiateur
-  s += `<path d="M228 166 L252 166 L254 238 L232 240 Z" ${F}/>`;
-  for (let y = 178; y <= 228; y += 10) s += `<path d="M232 ${y} L252 ${y}" stroke-width="1.2"/>`;
-  // Repose-pieds pilote + sélecteur
-  s += `<path d="M364 268 l30 -2" stroke-width="4"/><path d="M350 268 l-26 12" stroke-width="2"/>`;
-  // Coque arrière + feu + support de plaque
-  s += `<path d="M452 124 Q510 112 566 104 L570 114 Q532 138 486 150 L452 150 Z" ${F}/>`;
-  s += `<path d="M556 104 L572 101 L574 112 L560 116 Z"/>`;
-  s += `<path d="M500 146 Q524 160 536 190 L528 194 Q516 168 494 154" ${F}/>`;
-  s += `<rect x="518" y="190" width="34" height="22" rx="2" transform="rotate(10 535 201)" ${F}/>`;
-  s += `<path d="M534 166 l16 -2 l1 6 l-16 3" stroke-width="1.8"/>`;
-  // Selle pilote + passager
-  s += `<path d="M352 116 Q390 126 432 128 Q452 122 470 112 Q486 108 488 118 L484 130 Q440 150 380 150 Q356 148 348 136 Z" ${F}/>`;
-  s += `<path d="M432 128 Q440 138 438 148" stroke-width="1.6"/>`;
-  // Réservoir
-  s += `<path d="M222 124 Q236 98 282 90 Q332 84 358 106 Q370 118 366 140 Q362 156 342 160 L242 164 Q222 160 222 124 Z" ${F}/>`;
-  s += `<path d="M246 116 Q296 102 350 112" stroke-width="1.6"/>`;
-  s += `<ellipse cx="312" cy="92" rx="13" ry="4" stroke-width="1.8"/>`;
-  s += `<path d="M252 148 Q296 146 336 150" stroke-width="1.4"/>`;
-  // Roue avant
-  s += wheelSide(FX, WY);
-  // Étrier avant sur le disque
-  s += `<path d="M168 244 q16 8 20 24 l-12 5 q-5 -14 -17 -19 z" ${F}/>`;
+  // ── Plan arrière ────────────────────────────────────────────
+  s += wheel(RX, Y, { front: false });
+  // Garde-boue arrière court
+  s += `<path d="M${RX - 70} ${Y - 56} A90 90 0 0 1 ${RX - 4} ${Y - 90} L${RX - 4} ${Y - 82} A82 82 0 0 0 ${RX - 63} ${Y - 51} Z" ${W}/>`;
+  // Chaîne
+  s += `<path d="M372 244 L${RX - 2} ${Y - 34} M372 266 L${RX - 2} ${Y + 34}" ${D}/>`;
+  // Amortisseur : corps + ressort
+  s += `<g transform="rotate(-18 406 206)"><rect x="400" y="168" width="12" height="76" rx="4" ${W}/>`;
+  for (let y = 182; y <= 226; y += 6) s += `<path d="M397 ${y} L415 ${y + 3}" ${D}/>`;
+  s += `<circle cx="406" cy="172" r="4" ${W} ${D}/><circle cx="406" cy="240" r="4" ${W} ${D}/></g>`;
+  // Boucle arrière (cadre sous la selle) + platine de cadre
+  s += `<path d="M362 150 L380 214 M440 150 L386 212" stroke-width="3"/>`;
+  s += `<path d="M352 152 Q374 150 378 168 L386 230 Q376 246 358 242 Q364 200 352 152 Z" ${W}/>`;
+  s += `<circle cx="372" cy="176" r="3" ${D}/>`;
+  // Bras oscillant (caisson effilé)
+  s += `<path d="M362 220 Q420 244 ${RX} ${Y - 10} L${RX + 4} ${Y + 8} Q420 264 358 246 Z" ${W}/>`;
+  s += `<path d="M380 238 Q428 254 ${RX - 20} ${Y}" ${D}/>`;
+  s += `<rect x="${RX - 8}" y="${Y - 6}" width="18" height="12" rx="3" ${W} ${D}/>`;
+  s += `<circle cx="366" cy="233" r="10" ${W}/><circle cx="366" cy="233" r="4" ${D}/>`;
+  // ── Moteur bicylindre ───────────────────────────────────────
+  // Cylindre + culasse inclinés vers l'avant
+  s += `<path d="M262 206 L252 158 Q254 150 262 149 L330 146 Q338 146 338 154 L344 200 Z" ${W}/>`;
+  for (let y = 160; y <= 192; y += 8) s += `<path d="M${258 + (y - 158) * 0.2} ${y} L${338 + (y - 158) * 0.13} ${y - 2}" ${D}/>`;
+  // Carter
+  s += `<path d="M244 206 L372 200 Q384 202 384 216 L380 250 Q376 272 354 278 L284 284 Q256 284 246 262 Z" ${W}/>`;
+  s += `<circle cx="318" cy="244" r="26" ${D}/><circle cx="318" cy="244" r="17" ${D}/>`;
+  s += `<path d="M340 214 Q364 212 372 226 Q376 244 360 252" ${D}/>`; // couvercle pignon
+  s += `<circle cx="366" cy="232" r="4" ${D}/>`;
+  // Échappement : collecteur sous le moteur + silencieux court
+  s += `<path d="M258 196 C236 214 238 262 262 286 C276 300 300 304 322 302" stroke-width="9" stroke="#111"/>`;
+  s += `<path d="M258 196 C236 214 238 262 262 286 C276 300 300 304 322 302" stroke-width="5.4" stroke="#fff"/>`;
+  s += `<path d="M316 290 L372 286 Q384 286 384 298 L383 306 Q382 316 370 316 L320 318 Q310 318 310 308 L310 298 Q310 290 316 290 Z" ${W}/>`;
+  s += `<path d="M364 288 L362 315" ${D}/><ellipse cx="384" cy="302" rx="3" ry="9" ${D}/>`;
+  // Repose-pieds + platine + sélecteur
+  s += `<path d="M360 252 Q372 262 386 262 L392 270 L360 272 Z" ${W} ${D}/>`;
+  s += `<rect x="370" y="264" width="30" height="7" rx="3.5" ${W}/>`;
+  s += `<path d="M348 268 L318 282" stroke-width="2.2"/><rect x="310" y="279" width="12" height="6" rx="3" ${W} ${D}/>`;
+  // ── Partie cycle haute ──────────────────────────────────────
+  // Boucle arrière + coque
+  s += `<path d="M446 150 L490 138" stroke-width="3"/>`;
+  s += `<path d="M436 128 Q500 110 572 98 Q582 98 578 108 Q548 132 496 148 L444 154 Z" ${W}/>`;
+  s += `<path d="M470 132 Q520 120 560 108" ${D}/>`;
+  s += `<path d="M566 100 L582 97 Q586 104 580 110 L568 112 Z" ${W} ${D}/>`; // feu
+  // Support de plaque + clignotant + plaque
+  s += `<path d="M504 146 Q528 158 540 188 L532 192 Q522 166 498 154 Z" ${W}/>`;
+  s += `<path d="M522 162 L540 160 L541 167 L524 169" ${W} ${D}/>`;
+  s += `<rect x="520" y="188" width="36" height="24" rx="2" transform="rotate(12 538 200)" ${W}/>`;
+  // Selle (monobloc à deux niveaux)
+  s += `<path d="M346 118 Q384 128 426 130 Q446 128 462 118 Q480 110 490 114 Q494 122 486 130 Q454 150 404 152 L362 150 Q346 146 342 132 Z" ${W}/>`;
+  s += `<path d="M426 130 Q434 140 432 150" ${D}/>`;
+  // Réservoir sculpté + écope de radiateur
+  s += `<path d="M226 128 Q238 100 282 92 Q330 86 354 104 Q366 116 364 138 Q360 154 342 158 L250 162 Q228 158 226 128 Z" ${W}/>`;
+  s += `<path d="M250 112 Q298 100 348 112" ${D}/><path d="M258 146 Q300 142 340 148" ${D}/>`;
+  s += `<rect x="298" y="89" width="26" height="7" rx="3.5" ${W} ${D}/>`;
+  // Écope (carénage de radiateur)
+  s += `<path d="M226 150 L270 158 L262 204 Q250 214 236 206 L222 176 Q220 158 226 150 Z" ${W}/>`;
+  s += `<path d="M232 170 L262 174 M234 184 L258 188" ${D}/>`;
+  // ── Plan avant ──────────────────────────────────────────────
+  s += wheel(FX, Y, { front: true });
   // Garde-boue avant
-  s += `<path d="M84 222 A94 94 0 0 1 196 226 L188 232 A86 86 0 0 0 90 230 Z" ${F}/>`;
-  // Fourche inversée (2 fourreaux)
-  const top = [214, 120];
-  s += `<path d="M${FX - 7} ${WY - 2} L${top[0] - 7} ${top[1]} L${top[0] + 7} ${top[1] + 4} L${FX + 7} ${WY + 2} Z" ${F}/>`;
-  s += `<path d="M${FX + 12} ${WY - 50} L${FX + 44} ${WY - 140}" stroke-width="1.4"/>`;
-  // Tés de fourche
-  s += `<path d="M204 118 L234 110 L238 122 L208 130 Z" ${F}/><path d="M210 104 L238 96 L240 106 L212 114 Z" ${F}/>`;
-  // Phare rond + clignotant
-  s += `<circle cx="192" cy="146" r="23" ${F}/><circle cx="190" cy="146" r="15" stroke-width="1.6"/>`;
-  s += `<path d="M204 164 l-20 8 l2 6 l20 -7" ${F} stroke-width="1.8"/>`;
-  // Guidon + poignée + levier
-  s += `<path d="M232 100 L250 78 L276 78" stroke-width="3.4"/>`;
-  s += `<rect x="266" y="72" width="24" height="12" rx="5" ${F}/>`;
-  s += `<path d="M252 80 q16 -8 30 -4" stroke-width="1.8"/>`;
+  s += `<path d="M82 226 Q110 196 150 198 Q182 200 200 222 L192 228 Q176 210 150 208 Q114 206 90 232 Z" ${W}/>`;
+  // Fourche inversée : fourreau haut (gros) + tube bas (fin)
+  const ang = Math.atan2(286 - 118, 142 - 216); // direction axe → té
+  const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux;
+  const pt = (t, off) => [r1(FX + (216 - FX) * t + nx * off), r1(Y + (118 - Y) * t + ny * off)];
+  const quad = (t1, t2, w) => { const a = pt(t1, -w), b = pt(t2, -w), c = pt(t2, w), d = pt(t1, w); return `M${a[0]} ${a[1]} L${b[0]} ${b[1]} L${c[0]} ${c[1]} L${d[0]} ${d[1]} Z`; };
+  s += `<path d="${quad(0.02, 0.5, 5)}" ${W}/>`;
+  s += `<path d="${quad(0.42, 1.0, 9)}" ${W}/>`;
+  s += `<path d="${quad(0.0, 0.12, 10)}" ${W}/>`; // pied de fourche
+  // Étrier avant (radial) sur le disque
+  s += `<path d="M168 232 Q184 238 190 254 L178 260 Q174 248 162 242 Z" ${W}/>`;
+  // Tés + colonne
+  s += `<path d="M204 124 L236 114 L240 126 L208 136 Z" ${W}/>`;
+  s += `<path d="M210 106 L240 96 L243 106 L213 116 Z" ${W}/>`;
+  // Phare compact + saute-vent
+  s += `<path d="M204 124 Q176 126 170 150 Q170 170 188 174 L206 170 Z" ${W}/>`;
+  s += `<path d="M180 150 Q182 160 192 164" ${D}/>`;
+  s += `<path d="M198 124 L214 102 L222 108 L208 128" ${W} ${D}/>`;
+  s += `<path d="M200 160 L182 166 L184 172 L202 168" ${W} ${D}/>`; // clignotant
+  // Tableau de bord TFT
+  s += `<rect x="214" y="90" width="24" height="16" rx="4" transform="rotate(-16 226 98)" ${W}/>`;
+  // Guidon conique + poignée + levier
+  s += `<path d="M236 100 Q246 86 256 80 L280 78" stroke-width="3.6"/>`;
+  s += `<rect x="270" y="72" width="26" height="12" rx="5" ${W}/>`;
+  s += `<path d="M258 82 Q274 74 292 78" stroke-width="1.8"/>`;
   // Rétroviseur
-  s += `<path d="M246 82 L236 50" stroke-width="2.2"/>`;
-  s += `<ellipse cx="230" cy="42" rx="18" ry="10" transform="rotate(-10 230 42)" ${F}/>`;
-  // Compteur
-  s += `<rect x="212" y="84" width="22" height="16" rx="4" transform="rotate(-18 223 92)" ${F}/>`;
+  s += `<path d="M252 84 Q248 66 240 54" stroke-width="2.2"/>`;
+  s += `<path d="M218 44 Q228 32 250 36 Q262 40 256 50 Q244 58 226 54 Q214 50 218 44 Z" ${W}/>`;
   return s;
 }
 
-// ─── Face avant. Repère 260×380 ────────────────────────────────────────
+const style = 'fill="none" stroke="#111" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"';
+// Parties symétriques : dessinées à gauche puis reflétées autour de x=130.
+const sym = (inner) => `${inner}<g transform="translate(260 0) scale(-1 1)">${inner}</g>`;
+
+function bars() {
+  return sym(
+    `<path d="M76 88 Q64 70 56 54" stroke-width="2.2"/>` +
+    `<path d="M30 44 Q34 30 54 30 Q74 32 74 44 Q72 56 52 56 Q30 56 30 44 Z" ${W}/>` +
+    `<path d="M130 84 Q90 84 44 92" stroke-width="3.6"/>` +
+    `<rect x="12" y="86" width="32" height="13" rx="5" ${W}/>` +
+    `<path d="M46 98 Q30 106 14 106" stroke-width="2"/>`,
+  );
+}
+
 function front() {
-  let s = '';
-  // Pneu arrière (derrière) + pneu avant
-  s += `<rect x="112" y="226" width="36" height="140" rx="16" ${F}/>`;
-  s += `<rect x="116" y="232" width="28" height="138" rx="12" ${F}/>`;
-  s += `<path d="M130 236 L130 368" stroke-width="1.2"/>`;
-  // Échappement / carters (larges)
-  s += `<path d="M72 200 L188 200 L196 262 L168 290 L92 290 L64 262 Z" ${F}/>`;
-  s += `<circle cx="84" cy="246" r="16" stroke-width="1.6"/><circle cx="176" cy="246" r="16" stroke-width="1.6"/>`;
-  // Radiateur
-  s += `<rect x="92" y="150" width="76" height="66" rx="6" ${F}/>`;
-  for (let y = 162; y <= 206; y += 8) s += `<path d="M98 ${y} L162 ${y}" stroke-width="1.1"/>`;
-  // Réservoir (vu de face, derrière)
-  s += `<path d="M70 118 Q130 96 190 118 L182 150 L78 150 Z" ${F}/>`;
-  // Fourche
-  s += `<rect x="96" y="120" width="14" height="190" rx="5" ${F}/><rect x="150" y="120" width="14" height="190" rx="5" ${F}/>`;
-  // Garde-boue avant
-  s += `<path d="M104 244 Q130 222 156 244 L154 276 Q130 262 106 276 Z" ${F}/>`;
-  // Étriers
-  s += `<rect x="86" y="266" width="12" height="26" rx="3" ${F}/><rect x="162" y="266" width="12" height="26" rx="3" ${F}/>`;
-  // Tés + phare
-  s += `<rect x="88" y="110" width="84" height="14" rx="5" ${F}/>`;
-  s += `<circle cx="130" cy="150" r="30" ${F}/><circle cx="130" cy="150" r="21" stroke-width="1.6"/><circle cx="130" cy="150" r="7" stroke-width="1.2"/>`;
-  // Clignotants
-  s += `<path d="M96 160 L66 166 L66 176 L96 172" ${F}/><path d="M164 160 L194 166 L194 176 L164 172" ${F}/>`;
-  // Guidon + poignées + leviers
-  s += `<path d="M40 88 Q130 70 220 88" stroke-width="3.4"/>`;
-  s += `<rect x="14" y="80" width="30" height="13" rx="5" ${F}/><rect x="216" y="80" width="30" height="13" rx="5" ${F}/>`;
-  s += `<path d="M46 96 L20 104 M214 96 L240 104" stroke-width="2"/>`;
-  // Rétroviseurs
-  s += `<path d="M58 84 L44 42 M202 84 L216 42" stroke-width="2.2"/>`;
-  s += `<ellipse cx="40" cy="34" rx="20" ry="12" ${F}/><ellipse cx="220" cy="34" rx="20" ry="12" ${F}/>`;
-  // Compteur
-  s += `<rect x="112" y="90" width="36" height="20" rx="5" ${F}/>`;
-  // Repose-pieds
-  s += `<path d="M58 300 L40 302 M202 300 L220 302" stroke-width="4"/>`;
+  let s = bars();
+  s += `<path d="M72 122 Q130 100 188 122 L182 150 L78 150 Z" ${W}/>`;              // épaules du réservoir
+  s += `<rect x="110" y="94" width="40" height="20" rx="5" ${W}/>`;                   // TFT
+  s += sym(`<path d="M58 150 L96 150 L98 212 L72 216 Q56 196 58 150 Z" ${W}/><path d="M66 172 L94 174 M68 190 L94 192" ${D}/>`); // écopes
+  s += `<rect x="96" y="150" width="68" height="64" rx="4" ${W}/>`;
+  for (let y = 160; y <= 206; y += 6) s += `<path d="M100 ${y} L160 ${y}" stroke-width="1"/>`;
+  s += `<path d="M74 214 L186 214 L192 262 Q186 282 164 286 L96 286 Q74 282 68 262 Z" ${W}/>`; // carters
+  s += sym(`<circle cx="86" cy="248" r="14" ${D}/>`);
+  s += sym(`<path d="M68 290 L40 294" stroke-width="5"/>`);                           // repose-pieds
+  s += `<rect x="114" y="214" width="32" height="156" rx="15" ${W}/><path d="M130 222 L130 364" stroke-width="1"/>`; // pneu
+  s += sym(`<rect x="96" y="118" width="15" height="120" rx="5" ${W}/><rect x="99" y="236" width="9" height="62" rx="3" ${W}/><rect x="86" y="266" width="12" height="28" rx="3" ${W}/>`); // fourche + étriers
+  s += `<path d="M104 238 Q130 218 156 238 L154 262 Q130 250 106 262 Z" ${W}/>`;     // garde-boue
+  s += `<rect x="88" y="110" width="84" height="14" rx="5" ${W}/>`;                   // té
+  s += `<path d="M110 128 Q130 114 150 128 L146 136 L114 136 Z" ${W}/>`;              // saute-vent
+  s += `<circle cx="130" cy="158" r="28" ${W}/><circle cx="130" cy="158" r="20" ${D}/><path d="M112 150 Q130 138 148 150" ${D}/>`; // phare
+  s += sym(`<path d="M104 166 L78 170 L78 178 L104 174" ${W} ${D}/>`);                // clignotants
   return s;
 }
 
-// ─── Face arrière. Repère 260×380 ──────────────────────────────────────
 function rear() {
-  let s = '';
-  // Guidon et rétros (derrière)
-  s += `<path d="M40 88 Q130 72 220 88" stroke-width="3"/>`;
-  s += `<path d="M58 84 L44 42 M202 84 L216 42" stroke-width="2"/>`;
-  s += `<ellipse cx="40" cy="34" rx="20" ry="12" ${F}/><ellipse cx="220" cy="34" rx="20" ry="12" ${F}/>`;
-  s += `<rect x="14" y="80" width="30" height="13" rx="5" ${F}/><rect x="216" y="80" width="30" height="13" rx="5" ${F}/>`;
-  // Réservoir
-  s += `<path d="M66 114 Q130 94 194 114 L186 146 L74 146 Z" ${F}/>`;
-  // Carters + échappement (côté droit)
-  s += `<path d="M72 196 L188 196 L196 256 L168 286 L92 286 L64 256 Z" ${F}/>`;
-  s += `<path d="M170 268 L208 268 L210 300 L172 302 Z" ${F}/><ellipse cx="190" cy="285" rx="12" ry="10" stroke-width="1.6"/>`;
-  // Pneu arrière (large)
-  s += `<rect x="102" y="230" width="56" height="140" rx="20" ${F}/>`;
-  s += `<path d="M112 240 L112 360 M148 240 L148 360" stroke-width="1.2"/>`;
-  // Bras oscillant
-  s += `<path d="M86 250 L102 262 M174 250 L158 262" stroke-width="3"/>`;
-  // Selle + coque arrière
-  s += `<path d="M84 136 Q130 120 176 136 L172 156 L88 156 Z" ${F}/>`;
-  s += `<path d="M96 156 L164 156 L154 186 L106 186 Z" ${F}/>`;
-  // Feu arrière
-  s += `<rect x="112" y="162" width="36" height="14" rx="4" ${F}/><path d="M118 169 L142 169" stroke-width="1.2"/>`;
-  // Support + plaque
-  s += `<path d="M122 186 L122 204 M138 186 L138 204" stroke-width="2"/>`;
-  s += `<rect x="100" y="204" width="60" height="30" rx="2" ${F}/>`;
-  // Clignotants
-  s += `<path d="M104 192 L76 196 L76 206 L104 202" ${F}/><path d="M156 192 L184 196 L184 206 L156 202" ${F}/>`;
-  // Repose-pieds passager
-  s += `<path d="M76 262 L52 264 M184 262 L208 264" stroke-width="4"/>`;
+  let s = bars();
+  s += `<path d="M72 118 Q130 98 188 118 L182 146 L78 146 Z" ${W}/>`;
+  s += `<path d="M74 200 L186 200 L194 250 L170 280 L90 280 L66 250 Z" ${W}/>`;
+  s += `<path d="M164 282 L196 282 Q204 282 204 292 L204 300 Q204 308 196 308 L166 308 Z" ${W}/><ellipse cx="196" cy="295" rx="6" ry="8" ${D}/>`; // silencieux
+  s += sym(`<path d="M86 256 L104 276" stroke-width="3.2"/><path d="M84 262 L58 266" stroke-width="5"/>`); // bras + repose-pieds passager
+  s += `<rect x="100" y="228" width="60" height="142" rx="22" ${W}/><path d="M112 238 L112 360 M148 238 L148 360" stroke-width="1"/>`;
+  s += `<path d="M98 236 Q130 214 162 236 L160 250 Q130 236 100 250 Z" ${W}/>`;     // lèche-roue
+  s += `<path d="M86 134 Q130 116 174 134 L168 152 L92 152 Z" ${W}/>`;               // selle
+  s += `<path d="M92 152 L168 152 L156 184 L104 184 Z" ${W}/>`;                       // coque
+  s += `<rect x="108" y="160" width="44" height="12" rx="4" ${W}/><path d="M114 166 L146 166" stroke-width="1"/>`; // feu
+  s += `<rect x="124" y="184" width="12" height="22" ${W}/>`;
+  s += sym(`<path d="M106 192 L80 196 L80 204 L106 200" ${W} ${D}/>`);
+  s += `<rect x="98" y="206" width="64" height="32" rx="3" ${W}/><rect x="103" y="211" width="54" height="22" rx="2" ${D}/>`; // plaque
   return s;
 }
 
-// ─── Dessus : avant à gauche. Repère 600×220 ───────────────────────────
+// Dessus : avant à gauche, axe y=110. Côté droit de la moto en haut.
 function top() {
+  const m = (inner) => `${inner}<g transform="translate(0 220) scale(1 -1)">${inner}</g>`; // symétrie haut/bas
   let s = '';
-  // Pneus (vus du dessus)
-  s += `<rect x="50" y="96" width="176" height="28" rx="12" ${F}/>`;
-  s += `<rect x="392" y="92" width="176" height="36" rx="14" ${F}/>`;
-  // Échappement (côté droit = bas en vue de dessus, avant à gauche)
-  s += `<path d="M300 134 L380 148 L384 170 L304 160 Z" ${F}/>`;
-  // Bras oscillant
-  s += `<path d="M360 90 L470 98 M360 130 L470 122" stroke-width="2.4"/>`;
-  // Moteur (dépasse sous le réservoir)
-  s += `<rect x="236" y="66" width="120" height="88" rx="14" ${F}/>`;
-  // Coque arrière + feu
-  s += `<path d="M440 86 L560 96 Q572 110 560 124 L440 134 Z" ${F}/><rect x="556" y="100" width="10" height="20" rx="3" ${F}/>`;
-  // Selle
-  s += `<path d="M340 78 Q400 72 450 88 L450 132 Q400 148 340 142 Q326 110 340 78 Z" ${F}/>`;
-  s += `<path d="M420 84 L420 136" stroke-width="1.4"/>`;
-  // Réservoir
-  s += `<path d="M232 70 Q300 52 346 76 Q356 110 346 144 Q300 168 232 150 Q216 110 232 70 Z" ${F}/>`;
-  s += `<ellipse cx="300" cy="110" rx="12" ry="9" stroke-width="1.8"/>`;
-  s += `<path d="M252 84 Q300 72 334 88 M252 136 Q300 148 334 132" stroke-width="1.3"/>`;
-  // Garde-boue avant + fourche
-  s += `<rect x="80" y="100" width="100" height="20" rx="9" ${F}/>`;
-  s += `<rect x="150" y="90" width="60" height="10" rx="4" ${F}/><rect x="150" y="120" width="60" height="10" rx="4" ${F}/>`;
-  // Phare + compteur
-  s += `<path d="M170 96 L154 96 Q146 110 154 124 L170 124 Z" ${F}/>`;
-  s += `<rect x="204" y="98" width="18" height="24" rx="4" ${F}/>`;
-  // Guidon + poignées + leviers
-  s += `<path d="M226 22 Q214 110 226 198" stroke-width="3.4"/>`;
-  s += `<rect x="219" y="6" width="14" height="28" rx="5" ${F}/><rect x="219" y="186" width="14" height="28" rx="5" ${F}/>`;
-  s += `<path d="M212 30 L196 20 M212 190 L196 200" stroke-width="2"/>`;
-  // Rétroviseurs
-  s += `<path d="M224 50 L206 40 M224 170 L206 180" stroke-width="2"/>`;
-  s += `<ellipse cx="196" cy="36" rx="10" ry="16" ${F}/><ellipse cx="196" cy="184" rx="10" ry="16" ${F}/>`;
-  // Repose-pieds
-  s += `<path d="M366 60 L366 48 M366 160 L366 172" stroke-width="4"/>`;
+  s += `<rect x="40" y="98" width="170" height="24" rx="11" ${W}/>`;                 // pneu avant
+  s += `<rect x="402" y="94" width="170" height="32" rx="14" ${W}/>`;                // pneu arrière
+  s += m(`<path d="M376 86 L488 96" stroke-width="3.4"/>`);                           // bras oscillant
+  s += `<path d="M318 44 L392 46 Q404 48 404 56 Q404 64 392 66 L318 66 Z" ${W}/><ellipse cx="404" cy="56" rx="3" ry="8" ${D}/>`; // silencieux (côté droit)
+  s += m(`<rect x="376" y="42" width="8" height="24" rx="4" ${W}/><rect x="440" y="52" width="7" height="20" rx="3.5" ${W}/>`); // repose-pieds
+  s += `<rect x="246" y="62" width="138" height="96" rx="18" ${W}/>`;                 // carters
+  s += `<path d="M462 82 Q524 90 582 104 Q588 110 582 116 Q524 130 462 138 Z" ${W}/>`; // coque arrière
+  s += `<rect x="576" y="100" width="10" height="20" rx="4" ${W} ${D}/>`;
+  s += `<path d="M356 80 Q416 74 470 86 L470 134 Q416 146 356 140 Q344 110 356 80 Z" ${W}/>`; // selle
+  s += `<path d="M436 80 L436 140" ${D}/>`;
+  s += m(`<path d="M242 72 L276 64 L280 80 L246 86 Z" ${W}/>`);                         // écopes
+  s += `<path d="M242 84 Q270 56 314 58 Q360 62 370 90 Q374 110 370 130 Q360 158 314 162 Q270 164 242 136 Q232 110 242 84 Z" ${W}/>`; // réservoir
+  s += `<path d="M268 82 Q314 70 354 88 M268 138 Q314 150 354 132" ${D}/>`;
+  s += `<ellipse cx="310" cy="110" rx="11" ry="9" ${D}/>`;
+  s += `<rect x="56" y="100" width="128" height="20" rx="9" ${W}/>`;                  // garde-boue
+  s += m(`<rect x="156" y="90" width="44" height="9" rx="4" ${W}/>`);                 // fourreaux
+  s += `<path d="M180 94 L160 96 Q152 110 160 124 L180 126 Z" ${W}/>`;                // phare
+  s += `<rect x="190" y="84" width="20" height="52" rx="5" ${W}/>`;                   // té
+  s += `<rect x="212" y="100" width="18" height="20" rx="4" ${W} ${D}/>`;             // TFT
+  s += m(`<path d="M204 100 Q216 60 228 14" stroke-width="3.6"/><rect x="220" y="0" width="14" height="28" rx="5" transform="rotate(14 227 14)" ${W}/><path d="M218 26 Q208 20 198 18" stroke-width="2"/>`); // guidon
+  s += m(`<path d="M214 52 Q204 44 196 38" stroke-width="2.2"/><ellipse cx="188" cy="34" rx="9" ry="15" transform="rotate(-20 188 34)" ${W}/>`); // rétros
   return s;
 }
 
-const style = 'fill="none" stroke="#111" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"';
-// Planche 1400×900 :
-//  - profil G :    x 40..640,   y 30..410   (600×380)
-//  - profil D :    x 40..640,   y 470..850  (miroir)
-//  - face avant :  x 740..1000, y 30..410   (260×380)
-//  - face arrière: x 1080..1340,y 30..410
-//  - dessus :      x 740..1340, y 540..760  (600×220)
 const planche =
   `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900"><rect width="1400" height="900" fill="#fff"/>` +
   `<g ${style}>` +
-  `<g transform="translate(40 30)">${side()}</g>` +
+  `<g transform="translate(20 30)">${side()}</g>` +
   `<g transform="translate(640 470) scale(-1 1)">${side()}</g>` +
   `<g transform="translate(740 30)">${front()}</g>` +
   `<g transform="translate(1080 30)">${rear()}</g>` +
-  `<g transform="translate(740 540)">${top()}</g>` +
+  `<g transform="translate(740 550)">${top()}</g>` +
   `</g></svg>`;
-fs.writeFileSync('planche.svg', planche);
+fs.writeFileSync('planche2.svg', planche);
 console.log('ok');

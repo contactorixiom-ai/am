@@ -57,11 +57,11 @@ export const SKETCHES: Record<SketchKind, Sketch> = {
     width: 1400,
     height: 900,
     views: {
-      top: pad(789, 545, 1309, 755),
-      left: pad(95, 60, 615, 401),
-      right: pad(65, 500, 585, 841),
-      front: pad(753, 51, 987, 401),
-      rear: pad(1093, 51, 1327, 401),
+      top: pad(779, 548, 1327, 772),
+      left: pad(77, 64, 604, 401),
+      right: pad(56, 504, 583, 841),
+      front: pad(751, 59, 989, 401),
+      rear: pad(1091, 59, 1329, 401),
     },
   },
 };
