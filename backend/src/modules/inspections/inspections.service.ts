@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InspectionStatus, InspectionType, NotificationType, Prisma, UserRole } from '@prisma/client';
+import { InspectionStatus, InspectionType, MissionStatus, NotificationType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -22,11 +22,20 @@ export class InspectionsService {
   async create(missionId: string, inspectorId: string, dto: CreateInspectionDto) {
     const mission = await this.prisma.mission.findUnique({
       where: { id: missionId },
-      select: { clientId: true, driverId: true, reference: true },
+      select: { clientId: true, driverId: true, reference: true, status: true },
     });
     if (!mission) throw new NotFoundException('Mission introuvable.');
     if (inspectorId !== mission.clientId && inspectorId !== mission.driverId) {
       throw new ForbiddenException('Vous ne participez pas à cette mission.');
+    }
+    // Chaque état des lieux à son moment : le départ une fois le convoyeur
+    // affecté, l'arrivée une fois le convoyage démarré (un PV d'arrivée
+    // pouvait être signé avant même la prise en charge).
+    if (dto.type === InspectionType.PRE_DEPARTURE && mission.status !== MissionStatus.ACCEPTED && mission.status !== MissionStatus.IN_PROGRESS) {
+      throw new BadRequestException('L\'état des lieux de départ se fait une fois le convoyeur affecté, avant le départ.');
+    }
+    if (dto.type === InspectionType.POST_DELIVERY && mission.status !== MissionStatus.IN_PROGRESS) {
+      throw new BadRequestException('L\'état des lieux d\'arrivée se fait à la livraison, une fois le convoyage démarré (« Véhicule récupéré »).');
     }
 
     const data = {

@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { MissionStatus } from '@prisma/client';
+import { MissionStatus, UserRole } from '@prisma/client';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TrackLocationDto } from './dto/track-location.dto';
 
@@ -28,6 +29,22 @@ export class GpsService {
         altitude: dto.altitude,
       },
     });
+  }
+
+  /**
+   * Position et trace d'un convoyage : visibles par son client, son
+   * convoyeur et Axis uniquement. Elles étaient lisibles par n'importe quel
+   * compte connecté.
+   */
+  async assertCanView(missionId: string, user: Pick<AuthenticatedUser, 'id' | 'role'>) {
+    const mission = await this.prisma.mission.findUnique({
+      where: { id: missionId },
+      select: { clientId: true, driverId: true },
+    });
+    if (!mission) throw new NotFoundException('Mission introuvable.');
+    if (user.role !== UserRole.ADMIN && mission.clientId !== user.id && mission.driverId !== user.id) {
+      throw new ForbiddenException('Ce convoyage ne vous concerne pas.');
+    }
   }
 
   async trail(missionId: string, limit = 500) {

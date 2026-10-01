@@ -335,6 +335,51 @@ export function DriverModeScreen() {
     }, HEARTBEAT_MS);
   }, [flushTick, handleMove, handlePosition, handleStationaryAlert, startSimulation]);
 
+  // ─── Version web (application installée depuis le navigateur) ──────────
+  // Le navigateur coupe le GPS dès que l'écran se verrouille ou que l'app
+  // passe en arrière-plan. On garde l'écran allumé pendant le suivi et, si
+  // l'app a quand même été masquée, on suspend la détection d'arrêt (sinon
+  // l'absence de position déclencherait une fausse alerte à Axis) puis on
+  // prévient le convoyeur à son retour.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !tracking || typeof document === 'undefined') return undefined;
+    type Lock = { release: () => Promise<void> };
+    let lock: Lock | null = null;
+    const acquire = async () => {
+      try {
+        const wl = (navigator as unknown as { wakeLock?: { request: (t: 'screen') => Promise<Lock> } }).wakeLock;
+        if (wl && !lock) lock = await wl.request('screen');
+      } catch { /* refusé (batterie faible…) : l'avertissement reste affiché */ }
+    };
+    void acquire();
+    let hiddenAt: number | null = null;
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now();
+        lock = null; // le navigateur libère le verrou quand la page est masquée
+        stationaryRef.current?.setPaused(true);
+        return;
+      }
+      stationaryRef.current?.setPaused(pausedRef.current);
+      void acquire();
+      void flushTick();
+      if (hiddenAt && Date.now() - hiddenAt > 60_000) {
+        const min = Math.round((Date.now() - hiddenAt) / 60_000);
+        toast.push({
+          kind: 'driver',
+          title: 'Suivi interrompu',
+          body: `Ta position n'a pas été transmise pendant ${min} min. Garde l'app ouverte, écran allumé.`,
+        });
+      }
+      hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      lock?.release().catch(() => undefined);
+    };
+  }, [tracking, flushTick, toast]);
+
   const stopTracking = useCallback(() => {
     stopEverything();
     setTracking(false);
@@ -649,6 +694,7 @@ export function DriverModeScreen() {
           </Text>
           <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 4, lineHeight: 17 }}>
             À faire signer au départ (prise en charge) puis à l'arrivée (livraison). Le contrat est généré automatiquement.
+            {mission.status !== 'IN_PROGRESS' ? ' « Arrivée » s\'active une fois le véhicule récupéré.' : ''}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <Button
@@ -665,12 +711,21 @@ export function DriverModeScreen() {
               size="md"
               style={{ flex: 1 }}
               leftIcon={<Icons.check size={17} color={theme.navy} stroke={2} />}
+              disabled={mission.status !== 'IN_PROGRESS'}
               onPress={() => openInspection('ARRIVÉE')}
             >
               Arrivée
             </Button>
           </View>
         </Surface>
+
+        {Platform.OS === 'web' && tracking ? (
+          <Banner
+            tone="info"
+            title="Garde l'app ouverte pendant le trajet"
+            message="Sur la version web, la position n'est envoyée que lorsque l'app est à l'écran : téléphone sur son support, branché, écran allumé (il reste allumé automatiquement). Verrouiller l'écran ou changer d'app coupe le suivi."
+          />
+        ) : null}
 
         {geoError ? (
           <Banner

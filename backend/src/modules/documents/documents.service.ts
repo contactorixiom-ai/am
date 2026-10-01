@@ -59,10 +59,13 @@ export class DocumentsService {
       include: { mission: { select: { clientId: true, driverId: true } } },
     });
     if (!doc) throw new NotFoundException('Document introuvable.');
-    if (doc.ownerId !== user.id && doc.visibility === 'PRIVATE') {
+    // « Partagé » = partagé entre les parties du convoyage (client,
+    // convoyeur, Axis), pas avec tous les comptes : un contrat signé était
+    // lisible par n'importe quel utilisateur connecté.
+    if (doc.ownerId !== user.id && doc.visibility !== 'PUBLIC') {
       const m = doc.mission;
       const isParticipant = m && (m.clientId === user.id || m.driverId === user.id);
-      if (!isParticipant && user.role !== 'ADMIN') throw new ForbiddenException();
+      if (!isParticipant && user.role !== 'ADMIN') throw new ForbiddenException('Ce document ne vous est pas destiné.');
     }
     return doc;
   }

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TrackLocationDto } from './dto/track-location.dto';
 import { GpsGateway } from './gps.gateway';
 import { GpsService } from './gps.service';
@@ -28,13 +28,15 @@ export class GpsController {
 
   @Get('latest')
   @ApiOperation({ summary: 'Dernière position connue' })
-  latest(@Param('missionId', new ParseUUIDPipe()) missionId: string) {
+  async latest(@Param('missionId', new ParseUUIDPipe()) missionId: string, @CurrentUser() user: AuthenticatedUser) {
+    await this.gps.assertCanView(missionId, user);
     return this.gps.latest(missionId);
   }
 
   @Get('trail')
   @ApiOperation({ summary: 'Historique des positions (trace)' })
-  trail(@Param('missionId', new ParseUUIDPipe()) missionId: string) {
+  async trail(@Param('missionId', new ParseUUIDPipe()) missionId: string, @CurrentUser() user: AuthenticatedUser) {
+    await this.gps.assertCanView(missionId, user);
     return this.gps.trail(missionId);
   }
 }

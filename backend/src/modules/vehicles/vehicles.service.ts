@@ -31,12 +31,17 @@ export class VehiclesService {
     return { data, total };
   }
 
-  async findOne(id: string) {
+  /** Propriétaire, convoyeur d'une de ses missions, ou Axis. */
+  async findOne(id: string, user: { id: string; role: string }) {
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id, deletedAt: null },
       include: { photos: { orderBy: { position: 'asc' } } },
     });
     if (!vehicle) throw new NotFoundException('Véhicule introuvable.');
+    if (vehicle.ownerId !== user.id && user.role !== 'ADMIN') {
+      const driving = await this.prisma.mission.count({ where: { vehicleId: id, driverId: user.id } });
+      if (driving === 0) throw new ForbiddenException('Ce véhicule ne vous concerne pas.');
+    }
     return vehicle;
   }
 

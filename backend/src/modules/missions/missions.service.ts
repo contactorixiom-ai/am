@@ -272,11 +272,10 @@ export class MissionsService {
     if (user.role === UserRole.CLIENT) {
       where.clientId = user.id;
     } else if (user.role === UserRole.DRIVER) {
-      // Drivers see published missions or their accepted ones
-      where.OR = [
-        { status: MissionStatus.PUBLISHED },
-        { driverId: user.id },
-      ];
+      // Roger affecte les missions : un convoyeur ne voit que les siennes.
+      // Il voyait toutes les commandes publiées (nom, téléphone et adresses
+      // des clients), et n'importe qui peut créer un compte convoyeur.
+      where.driverId = user.id;
     }
 
     if (query.status) where.status = query.status;
@@ -866,7 +865,6 @@ export class MissionsService {
     if (user.role === UserRole.ADMIN) return;
     if (user.id === mission.clientId) return;
     if (user.id === mission.driverId) return;
-    if (user.role === UserRole.DRIVER && mission.status === MissionStatus.PUBLISHED) return;
     throw new ForbiddenException();
   }
 

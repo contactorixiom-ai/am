@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -70,8 +70,13 @@ export class UsersController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Profil public d\'un utilisateur' })
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+  @ApiOperation({ summary: 'Fiche d\'un utilisateur (soi-même ou Axis)' })
+  findOne(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser) {
+    // E-mail, téléphone et adresse de facturation : pas pour n'importe quel
+    // compte connecté.
+    if (user.role !== UserRole.ADMIN && user.id !== id) {
+      throw new ForbiddenException('Accès réservé.');
+    }
     return this.users.findById(id);
   }
 }
