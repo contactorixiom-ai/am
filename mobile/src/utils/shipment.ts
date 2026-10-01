@@ -25,7 +25,7 @@ export interface ShipmentView {
   eta: string | null;
   /** Ce que désigne `eta` : l'arrivée n'est pas connue avant la prise en
    *  charge, on affichait la date d'enlèvement sous « Arrivée prévue ». */
-  etaLabel: 'Arrivée prévue' | 'Enlèvement prévu';
+  etaLabel: 'Arrivée prévue' | 'Enlèvement prévu' | 'Parti le';
   driverName: string | null;
   driverPhone: string | null;
   /** Identifiant du convoyeur affecté — sert à savoir si la mission est la sienne. */
@@ -86,8 +86,9 @@ export function missionView(m: MissionSummary): ShipmentView {
     stepDetail: null,
     progress: step.progress,
     active: !INACTIVE_MISSION.includes(m.status),
-    eta: formatEta(m.deliveryAt) ?? formatEta(m.pickupAt),
-    etaLabel: formatEta(m.deliveryAt) ? 'Arrivée prévue' : 'Enlèvement prévu',
+    // En route : l'enlèvement « prévu » est dépassé, on montre le départ réel.
+    eta: formatEta(m.deliveryAt) ?? (m.status === 'IN_PROGRESS' && m.startedAt ? formatEta(m.startedAt) : formatEta(m.pickupAt)),
+    etaLabel: formatEta(m.deliveryAt) ? 'Arrivée prévue' : m.status === 'IN_PROGRESS' && m.startedAt ? 'Parti le' : 'Enlèvement prévu',
     driverName: driver,
     driverPhone: m.driver?.phone ?? null,
     driverId: m.driver?.id ?? null,

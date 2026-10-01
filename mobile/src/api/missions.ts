@@ -21,6 +21,8 @@ export interface MissionSummary {
   deliveryCountry: string;
   deliveryAddress?: string;
   deliveryAt?: string | null;
+  /** Prise en charge effective (« Véhicule récupéré »). */
+  startedAt?: string | null;
   distanceKm?: number | null;
   priceCents?: number | null;
   vehicle: {

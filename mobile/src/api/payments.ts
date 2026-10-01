@@ -34,7 +34,7 @@ export interface CreateCheckoutInput {
   cancelUrl: string;
 }
 
-export type PaymentRecordStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
+export type PaymentRecordStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
 
 export interface PaymentRecord {
   id: string;
@@ -108,4 +108,9 @@ export async function recordManualPayment(input: {
   note?: string;
 }): Promise<PaymentRecord> {
   return apiFetch<PaymentRecord>('/payments/manual', { method: 'POST', body: input });
+}
+
+/** [ADMIN] Règlement remboursé (commande annulée après paiement). */
+export async function markPaymentRefunded(paymentId: string): Promise<PaymentRecord> {
+  return apiFetch<PaymentRecord>(`/payments/${paymentId}/refunded`, { method: 'POST' });
 }

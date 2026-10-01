@@ -1060,6 +1060,7 @@ enum PaymentStatus {
   PAID
   FAILED
   CANCELLED
+  REFUNDED
 }
 
 // Trace serveur d'un règlement client. Sans elle, un paiement n'existait que
@@ -1084,6 +1085,8 @@ model Payment {
   amountCents Int
   currency    String        @default("EUR")
   status      PaymentStatus @default(PENDING)
+  // Remboursement effectué (commande annulée après règlement).
+  refundedAt  DateTime?
   paidAt      DateTime?
   // Numéro de facture, attribué au règlement dans une suite chronologique et
   // continue par année (FA-2026-000001), comme l'exige la loi.

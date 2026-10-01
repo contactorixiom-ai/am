@@ -36,6 +36,7 @@ const REPLAYABLE = [
   '20260924010000_terms_acceptance',
   '20260925000000_invoice_numbers',
   '20260925010000_billing_address',
+  '20261001000000_payment_refunded',
 ];
 
 function migrationNames() {

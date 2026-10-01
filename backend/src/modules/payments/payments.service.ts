@@ -474,6 +474,32 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Remboursement fait par Roger (depuis Stripe pour un paiement en ligne,
+   * ou en direct) après l'annulation d'une commande réglée. Le règlement
+   * passe « remboursé » : il sort des encaissements et le client est prévenu.
+   */
+  async markRefunded(adminId: string, paymentId: string) {
+    const p = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: { id: true, status: true, clientId: true, amountCents: true, currency: true, reference: true },
+    });
+    if (!p) throw new NotFoundException('Règlement introuvable.');
+    if (p.status !== PaymentStatus.PAID) throw new BadRequestException('Seul un règlement encaissé peut être remboursé.');
+    const updated = await this.prisma.payment.update({
+      where: { id: p.id },
+      data: { status: PaymentStatus.REFUNDED, refundedAt: new Date() },
+    });
+    await this.prisma.auditLog.create({
+      data: { userId: adminId, action: 'PAYMENT_REFUNDED', entity: 'Payment', entityId: p.id, metadata: { amountCents: p.amountCents } },
+    });
+    const amount = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: p.currency || 'EUR' }).format(p.amountCents / 100);
+    await this.notifications
+      .notify(p.clientId, 'PAYMENT_RECEIVED', 'Remboursement effectué', `Axis t'a remboursé ${amount}${p.reference ? ` pour ${p.reference}` : ''}. Le délai d'apparition sur ton compte dépend de ta banque.`, { paymentId: p.id })
+      .catch(() => undefined);
+    return updated;
+  }
+
+  /**
    * Numéro de facture à l'encaissement : FA-<année>-<n° sur 6 chiffres>,
    * sans trou ni doublon. Le compteur est incrémenté dans la même transaction
    * que l'écriture du numéro ; un paiement déjà numéroté ne l'est pas deux fois.

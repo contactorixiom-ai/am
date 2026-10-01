@@ -227,6 +227,14 @@ export class ParcelsService {
     if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
     const parcel = await this.prisma.parcel.findUnique({ where: { id } });
     if (!parcel) throw new NotFoundException('Colis introuvable.');
+    // Un colis livré ou annulé est clos : le faire « repartir en transit »
+    // envoyait au client « Colis en transit » après « Colis livré ».
+    const closed: ParcelStatus[] = [ParcelStatus.DELIVERED, ParcelStatus.CANCELLED];
+    if (closed.includes(parcel.status)) {
+      throw new BadRequestException(
+        parcel.status === ParcelStatus.DELIVERED ? 'Ce colis est déjà livré : son suivi est clos.' : 'Ce colis est annulé : son suivi est clos.',
+      );
+    }
 
     await this.prisma.parcelTrackingEvent.create({
       data: {

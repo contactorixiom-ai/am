@@ -123,8 +123,26 @@ export function missionFollowUp(m: MissionSummary): FollowUp | null {
 }
 
 /** Les plus urgentes d'abord, puis les plus anciennes. */
-export function buildFollowUps(missions: MissionSummary[], parcels: ParcelSummary[]): FollowUp[] {
+/** Règlements encaissés pour une commande depuis annulée : à rembourser. */
+type PaidRef = { missionId?: string | null; parcelId?: string | null; status: string; amountCents: number };
+
+function refundFollowUps(missions: MissionSummary[], parcels: ParcelSummary[], payments: PaidRef[]): FollowUp[] {
+  const out: FollowUp[] = [];
+  const euros = (c: number) => (c / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  for (const m of missions) {
+    const p = m.status === 'CANCELLED' ? payments.find((x) => x.missionId === m.id && x.status === 'PAID') : undefined;
+    if (p) out.push({ kind: 'mission', id: m.id, reference: m.reference, route: `${m.pickupCity} → ${m.deliveryCity}`, level: 'urgent', reason: `annulée après paiement : ${euros(p.amountCents)} à rembourser`, staleDays: 99 });
+  }
+  for (const x of parcels) {
+    const p = x.status === 'CANCELLED' ? payments.find((y) => y.parcelId === x.id && y.status === 'PAID') : undefined;
+    if (p) out.push({ kind: 'parcel', id: x.id, reference: x.reference, route: `${x.originCity} → ${x.destinationCity}`, level: 'urgent', reason: `annulé après paiement : ${euros(p.amountCents)} à rembourser`, staleDays: 99 });
+  }
+  return out;
+}
+
+export function buildFollowUps(missions: MissionSummary[], parcels: ParcelSummary[], payments: PaidRef[] = []): FollowUp[] {
   const all = [
+    ...refundFollowUps(missions, parcels, payments),
     ...parcels.map(parcelFollowUp),
     ...missions.map(missionFollowUp),
   ].filter((f): f is FollowUp => f !== null);

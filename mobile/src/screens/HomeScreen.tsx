@@ -602,7 +602,7 @@ export function HomeScreen() {
                 </View>
                 {secondary.eta ? (
                   <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                    {secondary.etaLabel === 'Arrivée prévue' ? 'Arrivée' : 'Enlèvement'} {secondary.eta}
+                    {secondary.etaLabel === 'Arrivée prévue' ? 'Arrivée' : secondary.etaLabel === 'Parti le' ? 'Parti le' : 'Enlèvement'} {secondary.eta}
                   </Text>
                 ) : null}
               </View>

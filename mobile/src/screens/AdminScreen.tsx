@@ -18,7 +18,7 @@ import {
   MissionSummary,
 } from '../api/missions';
 import { addParcelEvent, getParcel, listParcels, ParcelStatus, ParcelSummary, ParcelTrackingEvent } from '../api/parcels';
-import { getPaymentsSummary, listPayments, PaymentRecord, PaymentsSummary } from '../api/payments';
+import { getPaymentsSummary, listPayments, markPaymentRefunded, PaymentRecord, PaymentsSummary } from '../api/payments';
 import { contractVerifyUrl, DocumentRecord, listDocuments } from '../api/documents';
 import { Inspection, listInspections } from '../api/inspections';
 import { AuthImage } from '../components/AuthImage';
@@ -719,6 +719,25 @@ export function AdminScreen() {
     }
   }
 
+  // ─── Remboursement d'une commande annulée après règlement ─────────────────
+  function confirmRefund(pay: PaymentRecord, reference: string) {
+    const amount = (pay.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    confirmAction(
+      'Marquer remboursé',
+      `${reference} : confirme que ${amount} ont été remboursés au client${pay.provider === 'stripe' ? ' (depuis le tableau de bord Stripe : Paiements → ce paiement → Rembourser)' : ''}. Le client est prévenu.`,
+      async () => {
+        try {
+          await markPaymentRefunded(pay.id);
+          await loadShipments();
+          notify('Remboursement enregistré', `${reference} : ${amount} remboursés.`);
+        } catch (e) {
+          notify('Impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
+        }
+      },
+      'Confirmer',
+    );
+  }
+
   // ─── Clôture / annulation par Roger ────────────────────────────────────────
   function adminComplete(m: MissionSummary) {
     confirmAction('Clôturer la mission', `${m.reference} sera clôturée (le client ne l'a pas fait).`, async () => {
@@ -1333,7 +1352,7 @@ export function AdminScreen() {
     const fmtEuro = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
 
     // Relances : ce qui n'avance plus et qu'il faut traiter aujourd'hui.
-    const followUps = buildFollowUps(missions, parcels);
+    const followUps = buildFollowUps(missions, parcels, paymentList);
     const urgentCount = followUps.filter((f) => f.level === 'urgent').length;
 
     // File prioritaire : colis en douane (formalités à faire) puis convoyages actifs.
@@ -1482,7 +1501,7 @@ export function AdminScreen() {
                           {(pay.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: pay.currency || 'EUR' })}
                         </Text>
                         <Text style={{ fontSize: 11, color: tone, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>
-                          {done ? 'Réglé' : pay.status === 'PENDING' ? 'En attente' : 'Échoué'}
+                          {done ? 'Réglé' : pay.status === 'REFUNDED' ? 'Remboursé' : pay.status === 'PENDING' ? 'En attente' : 'Échoué'}
                         </Text>
                       </View>
                     </View>
@@ -1931,16 +1950,33 @@ export function AdminScreen() {
                 </Text>
                 {m.priceCents ? (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
-                    {paymentList.some((p) => p.missionId === m.id && p.status === 'PAID') ? (
+                    {(() => {
+                      // Commande annulée après règlement : Roger doit rembourser.
+                      const paid = paymentList.find((p) => p.missionId === m.id && p.status === 'PAID');
+                      if (paid && m.status === 'CANCELLED') {
+                        return (
+                          <>
+                            <Pill tone="warn">{`À rembourser · ${(paid.amountCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                            <Pressable onPress={() => confirmRefund(paid, m.reference)}>
+                              <Pill tone="navy">Marquer remboursé</Pill>
+                            </Pressable>
+                          </>
+                        );
+                      }
+                      return null;
+                    })()}
+                    {paymentList.some((p) => p.missionId === m.id && p.status === 'REFUNDED') ? (
+                      <Pill tone="ghost">Remboursé</Pill>
+                    ) : m.status === 'CANCELLED' && paymentList.some((p) => p.missionId === m.id && p.status === 'PAID') ? null : paymentList.some((p) => p.missionId === m.id && p.status === 'PAID') ? (
                       <Pill tone="good">{`Payé · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
+                    ) : m.status === 'CANCELLED' ? (
+                      <Pill tone="ghost">Annulée · rien à encaisser</Pill>
                     ) : (
                       <>
                         <Pill tone="gold">{`À encaisser · ${(m.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
-                        {m.status !== 'CANCELLED' ? (
-                          <Pressable onPress={() => setEncashTarget({ kind: 'mission', id: m.id, reference: m.reference, amountCents: m.priceCents })}>
-                            <Pill tone="navy">Encaisser</Pill>
-                          </Pressable>
-                        ) : null}
+                        <Pressable onPress={() => setEncashTarget({ kind: 'mission', id: m.id, reference: m.reference, amountCents: m.priceCents })}>
+                          <Pill tone="navy">Encaisser</Pill>
+                        </Pressable>
                       </>
                     )}
                   </View>
@@ -1956,9 +1992,11 @@ export function AdminScreen() {
                   ))}
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => openAssign(m)}>
-                    {m.driver ? 'Changer' : 'Affecter'}
-                  </Button>
+                  {!['CANCELLED', 'COMPLETED', 'DELIVERED'].includes(m.status) ? (
+                    <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => openAssign(m)}>
+                      {m.driver ? 'Changer' : 'Affecter'}
+                    </Button>
+                  ) : null}
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromMission(m)}>
                     Facture
                   </Button>

@@ -38,6 +38,14 @@ export class PaymentsController {
     return this.payments.recordManual(adminId, dto);
   }
 
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Post(':id/refunded')
+  @ApiOperation({ summary: 'Admin : marquer un règlement comme remboursé' })
+  refunded(@CurrentUser('id') adminId: string, @Param('id') id: string) {
+    return this.payments.markRefunded(adminId, id);
+  }
+
   @Get('summary')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Encaissements du mois et restes à encaisser' })
