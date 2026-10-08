@@ -1,0 +1,308 @@
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationType, ParcelStatus, PickupMode, Prisma, UserRole } from '@prisma/client';
+import { lookupCity } from '../../common/geocoding';
+import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { CreateParcelDto } from './dto/create-parcel.dto';
+import { AddParcelEventDto } from './dto/parcel-event.dto';
+import type { QuoteLine } from '../quotes/pricing';
+
+/** Contenu commandé sur la grille (fûts, cartons, m³…) → lignes du colis. */
+function itemsFromQuoteLines(raw: Prisma.JsonValue | null): { description: string; quantity: number }[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown as QuoteLine[])
+    .filter((l) => l && (l.unit === 'piece' || l.unit === 'm3'))
+    .map((l) => (l.unit === 'm3'
+      ? { description: `${l.label} — ${String(l.quantity).replace('.', ',')} m³`, quantity: 1 }
+      : { description: l.label, quantity: Math.max(1, Math.round(l.quantity)) }));
+}
+
+// Délais de bout en bout annoncés au client au moment du devis. On retient la
+// borne haute : mieux vaut livrer en avance qu'annoncer une date qu'on rate.
+// Pas de date d'arrivée calculée d'office (+10 j aérien, +45 j maritime,
+// +5 j en douane…) : c'était une promesse que personne n'avait faite. Le client
+// ne voit une date que lorsque Roger la saisit dans l'espace admin.
+
+// Titres lisibles par l'expéditeur, alignés sur le pipeline de l'espace admin.
+const PARCEL_STATUS_LABEL: Partial<Record<ParcelStatus, string>> = {
+  AWAITING_DROP_OFF: 'En attente de dépôt',
+  AWAITING_PICKUP: 'Enlèvement programmé',
+  RECEIVED: 'Colis réceptionné',
+  IN_TRANSIT: 'Colis en transit',
+  CUSTOMS: 'En cours de dédouanement',
+  OUT_FOR_DELIVERY: 'En cours de livraison',
+  DELIVERED: 'Colis livré',
+  CANCELLED: 'Envoi annulé',
+  LOST: 'Colis en recherche',
+};
+
+@Injectable()
+export class ParcelsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  // Coordonnées des villes, pour tracer le trajet sur une vraie carte côté
+  // client. Résolues à la lecture depuis l'annuaire interne : pas de colonne
+  // à maintenir, et une ville inconnue renvoie simplement null.
+  private withCoords<T extends { originCity: string; destinationCity: string }>(parcel: T) {
+    const from = lookupCity(parcel.originCity);
+    const to = lookupCity(parcel.destinationCity);
+    return {
+      ...parcel,
+      originLatitude: from?.latitude ?? null,
+      originLongitude: from?.longitude ?? null,
+      destinationLatitude: to?.latitude ?? null,
+      destinationLongitude: to?.longitude ?? null,
+    };
+  }
+
+  async create(senderId: string, dto: CreateParcelDto) {
+    const pickupMode = dto.pickupMode ?? PickupMode.HUB_DROP_OFF;
+
+    // Validation cohérence first-mile
+    if (pickupMode === PickupMode.RELAY_DROP_OFF && !dto.relayPointId) {
+      throw new BadRequestException('relayPointId requis pour un dépôt en point relais');
+    }
+    if (pickupMode === PickupMode.HOME_PICKUP && !dto.pickupAddress) {
+      throw new BadRequestException('pickupAddress requis pour un enlèvement à domicile');
+    }
+    if (dto.relayPointId) {
+      const relay = await this.prisma.relayPoint.findUnique({ where: { id: dto.relayPointId } });
+      if (!relay) throw new BadRequestException('Point relais introuvable');
+    }
+
+    // Prix du devis accepté, lu côté serveur : le colis était enregistré sans
+    // prix, et Roger ne voyait pas le montant de la commande.
+    let priceCents: number | undefined;
+    let orderedItems: { description: string; quantity: number }[] = [];
+    if (dto.quoteId) {
+      const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
+      if (!quote) throw new NotFoundException('Devis introuvable.');
+      if (quote.service !== 'PARCEL' && quote.service !== 'MERCHANDISE') {
+        throw new BadRequestException('Ce devis ne concerne pas un envoi de colis.');
+      }
+      if (quote.customerId && quote.customerId !== senderId) {
+        throw new ForbiddenException('Ce devis ne vous appartient pas.');
+      }
+      if (quote.status === 'CONVERTED') throw new BadRequestException('Ce devis a déjà donné lieu à une commande.');
+      if (quote.expiresAt < new Date()) {
+        throw new BadRequestException('Ce devis a expiré. Refais une estimation pour obtenir le tarif du jour.');
+      }
+      // Le prix vaut pour ce que le devis décrit : même destination, même
+      // mode, et pas plus lourd (sinon un devis 2 kg servait pour 30 kg).
+      if (quote.toCountry && quote.toCountry !== dto.destinationCountry.toUpperCase()) {
+        throw new BadRequestException('La destination ne correspond pas au devis. Refais une estimation.');
+      }
+      if (dto.transportMode && quote.transportMode !== 'ROAD' && dto.transportMode !== quote.transportMode) {
+        throw new BadRequestException('Le mode de transport ne correspond pas au devis. Refais une estimation.');
+      }
+      if (quote.weightKg != null && dto.weightKg > quote.weightKg + 0.001) {
+        throw new BadRequestException(
+          `Le poids déclaré (${dto.weightKg} kg) dépasse celui du devis (${quote.weightKg} kg). Refais une estimation.`,
+        );
+      }
+      priceCents = quote.totalCents;
+      // Le contenu payé est celui du devis : il prime sur une liste envoyée
+      // par l'app.
+      orderedItems = itemsFromQuoteLines(quote.lines);
+      await this.prisma.quote.update({ where: { id: quote.id }, data: { status: 'CONVERTED', customerId: senderId } });
+    }
+
+    // Statut initial selon le mode
+    const initialStatus = pickupMode === PickupMode.HOME_PICKUP
+      ? ParcelStatus.AWAITING_PICKUP
+      : ParcelStatus.AWAITING_DROP_OFF;
+
+    const parcel = await this.prisma.parcel.create({
+      data: {
+        senderId,
+        priceCents,
+        reference: this.generateReference(),
+        status: initialStatus,
+        category: dto.category,
+        transportMode: dto.transportMode,
+        pickupMode,
+        weightKg: dto.weightKg,
+        declaredValueCents: dto.declaredValueCents,
+        description: dto.description,
+        recipientFirstName: dto.recipientFirstName,
+        recipientLastName: dto.recipientLastName,
+        recipientPhone: dto.recipientPhone,
+        recipientEmail: dto.recipientEmail,
+        originCountry: dto.originCountry.toUpperCase(),
+        originCity: dto.originCity,
+        originAddress: dto.originAddress,
+        destinationCountry: dto.destinationCountry.toUpperCase(),
+        destinationCity: dto.destinationCity,
+        destinationAddress: dto.destinationAddress,
+        relayPointId: dto.relayPointId,
+        pickupAddress: dto.pickupAddress,
+        pickupAt: dto.pickupAt ? new Date(dto.pickupAt) : null,
+        trackingEvents: {
+          create: {
+            status: initialStatus,
+            notes: pickupMode === PickupMode.HOME_PICKUP
+              ? 'En attente d\'enlèvement à domicile'
+              : pickupMode === PickupMode.RELAY_DROP_OFF
+                ? 'En attente de dépôt au point relais'
+                : 'En attente de dépôt chez Axis',
+          },
+        },
+        items: orderedItems.length > 0
+          ? { create: orderedItems }
+          : dto.items
+          ? {
+              create: dto.items.map((i) => ({
+                description: i.description,
+                quantity: i.quantity ?? 1,
+                weightKg: i.weightKg,
+                valueCents: i.valueCents,
+                hsCode: i.hsCode,
+              })),
+            }
+          : undefined,
+      },
+      include: { items: true, relayPoint: true, trackingEvents: true },
+    });
+
+    // Roger doit savoir qu'un envoi vient d'être commandé.
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN, deletedAt: null },
+      select: { id: true },
+    });
+    const price = priceCents != null
+      ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`
+      : '';
+    for (const a of admins) {
+      await this.notifications
+        .notify(a.id, NotificationType.PARCEL_STATUS_UPDATE, 'Nouvel envoi de colis',
+          `${parcel.reference} — ${parcel.originCity} → ${parcel.destinationCity}${price}.`, { parcelId: parcel.id })
+        .catch(() => undefined);
+    }
+    return parcel;
+  }
+
+  async list(user: AuthenticatedUser, opts: { skip: number; take: number; status?: ParcelStatus }) {
+    const where: Prisma.ParcelWhereInput =
+      user.role === UserRole.ADMIN ? {} : { senderId: user.id };
+    if (opts.status) where.status = opts.status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.parcel.findMany({
+        where,
+        skip: opts.skip,
+        take: opts.take,
+        // Le dernier événement suffit à savoir depuis quand un colis n'a pas
+        // bougé : c'est ce qui alimente les relances de l'espace admin.
+        include: { items: true, trackingEvents: { orderBy: { occurredAt: 'desc' }, take: 1 } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.parcel.count({ where }),
+    ]);
+    return { data: data.map((p) => this.withCoords(p)), total };
+  }
+
+  async findOne(id: string, user: AuthenticatedUser) {
+    const parcel = await this.prisma.parcel.findUnique({
+      where: { id },
+      include: { items: true, trackingEvents: { orderBy: { occurredAt: 'asc' } } },
+    });
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
+    if (user.role !== UserRole.ADMIN && parcel.senderId !== user.id) {
+      throw new ForbiddenException();
+    }
+    return this.withCoords(parcel);
+  }
+
+  async track(reference: string) {
+    const parcel = await this.prisma.parcel.findUnique({
+      where: { reference },
+      select: {
+        reference: true,
+        status: true,
+        originCountry: true,
+        originCity: true,
+        destinationCountry: true,
+        destinationCity: true,
+        weightKg: true,
+        transportMode: true,
+        estimatedDelivery: true,
+        partnerCarrier: true,
+        partnerTracking: true,
+        deliveredAt: true,
+        trackingEvents: { orderBy: { occurredAt: 'asc' } },
+      },
+    });
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
+    return this.withCoords(parcel);
+  }
+
+  async addEvent(id: string, dto: AddParcelEventDto, user: AuthenticatedUser) {
+    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
+    const parcel = await this.prisma.parcel.findUnique({ where: { id } });
+    if (!parcel) throw new NotFoundException('Colis introuvable.');
+    // Un colis livré ou annulé est clos : le faire « repartir en transit »
+    // envoyait au client « Colis en transit » après « Colis livré ».
+    const closed: ParcelStatus[] = [ParcelStatus.DELIVERED, ParcelStatus.CANCELLED];
+    if (closed.includes(parcel.status)) {
+      throw new BadRequestException(
+        parcel.status === ParcelStatus.DELIVERED ? 'Ce colis est déjà livré : son suivi est clos.' : 'Ce colis est annulé : son suivi est clos.',
+      );
+    }
+
+    await this.prisma.parcelTrackingEvent.create({
+      data: {
+        parcelId: id,
+        status: dto.status,
+        location: dto.location,
+        notes: dto.notes,
+      },
+    });
+    // Date d'arrivée : uniquement celle que Roger saisit.
+    const estimatedDelivery = dto.estimatedDelivery ? new Date(dto.estimatedDelivery) : undefined;
+
+    const updated = await this.prisma.parcel.update({
+      where: { id },
+      data: {
+        status: dto.status,
+        estimatedDelivery,
+        // Suivi partenaire : renseigné seulement quand Roger le reçoit du
+        // transporteur. Jamais inventé — le client le copierait sur leur site.
+        partnerCarrier: dto.partnerCarrier?.trim() || undefined,
+        partnerTracking: dto.partnerTracking?.trim() || undefined,
+        deliveredAt: dto.status === ParcelStatus.DELIVERED ? new Date() : undefined,
+      },
+    });
+
+    // L'expéditeur suit son colis depuis l'app : chaque étape le prévient.
+    // Un échec d'envoi ne doit pas annuler la mise à jour du statut.
+    try {
+      await this.notifications.notify(
+        updated.senderId,
+        NotificationType.PARCEL_STATUS_UPDATE,
+        PARCEL_STATUS_LABEL[dto.status] ?? 'Suivi mis à jour',
+        [
+          `Colis ${updated.reference}`,
+          dto.location,
+          dto.notes,
+          dto.status !== ParcelStatus.DELIVERED && updated.estimatedDelivery
+            ? `Arrivée prévue le ${updated.estimatedDelivery.toLocaleDateString('fr-FR')}`
+            : undefined,
+        ].filter(Boolean).join(' · '),
+        { parcelId: id, reference: updated.reference, status: dto.status },
+      );
+    } catch {
+      /* journalisé côté service */
+    }
+    return updated;
+  }
+
+  private generateReference(): string {
+    const stamp = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `AXP-${stamp}-${rand}`;
+  }
+}
