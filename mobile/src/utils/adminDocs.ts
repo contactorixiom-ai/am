@@ -10,6 +10,18 @@ import { AXIS_LOGO_PDF } from './axisLogoPdf';
 import type { IconName } from '../components/Icons';
 import { inspectionPdfFields } from './inspectionPdf';
 import {
+  DgdItem,
+  buildDgdPdf,
+  airportInEnglish,
+  countryInEnglish,
+  dateInEnglish,
+  isValidHazardClass,
+  isValidUnNumber,
+  normalizeUnNumber,
+  notEnglishReason,
+  todayInEnglish,
+} from './dgdPdf';
+import {
   generateCommercialInvoicePdf,
   generateContractPdf,
   generateCustomsMandatePdf,
@@ -20,7 +32,7 @@ import {
   patchDoc,
   signatureFromSvgDataUrl,} from './pdf';
 import { INSURANCE } from '../config/company';
-import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
+import { COMPANY, TODO, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,9 +55,10 @@ export type AdminDocTypeId =
   | 'shippingLabel'
   | 'besc'
   | 'safetyDataSheet'
+  | 'dangerousGoodsDeclaration'
   | 'conformityCertificate';
 
-export type AdminFieldType = 'text' | 'number' | 'multiline' | 'boolean' | 'select';
+export type AdminFieldType = 'text' | 'number' | 'multiline' | 'boolean' | 'select' | 'table';
 
 export interface AdminFieldSpec {
   key: string;
@@ -56,6 +69,40 @@ export interface AdminFieldSpec {
   options?: string[];         // pour type 'select'
   half?: boolean;             // champ demi-largeur (2 par ligne)
   required?: boolean;
+  /** Type 'table' : colonnes de chaque ligne (champs texte ou sélection). */
+  columns?: AdminFieldSpec[];
+  /** Type 'table' : libellé d'une ligne (« Marchandise 2 »). */
+  itemLabel?: string;
+  /** Type 'table' : libellé du bouton d'ajout. */
+  addLabel?: string;
+  /** Type 'table' : nombre maximal de lignes. */
+  maxRows?: number;
+}
+
+/** Ligne d'un champ 'table' : valeurs texte par clé de colonne. */
+export type AdminTableRow = Record<string, string>;
+
+/** Les lignes d'un champ 'table' sont stockées en JSON dans AdminValues. */
+export function parseTableRows(value: string | boolean | undefined): AdminTableRow[] {
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'string' ? v : ''])));
+  } catch {
+    return [];
+  }
+}
+
+export function serializeTableRows(rows: AdminTableRow[]): string {
+  return JSON.stringify(rows);
+}
+
+/** Ligne vide (toutes les colonnes à blanc) ? */
+export function isBlankRow(row: AdminTableRow): boolean {
+  return Object.values(row).every((v) => !v || !v.trim());
 }
 
 export type AdminValues = Record<string, string | boolean>;
@@ -99,6 +146,8 @@ export interface AdminDocType {
   fields: AdminFieldSpec[];
   /** Valeurs par défaut (la référence auto est injectée par buildDefaults). */
   defaults: (ctx: DefaultsContext) => AdminValues;
+  /** Contrôles propres au document : message d'erreur par clé de champ. */
+  validate?: (values: AdminValues) => Record<string, string>;
 }
 
 interface DefaultsContext {
@@ -220,6 +269,65 @@ function bool(values: AdminValues, key: string): boolean {
 const VEHICLE_CATEGORY_OPTIONS = [
   'Citadine', 'Berline', 'Break', 'SUV', '4×4', 'Utilitaire', 'Moto', 'Luxe',
 ];
+
+// ─── DGD : options et contrôles ─────────────────────────────────────────────
+
+const DGD_PAX = 'PAX — avion passagers et cargo';
+const DGD_CAO = 'CAO — avion cargo uniquement';
+const DGD_NON_RADIOACTIVE = 'Non-radioactive';
+const DGD_RADIOACTIVE = 'Radioactive';
+const DGD_PG_NONE = 'Aucun';
+const DGD_LOGO_IATA = 'IATA';
+const DGD_LOGO_AXIS = 'Axis Import';
+const DGD_LOGO_NONE = 'Aucun';
+
+// Le document doit être entièrement en anglais et conforme au DGR : on
+// refuse ce qui serait rejeté au comptoir de la compagnie.
+function validateDgd(values: AdminValues): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const key of ['shipperName', 'shipperAddress', 'consigneeName', 'consigneeAddress']) {
+    if (str(values, key).includes(TODO)) errors[key] = 'À compléter';
+  }
+  const problems: string[] = [];
+  parseTableRows(values.items).filter((r) => !isBlankRow(r)).forEach((r, i) => {
+    const n = i + 1;
+    if (!isValidUnNumber(normalizeUnNumber(r.un ?? ''))) {
+      problems.push(`Marchandise ${n} : n° ONU au format UN 1234`);
+    }
+    if ((r.hazardClass ?? '').trim() && !isValidHazardClass(r.hazardClass)) {
+      problems.push(`Marchandise ${n} : classe au format 3, 6.1 ou 3 (8)`);
+    }
+    const english: [string, string][] = [
+      ['name', 'désignation'], ['quantity', 'emballage'],
+      ['packingInstruction', 'instruction'], ['authorization', 'autorisation'],
+    ];
+    english.forEach(([k, label]) => {
+      const why = notEnglishReason(r[k] ?? '');
+      if (why) problems.push(`Marchandise ${n} : ${label} à écrire en anglais (${why})`);
+    });
+  });
+  if (problems.length) errors.items = problems.slice(0, 4).join('\n');
+  const handlingWhy = notEnglishReason(str(values, 'handlingInfo'));
+  if (handlingWhy) errors.handlingInfo = `À écrire en anglais (${handlingWhy})`;
+  return errors;
+}
+
+/** Bloc nom / adresse / pays en anglais pour les cases Shipper et Consignee. */
+function dgdPartyBlock(name: string, address: string, country: string): string {
+  const lines = address.split('\n').map((l) => l.trim()).filter(Boolean);
+  const target = countryInEnglish(country);
+  if (target && lines.length) {
+    // Pays déjà en fin d'adresse (« Dakar, SN ») : retiré, puis réécrit en
+    // anglais sur sa propre ligne.
+    const parts = lines[lines.length - 1].split(',');
+    const tail = parts[parts.length - 1].trim();
+    if (tail && countryInEnglish(tail) === target) {
+      if (parts.length > 1) lines[lines.length - 1] = parts.slice(0, -1).join(',').trim();
+      else lines.pop();
+    }
+  }
+  return [name.trim(), ...lines, target].filter(Boolean).join('\n');
+}
 
 export const ADMIN_DOC_TYPES: AdminDocType[] = [
   {
@@ -1017,6 +1125,81 @@ export const ADMIN_DOC_TYPES: AdminDocType[] = [
     }),
   },
   {
+    // Déclaration de l'expéditeur pour marchandises dangereuses (IATA DGR,
+    // section 8). Formulaire entièrement en anglais, marges hachurées rouges,
+    // remis en deux exemplaires signés à la main à la compagnie aérienne.
+    id: 'dangerousGoodsDeclaration',
+    label: 'Déclaration marchandises dangereuses (DGD)',
+    description: 'Shipper\'s Declaration IATA — en anglais, 2 exemplaires',
+    icon: 'warn',
+    activity: 'marchandise',
+    issuer: 'axis',
+    issuerNote: 'Imprimer en couleur (hachures rouges obligatoires) et signer chaque exemplaire à la main : une signature tapée est refusée. Le signataire doit être formé aux marchandises dangereuses.',
+    refPrefix: 'DGD',
+    refKey: 'reference',
+    fields: [
+      { key: 'reference', label: 'Shipper\'s Reference No.', half: true, hint: 'Référence Axis de l\'envoi' },
+      { key: 'awbNumber', label: 'N° LTA (Air Waybill)', half: true, placeholder: '057-1234 5675', hint: 'Peut être ajouté par l\'agent ou la compagnie' },
+      { key: 'shipperName', label: 'Expéditeur (Shipper) — nom', required: true },
+      { key: 'shipperAddress', label: 'Adresse de l\'expéditeur', type: 'multiline', required: true, placeholder: '12 RUE DE LA PAIX\n75002 PARIS' },
+      { key: 'shipperCountry', label: 'Pays de l\'expéditeur', half: true, required: true, placeholder: 'France', hint: 'Écrit en anglais sur le document' },
+      { key: 'consigneeName', label: 'Destinataire (Consignee) — nom', required: true },
+      { key: 'consigneeAddress', label: 'Adresse du destinataire', type: 'multiline', required: true },
+      { key: 'consigneeCountry', label: 'Pays du destinataire', half: true, required: true, placeholder: 'Sénégal', hint: 'Écrit en anglais sur le document' },
+      { key: 'aircraft', label: 'Limites appliquées (l\'autre case sera barrée)', type: 'select', options: [DGD_PAX, DGD_CAO] },
+      { key: 'airportDeparture', label: 'Aéroport de départ', half: true, placeholder: 'PARIS CHARLES DE GAULLE', hint: 'Ville en anglais' },
+      { key: 'airportDestination', label: 'Aéroport d\'arrivée', half: true, placeholder: 'DAKAR', hint: 'Ville en anglais' },
+      { key: 'shipmentType', label: 'Type d\'envoi (l\'autre case sera barrée)', type: 'select', options: [DGD_NON_RADIOACTIVE, DGD_RADIOACTIVE] },
+      {
+        key: 'items',
+        label: 'Marchandises dangereuses — en anglais',
+        type: 'table',
+        required: true,
+        itemLabel: 'Marchandise',
+        addLabel: 'Ajouter une marchandise',
+        maxRows: 30,
+        hint: 'Une ligne par n° ONU et groupe d\'emballage, recopiée de la liste IATA (pages bleues du DGR).',
+        columns: [
+          { key: 'un', label: 'N° ONU', half: true, required: true, placeholder: 'UN 1266' },
+          { key: 'hazardClass', label: 'Classe (danger subsid.)', half: true, required: true, placeholder: '3' },
+          { key: 'name', label: 'Désignation officielle (Proper Shipping Name)', required: true, placeholder: 'Perfumery products' },
+          { key: 'packingGroup', label: 'Groupe d\'emballage', type: 'select', options: ['I', 'II', 'III', DGD_PG_NONE] },
+          { key: 'quantity', label: 'Nombre et type d\'emballage, quantité nette', required: true, placeholder: '1 Fibreboard box x 2 L' },
+          { key: 'packingInstruction', label: 'Instr. d\'emballage', half: true, required: true, placeholder: '353' },
+          { key: 'authorization', label: 'Autorisation', half: true, placeholder: 'Facultatif' },
+        ],
+      },
+      { key: 'emergencyPhone', label: 'N° d\'urgence 24 h/24', half: true, placeholder: '+33 1 23 45 67 89', hint: 'Imprimé « 24-hour number : … » s\'il est renseigné' },
+      { key: 'handlingInfo', label: 'Additional Handling Information', type: 'multiline', hint: 'En anglais, ex. : Keep away from heat' },
+      { key: 'signatoryName', label: 'Nom du signataire', half: true, required: true, hint: 'Personne formée DGR' },
+      { key: 'date', label: 'Date', half: true, placeholder: '08 Oct 2026' },
+      { key: 'copies', label: 'Exemplaires dans le PDF', type: 'select', options: ['2', '3'] },
+      { key: 'logo', label: 'Logo en haut à droite', type: 'select', options: [DGD_LOGO_IATA, DGD_LOGO_AXIS, DGD_LOGO_NONE] },
+    ],
+    defaults: (ctx) => ({
+      reference: ctx.reference,
+      awbNumber: '',
+      shipperName: COMPANY.name,
+      shipperAddress: [COMPANY.address, COMPANY.postalCity].map((p) => p.trim()).filter(Boolean).join('\n'),
+      shipperCountry: COMPANY.country || 'France',
+      consigneeName: '',
+      consigneeAddress: '',
+      consigneeCountry: '',
+      aircraft: DGD_PAX,
+      airportDeparture: 'PARIS CHARLES DE GAULLE',
+      airportDestination: '',
+      shipmentType: DGD_NON_RADIOACTIVE,
+      items: serializeTableRows([]),
+      emergencyPhone: COMPANY.phone,
+      handlingInfo: '',
+      signatoryName: '',
+      date: todayInEnglish(),
+      copies: '2',
+      logo: DGD_LOGO_IATA,
+    }),
+    validate: validateDgd,
+  },
+  {
     // Le COC est délivré par un organisme agréé (SGS, Intertek, Cotecna,
     // Bureau Veritas) après inspection avant embarquement. Axis prépare la
     // demande et enregistre le numéro de certificat une fois obtenu.
@@ -1155,6 +1338,7 @@ export const DOC_PACKS: DocPack[] = [
       { typeId: 'certificateOfOrigin', required: false },
       { typeId: 'exportDeclaration', required: true },
       { typeId: 'customsMandate', required: false },
+      { typeId: 'dangerousGoodsDeclaration', required: false, note: 'Obligatoire dès qu\'un colis contient des marchandises dangereuses (parfums, aérosols, batteries lithium, peintures…)' },
       { typeId: 'safetyDataSheet', required: false, note: 'Obligatoire si la marchandise est classée dangereuse (IATA-DGR)' },
       { typeId: 'conformityCertificate', required: false, note: 'Si le produit relève du programme PVoC' },
       { typeId: 'insurance', required: false },
@@ -2915,6 +3099,39 @@ export async function generateAdminDocument(type: AdminDocType, values: AdminVal
         otherInfo: orU(str(values, 'otherInfo')),
       });
       break;
+    case 'dangerousGoodsDeclaration': {
+      const items: DgdItem[] = parseTableRows(values.items)
+        .filter((r) => !isBlankRow(r))
+        .map((r) => ({
+          un: normalizeUnNumber(r.un ?? ''),
+          name: (r.name ?? '').trim(),
+          hazardClass: (r.hazardClass ?? '').trim(),
+          packingGroup: r.packingGroup === DGD_PG_NONE ? '' : (r.packingGroup ?? '').trim(),
+          quantity: (r.quantity ?? '').trim(),
+          packingInstruction: (r.packingInstruction ?? '').trim(),
+          authorization: (r.authorization ?? '').trim(),
+        }));
+      const phone = str(values, 'emergencyPhone');
+      const logo = str(values, 'logo');
+      const doc = buildDgdPdf({
+        shipper: dgdPartyBlock(str(values, 'shipperName'), str(values, 'shipperAddress'), str(values, 'shipperCountry')),
+        consignee: dgdPartyBlock(str(values, 'consigneeName'), str(values, 'consigneeAddress'), str(values, 'consigneeCountry')),
+        awbNumber: str(values, 'awbNumber'),
+        shipperReference: reference,
+        aircraft: str(values, 'aircraft') === DGD_CAO ? 'CAO' : 'PAX',
+        airportDeparture: airportInEnglish(str(values, 'airportDeparture')),
+        airportDestination: airportInEnglish(str(values, 'airportDestination')),
+        radioactive: str(values, 'shipmentType') === DGD_RADIOACTIVE,
+        items,
+        handlingInfo: [phone ? `24-hour number: ${phone}` : '', str(values, 'handlingInfo')].filter(Boolean).join('\n'),
+        signatoryName: str(values, 'signatoryName'),
+        date: dateInEnglish(str(values, 'date')),
+        copies: parseInt(str(values, 'copies'), 10) || 2,
+        logo: logo === DGD_LOGO_AXIS ? 'axis' : logo === DGD_LOGO_NONE ? 'none' : 'iata',
+      });
+      labelDownload(doc, `${reference.startsWith('DGD') ? '' : 'DGD-'}${reference}.pdf`);
+      break;
+    }
     case 'conformityCertificate':
       await generateConformityCertificatePdf({
         number: reference,

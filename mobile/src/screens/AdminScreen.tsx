@@ -171,6 +171,7 @@ function prefillFromParcel(p: ParcelSummary): AdminValues {
     // Amorce d'adresse destinataire : Roger complète le nom et la rue.
     recipientAddress: `${p.destinationCity}, ${p.destinationCountry}`,
     consigneeAddress: `${p.destinationCity}, ${p.destinationCountry}`,
+    consigneeCountry: p.destinationCountry,
     portOfDischarge: p.destinationCity,
     airportDestination: p.destinationCity,
     weightKg: weight,
