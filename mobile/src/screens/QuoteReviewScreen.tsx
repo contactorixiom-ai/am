@@ -6,7 +6,7 @@ import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
 import { ApiError } from '../api/client';
-import { QuoteHint } from '../api/quotes';
+import { QuoteHint, QuoteLine } from '../api/quotes';
 import { createVehicle } from '../api/vehicles';
 import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
@@ -25,6 +25,7 @@ import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { fmtEur, fmtLocal } from '../utils/currency';
+import { unitWordFor } from '../utils/tariffs';
 
 export function QuoteReviewScreen() {
   const { theme } = useTheme();
@@ -42,6 +43,11 @@ export function QuoteReviewScreen() {
     (h.kind !== 'INSURANCE_RECOMMENDED' || hasInsurance()),
   );
   const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
+  // Colis et marchandises : lignes TTC de la grille tarifaire, telles que
+  // le serveur les a calculées (fûts, cartons, m³, frais de douane…).
+  const gridLines: QuoteLine[] = quote.lines ?? [];
+  const isGrid = gridLines.length > 0;
+  const hasRange = gridLines.some((l) => l.maxUnitCents && l.maxUnitCents > l.unitCents);
 
   const [booking, setBooking] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -160,7 +166,9 @@ export function QuoteReviewScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pill tone="gold">{quote.uncertaintyPct ? `Estimé ±${quote.uncertaintyPct}%` : 'Instantané'}</Pill>
+            <Pill tone="gold">
+              {isGrid ? (hasRange ? 'Prix de départ' : 'Prix de la grille') : quote.uncertaintyPct ? `Estimé ±${quote.uncertaintyPct}%` : 'Instantané'}
+            </Pill>
             <Text
               style={{
                 fontSize: 11.5,
@@ -313,22 +321,36 @@ export function QuoteReviewScreen() {
         {/* Décomposition */}
         <Surface padded style={{ padding: 16 }}>
           <SectionHead title="Détail du tarif" />
-          <DetailRow
-            label={isConvoy
-              ? `Forfait + ${quote.distanceKm ? Math.round(quote.distanceKm) : 0} km`
-              : `Transport (${quote.weightKg?.toLocaleString('fr-FR') ?? '—'} kg)`}
-            sub={isConvoy
-              ? 'Distance × tarif kilométrique HT'
-              : quote.transportMode === 'AIR' ? 'Acheminement aérien Europe → Afrique' : 'Acheminement maritime conteneur'}
-            value={fmtEur(quote.basePriceCents + quote.variablePriceCents)}
-          />
-          {quote.pickupFeeCents > 0 ? (
-            <DetailRow
-              label="Récupération du colis"
-              sub={pickupSub(quote.pickupMode)}
-              value={`+ ${fmtEur(quote.pickupFeeCents)}`}
-            />
-          ) : null}
+          {isGrid ? (
+            gridLines.map((l) => (
+              <DetailRow
+                key={l.code}
+                label={gridLineLabel(l)}
+                sub={gridLineSub(l, quote.pickupMode)}
+                value={l.unit === 'fee' ? `+ ${fmtEur(l.totalCents)}` : fmtEur(l.totalCents)}
+                addon={l.unit === 'fee'}
+              />
+            ))
+          ) : (
+            <>
+              <DetailRow
+                label={isConvoy
+                  ? `Forfait + ${quote.distanceKm ? Math.round(quote.distanceKm) : 0} km`
+                  : `Transport (${quote.weightKg?.toLocaleString('fr-FR') ?? '—'} kg)`}
+                sub={isConvoy
+                  ? 'Distance × tarif kilométrique HT'
+                  : quote.transportMode === 'AIR' ? 'Acheminement aérien Europe → Afrique' : 'Acheminement maritime conteneur'}
+                value={fmtEur(quote.basePriceCents + quote.variablePriceCents)}
+              />
+              {quote.pickupFeeCents > 0 ? (
+                <DetailRow
+                  label="Récupération du colis"
+                  sub={pickupSub(quote.pickupMode)}
+                  value={`+ ${fmtEur(quote.pickupFeeCents)}`}
+                />
+              ) : null}
+            </>
+          )}
           {hasInsurance() ? (
             <DetailRow
               label="Marchandise assurée"
@@ -361,7 +383,7 @@ export function QuoteReviewScreen() {
               included
             />
           ) : null}
-          {isParcel ? (
+          {isParcel && !gridLines.some((l) => l.code === 'CUSTOMS_FEE') ? (
             <DetailRow
               label="Documents de douane"
               sub="Préparés par Axis · droits et taxes à l'arrivée non compris"
@@ -369,7 +391,7 @@ export function QuoteReviewScreen() {
               included
             />
           ) : null}
-          {quote.options.map((o) => (
+          {(isGrid ? [] : quote.options).map((o) => (
             <DetailRow
               key={o.kind}
               label={o.label}
@@ -380,7 +402,7 @@ export function QuoteReviewScreen() {
           ))}
           {/* Les lignes doivent expliquer le total : le minimum de facturation
               et la TVA n'apparaissaient pas (68 € affichés, 102 € à payer). */}
-          {minimumAdjustmentCents(quote) > 0 ? (
+          {!isGrid && minimumAdjustmentCents(quote) > 0 ? (
             <DetailRow
               label="Minimum de facturation"
               sub={`Montant minimum HT pour ce type d'envoi : ${fmtEur(quote.subtotalCents)}`}
@@ -388,9 +410,13 @@ export function QuoteReviewScreen() {
               addon
             />
           ) : null}
-          <DetailRow label="Total HT" sub="Avant TVA" value={fmtEur(quote.subtotalCents)} />
-          {quote.taxCents > 0 ? (
-            <DetailRow label={`TVA ${taxPct(quote)} %`} sub="Taxe sur la valeur ajoutée" value={`+ ${fmtEur(quote.taxCents)}`} addon />
+          {!isGrid ? (
+            <>
+              <DetailRow label="Total HT" sub="Avant TVA" value={fmtEur(quote.subtotalCents)} />
+              {quote.taxCents > 0 ? (
+                <DetailRow label={`TVA ${taxPct(quote)} %`} sub="Taxe sur la valeur ajoutée" value={`+ ${fmtEur(quote.taxCents)}`} addon />
+              ) : null}
+            </>
           ) : null}
 
           <View style={{ height: 1.5, backgroundColor: theme.line, marginTop: 12, marginBottom: 0 }} />
@@ -400,7 +426,9 @@ export function QuoteReviewScreen() {
                 Total TTC
               </Text>
               <Text style={{ fontSize: 11, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
-                {quote.taxCents > 0 ? `TVA ${taxPct(quote)} % incluse` : 'TVA non applicable'}
+                {quote.taxCents > 0
+                  ? (isGrid ? `dont TVA ${fmtEur(quote.taxCents)}` : `TVA ${taxPct(quote)} % incluse`)
+                  : 'TVA non applicable'}
               </Text>
             </View>
             <Text style={{ fontFamily: TYPO.weights.bold, fontSize: 28, color: theme.ink, letterSpacing: -0.3, fontVariant: ['tabular-nums'] }}>
@@ -658,6 +686,26 @@ function DetailRow({
       </Text>
     </Container>
   );
+}
+
+/** « 2 × Fût plastique (120 à 200 L) », « Marchandise au m³ — 1,5 m³ ». */
+function gridLineLabel(l: QuoteLine): string {
+  const q = l.quantity.toLocaleString('fr-FR');
+  if (l.unit === 'piece') return `${q} × ${l.label}`;
+  if (l.unit === 'm3') return `${l.label} — ${q} m³`;
+  if (l.unit === 'kg') return `${l.label} — ${q} kg`;
+  return l.label;
+}
+
+function gridLineSub(l: QuoteLine, pickupMode: string): string {
+  if (l.code === 'CUSTOMS_FEE') return 'Forfait par envoi, effets personnels';
+  if (l.code === 'MINIMUM') return 'Complément jusqu\'au minimum de perception';
+  if (l.code === 'PICKUP') return pickupSub(pickupMode);
+  if (l.unit === 'fee' || l.unit === 'forfait') return 'Option ajoutée';
+  const unit = `${fmtEur(l.unitCents)} ${unitWordFor(l.code, l.unit)}`;
+  return l.maxUnitCents && l.maxUnitCents > l.unitCents
+    ? `Prix de départ ${unit} · jusqu'à ${fmtEur(l.maxUnitCents)} selon taille et destination`
+    : unit;
 }
 
 function pickupSub(mode: string): string {

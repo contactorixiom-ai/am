@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { QuoteStatus, UserRole } from '@prisma/client';
+import { Prisma, QuoteStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { lookupCity } from '../../common/geocoding';
 import { roadDistanceKm } from '../../common/road-distance';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
+import { publicTariffSheet } from './tariffs';
 
 const QUOTE_VALIDITY_DAYS = 30;
 
@@ -32,8 +33,15 @@ export class QuotesService {
       pickupFeeCents: computed.pickupFeeCents,
       addonsPriceCents: computed.addonsPriceCents,
       options: computed.options,
+      lines: computed.lines,
+      disclaimer: computed.disclaimer,
       hints: computed.hints,
     };
+  }
+
+  /** Grille tarifaire publique (écran « Nos tarifs » de l'app). */
+  tariffs() {
+    return publicTariffSheet();
   }
 
   // Géocodage, distance et tarification — la partie commune au devis
@@ -67,6 +75,7 @@ export class QuotesService {
         options: dto.options ?? [],
         vehicleCategory: dto.vehicleCategory,
         pickupDistanceKm: dto.pickupDistanceKm,
+        items: dto.items,
       });
       return { fromGeo, toGeo, distanceKm, computed };
     } catch (e) {
@@ -97,8 +106,11 @@ export class QuotesService {
         toLongitude: toGeo?.longitude ?? dto.toLongitude,
         distanceKm,
         weightKg: dto.weightKg,
-        volumeM3: dto.volumeM3,
+        volumeM3: computed.volumeM3 ?? dto.volumeM3,
         units: dto.units,
+        // Lignes TTC de la grille : le colis en reprend le contenu, l'app
+        // les affiche telles quelles.
+        lines: computed.lines.length > 0 ? (computed.lines as unknown as Prisma.InputJsonValue) : undefined,
         basePriceCents: computed.basePriceCents,
         variablePriceCents: computed.variablePriceCents,
         pickupFeeCents: computed.pickupFeeCents,

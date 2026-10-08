@@ -35,6 +35,8 @@ export interface ParcelDraftState {
   // ─── Étape 2 — Quel colis ───────────────────────────────────
   kind?: ParcelKind;
   weightKg?: number;
+  /** Maritime : articles de la grille (code → nombre de pièces ou m³). */
+  items?: Record<string, number>;
   dimensions?: ParcelDimensions;
   /** URI ou data-URL d'une photo optionnelle. */
   photoUri?: string;

@@ -5,6 +5,7 @@ import { Field } from '../components/Field';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { Icons } from '../components/Icons';
+import { TariffItemsPicker } from '../components/TariffItemsPicker';
 import {
   ParcelDraftState,
   ParcelKind,
@@ -16,6 +17,10 @@ import { RADII, SPACING, TYPO } from '../theme/tokens';
 interface Props {
   draft: ParcelDraftState;
   onChange: (updates: Partial<ParcelDraftState>) => void;
+  /** Colis (effets personnels) ou marchandise volumineuse. */
+  service?: 'PARCEL' | 'MERCHANDISE';
+  /** Ouvre l'écran « Nos tarifs ». */
+  onOpenTariffs?: () => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,10 +29,49 @@ interface Props {
 // Exporté comme composant pour pouvoir être réutilisé soit en route Stack
 // dédiée (cf. report orchestrateur) soit en sous-vue de ParcelRequestScreen.
 // ─────────────────────────────────────────────────────────────────────────────
-export function ParcelSizeScreen({ draft, onChange }: Props) {
+export function ParcelSizeScreen({ draft, onChange, service = 'PARCEL', onOpenTariffs }: Props) {
   const { theme } = useTheme();
   const [photoLocal, setPhotoLocal] = useState<string | undefined>(draft.photoUri);
   const [weightText, setWeightText] = useState(draft.weightKg ? String(draft.weightKg) : '');
+
+  // Maritime : prix de la grille à la pièce (fûts, cartons…) ou au m³. Le
+  // poids ne fait pas le prix ; il reste utile aux documents de transport.
+  if (draft.transportMode === 'SEA') {
+    return (
+      <View style={{ gap: SPACING.lg }}>
+        <View>
+          <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
+            {service === 'PARCEL' ? 'Qu\'est-ce que tu envoies ?' : 'Quel volume expédier ?'}
+          </Text>
+          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
+            {service === 'PARCEL'
+              ? 'Ajoute tes fûts, cartons, valises ou appareils : le prix de la grille Axis s\'affiche en bas.'
+              : 'Indique le volume en m³ ou le nombre de palettes : le prix de la grille Axis s\'affiche en bas.'}
+          </Text>
+        </View>
+        <TariffItemsPicker
+          service={service}
+          counts={draft.items ?? {}}
+          onChange={(items) => onChange({ items })}
+          onOpenTariffs={onOpenTariffs ?? (() => {})}
+        />
+        <Surface>
+          <Field
+            label="Poids total estimé (kg) — facultatif"
+            value={weightText}
+            onChangeText={(t) => {
+              setWeightText(t);
+              const num = parseFloat(t.replace(',', '.'));
+              onChange({ weightKg: Number.isFinite(num) && num > 0 ? num : undefined });
+            }}
+            keyboardType="numeric"
+            placeholder="ex : 120"
+            hint="Il ne change pas le prix : Axis pèse au dépôt pour les documents de transport."
+          />
+        </Surface>
+      </View>
+    );
+  }
 
   const setKind = (kind: ParcelKind) => {
     onChange({ kind });

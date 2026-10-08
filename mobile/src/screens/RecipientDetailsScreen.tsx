@@ -96,7 +96,8 @@ export function RecipientDetailsScreen() {
         relayPointId: parcelDraft.relayPointId,
         pickupAddress: parcelDraft.pickupAddress,
         pickupAt: parcelDraft.pickupAt,
-        weightKg: quote.weightKg ?? parcelDraft.weightKg ?? 1,
+        // Maritime à la pièce : le poids est facultatif (pesé au dépôt).
+        weightKg: quote.weightKg ?? parcelDraft.weightKg ?? (quote.lines?.length ? 0 : 1),
         description: parcelDraft.description,
         originCountry: quote.fromCountry,
         originCity: quote.fromCity,
@@ -260,9 +261,20 @@ export function RecipientDetailsScreen() {
               <Pill tone="ghost">
                 {quote.transportMode === 'SEA' ? '🚢 Maritime' : '✈️ Aérien'}
               </Pill>
-              <Pill tone="ghost">{`${quote.weightKg ?? parcelDraft.weightKg ?? '?'} kg`}</Pill>
+              {(quote.weightKg ?? parcelDraft.weightKg) ? (
+                <Pill tone="ghost">{`${(quote.weightKg ?? parcelDraft.weightKg ?? 0).toLocaleString('fr-FR')} kg`}</Pill>
+              ) : null}
               <Pill tone="ghost">{`${quote.fromCity} → ${quote.toCity}`}</Pill>
-              {parcelDraft.kind ? <Pill tone="ghost">{PARCEL_KINDS.find((k) => k.value === parcelDraft.kind)?.label ?? parcelDraft.kind}</Pill> : null}
+              {(quote.lines ?? [])
+                .filter((l) => l.unit === 'piece' || l.unit === 'm3')
+                .map((l) => (
+                  <Pill key={l.code} tone="ghost">
+                    {l.unit === 'm3' ? `${l.quantity.toLocaleString('fr-FR')} m³` : `${l.quantity} × ${l.label}`}
+                  </Pill>
+                ))}
+              {parcelDraft.kind && quote.transportMode !== 'SEA' ? (
+                <Pill tone="ghost">{PARCEL_KINDS.find((k) => k.value === parcelDraft.kind)?.label ?? parcelDraft.kind}</Pill>
+              ) : null}
             </View>
           </Surface>
         </ScrollView>

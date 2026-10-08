@@ -11,9 +11,22 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+
+/** Article de la grille import-export (fût, carton, m³, palette…). */
+export class QuoteItemDto {
+  @ApiProperty({ example: 'DRUM_200', description: 'Code de l\'article dans la grille (GET /quotes/tariffs)' })
+  @IsString() @MaxLength(30)
+  code!: string;
+
+  @ApiProperty({ example: 2, description: 'Nombre de pièces, ou volume en m³' })
+  @Type(() => Number) @IsNumber() @Min(0.01) @Max(1000)
+  quantity!: number;
+}
 
 export class CreateQuoteDto {
   @ApiProperty({ enum: QuoteService })
@@ -85,6 +98,14 @@ export class CreateQuoteDto {
   @ApiPropertyOptional({ description: 'Nombre d\'unités (palettes, colis)' })
   @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   units?: number;
+
+  @ApiPropertyOptional({ type: [QuoteItemDto], description: 'Envois maritimes : articles de la grille et quantités' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => QuoteItemDto)
+  items?: QuoteItemDto[];
 
   @ApiPropertyOptional({ enum: QuoteOptionKind, isArray: true })
   @IsOptional()

@@ -36,6 +36,13 @@ export class QuotesController {
     return this.quotes.estimate(dto, req.user as AuthenticatedUser | undefined);
   }
 
+  @Public()
+  @Get('tariffs')
+  @ApiOperation({ summary: 'Grille tarifaire import-export (fûts, cartons, m³, palettes, aérien…)' })
+  tariffs() {
+    return this.quotes.tariffs();
+  }
+
   @ApiBearerAuth()
   @Get('mine')
   @ApiOperation({ summary: 'Mes devis sauvegardés' })

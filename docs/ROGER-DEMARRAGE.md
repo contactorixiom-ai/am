@@ -247,3 +247,44 @@ envoie alors un lien avec le bouton « Accès ».
 - **E-mails** : variables Railway `RESEND_API_KEY`, `MAIL_FROM`
   (`Axis Import <no-reply@axisimport.fr>`) et `MAIL_REPLY_TO`
   (`contact@axisimport.fr`, où arrivent les réponses des clients).
+
+## Grille tarifaire import-export
+
+La grille « Tarifs import-export » est dans l'application (écran **Nos
+tarifs**, accessible depuis le choix du service et depuis l'accueil, même sans
+compte). Le devis en ligne la reprend exactement :
+
+- **Colis en maritime** : le client choisit ses articles (fûts 100 L / 120 à
+  200 L / 220 L, cartons, sacs et valises, électroménager) ; **+65 € TTC** de
+  frais de douane par envoi.
+- **Marchandise en maritime** : au m³ et/ou à la palette (120 × 100 × 150 cm),
+  minimum de perception 95 €.
+- **Aérien** : 8,50 €/kg, minimum de perception 95 €.
+- **Véhicules (RORO)**, **export Afrique → Europe** et **envois pro** : prix
+  affichés, commande « sur devis » par message à Axis.
+
+Les prix sont ceux payés par le client (TTC). Une fourchette (« 40 à 70 € »)
+est facturée à son prix de départ : Axis confirme au dépôt selon la taille et
+la destination. Tous les montants sont dans un seul fichier,
+`backend/src/modules/quotes/tariffs.ts` : le modifier change à la fois
+l'écran « Nos tarifs » et les devis.
+
+Dans *Espace admin → Envois*, chaque commande affiche son contenu
+(« 2 × Fût plastique (120 à 200 L), 3 × Carton standard ») ; le poids est
+saisi après la pesée au dépôt.
+
+## Déclaration de marchandises dangereuses (DGD)
+
+*Espace admin → Générer → Déclaration marchandises dangereuses (DGD)*, aussi
+dans la liasse « Export aérien — Afrique ». Le PDF suit le formulaire IATA
+(Shipper's Declaration for Dangerous Goods) : entièrement en anglais, marges
+hachurées rouges, case non applicable barrée (PAX / CAO, radioactif), deux
+exemplaires (ou trois) dans le même fichier.
+
+- Une ligne par marchandise : n° ONU, désignation officielle anglaise, classe,
+  groupe d'emballage, nombre et type d'emballage, instruction d'emballage —
+  recopiés de la liste IATA (pages bleues du DGR). L'application refuse un
+  texte en français.
+- **Imprimer en couleur** (les hachures doivent être rouges) et **signer
+  chaque exemplaire à la main** : une signature tapée n'est pas acceptée.
+  Le signataire doit être formé aux marchandises dangereuses.

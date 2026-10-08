@@ -150,6 +150,31 @@ export function ServicePickerScreen() {
           ))}
         </View>
 
+        {/* La grille tarifaire complète, avant même de choisir. */}
+        <Pressable
+          onPress={() => nav.navigate('Tariffs')}
+          style={({ pressed }) => ({
+            marginTop: 14,
+            padding: 14,
+            borderRadius: RADII.md,
+            borderWidth: 1,
+            borderColor: theme.line,
+            backgroundColor: pressed ? theme.bgSoft : theme.surface,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          })}
+        >
+          <Icons.euro size={22} color={theme.goldDeep} stroke={1.8} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Nos tarifs</Text>
+            <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }}>
+              Fûts, cartons, valises, m³, palettes, véhicules, aérien
+            </Text>
+          </View>
+          <Icons.chev size={16} color={theme.muted} stroke={2} />
+        </Pressable>
+
         {/* Promesse d'assurance : affichée seulement si une couverture a
             réellement été souscrite et renseignée. */}
         {hasInsurance() ? (

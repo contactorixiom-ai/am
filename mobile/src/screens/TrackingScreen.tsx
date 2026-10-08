@@ -23,7 +23,7 @@ import { Pill } from '../components/Pill';
 import { StyledRouteMap } from '../components/StyledRouteMap';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
-import { formatEta, missionView, parcelView } from '../utils/shipment';
+import { formatEta, missionView, parcelLoadShort, parcelView } from '../utils/shipment';
 import { Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
@@ -162,7 +162,7 @@ export function TrackingScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
         title="Suivi en temps réel"
-        subtitle={`${reference}${parcel ? ` · ${parcel.weightKg.toLocaleString('fr-FR')} kg` : ''}`}
+        subtitle={`${reference}${parcel ? ` · ${parcelLoadShort(parcel)}` : ''}`}
         trailing={
           <Pressable
             style={({ pressed }) => ({

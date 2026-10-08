@@ -928,6 +928,10 @@ model Quote {
   uncertaintyPct Float?
   disclaimer     String?
 
+  // Lignes TTC de la grille import-export (article, quantité, prix) pour
+  // les colis et marchandises ; vide pour un convoyage.
+  lines Json?
+
   // Options retenues (express, premium...)
   options QuoteOption[]
 

@@ -94,6 +94,11 @@ export function OnboardingScreen() {
                 Suivre un colis sans compte →
               </Text>
             </Pressable>
+            <Pressable onPress={() => nav.navigate('Tariffs')} style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.regular }}>
+                Voir nos tarifs →
+              </Text>
+            </Pressable>
           </View>
         </View>
       </View>

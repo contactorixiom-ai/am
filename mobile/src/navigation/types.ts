@@ -1,13 +1,16 @@
-import { City, PickupMode, QuoteResponse } from '../api/quotes';
+import { City, PickupMode, QuoteItemInput, QuoteResponse } from '../api/quotes';
 
 export interface ParcelDraft {
   from: City;
   to: City;
-  weightKg: number;
+  /** Requis en aérien ; facultatif en maritime (Axis pèse au dépôt). */
+  weightKg?: number;
   category: string;
   transportMode: 'AIR' | 'SEA';
   /** PARCEL (colis < 30 kg) ou MERCHANDISE (palettes, volumineux). */
   service?: 'PARCEL' | 'MERCHANDISE';
+  /** Maritime : articles de la grille tarifaire et quantités. */
+  items?: QuoteItemInput[];
 }
 
 export type RootStackParamList = {
@@ -20,6 +23,7 @@ export type RootStackParamList = {
   TrackByReference: undefined;
   AppTabs: undefined;
   ServicePicker: undefined;
+  Tariffs: undefined;
   CarRequest: { service?: 'CONVOY_CAR' | 'CONVOY_MOTO' } | undefined;
   ParcelRequest: { service?: 'PARCEL' | 'MERCHANDISE' } | undefined;
   PickupMode: { draft: ParcelDraft };

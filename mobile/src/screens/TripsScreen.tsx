@@ -14,6 +14,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
+import { parcelLoadShort } from '../utils/shipment';
 
 type FilterId = 'all' | 'convoy' | 'parcel' | 'done';
 
@@ -198,7 +199,7 @@ function ParcelCard({ parcel: p, onPress }: { parcel: ParcelSummary; onPress: ()
               {p.originCity} → {p.destinationCity}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 2 }}>
-              {p.weightKg.toLocaleString('fr-FR')} kg · {p.originCountry} → {p.destinationCountry}
+              {parcelLoadShort(p)} · {p.originCountry} → {p.destinationCountry}
             </Text>
           </View>
           <StatusBadge status={p.status} />

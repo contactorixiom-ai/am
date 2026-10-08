@@ -87,7 +87,8 @@ export async function buildQuoteFromDraft(
     toCountry: draft.to.country,
     toLatitude: draft.to.latitude,
     toLongitude: draft.to.longitude,
-    weightKg: draft.weightKg,
+    weightKg: draft.weightKg && draft.weightKg > 0 ? draft.weightKg : undefined,
+    items: draft.transportMode === 'SEA' ? draft.items : undefined,
   });
 }
 

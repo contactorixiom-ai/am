@@ -5,6 +5,7 @@ import { listDocuments } from '../api/documents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MissionSummary } from '../api/missions';
 import { ParcelSummary } from '../api/parcels';
+import { parcelLoadShort } from './shipment';
 
 export const CONTRACTS_KEY = 'axis.contracts.v1';
 export const INVOICE_STORAGE_KEY = 'axis.docs.v1';
@@ -108,7 +109,7 @@ export function invoicesFrom(missions: MissionSummary[], parcels: ParcelSummary[
     .map((p) => ({
       id: `p-${p.id}`,
       title: `Commande ${p.reference}`,
-      ref: `Envoi ${p.originCity} → ${p.destinationCity} · ${p.weightKg.toLocaleString('fr-FR')} kg`,
+      ref: `Envoi ${p.originCity} → ${p.destinationCity} · ${parcelLoadShort(p)}`,
       date: fmtDate(p.createdAt),
       amountEur: (p.priceCents ?? 0) / 100,
       paid: false,

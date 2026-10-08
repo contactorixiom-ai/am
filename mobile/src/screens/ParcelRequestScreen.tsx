@@ -17,6 +17,7 @@ import { useParcelDraft } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
+import { eurShort, itemsFromCounts, orderableItems, useTariffs } from '../utils/tariffs';
 import { ParcelSizeScreen } from './ParcelSizeScreen';
 import { ParcelContentScreen } from './ParcelContentScreen';
 
@@ -49,19 +50,26 @@ export function ParcelRequestScreen() {
 
   // Estimation en direct : dès que le trajet et le poids sont connus, le
   // client voit son tarif, sans attendre l'étape 4.
+  // Maritime : articles de la grille (fûts, cartons, m³…) ; aérien : poids.
+  const isSea = draft.transportMode === 'SEA';
+  const seaItems = useMemo(() => itemsFromCounts(draft.items), [draft.items]);
   const estimateInput: CreateQuoteInput | null = useMemo(() => {
-    if (!draft.from || !draft.to || !draft.weightKg || draft.weightKg <= 0) return null;
-    return {
+    if (!draft.from || !draft.to) return null;
+    const route = {
       service,
-      transportMode: draft.transportMode ?? 'AIR',
       pickupMode: draft.pickupMode ?? 'HUB_DROP_OFF',
       fromCity: draft.from.city,
       fromCountry: draft.from.country,
       toCity: draft.to.city,
       toCountry: draft.to.country,
-      weightKg: draft.weightKg,
-    };
-  }, [service, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode]);
+    } as const;
+    if (isSea) {
+      if (seaItems.length === 0) return null;
+      return { ...route, transportMode: 'SEA', items: seaItems, weightKg: draft.weightKg };
+    }
+    if (!draft.weightKg || draft.weightKg <= 0) return null;
+    return { ...route, transportMode: draft.transportMode ?? 'AIR', weightKg: draft.weightKg };
+  }, [service, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode, isSea, seaItems]);
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -88,6 +96,19 @@ export function ParcelRequestScreen() {
       return;
     }
     if (step === 1) {
+      if (isSea) {
+        if (seaItems.length === 0) {
+          notify(
+            'Contenu manquant',
+            service === 'PARCEL'
+              ? 'Ajoute au moins un article : fût, carton, valise ou appareil.'
+              : 'Indique un volume en m³ ou un nombre de palettes.',
+          );
+          return;
+        }
+        setStep(2);
+        return;
+      }
       if (!draft.kind) {
         notify('Type manquant', 'Sélectionne un type de colis.');
         return;
@@ -111,10 +132,11 @@ export function ParcelRequestScreen() {
         draft: {
           from: { ...fromCity },
           to: { ...toCity },
-          weightKg: draft.weightKg!,
+          weightKg: draft.weightKg,
           category: draft.customsCategory ?? 'PERSONAL_EFFECTS',
           transportMode: draft.transportMode ?? 'AIR',
           service,
+          items: isSea ? seaItems : undefined,
         },
       });
     }
@@ -149,8 +171,10 @@ export function ParcelRequestScreen() {
             </Surface>
           ) : null}
 
-          {step === 0 ? <StepTrajet /> : null}
-          {step === 1 ? <ParcelSizeScreen draft={draft} onChange={set} /> : null}
+          {step === 0 ? <StepTrajet service={service} /> : null}
+          {step === 1 ? (
+            <ParcelSizeScreen draft={draft} onChange={set} service={service} onOpenTariffs={() => nav.navigate('Tariffs')} />
+          ) : null}
           {step === 2 ? <ParcelContentScreen draft={draft} onChange={set} /> : null}
         </ScrollView>
 
@@ -158,8 +182,10 @@ export function ParcelRequestScreen() {
           input={estimateInput}
           placeholder={
             step === 0
-              ? 'Choisis ton trajet, puis le poids : le tarif s\'affiche aussitôt.'
-              : 'Indique le poids du colis pour voir le tarif.'
+              ? (isSea ? 'Choisis ton trajet, puis ce que tu envoies : le tarif s\'affiche aussitôt.' : 'Choisis ton trajet, puis le poids : le tarif s\'affiche aussitôt.')
+              : isSea
+                ? (service === 'PARCEL' ? 'Ajoute tes fûts, cartons ou valises pour voir le tarif.' : 'Indique le volume ou les palettes pour voir le tarif.')
+                : 'Indique le poids du colis pour voir le tarif.'
           }
         />
 
@@ -191,9 +217,21 @@ export function ParcelRequestScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Étape 1 — Depuis / Vers + bandeau éligibilité + réglementation
 // ─────────────────────────────────────────────────────────────────────────────
-function StepTrajet() {
+function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
   const { theme } = useTheme();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { draft, set } = useParcelDraft();
+  const { sheet } = useTariffs();
+  // Prix d'appel tirés de la grille : 8,50 €/kg en aérien ; en maritime,
+  // le moins cher des articles du parcours (carton, ou m³).
+  const airFrom = sheet ? `${eurShort(sheet.airPerKgCents)}/kg` : null;
+  const seaCheapest = sheet
+    ? orderableItems(sheet, service).reduce<null | { cents: number; unit: string }>((best, i) => {
+        const unit = i.unit === 'm3' ? '/m³' : '';
+        return !best || i.minCents < best.cents ? { cents: i.minCents, unit } : best;
+      }, null)
+    : null;
+  const seaFrom = seaCheapest ? `dès ${eurShort(seaCheapest.cents)}${seaCheapest.unit}` : null;
   const [reqs, setReqs] = useState<CountryRequirements | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
 
@@ -299,7 +337,7 @@ function StepTrajet() {
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Aérien</Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
-              Rapide{OPERATIONS.delays?.air ? ` · ${OPERATIONS.delays.air}` : ''} · dès 8,50 €/kg
+              Rapide{OPERATIONS.delays?.air ? ` · ${OPERATIONS.delays.air}` : ''}{airFrom ? ` · ${airFrom}` : ''}
             </Text>
           </Pressable>
           <Pressable
@@ -320,11 +358,23 @@ function StepTrajet() {
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Maritime</Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
-              Économique{OPERATIONS.delays?.sea ? ` · ${OPERATIONS.delays.sea}` : ''} · dès 4,50 €/kg
+              Économique{OPERATIONS.delays?.sea ? ` · ${OPERATIONS.delays.sea}` : ''}{seaFrom ? ` · ${seaFrom}` : ''}
+            </Text>
+            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 2 }}>
+              {service === 'PARCEL' ? 'Fûts, cartons, valises, électroménager' : 'Au m³ ou à la palette'}
             </Text>
           </Pressable>
         </View>
       </Surface>
+
+      <Pressable
+        onPress={() => nav.navigate('Tariffs')}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 4 }}
+      >
+        <Icons.euro size={15} color={theme.navy} stroke={1.9} />
+        <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Voir la grille tarifaire complète</Text>
+        <Icons.chev size={14} color={theme.navy} stroke={2} />
+      </Pressable>
     </View>
   );
 }

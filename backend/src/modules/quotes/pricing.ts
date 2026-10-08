@@ -1,13 +1,20 @@
 import { PickupMode, QuoteOptionKind, QuoteService } from '@prisma/client';
+import {
+  AIR_PER_KG_CENTS,
+  CUSTOMS_FEE_CENTS,
+  MINIMUM_CHARGE_CENTS,
+  TariffLine,
+  TariffLineInput,
+  priceTariffLines,
+} from './tariffs';
 
 // ─────────────────────────────────────────────────────────────────────
-// TARIFS AXIS IMPORT (HT, en cents pour éviter les arrondis flottants)
-// Source : grille tarifaire Convoyage 2026 + tarifs colis.
-//   - Convoyage : tarif €/km HT par catégorie de véhicule (voir grille)
-//   - Forfait minimum convoyage : 40 € HT pour toute mission < 60 km
-//   - Colis aérien     : à partir de 8,50 €/kg HT
-//   - Colis maritime   : à partir de 4,50 €/kg HT (plus long, moins cher)
-//   - Véhicule export Afrique : forcément maritime (calculé sur volume + poids)
+// TARIFS AXIS IMPORT (en cents pour éviter les arrondis flottants)
+//   - Convoyage : grille Convoyage 2026, tarif €/km HT par catégorie,
+//     forfait minimum 40 € HT pour toute mission < 60 km ;
+//   - Colis et marchandises : grille import-export (./tariffs.ts), prix
+//     payés par le client TVA comprise — fûts, cartons, valises,
+//     électroménager, m³, palettes en maritime ; 8,50 €/kg en aérien.
 // ─────────────────────────────────────────────────────────────────────
 
 // Grille tarifaire Convoyage 2026 — prix au kilomètre HT par catégorie.
@@ -79,26 +86,13 @@ export const PRICING = {
     uncertaintyPct: null as number | null,
     defaultMode: 'ROAD' as TransportMode,
   },
-  PARCEL: {
-    // Selon le mode de transport choisi par le client
-    air: { baseCents: 0, perKgCents: 850, minCents: 8500 }, // 8,50 €/kg, mini 1 kg
-    sea: { baseCents: 0, perKgCents: 450, minCents: 9000 }, // 4,50 €/kg, mini 20 kg
-    uncertaintyPct: 8,          // ±8 % (douanes, fluctuations fret)
-    defaultMode: 'AIR' as TransportMode,
-  },
-  MERCHANDISE: {
-    // Maritime par défaut pour la marchandise lourde / véhicules export
-    air: { baseCents: 0, perKgCents: 850, perM3Cents: 25000, minCents: 15000 },
-    sea: { baseCents: 0, perKgCents: 320, perM3Cents: 18000, minCents: 12000 },
-    uncertaintyPct: 8,
-    defaultMode: 'SEA' as TransportMode,
-  },
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────
 // FIRST-MILE / PICKUP — récupération du colis
 // ─────────────────────────────────────────────────────────────────────
-// Coût additionnel selon le mode choisi par le client.
+// Coût additionnel selon le mode choisi par le client, tel qu'affiché dans
+// l'app (« Forfait 25 € ») : montant payé, TVA comprise.
 // HUB_DROP_OFF : gratuit (client apporte au hub Axis)
 // RELAY_DROP_OFF : prix d'un point relais (Mondial Relay / La Poste / etc.)
 // HOME_PICKUP : enlèvement à domicile par notre transporteur partenaire
@@ -148,6 +142,8 @@ export interface QuoteComputationInput {
   vehicleCategory?: string;
   /** Distance du premier km (domicile → hub) pour l'enlèvement à domicile. */
   pickupDistanceKm?: number;
+  /** Articles de la grille (fûts, cartons, m³, palettes…) — envois maritimes. */
+  items?: TariffLineInput[];
 }
 
 export interface ComputedOption {
@@ -171,8 +167,20 @@ export interface ComputedQuote {
   uncertaintyPct: number | null;
   disclaimer: string | null;
   options: ComputedOption[];
+  /**
+   * Lignes TTC de la grille import-export (colis et marchandises), dans
+   * l'ordre d'affichage. Vide pour un convoyage (décomposition HT).
+   */
+  lines: QuoteLine[];
+  /** Volume total commandé (m³ + palettes), pour information. */
+  volumeM3?: number;
   // Smart hints — value-add pour aider le client à choisir
   hints: QuoteHint[];
+}
+
+/** Ligne de devis affichée au client : article de la grille ou frais. */
+export interface QuoteLine extends Omit<TariffLine, 'unit'> {
+  unit: TariffLine['unit'] | 'fee';
 }
 
 export interface QuoteHint {
@@ -184,81 +192,41 @@ export interface QuoteHint {
 // ─────────────────────────────────────────────────────────────────────
 // CALCUL
 // ─────────────────────────────────────────────────────────────────────
+
+// TVA 20 % (FR). Le traitement des transports internationaux est à valider
+// avec le comptable : le prix payé par le client, lui, ne bouge pas.
+const TAX_RATE = 0.20;
+
 export function computeQuote(input: QuoteComputationInput): ComputedQuote {
-  const currency = 'EUR';
-  let basePriceCents = 0;
-  let variablePriceCents = 0;
-  let minCents = 0;
-  let uncertaintyPct: number | null = null;
-  let transportMode: TransportMode;
-
   if (input.service === 'CONVOY_CAR' || input.service === 'CONVOY_MOTO') {
-    const rules = PRICING[input.service];
-    const km = input.distanceKm ?? 0;
-    if (km <= 0) {
-      throw new Error('distanceKm est requis pour un convoyage (ou ville reconnue)');
-    }
-    // Tarif au km selon la catégorie de véhicule (grille Convoyage 2026).
-    const catKey = normalizeVehicleCategory(input.vehicleCategory);
-    const perKmCents = (catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey])
-      || CONVOY_DEFAULT_RATE_CENTS[input.service];
-    transportMode = rules.defaultMode;
-    basePriceCents = 0;
-    variablePriceCents = Math.round(km * perKmCents);
-    // Forfait minimum 40 € HT pour les missions courtes (< 60 km).
-    minCents = km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
-    uncertaintyPct = rules.uncertaintyPct;
-  } else if (input.service === 'PARCEL') {
-    const rules = PRICING.PARCEL;
-    transportMode = input.transportMode ?? rules.defaultMode;
-    if (transportMode === 'ROAD') transportMode = rules.defaultMode;
-    const tier = transportMode === 'SEA' ? rules.sea : rules.air;
-    const kg = input.weightKg ?? 0;
-    if (kg <= 0) {
-      throw new Error('weightKg est requis pour un colis');
-    }
-    basePriceCents = tier.baseCents;
-    variablePriceCents = Math.round(kg * tier.perKgCents);
-    minCents = tier.minCents;
-    uncertaintyPct = rules.uncertaintyPct;
-  } else if (input.service === 'MERCHANDISE') {
-    const rules = PRICING.MERCHANDISE;
-    transportMode = input.transportMode ?? rules.defaultMode;
-    if (transportMode === 'ROAD') transportMode = rules.defaultMode;
-    const tier = transportMode === 'AIR' ? rules.air : rules.sea;
-    const kg = input.weightKg ?? 0;
-    const m3 = input.volumeM3 ?? 0;
-    if (kg <= 0 && m3 <= 0) {
-      throw new Error('weightKg ou volumeM3 requis pour la marchandise');
-    }
-    const byKg = Math.round(kg * tier.perKgCents);
-    const byM3 = Math.round(m3 * tier.perM3Cents);
-    basePriceCents = tier.baseCents;
-    variablePriceCents = Math.max(byKg, byM3);
-    minCents = tier.minCents;
-    uncertaintyPct = rules.uncertaintyPct;
-  } else {
-    throw new Error('Service non supporté');
+    return computeConvoyQuote(input);
   }
-
-  // First-mile pickup (uniquement pour colis / marchandise)
-  let pickupFeeCents = 0;
-  let pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
   if (input.service === 'PARCEL' || input.service === 'MERCHANDISE') {
-    const pickupRules = PICKUP_PRICING[pickupMode];
-    const kg = input.weightKg ?? 0;
-    const computed = pickupRules.baseCents + Math.round(kg * pickupRules.perKgCents);
-    pickupFeeCents = Math.max(pickupRules.minCents, computed);
-    // Enlèvement à domicile : supplément 0,75 €/km TTC (≈ 0,63 €/km HT) sur la
-    // distance domicile → hub, si elle est connue.
-    if (pickupMode === 'HOME_PICKUP' && (input.pickupDistanceKm ?? 0) > 0) {
-      pickupFeeCents += Math.round((input.pickupDistanceKm as number) * HOME_PICKUP_PER_KM_CENTS_HT);
-    }
+    return computeShipmentQuote(input);
   }
+  throw new Error('Service non supporté');
+}
 
-  const rawSubtotal = basePriceCents + variablePriceCents + pickupFeeCents;
+// Convoyage : tarif kilométrique HT, TVA ajoutée.
+function computeConvoyQuote(input: QuoteComputationInput): ComputedQuote {
+  const rules = PRICING[input.service as 'CONVOY_CAR' | 'CONVOY_MOTO'];
+  const km = input.distanceKm ?? 0;
+  if (km <= 0) {
+    throw new Error('distanceKm est requis pour un convoyage (ou ville reconnue)');
+  }
+  // Tarif au km selon la catégorie de véhicule (grille Convoyage 2026).
+  const catKey = normalizeVehicleCategory(input.vehicleCategory);
+  const perKmCents = (catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey])
+    || CONVOY_DEFAULT_RATE_CENTS[input.service as 'CONVOY_CAR' | 'CONVOY_MOTO'];
+  const transportMode = rules.defaultMode;
+  const basePriceCents = 0;
+  const variablePriceCents = Math.round(km * perKmCents);
+  // Forfait minimum 40 € HT pour les missions courtes (< 60 km).
+  const minCents = km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
+  const uncertaintyPct = rules.uncertaintyPct;
+  const pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
 
-  // Add-ons
+  const rawSubtotal = basePriceCents + variablePriceCents;
   const computedOptions: ComputedOption[] = input.options.map((kind) => {
     const cfg = OPTIONS_CATALOG[kind];
     const price = cfg.flatCents + Math.round(rawSubtotal * cfg.pctOfSubtotal / 100);
@@ -268,34 +236,164 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
 
   let subtotalCents = rawSubtotal + addonsPriceCents;
   if (subtotalCents < minCents) subtotalCents = minCents;
-
-  // TVA 20 % (FR B2C). Pour B2B et exports hors UE on ajustera plus tard.
-  const taxRate = 0.20;
-  const taxCents = Math.round(subtotalCents * taxRate);
+  const taxCents = Math.round(subtotalCents * TAX_RATE);
   const totalCents = subtotalCents + taxCents;
 
   const disclaimer = uncertaintyPct != null
     ? `Devis estimé ±${uncertaintyPct} % — frais de douane et fluctuations de fret possibles.`
     : null;
-
-  // Smart hints — moteur de recommandation
-  const hints = computeHints({ ...input, transportMode, pickupMode, weightKg: input.weightKg ?? 0, totalCents, hasInsurance: input.options.includes('PREMIUM_INSURANCE') });
+  const hints = computeHints({
+    service: input.service, transportMode, pickupMode, weightKg: input.weightKg ?? 0,
+    totalCents, hasInsurance: input.options.includes('PREMIUM_INSURANCE'),
+  });
 
   return {
     transportMode,
     pickupMode,
     basePriceCents,
     variablePriceCents,
-    pickupFeeCents,
+    pickupFeeCents: 0,
     addonsPriceCents,
     subtotalCents,
-    taxRate,
+    taxRate: TAX_RATE,
     taxCents,
     totalCents,
-    currency,
+    currency: 'EUR',
     uncertaintyPct,
     disclaimer,
     options: computedOptions,
+    lines: [],
+    hints,
+  };
+}
+
+const eur = (cents: number) => `${(cents / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`;
+
+// Colis et marchandises : grille import-export, montants TTC. Le devis
+// garde la décomposition HT / TVA attendue par la comptabilité, recalculée
+// à partir du prix TTC pour que le client paie exactement le prix affiché.
+function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
+  const service = input.service as 'PARCEL' | 'MERCHANDISE';
+  let transportMode: TransportMode = input.transportMode === 'SEA' || input.transportMode === 'AIR'
+    ? input.transportMode
+    : service === 'PARCEL' ? 'AIR' : 'SEA';
+
+  const lines: QuoteLine[] = [];
+  let volumeM3: number | undefined;
+  let applyMinimum = true;
+
+  if (transportMode === 'AIR') {
+    const kg = input.weightKg ?? 0;
+    if (kg <= 0) throw new Error('Indique le poids de l\'envoi pour un transport aérien.');
+    const quantity = Math.round(kg * 100) / 100;
+    lines.push({
+      code: 'AIR_KG',
+      label: 'Fret aérien express (toutes zones)',
+      quantity,
+      unit: 'kg',
+      unitCents: AIR_PER_KG_CENTS,
+      totalCents: Math.round(quantity * AIR_PER_KG_CENTS),
+    });
+  } else {
+    transportMode = 'SEA';
+    if (!input.items || input.items.length === 0) {
+      throw new Error(service === 'PARCEL'
+        ? 'Indique ce que tu envoies : fûts, cartons, valises, électroménager.'
+        : 'Indique le volume en m³ ou le nombre de palettes.');
+    }
+    const tariffLines = priceTariffLines(service, input.items);
+    lines.push(...tariffLines);
+    if (service === 'PARCEL') {
+      // Effets personnels : prix à la pièce, frais de douane en sus.
+      applyMinimum = false;
+      lines.push({
+        code: 'CUSTOMS_FEE',
+        label: 'Frais de douane (forfait)',
+        quantity: 1,
+        unit: 'fee',
+        unitCents: CUSTOMS_FEE_CENTS,
+        totalCents: CUSTOMS_FEE_CENTS,
+      });
+    } else {
+      // Palette standard 120 × 100 × 150 cm = 1,8 m³.
+      volumeM3 = Math.round(tariffLines.reduce(
+        (v, l) => v + (l.unit === 'm3' ? l.quantity : l.code === 'PALLET' ? l.quantity * 1.8 : 0), 0,
+      ) * 100) / 100;
+    }
+  }
+
+  // Minimum de perception sur le transport (courrier, petit colis, premier
+  // m³ ou fraction).
+  const freight = lines.reduce((s, l) => s + l.totalCents, 0);
+  if (applyMinimum && freight < MINIMUM_CHARGE_CENTS) {
+    lines.push({
+      code: 'MINIMUM',
+      label: `Minimum de perception (${eur(MINIMUM_CHARGE_CENTS)})`,
+      quantity: 1,
+      unit: 'fee',
+      unitCents: MINIMUM_CHARGE_CENTS - freight,
+      totalCents: MINIMUM_CHARGE_CENTS - freight,
+    });
+  }
+
+  // Récupération du colis (montant affiché au client, TVA comprise).
+  const pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
+  const pickupRules = PICKUP_PRICING[pickupMode];
+  let pickupTtc = Math.max(pickupRules.minCents, pickupRules.baseCents + Math.round((input.weightKg ?? 0) * pickupRules.perKgCents));
+  if (pickupMode === 'HOME_PICKUP' && (input.pickupDistanceKm ?? 0) > 0) {
+    pickupTtc += Math.round((input.pickupDistanceKm as number) * HOME_PICKUP_PER_KM_CENTS_HT);
+  }
+  if (pickupTtc > 0) {
+    lines.push({ code: 'PICKUP', label: pickupRules.label, quantity: 1, unit: 'fee', unitCents: pickupTtc, totalCents: pickupTtc });
+  }
+
+  // Options (catalogue en HT) : converties en TTC pour rester homogènes.
+  const baseTtc = lines.reduce((s, l) => s + l.totalCents, 0);
+  const computedOptions: ComputedOption[] = input.options.map((kind) => {
+    const cfg = OPTIONS_CATALOG[kind];
+    const ht = cfg.flatCents + Math.round((baseTtc / (1 + TAX_RATE)) * cfg.pctOfSubtotal / 100);
+    return { kind, label: cfg.label, priceCents: ht };
+  });
+  computedOptions.forEach((o) => {
+    const ttc = Math.round(o.priceCents * (1 + TAX_RATE));
+    lines.push({ code: `OPTION_${o.kind}`, label: o.label, quantity: 1, unit: 'fee', unitCents: ttc, totalCents: ttc });
+  });
+
+  const totalCents = lines.reduce((s, l) => s + l.totalCents, 0);
+  const subtotalCents = Math.round(totalCents / (1 + TAX_RATE));
+  const taxCents = totalCents - subtotalCents;
+  const pickupFeeCents = pickupTtc > 0 ? Math.round(pickupTtc / (1 + TAX_RATE)) : 0;
+  const addonsPriceCents = computedOptions.reduce((s, o) => s + o.priceCents, 0);
+  const variablePriceCents = subtotalCents - pickupFeeCents - addonsPriceCents;
+
+  // Fourchettes : prix de départ facturé, ajustement possible au dépôt.
+  const ranged = lines.filter((l) => l.maxUnitCents && l.maxUnitCents > l.unitCents);
+  const disclaimer = ranged.length > 0
+    ? `Prix de départ : ${ranged.map((l) => `${l.label.toLowerCase()} jusqu'à ${eur(l.maxUnitCents as number)}${l.unit === 'm3' ? ' le m³' : ' l\'unité'}`).join(', ')} selon la taille et la destination. Axis confirme le prix au dépôt.`
+    : null;
+
+  const hints = computeHints({
+    service: input.service, transportMode, pickupMode, weightKg: input.weightKg ?? 0,
+    totalCents, hasInsurance: input.options.includes('PREMIUM_INSURANCE'),
+  });
+
+  return {
+    transportMode,
+    pickupMode,
+    basePriceCents: 0,
+    variablePriceCents,
+    pickupFeeCents,
+    addonsPriceCents,
+    subtotalCents,
+    taxRate: TAX_RATE,
+    taxCents,
+    totalCents,
+    currency: 'EUR',
+    uncertaintyPct: null,
+    disclaimer,
+    options: computedOptions,
+    lines,
+    volumeM3,
     hints,
   };
 }
@@ -314,27 +412,6 @@ interface HintInput {
 
 function computeHints(input: HintInput): QuoteHint[] {
   const hints: QuoteHint[] = [];
-
-  // Colis aérien lourd → suggère maritime
-  if (input.service === 'PARCEL' && input.transportMode === 'AIR' && input.weightKg >= 20) {
-    const seaWeight = input.weightKg * PRICING.PARCEL.sea.perKgCents;
-    const airWeight = input.weightKg * PRICING.PARCEL.air.perKgCents;
-    const savePct = Math.round((1 - seaWeight / airWeight) * 100);
-    hints.push({
-      kind: 'SAVE_WITH_SEA',
-      label: `Économise ~${savePct} % en maritime`,
-      detail: `Pour ${input.weightKg} kg, le maritime coûte environ ${savePct} % de moins, pour un acheminement plus long.`,
-    });
-  }
-
-  // Colis maritime urgent → préviens du délai
-  if (input.service === 'PARCEL' && input.transportMode === 'SEA' && input.weightKg < 5) {
-    hints.push({
-      kind: 'FAST_WITH_AIR',
-      label: 'Pour ce petit colis, l\'aérien est conseillé',
-      detail: 'En dessous de 5 kg, la différence de prix avec l\'aérien est minime et l\'acheminement bien plus rapide.',
-    });
-  }
 
   // Mode pickup HOME → suggère relais pour économiser
   if (input.pickupMode === 'HOME_PICKUP' && input.weightKg < 15) {

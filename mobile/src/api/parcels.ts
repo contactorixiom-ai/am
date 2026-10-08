@@ -41,6 +41,8 @@ export interface ParcelSummary {
   destinationLatitude?: number | null;
   destinationLongitude?: number | null;
   trackingEvents?: ParcelTrackingEvent[];
+  /** Contenu commandé sur la grille (fûts, cartons, m³…). */
+  items?: { description: string; quantity: number }[] | null;
 }
 
 export interface CreateParcelInput {

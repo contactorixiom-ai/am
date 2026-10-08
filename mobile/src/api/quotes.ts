@@ -17,6 +17,25 @@ export interface QuoteHint {
   detail: string;
 }
 
+/** Article de la grille import-export commandé (fût, carton, m³…). */
+export interface QuoteItemInput {
+  code: string;
+  /** Nombre de pièces, ou volume en m³. */
+  quantity: number;
+}
+
+/** Ligne TTC d'un devis colis / marchandise, calculée par le serveur. */
+export interface QuoteLine {
+  code: string;
+  label: string;
+  quantity: number;
+  unit: 'piece' | 'm3' | 'kg' | 'forfait' | 'fee';
+  unitCents: number;
+  /** Borne haute d'une fourchette : prix de départ ajustable au dépôt. */
+  maxUnitCents?: number;
+  totalCents: number;
+}
+
 export interface CreateQuoteInput {
   service: QuoteService;
   transportMode?: TransportMode;
@@ -38,6 +57,8 @@ export interface CreateQuoteInput {
   vehicleCategory?: string;
   /** Distance domicile → hub (enlèvement à domicile). */
   pickupDistanceKm?: number;
+  /** Envoi maritime : articles de la grille et quantités. */
+  items?: QuoteItemInput[];
 }
 
 export interface QuoteOption {
@@ -64,6 +85,9 @@ export interface QuoteEstimate {
   pickupFeeCents: number;
   addonsPriceCents: number;
   options: QuoteOption[];
+  /** Lignes TTC (colis et marchandises) ; vide pour un convoyage. */
+  lines?: QuoteLine[];
+  disclaimer?: string | null;
   hints: QuoteHint[];
 }
 
@@ -92,6 +116,9 @@ export interface QuoteResponse {
   toLongitude: number | null;
   distanceKm: number | null;
   weightKg: number | null;
+  volumeM3?: number | null;
+  /** Lignes TTC de la grille (colis et marchandises). */
+  lines?: QuoteLine[] | null;
   basePriceCents: number;
   variablePriceCents: number;
   pickupFeeCents: number;
@@ -139,4 +166,57 @@ export async function listCities(region?: 'EU' | 'AFRICA'): Promise<City[]> {
   });
   if (Array.isArray(res)) return res;
   return Array.isArray(res?.data) ? res.data : [];
+}
+
+// ─── Grille tarifaire import-export ────────────────────────────────────────
+// Servie par l'API : l'écran « Nos tarifs » et le choix des articles d'un
+// envoi maritime affichent exactement les prix qui serviront au devis.
+
+export type TariffUnit = 'piece' | 'm3' | 'kg' | 'forfait';
+export type TariffSectionId = 'EFFECTS' | 'GENERAL' | 'VEHICLES' | 'AIR' | 'EXPORT';
+
+export interface TariffItem {
+  code: string;
+  section: TariffSectionId;
+  label: string;
+  detail?: string;
+  unit: TariffUnit;
+  minCents: number;
+  maxCents?: number;
+  included?: string;
+  note?: string;
+  convoyPerKmCents?: number;
+  orderable?: { service: 'PARCEL' | 'MERCHANDISE'; mode: 'SEA' };
+  onQuote?: boolean;
+}
+
+export interface TariffSection {
+  id: TariffSectionId;
+  title: string;
+  subtitle?: string;
+  mode: 'SEA' | 'AIR' | 'MIXED';
+}
+
+export interface TariffSheet {
+  version: string;
+  currency: string;
+  sections: TariffSection[];
+  items: TariffItem[];
+  customsFeeCents: number;
+  minimumChargeCents: number;
+  airPerKgCents: number;
+  notes: { customs: string; extraVolume: string; minimum: string; ranges: string };
+}
+
+let tariffRequest: Promise<TariffSheet> | null = null;
+
+/** Grille tarifaire (une requête par session ; relancée après un échec). */
+export function getTariffs(): Promise<TariffSheet> {
+  if (!tariffRequest) {
+    tariffRequest = apiFetch<TariffSheet>('/quotes/tariffs', { skipAuth: true }).catch((e) => {
+      tariffRequest = null;
+      throw e;
+    });
+  }
+  return tariffRequest;
 }

@@ -132,3 +132,22 @@ export function sortForClient(views: ShipmentView[]): ShipmentView[] {
     return b.progress - a.progress;
   });
 }
+
+/**
+ * Ce que contient l'envoi : « 12 kg », ou pour un envoi maritime à la pièce
+ * « 2 × Fût plastique (120 à 200 L), 1 × Carton standard » (+ poids s'il est
+ * connu). Un colis sans poids ni contenu est pesé au dépôt.
+ */
+export function parcelLoadLabel(p: Pick<ParcelSummary, 'weightKg' | 'items'>): string {
+  const items = (p.items ?? []).map((i) => (i.quantity > 1 ? `${i.quantity} × ${i.description}` : i.description));
+  const weight = p.weightKg > 0 ? `${p.weightKg.toLocaleString('fr-FR')} kg` : '';
+  if (items.length > 0) return [items.join(', '), weight].filter(Boolean).join(' · ');
+  return weight || 'poids relevé au dépôt';
+}
+
+/** Version courte pour un sous-titre : poids, sinon nombre d'articles. */
+export function parcelLoadShort(p: Pick<ParcelSummary, 'weightKg' | 'items'>): string {
+  if (p.weightKg > 0) return `${p.weightKg.toLocaleString('fr-FR')} kg`;
+  const n = (p.items ?? []).reduce((a, i) => a + Math.max(1, i.quantity), 0);
+  return n > 0 ? `${n} article${n > 1 ? 's' : ''}` : 'pesé au dépôt';
+}

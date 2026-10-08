@@ -6,6 +6,17 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { AddParcelEventDto } from './dto/parcel-event.dto';
+import type { QuoteLine } from '../quotes/pricing';
+
+/** Contenu commandé sur la grille (fûts, cartons, m³…) → lignes du colis. */
+function itemsFromQuoteLines(raw: Prisma.JsonValue | null): { description: string; quantity: number }[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown as QuoteLine[])
+    .filter((l) => l && (l.unit === 'piece' || l.unit === 'm3'))
+    .map((l) => (l.unit === 'm3'
+      ? { description: `${l.label} — ${String(l.quantity).replace('.', ',')} m³`, quantity: 1 }
+      : { description: l.label, quantity: Math.max(1, Math.round(l.quantity)) }));
+}
 
 // Délais de bout en bout annoncés au client au moment du devis. On retient la
 // borne haute : mieux vaut livrer en avance qu'annoncer une date qu'on rate.
@@ -66,6 +77,7 @@ export class ParcelsService {
     // Prix du devis accepté, lu côté serveur : le colis était enregistré sans
     // prix, et Roger ne voyait pas le montant de la commande.
     let priceCents: number | undefined;
+    let orderedItems: { description: string; quantity: number }[] = [];
     if (dto.quoteId) {
       const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId } });
       if (!quote) throw new NotFoundException('Devis introuvable.');
@@ -93,6 +105,9 @@ export class ParcelsService {
         );
       }
       priceCents = quote.totalCents;
+      // Le contenu payé est celui du devis : il prime sur une liste envoyée
+      // par l'app.
+      orderedItems = itemsFromQuoteLines(quote.lines);
       await this.prisma.quote.update({ where: { id: quote.id }, data: { status: 'CONVERTED', customerId: senderId } });
     }
 
@@ -136,7 +151,9 @@ export class ParcelsService {
                 : 'En attente de dépôt chez Axis',
           },
         },
-        items: dto.items
+        items: orderedItems.length > 0
+          ? { create: orderedItems }
+          : dto.items
           ? {
               create: dto.items.map((i) => ({
                 description: i.description,

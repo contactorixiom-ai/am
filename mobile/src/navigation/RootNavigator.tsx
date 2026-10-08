@@ -32,6 +32,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { RelayPointPickerScreen } from '../screens/RelayPointPickerScreen';
 import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen';
 import { ServicePickerScreen } from '../screens/ServicePickerScreen';
+import { TariffsScreen } from '../screens/TariffsScreen';
 import { TrackByReferenceScreen } from '../screens/TrackByReferenceScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { TripsScreen } from '../screens/TripsScreen';
@@ -167,6 +168,7 @@ export function RootNavigator() {
           <>
             <RootStack.Screen name="AppTabs" component={AppTabs} />
             <RootStack.Screen name="ServicePicker" component={ServicePickerScreen} />
+            <RootStack.Screen name="Tariffs" component={TariffsScreen} />
             <RootStack.Screen name="CarRequest" component={CarRequestScreen} />
             <RootStack.Screen name="ParcelRequest" component={ParcelRequestScreen} />
             <RootStack.Screen name="PickupMode" component={PickupModeScreen} />
@@ -196,6 +198,7 @@ export function RootNavigator() {
             ) : null}
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
+            <RootStack.Screen name="Tariffs" component={TariffsScreen} />
             <RootStack.Screen name="Register" component={RegisterScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             {!resetToken ? <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} /> : null}

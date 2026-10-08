@@ -64,6 +64,7 @@ import {
 import { confirmAction, notify } from '../utils/notify';
 import { buildFollowUps } from '../utils/followUps';
 import { downloadCsv } from '../utils/csv';
+import { parcelLoadLabel } from '../utils/shipment';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
@@ -158,8 +159,20 @@ const AXIS_SENDER = {
 };
 
 function prefillFromParcel(p: ParcelSummary): AdminValues {
-  const weight = p.weightKg != null ? String(p.weightKg) : '';
+  // Poids 0 = envoi maritime à la pièce pas encore pesé : Roger le saisit.
+  const weight = p.weightKg ? String(p.weightKg) : '';
+  // Contenu commandé sur la grille (fûts, cartons…) : il décrit les colis.
+  const items = p.items ?? [];
+  const pieces = items.reduce((n, i) => n + Math.max(1, i.quantity), 0);
+  const goodsFromItems = items.length ? parcelLoadLabel({ weightKg: 0, items }) : '';
   return {
+    ...(items.length
+      ? {
+          goods: goodsFromItems,
+          packages: String(pieces),
+          packagesText: items.map((i) => `${i.quantity} × ${i.description} ; ; ;`).join('\n'),
+        }
+      : {}),
     ...AXIS_SENDER,
     reference: p.reference,
     orderRef: p.reference,
@@ -480,7 +493,7 @@ export function AdminScreen() {
   };
 
   const exportColis = () => {
-    const headers = ['Référence', 'Statut', 'Origine', 'Destination', 'Pays destination', 'Poids (kg)'];
+    const headers = ['Référence', 'Statut', 'Origine', 'Destination', 'Pays destination', 'Poids (kg)', 'Contenu'];
     const rows = parcels.map((p) => [
       p.reference,
       parcelStatusLabel(p.status),
@@ -488,6 +501,7 @@ export function AdminScreen() {
       p.destinationCity,
       p.destinationCountry,
       p.weightKg,
+      (p.items ?? []).map((i) => `${i.quantity} × ${i.description}`).join(' ; '),
     ]);
     const ok = downloadCsv(`colis-axis-${new Date().toISOString().slice(0, 10)}`, headers, rows);
     notify(ok ? 'Export CSV' : 'Export indisponible',
@@ -533,7 +547,7 @@ export function AdminScreen() {
       {
         number: pay.invoiceNumber,
         date: pay.paidAt ? new Date(pay.paidAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '',
-        description: `Envoi colis ${p.originCity} → ${p.destinationCity} (${p.weightKg.toLocaleString('fr-FR')} kg) — réf ${p.reference}`,
+        description: `Envoi colis ${p.originCity} → ${p.destinationCity} (${parcelLoadLabel(p)}) — réf ${p.reference}`,
         clientName: pay.client ? `${pay.client.firstName} ${pay.client.lastName}` : '',
         amountEur: String(pay.amountCents / 100),
         paid: true,
@@ -1568,7 +1582,7 @@ export function AdminScreen() {
                           {p.reference} · {p.originCity} → {p.destinationCity}
                         </Text>
                         <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
-                          {p.status === 'CUSTOMS' ? 'Dédouanement à préparer' : 'En transit'} · {p.weightKg.toLocaleString('fr-FR')} kg
+                          {p.status === 'CUSTOMS' ? 'Dédouanement à préparer' : 'En transit'} · {parcelLoadLabel(p)}
                         </Text>
                       </View>
                       <StatusBadge status={p.status} />
@@ -2053,7 +2067,7 @@ export function AdminScreen() {
                   <StatusBadge status={p.status} />
                 </View>
                 <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
-                  {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {p.weightKg.toLocaleString('fr-FR')} kg
+                  {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {parcelLoadLabel(p)}
                 </Text>
                 {p.priceCents ? (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
