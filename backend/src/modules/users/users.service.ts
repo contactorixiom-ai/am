@@ -2,12 +2,16 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { AccountType, Prisma, UserRole, UserStatus } from '@prisma/client';
 import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   private get safeSelect(): Prisma.UserSelect {
     return {
@@ -140,6 +144,13 @@ export class UsersService {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     if (user.deletedAt) return { deletedAt: user.deletedAt };
 
+    // Fichiers des pièces d'identité, à effacer du disque une fois le
+    // compte neutralisé (la base n'en garde que le lien).
+    const kycFiles = await this.prisma.kycDocument.findMany({
+      where: { userId },
+      select: { fileUrl: true },
+    });
+
     const deletedAt = new Date();
     // L'adresse et le téléphone sont uniques : on les neutralise au lieu de
     // les vider, pour que la personne puisse se réinscrire ensuite.
@@ -168,6 +179,8 @@ export class UsersService {
       // Les pièces d'identité n'ont plus lieu d'être conservées.
       this.prisma.kycDocument.deleteMany({ where: { userId } }),
     ]);
+
+    await Promise.all(kycFiles.map((f) => this.storage.removeByUrl(f.fileUrl)));
 
     await this.prisma.auditLog
       .create({

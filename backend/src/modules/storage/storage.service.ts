@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream, existsSync } from 'fs';
-import { mkdir, stat, writeFile } from 'fs/promises';
+import { mkdir, stat, unlink, writeFile } from 'fs/promises';
 import { join, extname, resolve } from 'path';
 import { randomUUID } from 'crypto';
 
@@ -107,6 +107,29 @@ export class StorageService {
 
   stream(path: string) {
     return createReadStream(path);
+  }
+
+  /**
+   * Efface un fichier stocké à partir de son URL (…/storage/file/kyc/<uuid>).
+   * Sert à la suppression d'un compte : les pièces d'identité doivent
+   * disparaître du disque, pas seulement de la base. Renvoie true si un
+   * fichier a été effacé ; une URL étrangère ou un fichier absent ne lève rien.
+   */
+  async removeByUrl(fileUrl: string): Promise<boolean> {
+    const m = /\/storage\/file\/([a-z]+)\/([^/?#]+)$/.exec(fileUrl);
+    if (!m) return false;
+    const [, folder, name] = m;
+    if (!(STORAGE_FOLDERS as readonly string[]).includes(folder) || !STORED_NAME.test(name)) return false;
+    const base = resolve(this.localPath);
+    const path = resolve(join(base, folder, name));
+    if (!path.startsWith(base) || !existsSync(path)) return false;
+    try {
+      await unlink(path);
+      return true;
+    } catch (e) {
+      this.logger.warn(`Effacement impossible de ${folder}/${name} : ${e instanceof Error ? e.message : e}`);
+      return false;
+    }
   }
 
   /**
