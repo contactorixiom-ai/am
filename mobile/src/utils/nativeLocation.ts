@@ -62,6 +62,7 @@ export type NativeStartResult =
  */
 export async function startNativeWatch(
   onFix: (fix: NativeFix) => void,
+  options: { requestBackground?: boolean } = {},
 ): Promise<NativeStartResult> {
   const Location = loadModule();
   if (!Location) return { ok: false, reason: 'unavailable' };
@@ -71,13 +72,16 @@ export async function startNativeWatch(
     if (fg.status !== 'granted') return { ok: false, reason: 'denied' };
 
     // L'autorisation « toujours » est un bonus : refusée, le suivi marche
-    // quand même tant que l'app est au premier plan.
+    // quand même tant que l'app est au premier plan. Ne pas la redemander
+    // si l'appelant vient de le faire (tâche de fond du convoyage).
     let background = false;
-    try {
-      const bg = await Location.requestBackgroundPermissionsAsync();
-      background = bg.status === 'granted';
-    } catch {
-      background = false;
+    if (options.requestBackground !== false) {
+      try {
+        const bg = await Location.requestBackgroundPermissionsAsync();
+        background = bg.status === 'granted';
+      } catch {
+        background = false;
+      }
     }
 
     const sub = await Location.watchPositionAsync(

@@ -62,9 +62,11 @@ export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLa
     try {
       if (cancelled || !containerRef.current) return;
       LRef.current = L;
-      const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false, dragging: true });
+      const map = L.map(containerRef.current, { zoomControl: false, attributionControl: true, dragging: true });
       mapRef.current = map;
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      map.attributionControl.setPrefix(false);
+      // Crédit exigé par OpenStreetMap pour l'usage de ses tuiles.
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
       const fromIcon = L.divIcon({ html: `<div style="background:${theme.navy};color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)">A</div>`, iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
       const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.navy};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)">B</div>`, iconSize: [24, 24], iconAnchor: [12, 12], className: '' });

@@ -20,6 +20,7 @@ import { COMPANY } from '../config/company';
 import { createStationaryWatch, StationaryWatch } from '../utils/stationaryWatch';
 import { hasNativeLocation, NativeStop, startNativeWatch } from '../utils/nativeLocation';
 import { startBackgroundTracking, stopBackgroundTracking } from '../utils/backgroundLocation';
+import { LocationDisclosureModal, locationDisclosureAccepted } from '../components/LocationDisclosureModal';
 
 // ─── Mode chauffeur : suivi GPS temps réel + pause + alerte d'arrêt ─────────
 // Le chauffeur démarre le suivi au départ de la mission. Le téléphone envoie
@@ -114,6 +115,9 @@ export function DriverModeScreen() {
   const [stationaryAlarm, setStationaryAlarm] = useState(false);
   const [simulated, setSimulated] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  // Explication obligatoire (Google Play) avant la demande de localisation
+  // en arrière-plan, sur l'application installée.
+  const [disclosureVisible, setDisclosureVisible] = useState(false);
   const [lastPosition, setLastPosition] = useState<PhonePosition | null>(null);
   const [sentCount, setSentCount] = useState(0);
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null);
@@ -266,23 +270,27 @@ export function DriverModeScreen() {
     if (hasNativeLocation()) {
       // 1. La tâche système : c'est elle qui transmet la position écran
       //    verrouillé, pendant tout le trajet.
+      // Les demandes d'autorisation se suivent : deux demandes simultanées
+      // font échouer la seconde sur Android.
       const m = missionRef.current;
-      if (m) {
-        startBackgroundTracking(m.id).then((res) => {
-          if (res.ok) return;
-          if (res.reason === 'denied-background') {
+      (async () => {
+        if (m) {
+          const res = await startBackgroundTracking(m.id);
+          if (!res.ok && res.reason === 'denied-foreground') {
+            setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone.');
+            return;
+          }
+          if (!res.ok && res.reason === 'denied-background') {
             setGeoError(
               'Le suivi s\'arrêtera quand tu verrouilleras l\'écran : choisis « Toujours autoriser » dans les réglages de localisation du téléphone.',
             );
-          } else if (res.reason === 'denied-foreground') {
-            setGeoError('Accès à la position refusé. Autorise la géolocalisation dans les réglages du téléphone.');
           }
-        });
-      }
+        }
 
-      // 2. Le suivi au premier plan alimente l'affichage (vitesse, compteur,
-      //    détection d'arrêt) tant que le convoyeur regarde son écran.
-      startNativeWatch(handlePosition).then((res) => {
+        // 2. Le suivi au premier plan alimente l'affichage (vitesse, compteur,
+        //    détection d'arrêt) tant que le convoyeur regarde son écran.
+        //    L'autorisation « toujours » vient d'être demandée : pas deux fois.
+        const res = await startNativeWatch(handlePosition, { requestBackground: !m });
         if (res.ok) {
           nativeStopRef.current = res.stop;
         } else if (res.reason === 'denied') {
@@ -291,7 +299,7 @@ export function DriverModeScreen() {
           setGeoError('Géolocalisation indisponible sur cet appareil. Le client ne verra pas ta position : préviens Axis.');
           if (ALLOW_SIMULATION) startSimulation();
         }
-      });
+      })();
     } else if (hasPhoneGeolocation()) {
       // Web (et natif si polyfill présent) : suivi haute précision du téléphone.
       geoWatchIdRef.current = navigator.geolocation.watchPosition(
@@ -334,6 +342,16 @@ export function DriverModeScreen() {
       if (pos) stationaryRef.current?.push(pos.latitude, pos.longitude, Date.now());
     }, HEARTBEAT_MS);
   }, [flushTick, handleMove, handlePosition, handleStationaryAlert, startSimulation]);
+
+  // Sur l'application installée, l'explication de la localisation en
+  // arrière-plan passe avant toute demande d'autorisation du système.
+  const requestTrackingStart = useCallback(async () => {
+    if (hasNativeLocation() && !(await locationDisclosureAccepted())) {
+      setDisclosureVisible(true);
+      return;
+    }
+    startTracking();
+  }, [startTracking]);
 
   // ─── Version web (application installée depuis le navigateur) ──────────
   // Le navigateur coupe le GPS dès que l'écran se verrouille ou que l'app
@@ -804,7 +822,7 @@ export function DriverModeScreen() {
                 );
                 return;
               }
-              startTracking();
+              requestTrackingStart();
             }}
             disabled={missionLoading}
           >
@@ -908,6 +926,18 @@ export function DriverModeScreen() {
           </View>
         </View>
       </Modal>
+
+      <LocationDisclosureModal
+        visible={disclosureVisible}
+        onAccept={() => {
+          setDisclosureVisible(false);
+          startTracking();
+        }}
+        onDecline={() => {
+          setDisclosureVisible(false);
+          setGeoError('Sans ta position, le client ne peut pas suivre son véhicule. Appuie sur « Démarrer le suivi » pour revoir l\'explication.');
+        }}
+      />
     </SafeAreaView>
   );
 }

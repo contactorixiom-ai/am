@@ -63,7 +63,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Axis Import accède à vos photos pour joindre l'état des lieux du véhicule et vos documents.",
-          "cameraPermission": "Axis Import utilise l'appareil photo pour l'état des lieux du véhicule (photos obligatoires au départ et à l'arrivée)."
+          "cameraPermission": "Axis Import utilise l'appareil photo pour l'état des lieux du véhicule (photos obligatoires au départ et à l'arrivée).",
+          "microphonePermission": false
         }
       ],
       [

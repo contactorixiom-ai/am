@@ -36,8 +36,10 @@ export function RouteMap({ from, to, height = 240, fromLabel, toLabel }: Props) 
       if (cleanup || !containerRef.current) return;
       const midLat = (from.latitude + to.latitude) / 2;
       const midLng = (from.longitude + to.longitude) / 2;
-      map = L.map(containerRef.current, { zoomControl: true, attributionControl: false }).setView([midLat, midLng], 5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      map = L.map(containerRef.current, { zoomControl: true, attributionControl: true }).setView([midLat, midLng], 5);
+      map.attributionControl.setPrefix(false);
+      // Crédit exigé par OpenStreetMap pour l'usage de ses tuiles.
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
       const fromIcon = L.divIcon({ html: `<div style="background:${theme.navy};color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">A</div>`, iconSize: [28, 28], iconAnchor: [14, 14], className: '' });
       const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.navy};border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">B</div>`, iconSize: [28, 28], iconAnchor: [14, 14], className: '' });
