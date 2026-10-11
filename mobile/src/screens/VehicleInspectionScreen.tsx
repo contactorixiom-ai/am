@@ -334,7 +334,7 @@ export function VehicleInspectionScreen() {
     const today = new Date();
     const dateStr = today.toLocaleDateString('fr-FR');
     const timeStr = today.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const kmNum = km ? parseInt(km, 10) : undefined;
+    const kmNum = km ? readKm(km) : undefined;
     const fuelV = (fuel ?? undefined) as 0 | 0.25 | 0.5 | 0.75 | 1 | undefined;
     const obsText = summarizeDamages(damages);
     // Synthèse des contrôles client Oui/Non → ajoutée aux observations du PV.
@@ -474,9 +474,16 @@ export function VehicleInspectionScreen() {
   const photosDone = requiredShots.filter((x) => vehiclePhotos[x.key]).length;
   const allVehiclePhotos = photosDone === requiredShots.length;
   const optionalTaken = shots.filter((x) => x.optional && vehiclePhotos[x.key]).length;
+  // Kilométrage lisible, et à l'arrivée jamais inférieur à celui du départ.
+  const kmValue = readKm(km);
+  const kmError = km && kmValue === undefined
+    ? 'Indique le nombre affiché au compteur.'
+    : isArrival && departureRef?.km && kmValue !== undefined && kmValue < departureRef.km
+      ? `Inférieur au départ (${departureRef.km.toLocaleString('fr-FR')} km) : vérifie le compteur.`
+      : undefined;
   const canNext =
     alreadyDone ? false :
-    step === 0 ? !!km && fuel !== null && allVehiclePhotos :
+    step === 0 ? kmValue !== undefined && !kmError && fuel !== null && allVehiclePhotos :
     step === 1 ? true :
     step === 2 ? clientAccepted :
     driverSigned && clientSigned;
@@ -527,7 +534,7 @@ export function VehicleInspectionScreen() {
             </View>
             {km && departureRef.km ? (
               <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 10 }}>
-                Distance parcourue : <Text style={{ fontFamily: TYPO.weights.bold }}>{Math.max(0, parseInt(km, 10) - departureRef.km).toLocaleString('fr-FR')} km</Text>
+                Distance parcourue : <Text style={{ fontFamily: TYPO.weights.bold }}>{Math.max(0, (readKm(km) ?? 0) - departureRef.km).toLocaleString('fr-FR')} km</Text>
               </Text>
             ) : null}
           </Surface>
@@ -576,7 +583,7 @@ export function VehicleInspectionScreen() {
                   Détermine le croquis d'état des lieux sur le contrat.
                 </Text>
               </View>
-              <Field label="Kilométrage" value={km} onChangeText={setKm} keyboardType="numeric" placeholder="48 230" hint="Relevé au compteur" />
+              <Field label="Kilométrage" value={km} onChangeText={setKm} keyboardType="numeric" placeholder="48 230" hint="Relevé au compteur" error={kmError} />
               <View>
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
                   Niveau de carburant
@@ -816,7 +823,7 @@ export function VehicleInspectionScreen() {
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
                 <RefKv label="Véhicule" value={vehicleCategory} />
-                <RefKv label="Kilométrage" value={km ? `${parseInt(km, 10).toLocaleString('fr-FR')} km` : '—'} />
+                <RefKv label="Kilométrage" value={km && readKm(km) !== undefined ? `${(readKm(km) as number).toLocaleString('fr-FR')} km` : '—'} />
                 <RefKv label="Carburant" value={fuelLabel(fuel)} />
                 <RefKv label="Dommages" value={`${damages.length}`} />
                 <RefKv label="Photos" value={`${photosDone + optionalTaken}`} />
@@ -1040,4 +1047,13 @@ function summarizeDamages(damages: Damage[]): string {
     byView[v].push(`${DAMAGE_META[d.code].label}${d.photo ? ' (photo)' : ''}`);
   });
   return Object.entries(byView).map(([v, list]) => `${v} : ${list.join(', ')}`).join(' · ');
+}
+
+/**
+ * Kilométrage saisi au compteur : « 50 146 », « 50.146 » ou « 50146 » →
+ * 50146. parseInt s'arrêtait à l'espace et enregistrait 50 km.
+ */
+function readKm(raw: string): number | undefined {
+  const digits = raw.replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : undefined;
 }
