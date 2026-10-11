@@ -88,17 +88,17 @@
       "company": {
         "name": "Axis Import",
         "legalForm": "",
-        "address": "",
-        "postalCity": "",
+        "address": "42 chemin du Moulin Carron",
+        "postalCity": "69130 Écully",
         "country": "France",
         "siret": "",
         "siren": "",
         "vat": "",
         "eori": "",
         "rcs": "",
-        "email": "",
+        "email": "contact@axisimport.fr",
         "phone": "",
-        "website": "",
+        "website": "www.axisimport.fr",
         "customsRegistration": ""
       },
       "insurance": {
