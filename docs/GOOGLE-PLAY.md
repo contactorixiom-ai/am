@@ -42,7 +42,7 @@ Google Play n'accepte que le format **AAB**. Le profil `production` de
 ```bash
 npm install -g eas-cli
 cd mobile
-eas login                      # compte Expo am27z
+eas login                      # compte Expo am27zz
 eas build --platform android --profile production
 ```
 

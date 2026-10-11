@@ -45,7 +45,7 @@ il ne reste que la partie qui demande ton compte.
 
 ## Avant de commencer
 
-Il te faut un **compte Expo**. Le dépôt est configuré pour `am27z` — si tu
+Il te faut un **compte Expo**. Le dépôt est configuré pour `am27zz` (équipe `am27zzs-team`) — si tu
 utilises un autre compte, change la ligne `"owner"` dans `mobile/app.json`,
 sinon la build sera refusée.
 

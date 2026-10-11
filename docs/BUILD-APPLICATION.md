@@ -28,7 +28,7 @@ correctes sur les deux plateformes.
 Identifiants de l'application :
 - Android : `com.axisimport.app`
 - iOS : `com.axisimport.app`
-- Compte Expo : `am27z`, projet `axis-import`
+- Compte Expo : `am27zz` (équipe `am27zzs-team`), projet `axis-import`
 
 ---
 
@@ -37,7 +37,7 @@ Identifiants de l'application :
 ```bash
 npm install -g eas-cli
 cd mobile
-eas login          # compte am27z
+eas login          # compte am27zz
 eas build:configure
 ```
 
@@ -208,7 +208,7 @@ cours : le **client de développement**.
 
 | Élément | Coût | Sans lui |
 |---|---|---|
-| Compte Expo `am27z` | gratuit | Aucune build possible |
+| Compte Expo `am27zz` (équipe `am27zzs-team`) | gratuit | Aucune build possible |
 | Compte Google Play | 25 $ une fois | APK seulement, pas de store |
 | Compte Apple Developer | 99 $/an | Aucune installation sur iPhone |
 | Clés Stripe dans Railway | gratuit | Les paiements restent en simulation |

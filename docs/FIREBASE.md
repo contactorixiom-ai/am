@@ -9,7 +9,7 @@ push Android restent inactives (les alertes restent visibles dans
 l'application, onglet Notifications).
 
 Compter une demi-heure. Il faut le compte Google de la société et le compte
-Expo `am27z`.
+Expo `am27zz` (équipe `am27zzs-team`).
 
 ---
 
