@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
-import { Pressable, SafeAreaView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { AxisLogoSparkle } from '../components/AxisLogoSparkle';
 import { Button } from '../components/Button';
@@ -13,10 +13,15 @@ import { SPACING, TYPO } from '../theme/tokens';
 export function OnboardingScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Petits téléphones (360 × 640) : le texte passait sous les boutons.
+  // L'écran défile, et l'espacement se resserre quand la hauteur manque.
+  const { height } = useWindowDimensions();
+  const compact = height < 720;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <View style={{ flex: 1, position: 'relative' }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} bounces={false} showsVerticalScrollIndicator={false}>
+      <View style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative gold arc (3 concentric circles top-right) */}
         <View
           pointerEvents="none"
@@ -37,15 +42,15 @@ export function OnboardingScreen() {
         </View>
 
         {/* Content */}
-        <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 100 }}>
+        <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: compact ? 40 : 100 }}>
           <AxisLogoSparkle size={64} />
           <Text
             style={{
               fontFamily: TYPO.weights.bold,
-              fontSize: 46,
-              lineHeight: 46 * 1.02,
+              fontSize: compact ? 40 : 46,
+              lineHeight: (compact ? 40 : 46) * 1.02,
               color: theme.ink,
-              marginTop: 56,
+              marginTop: compact ? 28 : 56,
               letterSpacing: -1,
             }}
           >
@@ -68,7 +73,7 @@ export function OnboardingScreen() {
         </View>
 
         {/* Bottom buttons */}
-        <View style={{ paddingHorizontal: 24, paddingBottom: 36, gap: 12 }}>
+        <View style={{ paddingHorizontal: 24, paddingBottom: compact ? 20 : 36, paddingTop: 24, gap: 12 }}>
           <Button
             kind="gold"
             size="lg"
@@ -102,6 +107,7 @@ export function OnboardingScreen() {
           </View>
         </View>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
