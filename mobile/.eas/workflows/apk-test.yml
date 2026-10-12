@@ -1,16 +1,23 @@
-# APK de test Android, construit par Expo à chaque envoi sur la branche
-# claude/axis-import-platform-mo86xr. On n'y pousse que lorsqu'une nouvelle
-# APK est voulue : chaque construction est décomptée du quota Expo.
-name: APK de test Android
+# Constructions Android par Expo à chaque envoi sur la branche
+# claude/axis-import-platform-mo86xr : l'APK de test (à installer sur un
+# téléphone) et l'AAB du Play Store. On n'y pousse que lorsqu'une nouvelle
+# version est voulue : chaque construction est décomptée du quota Expo.
+name: Android (APK de test + Play Store)
 
 on:
   push:
     branches: ['claude/axis-import-platform-mo86xr']
 
 jobs:
-  build_android:
-    name: Construire l'APK (preview)
+  build_android_preview:
+    name: APK de test (preview)
     type: build
     params:
       platform: android
       profile: preview
+  build_android_production:
+    name: Play Store (production, AAB)
+    type: build
+    params:
+      platform: android
+      profile: production
