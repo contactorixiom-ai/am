@@ -120,6 +120,9 @@
           "air": "",
           "sea": ""
         }
+      },
+      "eas": {
+        "projectId": "e544696a-f496-4745-8fff-41c9cf14c97b"
       }
     },
     "icon": "./assets/icon.png",
