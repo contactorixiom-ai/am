@@ -1,0 +1,16 @@
+# APK de test Android, construit par Expo à chaque envoi sur la branche
+# claude/axis-import-platform-mo86xr. On n'y pousse que lorsqu'une nouvelle
+# APK est voulue : chaque construction est décomptée du quota Expo.
+name: APK de test Android
+
+on:
+  push:
+    branches: ['claude/axis-import-platform-mo86xr']
+
+jobs:
+  build_android:
+    name: Construire l'APK (preview)
+    type: build
+    params:
+      platform: android
+      profile: preview
