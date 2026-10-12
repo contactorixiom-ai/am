@@ -11,21 +11,13 @@ prêts : il suffit de les copier.
 
 ---
 
-## 0. Avant de commencer (bloquant)
+## 0. Avant de commencer
 
-1. **Compléter les pages légales.** Google vérifie la politique de
-   confidentialité : une page avec des mentions « [À COMPLÉTER] » est refusée.
-   Il manque, dans `design/confidentialite.html` et `design/cgu.html` :
-   - la forme juridique, le numéro SIRET et l'adresse du siège (extrait Kbis) ;
-   - la région d'hébergement Railway (Railway → le service → *Settings* →
-     *Region*) ;
-   - pour les CGU : capital, RCS, n° de TVA, directeur de la publication,
-     médiateur de la consommation.
-   Envoie ces informations : je complète les pages et j'enlève le bandeau
-   « À compléter ».
-2. **Mettre en ligne la dernière version** : serveur Railway, pages
-   publiques et application web (fusion de la branche de travail dans celle
-   que Railway et GitHub Pages publient).
+1. **Pages légales** : identité de la société, siège, SIRET, RCS, TVA et
+   directeur de la publication sont renseignés ; la politique de
+   confidentialité et la page de support n'ont plus de bandeau « À compléter ».
+   Restent dans les CGU : téléphone et médiateur de la consommation.
+2. **Mettre en ligne la dernière version** du serveur sur Railway.
 3. **Préparer deux comptes de test** sur l'application en ligne, pour
    l'équipe de vérification de Google :
    - un compte **client** (e-mail + mot de passe) ;
@@ -37,25 +29,22 @@ prêts : il suffit de les copier.
 ## 1. Construire l'application (fichier .aab)
 
 Google Play n'accepte que le format **AAB**. Le profil `production` de
-`mobile/eas.json` le produit déjà.
+`mobile/eas.json` le produit.
 
-```bash
-npm install -g eas-cli
-cd mobile
-eas login                      # compte Expo am27zz
-eas build --platform android --profile production
-```
+La construction est automatique : chaque envoi sur la branche
+`claude/axis-import-platform-mo86xr` lance, chez Expo, l'APK de test et l'AAB
+de production (`mobile/.eas/workflows/apk-test.yml`). On peut aussi la lancer
+à la main : expo.dev → projet axis-import → **Compiler à partir de GitHub** →
+branche `claude/axis-import-platform-mo86xr`, Android, profil `production`.
 
-- À la première build, EAS crée le projet et écrit son identifiant dans
-  `mobile/app.json` : **committer ce changement**.
-- EAS propose de générer la clé de signature : répondre **oui**. Elle est
-  conservée chez Expo ; ne jamais la supprimer, elle sert à toutes les mises
-  à jour.
+- La clé de signature est enregistrée chez Expo (Credentials → Android) ;
+  ne jamais la supprimer, elle sert à toutes les mises à jour.
 - Le numéro de version (`versionCode`) augmente tout seul à chaque build.
-- À la fin, télécharger le fichier `.aab` depuis le lien affiché.
+- À la fin : expo.dev → Constructions → la build « production » →
+  **Télécharger** le fichier `.aab`.
 
 La toute première fois, le fichier s'envoie **à la main** dans la Play
-Console (étape 4) ; ensuite, `eas submit` peut l'envoyer directement.
+Console (étape 5).
 
 ---
 
