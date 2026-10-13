@@ -177,17 +177,22 @@ export function LiveConvoyPanel({
   // Trois cas : position GPS réelle, scénario de démonstration, ou aucune
   // donnée — auquel cas on le dit plutôt que d'inventer une progression.
   const awaiting = !live && !demo && !finished;
-  const displayState: DriverState = finished ? 'ARRIVED' : live ? (live.moving ? 'ROLLING' : 'STOP') : demo ? phase.state : 'STOP';
+  // Plus de position depuis 10 min (batterie, réseau, suivi coupé) : on ne
+  // présente plus la dernière vitesse connue comme « en direct ».
+  const stale = !!live && live.ageSec > 600;
+  const displayState: DriverState = finished ? 'ARRIVED' : live ? (live.moving && !stale ? 'ROLLING' : 'STOP') : demo ? phase.state : 'STOP';
   const displayProgress = finished ? 1 : live ? live.prog : demo ? progress : statusProgress;
   const displayLabel = finished
     ? 'Véhicule livré'
     : live
-    ? (live.moving ? 'En route' : 'Véhicule à l\'arrêt')
+    ? (stale ? 'Signal GPS perdu' : live.moving ? 'En route' : 'Véhicule à l\'arrêt')
     : demo ? phase.label : 'Suivi GPS en attente';
   const displayDetail = finished
     ? 'Convoyage terminé · état des lieux d\'arrivée signé'
     : live
-    ? (live.speed !== null
+    ? stale
+      ? 'Dernière position connue affichée · le suivi reprendra dès que le téléphone du convoyeur capte à nouveau'
+      : (live.speed !== null
         ? `GPS temps réel · ${Math.round(live.speed)} km/h`
         : 'GPS temps réel · position transmise par le chauffeur')
     : demo ? phase.detail : 'Le convoyeur activera le suivi au départ du véhicule.';
@@ -205,14 +210,14 @@ export function LiveConvoyPanel({
   const remainKm = totalKm != null && doneKm != null ? totalKm - doneKm : null;
   // ETA : vitesse GPS réelle si le véhicule roule, sinon moyenne 85 km/h
   // (autoroute mixte UE). En démo, on ajoute le temps de pause restant.
-  const avgSpeedKmh = live && live.speed !== null && live.speed > 20 ? live.speed : 85;
+  const avgSpeedKmh = live && !stale && live.speed !== null && live.speed > 20 ? live.speed : 85;
   const driveMin = remainKm != null ? (remainKm / avgSpeedKmh) * 60 : 0;
   const phaseRemainMs = Math.max(0, phase.durationMs - (Date.now() - phaseStartRef.current));
   const pauseRemainMin = !live && (phase.state === 'PAUSE' || phase.state === 'STOP') ? phaseRemainMs / 60000 : 0;
   const etaMin = Math.max(0, Math.round(driveMin + pauseRemainMin));
   const eta = finished
     ? 'Livré'
-    : awaiting || remainKm == null
+    : awaiting || stale || remainKm == null
     ? null
     : !live && phase.state === 'ARRIVED'
       ? 'Arrivé'
@@ -224,7 +229,9 @@ export function LiveConvoyPanel({
     const rem = sec % 60;
     if (min < 60) return rem > 0 && min < 5 ? `${min} min ${rem} s` : `${min} min`;
     const h = Math.floor(min / 60);
-    return `${h} h ${min % 60} min`;
+    if (h < 24) return `${h} h ${min % 60} min`;
+    const d = Math.floor(h / 24);
+    return `${d} jour${d > 1 ? 's' : ''}`;
   };
 
   // Démo : « depuis Xs » (durée de la phase). GPS réel : fraîcheur du point.
@@ -280,7 +287,7 @@ export function LiveConvoyPanel({
               <Pill tone={displayState === 'ROLLING' ? 'good' : displayState === 'PAUSE' ? 'warn' : displayState === 'ARRIVED' ? 'gold' : live ? 'warn' : 'navy'}>
                 {displayLabel}
               </Pill>
-              {live ? <Pill tone="gold">Live</Pill> : null}
+              {live && !stale ? <Pill tone="gold">Live</Pill> : null}
               <Text style={{ fontSize: 11, color: theme.muted, fontFamily: TYPO.weights.medium }}>
                 {sinceLabel}
               </Text>
