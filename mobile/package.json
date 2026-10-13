@@ -2,7 +2,7 @@
   "name": "axis-import-mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "android": "expo start --android",
     "build:apk": "eas build --platform android --profile preview",
