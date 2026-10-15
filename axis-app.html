@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Application Axis Import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F1E8;
+    --surface: #FFFDF8;
+    --ink: #17202B;
+    --muted: #5F6670;
+    --line: #DDD6C8;
+    --navy: #0B2545;
+    --gold: #C9A55C;
+    --gold-ink: #8A6A26;
+    --warn-bg: #FBF0D6;
+    --warn-line: #D9B46A;
+    --ok: #2F7A4F;
+    --code-bg: #EDE7DA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #0F1621;
+      --surface: #16202D;
+      --ink: #ECE7DC;
+      --muted: #9AA3AE;
+      --line: #2A3647;
+      --navy: #0B2545;
+      --gold: #D4B06A;
+      --gold-ink: #D4B06A;
+      --warn-bg: #2A2416;
+      --warn-line: #7A6330;
+      --ok: #6BC293;
+      --code-bg: #1E2A3A;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0F1621;
+    --surface: #16202D;
+    --ink: #ECE7DC;
+    --muted: #9AA3AE;
+    --line: #2A3647;
+    --navy: #0B2545;
+    --gold: #D4B06A;
+    --gold-ink: #D4B06A;
+    --warn-bg: #2A2416;
+    --warn-line: #7A6330;
+    --ok: #6BC293;
+    --code-bg: #1E2A3A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .masthead {
+    background: var(--navy);
+    color: #F5F1E8;
+    padding-block: 36px 30px;
+    padding-inline: 20px;
+  }
+  .wrap { max-width: 680px; margin-inline: auto; }
+  main.wrap { padding-inline: 20px; padding-block: 8px 72px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 8px;
+  }
+  h1 {
+    margin: 0; font-size: clamp(26px, 6vw, 34px); line-height: 1.15;
+    letter-spacing: -0.02em; font-weight: 800; text-wrap: balance;
+  }
+  .masthead p.lede { margin: 12px 0 0; color: rgba(245,241,232,0.78); font-size: 15px; max-width: 34em; }
+
+  h2 {
+    font-size: 21px; line-height: 1.25; letter-spacing: -0.01em;
+    margin: 44px 0 6px; font-weight: 800; text-wrap: balance;
+  }
+  h2 + .sub { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+  h3 { font-size: 16px; margin: 0 0 6px; font-weight: 700; }
+  p { margin: 0 0 12px; }
+  a { color: var(--gold-ink); font-weight: 600; word-break: break-word; }
+  strong { font-weight: 700; }
+
+  /* Tableau récapitulatif en tête : c'est ce que Roger relira. */
+  .glance { margin-top: 26px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--gold-ink);
+    border: 1px solid var(--warn-line); white-space: nowrap;
+  }
+
+  /* Étapes : une vraie séquence, d'où la numérotation. */
+  ol.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: step; }
+  ol.steps > li {
+    counter-increment: step;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 14px 56px;
+    position: relative;
+  }
+  ol.steps > li::before {
+    content: counter(step, upper-alpha);
+    position: absolute; left: 16px; top: 15px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--navy); color: #F5F1E8;
+    font-weight: 800; font-size: 13px;
+    display: grid; place-items: center;
+  }
+  ol.steps .when { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+  ol.inner { margin: 6px 0 8px; padding-left: 20px; }
+  ol.inner li, ul li { margin-bottom: 6px; }
+  ul { padding-left: 20px; margin: 6px 0 12px; }
+
+  .note {
+    background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px;
+    padding: 12px 14px; font-size: 14.5px; margin: 12px 0;
+  }
+  .note strong { color: var(--gold-ink); }
+
+  .checklist { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+  .checklist li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+    font-size: 15px; margin: 0;
+  }
+  .box {
+    width: 18px; height: 18px; margin-top: 3px; border-radius: 4px;
+    border: 2px solid var(--gold);
+  }
+  .checklist small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  code, .cmd {
+    font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 13.5px;
+  }
+  .cmd {
+    display: block; background: var(--code-bg); border-radius: 8px;
+    padding: 10px 12px; margin: 8px 0 12px; overflow-x: auto; white-space: pre;
+  }
+  .url {
+    display: block; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 14px;
+    background: var(--code-bg); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px;
+    word-break: break-all; user-select: all;
+  }
+  .limit { color: var(--muted); font-size: 14.5px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .two > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .two h3 { font-size: 14px; }
+  .two p { font-size: 14.5px; margin: 0; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+  footer.wrap { padding-inline: 20px; padding-block: 0 48px; color: var(--muted); font-size: 13px; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .who { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; padding:3px 8px; border-radius:999px; background:var(--surface); border:1px solid var(--line); margin-right:6px; }
+  h2 { scroll-margin-top: 12px; }
+  .toc { columns: 2; column-gap: 24px; padding-left: 18px; font-size: 14.5px; }
+  @media (max-width: 520px) { .toc { columns: 1; } .two { grid-template-columns: 1fr; } }
+  .rule { border-left: 3px solid var(--gold-ink); padding: 2px 0 2px 12px; margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Axis Import · pour Roger</p>
+    <h1>Ce que fait l'application, écran par écran</h1>
+    <p class="lede">Une seule application pour les clients (particuliers et professionnels), les convoyeurs et vous. Voici tout ce qu'elle propose aujourd'hui, et les règles qu'elle applique toute seule.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="glance" aria-label="En un coup d'œil">
+    <table>
+      <thead><tr><th>Qui</th><th>Ce qu'il fait dans l'application</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Client</strong><br><span class="tag">particulier ou pro</span></td><td>Commande un convoyage ou un envoi de colis vers l'Afrique, voit le prix tout de suite, paie, signe son contrat, suit son véhicule ou son colis, récupère ses factures.</td></tr>
+        <tr><td><strong>Convoyeur</strong></td><td>Fait valider ses pièces, reçoit ses missions, fait signer les états des lieux, partage sa position pendant le trajet, déclare la livraison.</td></tr>
+        <tr><td><strong>Vous (Axis)</strong></td><td>Recevez les commandes, validez les convoyeurs, affectez, encaissez, générez les documents officiels, répondez aux messages, recevez les alertes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <h2>Sommaire</h2>
+  <ol class="toc">
+    <li><a href="#comptes">Les comptes</a></li>
+    <li><a href="#convoyage">Le client commande un convoyage</a></li>
+    <li><a href="#colis">Le client envoie un colis</a></li>
+    <li><a href="#suivi">Le client suit sa commande</a></li>
+    <li><a href="#paiement">Paiement et factures</a></li>
+    <li><a href="#convoyeur">Le convoyeur</a></li>
+    <li><a href="#admin">Votre espace admin</a></li>
+    <li><a href="#notifs">Qui est prévenu de quoi</a></li>
+    <li><a href="#regles">Les règles automatiques</a></li>
+    <li><a href="#limites">Ce que l'application ne fait pas</a></li>
+    <li><a href="#reste">Ce qu'il reste à fournir</a></li>
+  </ol>
+
+  <h2 id="comptes">1. Les comptes</h2>
+  <p class="sub">Trois types de comptes : client, convoyeur, administrateur (vous).</p>
+  <ul>
+    <li><strong>Inscription client</strong> : prénom, nom, e-mail, mot de passe, téléphone facultatif. Le client choisit <strong>Particulier</strong> ou <strong>Professionnel</strong>. Un pro indique sa raison sociale et son SIRET (vérifié automatiquement), et s'il le souhaite son n° de TVA. Ses contrats et factures sont alors au nom de la société.</li>
+    <li><strong>Inscription convoyeur</strong> : bouton « Je suis chauffeur » sur l'écran d'accueil. Le téléphone y est obligatoire.</li>
+    <li><strong>Conditions générales</strong> : chacun coche l'acceptation des CGU et de la politique de confidentialité. La date et la version acceptées sont enregistrées.</li>
+    <li><strong>Mot de passe oublié</strong> : sur l'écran de connexion. Tant que l'envoi d'e-mails n'est pas branché, le client est invité à vous contacter et vous lui envoyez un lien (voir <a href="#admin">votre espace</a>).</li>
+    <li><strong>Client pris au téléphone</strong> : quand vous saisissez sa commande, son compte est créé et l'application vous propose de lui envoyer un <strong>lien d'accès</strong> par WhatsApp ou SMS. Il y choisit son mot de passe (lien valable 7 jours, une seule fois).</li>
+    <li><strong>Mes informations</strong> (Profil) : identité, téléphone, adresse de facturation, type de compte et société.</li>
+    <li><strong>Sécurité et données</strong> (Profil) : changer son mot de passe (les autres appareils sont déconnectés), voir et déconnecter ses appareils, exporter toutes ses données (obligation RGPD), supprimer son compte (obligation de l'App Store).</li>
+  </ul>
+
+  <h2 id="convoyage">2. Le client commande un convoyage</h2>
+  <ol class="inner">
+    <li><strong>Choix du service</strong> : voiture, moto, colis ou marchandise volumineuse.</li>
+    <li><strong>Trajet</strong> : ville de départ et d'arrivée. Toutes les communes de France et d'Europe sont proposées, pas seulement les grandes villes.</li>
+    <li><strong>Adresses exactes</strong> de départ et d'arrivée (obligatoires, elles guident le convoyeur).</li>
+    <li><strong>Jour et créneau</strong> d'enlèvement : le client choisit un jour dans les 3 semaines, matin ou après-midi. Un samedi ou un dimanche ajoute automatiquement le supplément week-end (60 € HT).</li>
+    <li><strong>Véhicule</strong> : catégorie (citadine, berline, SUV, utilitaire…), qui fixe le tarif au kilomètre, puis marque, modèle, immatriculation, année.</li>
+    <li><strong>Options</strong> : Express 24 h (+15 %), porte-à-porte. L'option d'assurance renforcée n'apparaît que lorsqu'une police réelle est renseignée.</li>
+    <li><strong>Téléphone de contact</strong> demandé s'il manque au profil, pour que le convoyeur puisse joindre le client.</li>
+    <li><strong>Prix immédiat</strong>, détaillé ligne par ligne : trajet, options, minimum de facturation s'il s'applique, total HT, TVA, total TTC. Valable 30 jours.</li>
+    <li><strong>Réserver</strong> : la commande est enregistrée <em>avant</em> le paiement. S'il ferme la page de paiement, la commande existe et se règle plus tard depuis Documents.</li>
+    <li><strong>Paiement</strong> par carte, Apple Pay ou Google Pay sur la page sécurisée de Stripe.</li>
+    <li><strong>Confirmation</strong>, puis bouton <strong>« Signer mon contrat »</strong>.</li>
+  </ol>
+
+  <h2 id="colis">3. Le client envoie un colis (Europe → Afrique)</h2>
+  <ol class="inner">
+    <li><strong>Trajet</strong> : ville de départ en Europe, ville d'arrivée en Afrique, aérien (5 à 10 jours) ou maritime (28 à 45 jours). Les délais affichés sont indicatifs.</li>
+    <li><strong>Colis</strong> : type (documents, petit, standard, volumineux, marchandise), tailles courantes ou dimensions précises, poids.</li>
+    <li><strong>Contenu</strong> : description courte, catégorie (effets personnels, marchandise, échantillons, cadeau), valeur déclarée. Le client n'a aucun document de douane à fournir : l'application lui dit qu'Axis les prépare et qu'il le recontactera s'il manque une pièce.</li>
+    <li><strong>Remise du colis</strong> : dépôt chez Axis (gratuit) ou enlèvement à domicile (25 €). Le dépôt en point relais est prêt mais désactivé tant qu'aucun contrat transporteur n'existe.</li>
+    <li><strong>Destinataire</strong> : nom, téléphone (obligatoire), adresse, ou « pas d'adresse précise, remise à convenir » (vous appelez le destinataire).</li>
+    <li><strong>Prix détaillé</strong>, puis paiement comme pour un convoyage. Il est précisé que les droits et taxes à l'arrivée ne sont pas compris.</li>
+  </ol>
+
+  <h2 id="suivi">4. Le client suit sa commande</h2>
+  <ul>
+    <li><strong>Accueil</strong> : sa commande en cours (statut, date d'enlèvement ou d'arrivée, convoyeur, bouton appeler), ses autres envois.</li>
+    <li><strong>Suivi d'un convoyage</strong> : carte avec la position du convoyeur en direct, kilomètres parcourus et restants, heure d'arrivée estimée, états des lieux de départ et d'arrivée (signés ou non), historique des étapes, boutons appeler et écrire au convoyeur.</li>
+    <li><strong>Suivi d'un colis</strong> : les étapes que vous saisissez (reçu, en transit, en douane, en livraison, livré), le transporteur et le n° de suivi si vous les avez indiqués, la date d'arrivée prévue.</li>
+    <li><strong>Suivi sans compte</strong> : n'importe qui (le destinataire par exemple) suit un colis avec sa référence AXP-…</li>
+    <li><strong>Confirmer la bonne réception</strong> : une fois le véhicule livré, le client clôture la mission.</li>
+    <li><strong>Annuler</strong> : possible tant que le véhicule n'est pas parti. Vous êtes prévenu, avec le montant à rembourser s'il avait payé.</li>
+    <li><strong>Contacter Axis</strong> (Profil) : ouvre une conversation directe avec vous.</li>
+  </ul>
+
+  <h2 id="paiement">5. Paiement et factures</h2>
+  <ul>
+    <li><strong>En ligne</strong> : Stripe (carte, Apple Pay, Google Pay). Axis ne voit jamais le numéro de carte.</li>
+    <li><strong>Hors application</strong> : virement, espèces, chèque, TPE ou mobile money, que vous enregistrez avec le bouton « Encaisser ».</li>
+    <li><strong>Factures</strong> : numérotées à l'encaissement dans une suite continue par année (FA-2026-000001, 000002…), comme la loi l'exige. Avant paiement, le client a un « bon de commande », pas une facture. Les montants sont exacts au centime.</li>
+    <li><strong>Onglet Documents du client</strong> : contrats à signer ou signés (téléchargeables en PDF) et factures payées ou à régler (bouton Régler).</li>
+    <li><strong>Contrat signé</strong> : signature électronique simple (règlement européen eIDAS), avec une empreinte qui permet de vérifier que le texte n'a pas été modifié et un QR code de vérification.</li>
+  </ul>
+
+  <h2 id="convoyeur">6. Le convoyeur</h2>
+  <ol class="inner">
+    <li><strong>Vérification d'identité</strong> : il photographie sa pièce d'identité (ou passeport) et son permis, recto et verso. Justificatif de domicile et photo de contrôle sont facultatifs. Les photos sont réduites automatiquement et envoyées réellement.</li>
+    <li><strong>Validation</strong> par vous. S'il y a un refus, il voit le motif et renvoie une photo.</li>
+    <li><strong>Mission affectée</strong> : il est notifié. Le mode chauffeur affiche les adresses d'enlèvement et de livraison (un toucher ouvre le GPS du téléphone), le créneau, le client et un bouton pour l'appeler.</li>
+    <li><strong>État des lieux de départ</strong> : type de véhicule, kilométrage, carburant, clés, 4 photos obligatoires (avant, arrière, côtés), dommages pointés sur un schéma, contrôles cochés avec le client, puis signatures du convoyeur et du client sur le téléphone.</li>
+    <li><strong>« Véhicule récupéré »</strong> : possible seulement si l'état des lieux de départ est signé. Le client est prévenu.</li>
+    <li><strong>Suivi GPS</strong> : il démarre le suivi, et sa position part vers le client toutes les 15 secondes environ.</li>
+    <li><strong>Sécurité</strong> : s'il reste immobile plus de 5 minutes sans pause déclarée, l'application lui demande si tout va bien. Sans réponse sous 60 secondes, vous recevez une alerte avec son nom, son téléphone et sa position.</li>
+    <li><strong>Arrivée</strong> : état des lieux d'arrivée signé, puis « Livré ». L'application refuse « Livré » sans cet état des lieux et l'y conduit directement.</li>
+    <li><strong>Désistement</strong> : avant la prise en charge, il peut se retirer. La mission vous revient pour être réaffectée.</li>
+    <li><strong>Messages</strong> avec le client de la mission, et « Contacter Axis ».</li>
+  </ol>
+
+  <h2 id="admin">7. Votre espace admin</h2>
+  <p class="sub">Profil → Espace admin (le compte doit être passé administrateur une fois).</p>
+  <div class="two">
+    <div><h3>Tableau</h3><p>Envois à traiter, en douane, encaissé du mois, reste à encaisser, missions en cours, relances du jour (enlèvement imminent sans convoyeur, colis qui n'avance plus…), derniers règlements, bandeau des pièces de convoyeurs à vérifier.</p></div>
+    <div><h3>Envois</h3><p>Chaque commande avec client, créneau, adresses, prix, règlement et contrat signé ou non. Boutons : Affecter, Encaisser, Facture, Accès client, Contrat, Clôturer, Annuler. Et « Nouvelle commande » pour une commande prise au téléphone.</p></div>
+    <div><h3>Colis</h3><p>Faire avancer le statut étape par étape (lieu, note, date d'arrivée, transporteur et n° de suivi), facture, étiquette. Le client voit chaque étape.</p></div>
+    <div><h3>Convoyeurs</h3><p>Les pièces reçues, regroupées par personne : agrandir, comparer, Valider ou Refuser avec un motif envoyé au convoyeur.</p></div>
+    <div><h3>Générer</h3><p>17 documents officiels pré-remplis en PDF : facture, facture commerciale export, liste de colisage, instructions au transitaire, lettre de voiture CMR, connaissement, LTA, certificat d'origine, bon de livraison, contrat de convoyage, récapitulatif d'assurance, déclaration d'export, mandat de dédouanement, étiquette, demande de BESC/BSC, fiche de sécurité, demande de COC. Plus 4 liasses toutes prêtes (export maritime, export aérien, convoyage, colis diaspora).</p></div>
+    <div><h3>Messages et alertes</h3><p>Profil → Messages : les conversations « support » des clients et convoyeurs. Les alertes de sécurité et les nouvelles commandes arrivent en notification.</p></div>
+  </div>
+  <p class="rule"><strong>Encaisser</strong> : un client a payé par virement ou en espèces ? Bouton Encaisser sur l'envoi, montant et mode de règlement. L'envoi passe « payé », le client est prévenu et la facture reçoit son numéro.</p>
+
+  <h2 id="notifs">8. Qui est prévenu de quoi</h2>
+  <table>
+    <thead><tr><th>Événement</th><th>Prévenu</th></tr></thead>
+    <tbody>
+      <tr><td>Nouvelle commande (convoyage ou colis)</td><td>Vous</td></tr>
+      <tr><td>Convoyeur affecté</td><td>Client, convoyeur</td></tr>
+      <tr><td>État des lieux signé (départ / arrivée)</td><td>Client, convoyeur, vous</td></tr>
+      <tr><td>Véhicule parti / livré</td><td>Client</td></tr>
+      <tr><td>Nouvelle étape d'un colis</td><td>Client</td></tr>
+      <tr><td>Paiement reçu (en ligne ou encaissé)</td><td>Client, vous</td></tr>
+      <tr><td>Pièce validée ou refusée (avec motif)</td><td>Convoyeur</td></tr>
+      <tr><td>Message reçu</td><td>Les autres participants</td></tr>
+      <tr><td>Commande annulée, désistement d'un convoyeur</td><td>Vous (et client / convoyeur concernés)</td></tr>
+      <tr><td>Alerte de sécurité d'un convoyeur</td><td>Vous</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="regles">9. Les règles que l'application applique toute seule</h2>
+  <ul>
+    <li>Seul un convoyeur à la pièce d'identité et au permis validés peut accepter ou recevoir une mission.</li>
+    <li>Pas de départ sans état des lieux de départ signé des deux parties, pas de livraison sans état des lieux d'arrivée.</li>
+    <li>Le prix d'une commande est celui du devis calculé par le serveur, jamais un montant envoyé par le téléphone. Un devis ne sert qu'une fois et expire après 30 jours.</li>
+    <li>Numérotation des factures continue et sans doublon.</li>
+    <li>Sans clés Stripe, le paiement en ligne est coupé en production (plutôt que d'enregistrer des paiements fictifs).</li>
+    <li>Rien n'est affiché qui ne soit vrai : l'assurance n'apparaît qu'avec une police réelle, les points relais qu'avec un contrat transporteur, l'adresse de dépôt que si vous la renseignez.</li>
+    <li>Pièces d'identité et photos visibles seulement par leur titulaire et par vous. Trop de tentatives de connexion sont bloquées. Les anciens comptes de démonstration sont bloqués en production.</li>
+  </ul>
+
+  <h2 id="limites">10. Ce que l'application ne fait pas (encore)</h2>
+  <ul>
+    <li><strong>Pas de SMS</strong>. Les notifications passent par l'application, et par e-mail pour les mots de passe une fois l'envoi d'e-mails branché.</li>
+    <li><strong>Remboursements</strong> : à faire depuis Stripe (l'application vous signale le montant).</li>
+    <li><strong>Notifications sur le téléphone</strong> et suivi GPS écran verrouillé : seulement avec l'application installée (après la première version compilée), pas dans le navigateur.</li>
+    <li><strong>Points relais</strong> désactivés tant qu'il n'y a pas de contrat transporteur.</li>
+    <li>La TVA est à 20 % partout, en attendant l'avis du comptable.</li>
+  </ul>
+
+  <h2 id="reste">11. Ce qu'il reste à fournir</h2>
+  <ul class="checklist">
+    <li><span class="box"></span><div>Serveur Railway : clés de sécurité (JWT), volume de stockage, clés Stripe<small>sans les clés de sécurité, le serveur ne démarre pas</small></div></li>
+    <li><span class="box"></span><div>Avis du comptable sur la TVA<small>franchise en base ? transport vers l'Afrique exonéré (art. 262 CGI) ?</small></div></li>
+    <li><span class="box"></span><div>Identité de la société<small>raison sociale, forme et capital, SIRET, TVA, RCS, adresse, EORI</small></div></li>
+    <li><span class="box"></span><div>Adresse et horaires de dépôt des colis, enlèvement à domicile oui / non</div></li>
+    <li><span class="box"></span><div>Police d'assurance<small>assureur, n° de police, plafond</small></div></li>
+    <li><span class="box"></span><div>Contact support et médiateur de la consommation</div></li>
+    <li><span class="box"></span><div>Politique d'annulation et de remboursement dans les CGU, relecture juridique (articles 6 et 9)</div></li>
+    <li><span class="box"></span><div>D-U-N-S, compte Apple (99 €/an), compte Google Play (25 $)</div></li>
+    <li><span class="box"></span><div>Première version installable (eas build) et clé Firebase pour Android</div></li>
+    <li><span class="box"></span><div>Votre compte passé administrateur</div></li>
+  </ul>
+
+</main>
+
+<footer class="wrap">
+  <p>Guide de démarrage : <a href="roger.html">roger.html</a> · <a href="confidentialite.html">confidentialité</a> · <a href="cgu.html">conditions générales</a> · <a href="support.html">support</a></p>
+</footer>
+</body>
+</html>
