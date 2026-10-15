@@ -1,0 +1,107 @@
+name: Deploy design prototype + mobile web preview to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/axis-import-platform-4egTH
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile deps
+        working-directory: mobile
+        run: npm ci
+
+      - name: Build mobile web bundle
+        working-directory: mobile
+        env:
+          # URL publique du backend Railway, hardcodée pour éviter les
+          # problèmes de guillemets / espaces dans les secrets GitHub.
+          EXPO_PUBLIC_API_URL: https://am-production-80d6.up.railway.app/api/v1
+        run: |
+          echo "API URL = [$EXPO_PUBLIC_API_URL]"
+          npx expo export --platform web
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p public
+          cp -R design/* public/
+          mkdir -p public/app
+          cp -R mobile/dist/* public/app/
+
+          # Inject le script "native fetch keeper" depuis mobile/web-inject.html
+          # juste après la balise <head>, AVANT que le bundle Expo charge.
+          # Le script sauve window.fetch dans window.__nativeFetch et désinscrit
+          # tout service worker.
+          if [ -f public/app/index.html ] && [ -f mobile/web-inject.html ]; then
+            awk '
+              BEGIN { injected = 0 }
+              /<head[^>]*>/ && !injected {
+                print $0
+                while ((getline line < "mobile/web-inject.html") > 0) print line
+                close("mobile/web-inject.html")
+                injected = 1
+                next
+              }
+              { print }
+            ' public/app/index.html > public/app/index.html.new
+            mv public/app/index.html.new public/app/index.html
+
+            echo "=== Top of index.html after injection ==="
+            head -25 public/app/index.html
+            echo "========================================="
+            if grep -q "__nativeFetch" public/app/index.html; then
+              echo "✓ Script __nativeFetch bien injecté"
+            else
+              echo "✗ ÉCHEC injection : __nativeFetch absent"
+              exit 1
+            fi
+          else
+            echo "✗ Fichier manquant : public/app/index.html ou mobile/web-inject.html"
+            exit 1
+          fi
+
+          # Sanity check : l'URL Railway doit apparaître dans le bundle.
+          BUNDLE=$(ls public/app/_expo/static/js/web/AppEntry-*.js | head -1)
+          if [ -z "$BUNDLE" ]; then
+            echo "✗ Bundle Expo introuvable"
+            exit 1
+          fi
+          echo "Bundle = $BUNDLE"
+          if grep -q "am-production-80d6.up.railway.app/api/v1" "$BUNDLE"; then
+            echo "✓ URL Railway présente dans le bundle"
+          else
+            echo "✗ URL Railway absente du bundle"
+            exit 1
+          fi
+
+          # Force a content change on every build so peaceiris always pushes
+          echo "Build ${{ github.sha }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/.build-stamp
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy design + mobile web from ${{ github.sha }}"
