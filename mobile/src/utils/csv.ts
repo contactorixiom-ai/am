@@ -2,6 +2,8 @@
 // Sur le web : téléchargement direct d'un Blob. Sur natif : non pris en charge
 // (l'espace admin de Roger s'utilise sur la version web / bureau).
 
+import { saveBlob } from './saveFile';
+
 export type CsvValue = string | number | null | undefined;
 
 function escapeCell(v: CsvValue): string {
@@ -21,13 +23,6 @@ export function downloadCsv(filename: string, headers: string[], rows: CsvValue[
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
   const csv = buildCsv(headers, rows);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  void saveBlob(blob, filename.endsWith('.csv') ? filename : `${filename}.csv`);
   return true;
 }

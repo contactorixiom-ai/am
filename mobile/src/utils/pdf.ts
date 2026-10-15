@@ -4,6 +4,7 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
+import { saveBlob } from './saveFile';
 import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 import {
   VEHICLE_SKETCH_CAR,
@@ -42,15 +43,7 @@ function drawAxisLogo(doc: jsPDF, x: number, y: number, size = 8) {
 
 function triggerDownload(doc: jsPDF, filename: string) {
   if (typeof window === 'undefined') return;
-  const blob = doc.output('blob');
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  void saveBlob(doc.output('blob'), filename);
 }
 
 // ─── Sécurité typographique PDF ────────────────────────────────────────────

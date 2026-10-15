@@ -12,6 +12,7 @@ import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { confirmAction, notify } from '../utils/notify';
+import { saveBlob } from '../utils/saveFile';
 
 // Cet écran ne montre que ce qui fonctionne réellement. Il proposait Face ID,
 // un code PIN, une double authentification et des alertes de connexion :
@@ -131,12 +132,7 @@ export function SecuritySettingsScreen() {
       const json = JSON.stringify(data, null, 2);
       const name = `axis-import-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
-        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        await saveBlob(new Blob([json], { type: 'application/json' }), name);
         notify('Export prêt', 'Le fichier de tes données a été téléchargé.');
       } else {
         await Share.share({ title: name, message: json });

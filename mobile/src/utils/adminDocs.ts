@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { AXIS_LOGO_PDF } from './axisLogoPdf';
+import { saveBlob } from './saveFile';
 import type { IconName } from '../components/Icons';
 import { inspectionPdfFields } from './inspectionPdf';
 import {
@@ -1405,15 +1406,7 @@ export interface ShippingLabelData {
 
 function labelDownload(doc: jsPDF, filename: string) {
   if (typeof window === 'undefined') return;
-  const blob = doc.output('blob');
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  void saveBlob(doc.output('blob'), filename);
 }
 
 export async function generateShippingLabelPdf(data: ShippingLabelData): Promise<void> {

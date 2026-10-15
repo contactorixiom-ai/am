@@ -57,22 +57,39 @@ export function KycVerificationScreen() {
   const [state, setState] = useState<State>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  // Même règle que le serveur pour accepter une mission : une pièce
+  // d'identité et un permis approuvés par Axis.
+  const [habilitated, setHabilitated] = useState(false);
 
   // Statut réel, tel que le serveur le connaît. Plus de « mode démo » local :
   // l'écran affichait « envoyé » pour des documents restés sur le téléphone.
   const load = useCallback(async () => {
     try {
       const overview = await fetchKycOverview();
+      const approvedTypes = new Set(overview.documents.filter((d) => d.status === 'APPROVED').map((d) => d.type));
+      setHabilitated(
+        approvedTypes.has('DRIVER_LICENSE') && (approvedTypes.has('IDENTITY_CARD') || approvedTypes.has('PASSPORT')),
+      );
       // Documents triés du plus récent au plus ancien : le premier trouvé
       // pour un emplacement est celui qui compte. L'emplacement (recto,
       // verso…) est retrouvé grâce au nom de fichier ; à défaut, par type.
       const next: State = {};
+      // Un document dont le nom ne dit pas l'emplacement (déposé ailleurs que
+      // depuis cet écran) occupe le premier emplacement libre de son type :
+      // sinon un permis validé par Axis s'affichait « 0/3 fournis ».
+      const used = new Set<string>();
+      const placed = (d: { id: string }) => used.has(d.id);
+      for (const doc of REQUIRED_DOCS) {
+        const byName = overview.documents.find((d) => !placed(d) && d.fileName?.startsWith(`${doc.key}.`));
+        if (byName) used.add(byName.id);
+      }
       for (const doc of REQUIRED_DOCS) {
         const match =
           overview.documents.find((d) => d.fileName?.startsWith(`${doc.key}.`)) ??
-          (REQUIRED_DOCS.filter((x) => x.apiType === doc.apiType).length === 1
-            ? overview.documents.find((d) => d.type === doc.apiType)
-            : undefined);
+          overview.documents.find(
+            (d) => !placed(d) && d.type === doc.apiType && !REQUIRED_DOCS.some((x) => d.fileName?.startsWith(`${x.key}.`)),
+          );
+        if (match) used.add(match.id);
         if (match) {
           next[doc.key] = {
             status: apiStatusToDocStatus(match.status),
@@ -101,7 +118,7 @@ export function KycVerificationScreen() {
   const uploadedRequired = REQUIRED_DOCS.filter((d) => d.required && (state[d.key]?.status === 'uploaded' || state[d.key]?.status === 'verified')).length;
   const progress = Math.round((uploadedRequired / totalRequired) * 100);
 
-  const allVerified = REQUIRED_DOCS.every((d) => !d.required || state[d.key]?.status === 'verified');
+  const allVerified = habilitated || REQUIRED_DOCS.every((d) => !d.required || state[d.key]?.status === 'verified');
   const allUploaded = uploadedRequired === totalRequired;
 
   const todayLabel = () =>
