@@ -55,6 +55,9 @@ export const Icons = {
   bolt:    wrap(<><Path d="M13 3 L4 14 H11 L10 21 L20 10 H13 Z" /></>),
   flag:    wrap(<><Path d="M5 21V4M5 4l8 1 6-1v9l-6 1-8-1" /></>),
   more:    wrap(<><Circle cx="6" cy="12" r="1.5" /><Circle cx="12" cy="12" r="1.5" /><Circle cx="18" cy="12" r="1.5" /></>),
+  ship:    wrap(<><Path d="M4 14h16l-2.2 4.2H6.2z" /><Path d="M7 14v-4h10v4" /><Path d="M11 10V6.5h3V10" /><Path d="M2.5 21c1.6 0 1.6-1 3.2-1s1.6 1 3.2 1 1.6-1 3.1-1 1.6 1 3.2 1 1.6-1 3.2-1 1.6 1 3.1 1" /></>),
+  plane:   wrapFill(<Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />),
+  share:   wrap(<><Circle cx="18" cy="5" r="2.5" /><Circle cx="6" cy="12" r="2.5" /><Circle cx="18" cy="19" r="2.5" /><Path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" /></>),
   sliders: wrap(<><Path d="M4 6h16M4 12h16M4 18h16" /><Circle cx="8" cy="6" r="2" /><Circle cx="16" cy="12" r="2" /><Circle cx="10" cy="18" r="2" /></>),
 };
 

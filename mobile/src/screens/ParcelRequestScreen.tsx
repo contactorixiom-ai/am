@@ -231,7 +231,7 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
         return !best || i.minCents < best.cents ? { cents: i.minCents, unit } : best;
       }, null)
     : null;
-  const seaFrom = seaCheapest ? `dès ${eurShort(seaCheapest.cents)}${seaCheapest.unit}` : null;
+  const seaFrom = seaCheapest ? `dès\u00a0${eurShort(seaCheapest.cents)}${seaCheapest.unit}` : null;
   const [reqs, setReqs] = useState<CountryRequirements | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
 
@@ -332,7 +332,9 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 22 }}>✈️</Text>
+              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'AIR' ? theme.navy : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.plane size={20} color={draft.transportMode === 'AIR' ? '#F5F1E8' : theme.goldDeep} stroke={1.9} />
+              </View>
               {draft.transportMode === 'AIR' ? <Pill tone="navy">Choisi</Pill> : null}
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Aérien</Text>
@@ -353,7 +355,9 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 22 }}>🚢</Text>
+              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'SEA' ? theme.navy : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.ship size={20} color={draft.transportMode === 'SEA' ? '#F5F1E8' : theme.goldDeep} stroke={1.9} />
+              </View>
               {draft.transportMode === 'SEA' ? <Pill tone="navy">Choisi</Pill> : null}
             </View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body, marginTop: 8 }}>Maritime</Text>

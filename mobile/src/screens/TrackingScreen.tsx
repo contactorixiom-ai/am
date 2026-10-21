@@ -5,7 +5,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { getMission, listMissions, MissionDetail } from '../api/missions';
-import { ParcelSummary, trackParcel } from '../api/parcels';
+import { getParcel, ParcelSummary, trackParcel } from '../api/parcels';
+import { ParcelJourney } from '../components/ParcelJourney';
+import { shareParcelTracking, whatsappRecipient } from '../utils/parcelShare';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
@@ -100,7 +102,12 @@ export function TrackingScreen() {
     setError(null);
     try {
       if (kind === 'parcel') {
-        const p = await trackParcel(reference);
+        // L'expéditeur voit son envoi complet (contenu, destinataire) ; le
+        // suivi public par référence n'en montre que le trajet.
+        const id = route.params.id;
+        const p = user && id && id !== reference
+          ? await getParcel(id).catch(() => trackParcel(reference))
+          : await trackParcel(reference);
         setParcel(p);
       } else {
         // L'écran peut être ouvert avec un identifiant ou seulement une
@@ -161,10 +168,13 @@ export function TrackingScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
-        title="Suivi en temps réel"
-        subtitle={`${reference}${parcel ? ` · ${parcelLoadShort(parcel)}` : ''}`}
-        trailing={
+        title={kind === 'parcel' ? 'Suivi de l\'envoi' : 'Suivi en temps réel'}
+        subtitle={kind === 'parcel' ? reference : `${reference}${parcel ? ` · ${parcelLoadShort(parcel)}` : ''}`}
+        trailing={kind !== 'parcel' || !parcel ? undefined :
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Partager le suivi"
+            onPress={() => { void shareParcelTracking(parcel); }}
             style={({ pressed }) => ({
               width: 36,
               height: 36,
@@ -174,7 +184,7 @@ export function TrackingScreen() {
               justifyContent: 'center',
             })}
           >
-            <Icons.more size={18} color={theme.ink} stroke={1.8} />
+            <Icons.share size={18} color={theme.ink} stroke={1.8} />
           </Pressable>
         }
       />
@@ -207,6 +217,8 @@ export function TrackingScreen() {
               finished={!!mission && ['DELIVERED', 'COMPLETED'].includes(mission.status)}
               missionId={mission?.id ?? route.params.id}
             />
+          ) : kind === 'parcel' && parcel ? (
+            <ParcelJourney parcel={parcel} recipientFirstName={parcel.recipientFirstName ?? undefined} />
           ) : parcelRoute ? (
             // Vraie carte : Apple Plans sur iPhone, Google Maps sur Android,
             // OpenStreetMap sur le web. L'illustration ne servait à rien.
@@ -245,7 +257,7 @@ export function TrackingScreen() {
           </View>
         ) : null}
 
-        {/* Status strip */}
+        {kind === 'mission' ? (
         <View
           style={{
             paddingHorizontal: 20,
@@ -262,23 +274,55 @@ export function TrackingScreen() {
           {!parcel && mission?.distanceKm ? <Pill tone="default">{Math.round(mission.distanceKm)} km</Pill> : null}
           <View style={{ flex: 1 }} />
         </View>
+        ) : null}
 
-        {/* Date d'arrivée : la première chose que le client cherche quand son
-            colis met trois semaines à traverser. */}
-        {parcel && parcel.status !== 'DELIVERED' && formatEta(parcel.estimatedDelivery) ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-            <Surface padded style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.pin size={18} color={theme.goldDeep} stroke={1.9} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 10.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
-                  Arrivée prévue
-                </Text>
-                <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
-                  {formatEta(parcel.estimatedDelivery)}
-                </Text>
-              </View>
+        {/* Contenu et destinataire : ce que l'expéditeur vérifie, et le
+            geste le plus utile — prévenir la famille qui attend le colis. */}
+        {kind === 'parcel' && parcel && (parcel.items?.length || parcel.recipientFirstName) ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <Surface padded style={{ padding: 16, gap: 12 }}>
+              {parcel.items?.length ? (
+                <View style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 10.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                    Dans ton envoi
+                  </Text>
+                  {parcel.items.map((it, i) => (
+                    <Text key={i} style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium }}>
+                      {it.quantity} × {it.description}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+              {parcel.recipientFirstName ? (
+                <View style={{ gap: 10 }}>
+                  {parcel.items?.length ? <View style={{ height: 1, backgroundColor: theme.line }} /> : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Avatar name={`${parcel.recipientFirstName} ${parcel.recipientLastName ?? ''}`} size={40} tone="navy" />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontSize: 10.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
+                        Destinataire
+                      </Text>
+                      <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                        {parcel.recipientFirstName} {parcel.recipientLastName ?? ''}
+                      </Text>
+                      {parcel.recipientPhone ? (
+                        <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{parcel.recipientPhone}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  {parcel.status !== 'DELIVERED' && parcel.status !== 'CANCELLED' ? (
+                    <Button
+                      kind="gold"
+                      size="md"
+                      fullWidth
+                      leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
+                      onPress={() => { void whatsappRecipient(parcel); }}
+                    >
+                      {`Prévenir ${parcel.recipientFirstName} sur WhatsApp`}
+                    </Button>
+                  ) : null}
+                </View>
+              ) : null}
             </Surface>
           </View>
         ) : null}
@@ -359,25 +403,11 @@ export function TrackingScreen() {
               </Pressable>
             </View>
 
-            <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 14 }} />
+            {kind === 'mission' ? <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 14 }} /> : null}
 
             {/* Timeline verticale */}
-            {(kind === 'mission'
-              ? convoySteps(mission)
-              : parcel?.trackingEvents && parcel.trackingEvents.length > 0
-              ? parcel.trackingEvents.map((e, i, arr) => ({
-                  label: labelStatus(e.status),
-                  sub: e.notes ?? e.location ?? '',
-                  time: new Date(e.occurredAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-                  done: i < arr.length - 1,
-                  current: i === arr.length - 1,
-                }))
-              : kind === 'parcel' && parcel
-                // Aucune étape saisie : on montre l'état réel, pas un parcours
-                // inventé déjà à moitié coché.
-                ? [{ label: labelStatus(parcel.status), sub: 'Axis met à jour chaque étape de ton envoi.', time: 'En cours', done: false, current: true }]
-                : []
-            ).map((step, i, arr) => (
+            {/* Colis : les étapes sont dans « Le voyage de ton colis ». */}
+            {(kind === 'mission' ? convoySteps(mission) : []).map((step, i, arr) => (
               <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
                 {/* Colonne pastille + trait : le padding vertical vit dans la
                     colonne de texte pour que le trait rejoigne la pastille

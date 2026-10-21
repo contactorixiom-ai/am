@@ -1364,7 +1364,7 @@ export function AdminScreen() {
     const toProcess = missions.length + parcels.length;
     const docsMonth = history.filter((h) => sameMonth(h.dateISO)).length;
 
-    const fmtEuro = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
+    const fmtEuro = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}\u00a0€`;
 
     // Relances : ce qui n'avance plus et qu'il faut traiter aujourd'hui.
     const followUps = buildFollowUps(missions, parcels, paymentList);

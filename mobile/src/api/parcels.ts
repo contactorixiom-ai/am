@@ -41,6 +41,10 @@ export interface ParcelSummary {
   destinationLatitude?: number | null;
   destinationLongitude?: number | null;
   trackingEvents?: ParcelTrackingEvent[];
+  /** Destinataire : présent seulement pour l'expéditeur (et Axis). */
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhone?: string | null;
   /** Contenu commandé sur la grille (fûts, cartons, m³…). */
   items?: { description: string; quantity: number }[] | null;
 }

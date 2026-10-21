@@ -101,7 +101,7 @@ export function hasInsurance(): boolean {
 
 /** « 250 000 € » — à n'appeler que si hasInsurance() est vrai. */
 export function coverageLabel(): string {
-  return `${INSURANCE.coverageEur.toLocaleString('fr-FR')} €`;
+  return `${INSURANCE.coverageEur.toLocaleString('fr-FR')}\u00a0€`;
 }
 
 export const TODO = '[À COMPLÉTER]';
@@ -141,6 +141,8 @@ export function companyRegistrationLine(): string {
 // Pages légales publiées avec le site : l'App Store exige une politique de
 // confidentialité accessible, et l'application y renvoie directement.
 const LEGAL_BASE = 'https://contactorixiom-ai.github.io/am';
+/** Adresse publique de l'application web (liens de suivi partagés). */
+export const PUBLIC_APP_URL = `${LEGAL_BASE}/app/`;
 export const LEGAL_PRIVACY_URL = `${LEGAL_BASE}/confidentialite.html`;
 export const LEGAL_TERMS_URL = `${LEGAL_BASE}/cgu.html`;
 /**

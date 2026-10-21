@@ -46,7 +46,7 @@ export function fmtLocal(eurCents: number, country: string): string | null {
     minimumFractionDigits: curr.decimals,
     maximumFractionDigits: curr.decimals,
   }).format(local);
-  return `${formatted} ${curr.symbol}`;
+  return `${formatted}\u00a0${curr.symbol}`;
 }
 
 export function fmtEur(cents: number): string {

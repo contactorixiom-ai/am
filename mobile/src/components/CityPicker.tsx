@@ -3,6 +3,7 @@ import { FlatList, Modal, Pressable, SafeAreaView, Text, TextInput, View } from 
 import { City, listCities, searchCities } from '../api/quotes';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
+import { countryFlag, countryName } from '../utils/countries';
 
 interface Props {
   label: string;
@@ -83,7 +84,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
             fontSize: TYPO.sizes.body,
           }}
         >
-          {value ? `${value.city}${value.postalCode ? ` (${value.postalCode.slice(0, 2)})` : ''} · ${value.country}` : 'Sélectionner une ville'}
+          {value ? `${countryFlag(value.country)} ${value.city}${value.postalCode ? ` (${value.postalCode.slice(0, 2)})` : ''} · ${countryName(value.country)}`.trim() : 'Sélectionner une ville'}
         </Text>
       </Pressable>
 
@@ -138,12 +139,17 @@ export function CityPicker({ label, value, onChange, region }: Props) {
                   borderRadius: RADII.md,
                 })}
               >
-                <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
-                  {item.city}
-                </Text>
-                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-                  {item.postalCode ? `${item.postalCode} · ` : ''}{item.country} · {item.region === 'EU' ? 'Europe' : 'Afrique'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={{ fontSize: 22 }}>{countryFlag(item.country)}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
+                      {item.city}
+                    </Text>
+                    <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
+                      {item.postalCode ? `${item.postalCode} · ` : ''}{countryName(item.country)}
+                    </Text>
+                  </View>
+                </View>
               </Pressable>
             )}
             ListEmptyComponent={

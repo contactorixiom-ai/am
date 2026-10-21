@@ -102,11 +102,24 @@ function takeResetTokenFromUrl(): string | undefined {
   }
 }
 
+// Lien de suivi partagé au destinataire : …/app/?suivi=AXP-XXXX. Lu une
+// fois au démarrage ; la référence reste dans l'adresse (rien de secret).
+function takeTrackingRefFromUrl(): string | undefined {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+  try {
+    const ref = new URL(window.location.href).searchParams.get('suivi');
+    return ref && /^[A-Z0-9-]{6,40}$/i.test(ref) ? ref.toUpperCase() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function RootNavigator() {
   const { theme } = useTheme();
   const { user, initializing } = useSession();
   const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
   const [resetToken] = React.useState(takeResetTokenFromUrl);
+  const [trackingRef] = React.useState(takeTrackingRefFromUrl);
 
   // Appui sur une notification : on ouvre l'écran qui la concerne.
   const signedIn = !!user;
@@ -146,6 +159,7 @@ export function RootNavigator() {
   return (
     <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator
+        initialRouteName={trackingRef && !resetToken ? 'TrackByReference' : undefined}
         screenOptions={{
           headerStyle: { backgroundColor: theme.bg },
           headerTitleStyle: { fontFamily: TYPO.weights.semibold, color: theme.ink },
@@ -190,6 +204,7 @@ export function RootNavigator() {
             <RootStack.Screen name="ProfileInfo" component={ProfileInfoScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
             <RootStack.Screen name="News" component={NewsScreen} />
+            <RootStack.Screen name="TrackByReference" component={TrackByReferenceScreen} initialParams={trackingRef ? { reference: trackingRef } : undefined} />
           </>
         ) : (
           <>
@@ -202,7 +217,7 @@ export function RootNavigator() {
             <RootStack.Screen name="Register" component={RegisterScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             {!resetToken ? <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} /> : null}
-            <RootStack.Screen name="TrackByReference" component={TrackByReferenceScreen} />
+            <RootStack.Screen name="TrackByReference" component={TrackByReferenceScreen} initialParams={trackingRef ? { reference: trackingRef } : undefined} />
             <RootStack.Screen name="Tracking" component={TrackingScreen} />
           </>
         )}

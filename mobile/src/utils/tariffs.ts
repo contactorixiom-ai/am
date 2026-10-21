@@ -11,7 +11,7 @@ export function eurShort(cents: number): string {
   return `${v.toLocaleString('fr-FR', {
     minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
     maximumFractionDigits: 2,
-  })} €`;
+  })}\u00a0€`;
 }
 
 const UNIT_SUFFIX: Record<TariffItem['unit'], string> = {
@@ -27,7 +27,7 @@ export function tariffPriceLabel(item: TariffItem): string {
   const suffix = UNIT_SUFFIX[item.unit];
   if (item.maxCents && item.maxCents > item.minCents) {
     const lo = (item.minCents / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2, minimumFractionDigits: item.minCents % 100 ? 2 : 0 });
-    return `${lo} à ${eurShort(item.maxCents)}${suffix}`;
+    return `${lo}\u00a0à\u00a0${eurShort(item.maxCents)}${suffix}`;
   }
   return `${eurShort(item.minCents)}${suffix}`;
 }

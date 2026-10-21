@@ -20,7 +20,7 @@ export type RootStackParamList = {
   Register: { role?: 'CLIENT' | 'DRIVER' } | undefined;
   ForgotPassword: { email?: string } | undefined;
   ResetPassword: { token?: string } | undefined;
-  TrackByReference: undefined;
+  TrackByReference: { reference?: string } | undefined;
   AppTabs: undefined;
   ServicePicker: undefined;
   Tariffs: undefined;

@@ -24,7 +24,7 @@ const MAX_PIECES = 50;
 function priceLine(item: TariffItem): string {
   const unit = tariffUnitWord(item);
   if (item.maxCents && item.maxCents > item.minCents) {
-    return `dès ${eurShort(item.minCents)} ${unit} · jusqu'à ${eurShort(item.maxCents)}`;
+    return `dès\u00a0${eurShort(item.minCents)} ${unit} · jusqu'à\u00a0${eurShort(item.maxCents)}`;
   }
   return `${eurShort(item.minCents)} ${unit}`;
 }
