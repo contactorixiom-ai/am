@@ -45,6 +45,11 @@ export interface ParcelSummary {
   recipientFirstName?: string | null;
   recipientLastName?: string | null;
   recipientPhone?: string | null;
+  /** Enlèvement (adresse + consignes) et date du créneau choisi. */
+  pickupAddress?: string | null;
+  pickupAt?: string | null;
+  /** Import : l'expéditeur au pays (« Expéditeur : nom · téléphone »). */
+  originAddress?: string | null;
   /** Contenu commandé sur la grille (fûts, cartons, m³…). */
   items?: { description: string; quantity: number }[] | null;
 }

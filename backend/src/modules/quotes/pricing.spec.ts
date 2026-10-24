@@ -109,3 +109,73 @@ describe('computeQuote — convoyage (inchangé)', () => {
     expect(q.subtotalCents).toBe(4000);
   });
 });
+
+describe('computeQuote — voiture vers l\'Afrique (RORO)', () => {
+  it('dépôt au port : prix RORO de départ, TTC, sans frais de douane ni minimum', () => {
+    const q = computeQuote({ ...base, service: 'MERCHANDISE', flow: 'VEHICLE', items: [{ code: 'RORO_CAR', quantity: 1 }] });
+    expect(q.transportMode).toBe('SEA');
+    expect(q.totalCents).toBe(115000);
+    expect(q.lines.map((l) => l.code)).toEqual(['RORO_CAR']);
+    expect(q.disclaimer).toMatch(/1.300/);
+  });
+
+  it('convoyage jusqu\'au port : km × tarif du type de véhicule', () => {
+    const q = computeQuote({
+      ...base, service: 'MERCHANDISE', flow: 'VEHICLE', pickupMode: 'HOME_PICKUP', convoyToPortKm: 200,
+      items: [{ code: 'RORO_SUV', quantity: 1 }],
+    });
+    const convoy = q.lines.find((l) => l.code === 'CONVOY_TO_PORT');
+    expect(convoy?.totalCents).toBe(200 * 100);
+    expect(q.totalCents).toBe(145000 + 20000);
+  });
+
+  it('refuse un convoyage sans distance et un article d\'un autre parcours', () => {
+    expect(() => computeQuote({ ...base, service: 'MERCHANDISE', flow: 'VEHICLE', pickupMode: 'HOME_PICKUP', items: [{ code: 'RORO_CAR', quantity: 1 }] }))
+      .toThrow(/port/);
+    expect(() => computeQuote({ ...base, service: 'MERCHANDISE', flow: 'VEHICLE', items: [{ code: 'PALLET', quantity: 1 }] }))
+      .toThrow(/ne se commande pas/);
+    expect(() => computeQuote({ ...base, service: 'MERCHANDISE', flow: 'VEHICLE', items: [{ code: 'RORO_CAR', quantity: 6 }] }))
+      .toThrow(/devis/);
+  });
+
+  it('les véhicules restent hors des parcours colis', () => {
+    expect(() => computeQuote({ ...base, service: 'MERCHANDISE', transportMode: 'SEA', items: [{ code: 'RORO_CAR', quantity: 1 }] }))
+      .toThrow(/ne se commande pas/);
+  });
+});
+
+describe('computeQuote — import Afrique → France', () => {
+  it('épicerie aérienne : facturée 30 kg minimum', () => {
+    const q = computeQuote({ ...base, service: 'PARCEL', flow: 'IMPORT', items: [{ code: 'EXPORT_FOOD_AIR', quantity: 12 }] });
+    expect(q.transportMode).toBe('AIR');
+    expect(q.lines[0].quantity).toBe(30);
+    expect(q.lines[0].label).toContain('minimum 30');
+    expect(q.totalCents).toBe(30 * 850);
+  });
+
+  it('épicerie au-delà du minimum : au kg réel', () => {
+    const q = computeQuote({ ...base, service: 'PARCEL', flow: 'IMPORT', items: [{ code: 'EXPORT_FOOD_AIR', quantity: 45 }] });
+    expect(q.totalCents).toBe(45 * 850);
+  });
+
+  it('artisanat maritime au m³, avec minimum de perception', () => {
+    const q = computeQuote({ ...base, service: 'PARCEL', flow: 'IMPORT', items: [{ code: 'EXPORT_CRAFT_SEA', quantity: 0.3 }] });
+    expect(q.transportMode).toBe('SEA');
+    expect(q.lines.map((l) => l.code)).toEqual(['EXPORT_CRAFT_SEA', 'MINIMUM']);
+    expect(q.totalCents).toBe(9500);
+  });
+
+  it('échantillons au forfait ; aérien et maritime pas dans la même commande', () => {
+    const q = computeQuote({ ...base, service: 'PARCEL', flow: 'IMPORT', items: [{ code: 'EXPORT_SAMPLES_AIR', quantity: 1 }] });
+    expect(q.totalCents).toBe(12000);
+    expect(() => computeQuote({
+      ...base, service: 'PARCEL', flow: 'IMPORT',
+      items: [{ code: 'EXPORT_SAMPLES_AIR', quantity: 1 }, { code: 'EXPORT_CRAFT_SEA', quantity: 1 }],
+    })).toThrow(/séparément/);
+  });
+
+  it('dépôt chez le correspondant uniquement', () => {
+    expect(() => computeQuote({ ...base, service: 'PARCEL', flow: 'IMPORT', pickupMode: 'HOME_PICKUP', items: [{ code: 'EXPORT_SAMPLES_AIR', quantity: 1 }] }))
+      .toThrow(/correspondant/);
+  });
+});

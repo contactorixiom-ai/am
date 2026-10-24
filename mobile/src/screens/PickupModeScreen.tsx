@@ -70,6 +70,45 @@ function buildModes(): ModeMeta[] {
 
 const MODES = buildModes();
 
+// Voiture : déposée au port par le client, ou convoyée par Axis (au km, selon
+// le type de véhicule, calculé par le serveur depuis la ville du véhicule).
+function vehicleModes(): ModeMeta[] {
+  return [
+    {
+      kind: 'HUB_DROP_OFF',
+      emoji: '⚓',
+      title: 'Je dépose le véhicule au port',
+      subtitle: 'Port du Havre · rendez-vous fixé par Axis',
+      perKgHint: 'Sans frais',
+      badge: 'GRATUIT',
+      details: ['Remise des clés et des papiers sur place', 'État des lieux photo à la remise'],
+    },
+    {
+      kind: 'HOME_PICKUP',
+      emoji: '🚗',
+      title: 'Axis convoie le véhicule jusqu\'au port',
+      subtitle: 'Un convoyeur Axis vient le chercher chez toi',
+      perKgHint: 'Au km, selon le véhicule · calculé au devis',
+      details: ['Convoyeur professionnel assuré', 'État des lieux au départ et à l\'arrivée au port'],
+    },
+  ];
+}
+
+// Import : l'expéditeur dépose l'envoi chez le correspondant Axis au pays.
+function importModes(city: string): ModeMeta[] {
+  return [
+    {
+      kind: 'HUB_DROP_OFF',
+      emoji: '🤝',
+      title: `Dépôt chez le correspondant Axis à ${city}`,
+      subtitle: 'Adresse et horaires envoyés à l\'expéditeur après la commande',
+      perKgHint: 'Sans frais',
+      badge: 'GRATUIT',
+      details: ['Pesée et étiquetage sur place', 'Documents d\'export préparés par Axis'],
+    },
+  ];
+}
+
 // Réutilisé par RelayPointPicker et HomePickupAddress
 export async function buildQuoteFromDraft(
   draft: ParcelDraft,
@@ -88,7 +127,8 @@ export async function buildQuoteFromDraft(
     toLatitude: draft.to.latitude,
     toLongitude: draft.to.longitude,
     weightKg: draft.weightKg && draft.weightKg > 0 ? draft.weightKg : undefined,
-    items: draft.transportMode === 'SEA' ? draft.items : undefined,
+    items: draft.transportMode === 'SEA' || draft.flow ? draft.items : undefined,
+    flow: draft.flow,
   });
 }
 
@@ -97,6 +137,7 @@ export function PickupModeScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PickupMode'>>();
   const { draft } = route.params;
+  const modes = draft.flow === 'VEHICLE' ? vehicleModes() : draft.flow === 'IMPORT' ? importModes(draft.from.city) : MODES;
   const { set: setParcelDraft, saveForLater } = useParcelDraft();
   const [mode, setMode] = useState<PickupMode>('HUB_DROP_OFF');
   const [loading, setLoading] = useState(false);
@@ -136,16 +177,16 @@ export function PickupModeScreen() {
       <ScrollView contentContainerStyle={{ padding: SPACING.lg, paddingBottom: 120, gap: SPACING.lg }}>
         <View>
           <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-            Comment on récupère ton colis ?
+            {draft.flow === 'VEHICLE' ? 'Comment le véhicule rejoint le port ?' : draft.flow === 'IMPORT' ? 'Où l\'expéditeur dépose l\'envoi ?' : 'Comment on récupère ton colis ?'}
           </Text>
           <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-            {MODES.length > 1 ? `${MODES.length} options. ` : ''}Tu peux changer d'avis jusqu'au paiement.
+            {modes.length > 1 ? `${modes.length} options. Tu peux changer d'avis jusqu'au paiement.` : 'Axis te confirme les détails après la commande.'}
           </Text>
         </View>
 
 
         <View style={{ gap: SPACING.md }}>
-          {MODES.map((m) => {
+          {modes.map((m) => {
             const active = mode === m.kind;
             return (
               <Pressable key={m.kind} onPress={() => setMode(m.kind)}>
@@ -218,6 +259,7 @@ export function PickupModeScreen() {
           })}
         </View>
 
+        {draft.flow ? null : (
         <Surface flat style={{ backgroundColor: theme.surface2, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 18 }}>💡</Text>
@@ -233,6 +275,7 @@ export function PickupModeScreen() {
             </View>
           </View>
         </Surface>
+        )}
       </ScrollView>
 
       <View

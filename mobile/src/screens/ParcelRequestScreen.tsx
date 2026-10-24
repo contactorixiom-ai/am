@@ -3,7 +3,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { CountryRequirements, getDemoRequirements, getRequirements } from '../api/customs';
-import { City, CreateQuoteInput } from '../api/quotes';
+import { City, CreateQuoteInput, ShipmentFlow } from '../api/quotes';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Icons } from '../components/Icons';
@@ -39,6 +39,15 @@ export function ParcelRequestScreen() {
   // PARCEL (colis) ou MERCHANDISE (volumineux) selon le service choisi.
   const service = route.params?.service ?? 'PARCEL';
   const { draft, set, reset, saveForLater, restored } = useParcelDraft();
+  // Voiture vers l'Afrique ou import Afrique → Europe : parcours propres, qui
+  // ne doivent pas reprendre un brouillon de colis (ni l'inverse).
+  const flow = route.params?.flow;
+  useEffect(() => {
+    if ((draft.flow ?? undefined) !== flow) {
+      reset();
+      set({ flow, transportMode: flow === 'VEHICLE' ? 'SEA' : undefined });
+    }
+  }, [flow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Index interne 0 (Trajet) / 1 (Colis) / 2 (Contenu)
   const [step, setStep] = useState(() => Math.min(draft.step ?? 0, 2));
@@ -52,24 +61,27 @@ export function ParcelRequestScreen() {
   // client voit son tarif, sans attendre l'étape 4.
   // Maritime : articles de la grille (fûts, cartons, m³…) ; aérien : poids.
   const isSea = draft.transportMode === 'SEA';
+  // Articles de la grille : maritime, voiture et import (même en aérien).
+  const usesItems = isSea || !!flow;
   const seaItems = useMemo(() => itemsFromCounts(draft.items), [draft.items]);
   const estimateInput: CreateQuoteInput | null = useMemo(() => {
     if (!draft.from || !draft.to) return null;
     const route = {
       service,
-      pickupMode: draft.pickupMode ?? 'HUB_DROP_OFF',
+      flow,
+      pickupMode: flow === 'IMPORT' ? 'HUB_DROP_OFF' : draft.pickupMode ?? 'HUB_DROP_OFF',
       fromCity: draft.from.city,
       fromCountry: draft.from.country,
       toCity: draft.to.city,
       toCountry: draft.to.country,
     } as const;
-    if (isSea) {
+    if (usesItems) {
       if (seaItems.length === 0) return null;
-      return { ...route, transportMode: 'SEA', items: seaItems, weightKg: draft.weightKg };
+      return { ...route, transportMode: flow === 'IMPORT' ? draft.transportMode : 'SEA', items: seaItems, weightKg: draft.weightKg };
     }
     if (!draft.weightKg || draft.weightKg <= 0) return null;
     return { ...route, transportMode: draft.transportMode ?? 'AIR', weightKg: draft.weightKg };
-  }, [service, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode, isSea, seaItems]);
+  }, [service, flow, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode, usesItems, seaItems]);
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -89,22 +101,42 @@ export function ParcelRequestScreen() {
         return;
       }
       if (!draft.transportMode) {
-        notify('Mode manquant', 'Choisis aérien ou maritime.');
-        return;
+        if (flow === 'VEHICLE') set({ transportMode: 'SEA' });
+        else {
+          notify('Mode manquant', flow === 'IMPORT' ? 'Choisis aérien (épicerie, échantillons) ou maritime (artisanat).' : 'Choisis aérien ou maritime.');
+          return;
+        }
       }
       setStep(1);
       return;
     }
     if (step === 1) {
-      if (isSea) {
+      if (usesItems) {
         if (seaItems.length === 0) {
           notify(
             'Contenu manquant',
-            service === 'PARCEL'
+            flow === 'VEHICLE'
+              ? 'Choisis le type de véhicule à expédier.'
+              : flow === 'IMPORT'
+              ? 'Indique ce que tu fais venir : kilos d\'épicerie, m³ d\'artisanat ou forfait échantillons.'
+              : service === 'PARCEL'
               ? 'Ajoute au moins un article : fût, carton, valise ou appareil.'
               : 'Indique un volume en m³ ou un nombre de palettes.',
           );
           return;
+        }
+        if (flow === 'VEHICLE') {
+          if (!draft.vehicleModel?.trim()) {
+            notify('Véhicule', 'Indique la marque et le modèle du véhicule.');
+            return;
+          }
+          // Description douanière déduite du véhicule, modifiable à l'étape suivante.
+          if (!draft.description?.trim()) {
+            set({
+              description: [draft.vehicleModel.trim(), draft.vehiclePlate?.trim(), draft.vehicleYear?.trim()].filter(Boolean).join(' · '),
+              customsCategory: draft.customsCategory ?? 'PERSONAL_EFFECTS',
+            });
+          }
         }
         setStep(2);
         return;
@@ -134,9 +166,10 @@ export function ParcelRequestScreen() {
           to: { ...toCity },
           weightKg: draft.weightKg,
           category: draft.customsCategory ?? 'PERSONAL_EFFECTS',
-          transportMode: draft.transportMode ?? 'AIR',
+          transportMode: flow === 'VEHICLE' ? 'SEA' : draft.transportMode ?? 'AIR',
           service,
-          items: isSea ? seaItems : undefined,
+          items: usesItems ? seaItems : undefined,
+          flow,
         },
       });
     }
@@ -171,17 +204,21 @@ export function ParcelRequestScreen() {
             </Surface>
           ) : null}
 
-          {step === 0 ? <StepTrajet service={service} /> : null}
+          {step === 0 ? <StepTrajet service={service} flow={flow} /> : null}
           {step === 1 ? (
-            <ParcelSizeScreen draft={draft} onChange={set} service={service} onOpenTariffs={() => nav.navigate('Tariffs')} />
+            <ParcelSizeScreen draft={draft} onChange={set} service={service} flow={flow} onOpenTariffs={() => nav.navigate('Tariffs')} />
           ) : null}
-          {step === 2 ? <ParcelContentScreen draft={draft} onChange={set} /> : null}
+          {step === 2 ? <ParcelContentScreen draft={draft} onChange={set} flow={flow} /> : null}
         </ScrollView>
 
         <LivePriceBar
           input={estimateInput}
           placeholder={
-            step === 0
+            flow === 'VEHICLE'
+              ? 'Choisis le type de véhicule : le tarif s\'affiche aussitôt.'
+              : flow === 'IMPORT'
+              ? 'Indique ce que tu fais venir : le tarif s\'affiche aussitôt.'
+              : step === 0
               ? (isSea ? 'Choisis ton trajet, puis ce que tu envoies : le tarif s\'affiche aussitôt.' : 'Choisis ton trajet, puis le poids : le tarif s\'affiche aussitôt.')
               : isSea
                 ? (service === 'PARCEL' ? 'Ajoute tes fûts, cartons ou valises pour voir le tarif.' : 'Indique le volume ou les palettes pour voir le tarif.')
@@ -206,7 +243,7 @@ export function ParcelRequestScreen() {
             onPress={goNext}
             rightIcon={<Icons.arrow size={18} color="#fff" stroke={2} />}
           >
-            {step === 2 ? 'Étape suivante : récupération' : 'Continuer'}
+            {step === 2 ? (flow === 'VEHICLE' ? 'Étape suivante : remise du véhicule' : flow === 'IMPORT' ? 'Étape suivante : dépôt au pays' : 'Étape suivante : récupération') : 'Continuer'}
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -217,16 +254,17 @@ export function ParcelRequestScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Étape 1 — Depuis / Vers + bandeau éligibilité + réglementation
 // ─────────────────────────────────────────────────────────────────────────────
-function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
+function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow?: ShipmentFlow }) {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { draft, set } = useParcelDraft();
   const { sheet } = useTariffs();
   // Prix d'appel tirés de la grille : 8,50 €/kg en aérien ; en maritime,
   // le moins cher des articles du parcours (carton, ou m³).
-  const airFrom = sheet ? `${eurShort(sheet.airPerKgCents)}/kg` : null;
+  const importAir = sheet && flow === 'IMPORT' ? orderableItems(sheet, 'IMPORT', 'AIR').find((i) => i.unit === 'kg') : undefined;
+  const airFrom = importAir ? `dès\u00a0${eurShort(importAir.minCents)}/kg` : sheet ? `${eurShort(sheet.airPerKgCents)}/kg` : null;
   const seaCheapest = sheet
-    ? orderableItems(sheet, service).reduce<null | { cents: number; unit: string }>((best, i) => {
+    ? orderableItems(sheet, flow ?? service, flow === 'IMPORT' ? 'SEA' : undefined).reduce<null | { cents: number; unit: string }>((best, i) => {
         const unit = i.unit === 'm3' ? '/m³' : '';
         return !best || i.minCents < best.cents ? { cents: i.minCents, unit } : best;
       }, null)
@@ -235,9 +273,9 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
   const [reqs, setReqs] = useState<CountryRequirements | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
 
-  // Charge la fiche douanière dès qu'on a un pays de destination
+  // Charge la fiche douanière dès qu'on a un pays de destination (Afrique).
   useEffect(() => {
-    if (!draft.to?.country) {
+    if (!draft.to?.country || flow === 'IMPORT') {
       setReqs(null);
       return;
     }
@@ -253,7 +291,7 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
     return () => {
       cancelled = true;
     };
-  }, [draft.to?.country]);
+  }, [draft.to?.country, flow]);
 
   const eligibility = useMemo(() => computeEligibility(draft.to?.country), [draft.to?.country]);
 
@@ -265,22 +303,50 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
     <View style={{ gap: SPACING.lg }}>
       <View>
         <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-          D'où part ton colis et où va-t-il ?
+          {flow === 'VEHICLE'
+            ? 'Où est le véhicule, et où l\'envoyer ?'
+            : flow === 'IMPORT'
+            ? 'Que fais-tu venir d\'Afrique ?'
+            : 'D\'où part ton colis et où va-t-il ?'}
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-          On organise le transport jusqu'au destinataire et les documents de douane.
+          {flow === 'VEHICLE'
+            ? 'Axis embarque ton véhicule au port du Havre (bateau RORO) et prépare les documents d\'export et de douane.'
+            : flow === 'IMPORT'
+            ? 'L\'expéditeur dépose l\'envoi chez le correspondant Axis au pays ; Axis l\'achemine jusqu\'à toi.'
+            : 'On organise le transport jusqu\'au destinataire et les documents de douane.'}
         </Text>
       </View>
 
       <Surface>
         <View style={{ gap: SPACING.md }}>
-          <CityPicker label="Ville de départ (Europe)" value={draft.from ?? null} onChange={setFrom} region="EU" />
-          <CityPicker label="Ville d'arrivée (Afrique)" value={draft.to ?? null} onChange={setTo} region="AFRICA" />
+          {flow === 'IMPORT' ? (
+            <>
+              <CityPicker label="Ville de départ (Afrique)" value={draft.from ?? null} onChange={setFrom} region="AFRICA" />
+              <CityPicker label="Ville d'arrivée (France / Europe)" value={draft.to ?? null} onChange={setTo} region="EU" />
+            </>
+          ) : (
+            <>
+              <CityPicker label={flow === 'VEHICLE' ? 'Où se trouve le véhicule (Europe)' : 'Ville de départ (Europe)'} value={draft.from ?? null} onChange={setFrom} region="EU" />
+              <CityPicker label={flow === 'VEHICLE' ? 'Port / ville d\'arrivée (Afrique)' : 'Ville d\'arrivée (Afrique)'} value={draft.to ?? null} onChange={setTo} region="AFRICA" />
+            </>
+          )}
         </View>
       </Surface>
 
+      {flow === 'IMPORT' ? (
+        <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <Icons.shield size={18} color={theme.gold} stroke={1.8} />
+            <Text style={{ flex: 1, color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>
+              Axis prépare les documents d'export et d'import. Produits alimentaires : secs et bien emballés uniquement (pas de viande, poisson, produits laitiers ni plantes). Les droits et la TVA d'importation éventuels sont à la charge du destinataire.
+            </Text>
+          </View>
+        </Surface>
+      ) : null}
+
       {/* Bandeau éligibilité */}
-      {draft.to ? (
+      {draft.to && flow !== 'IMPORT' ? (
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
             <Icons.globe size={20} color={theme.navy} stroke={1.8} />
@@ -313,7 +379,22 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
         </Surface>
       ) : null}
 
-      {/* Mode de transport */}
+      {/* Mode de transport (voiture : toujours en bateau) */}
+      {flow === 'VEHICLE' ? (
+        <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+            <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: theme.navy, alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.ship size={20} color="#F5F1E8" stroke={1.9} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>Maritime RORO</Text>
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
+                Le véhicule roule à bord du navire{seaFrom ? ` · ${seaFrom}` : ''}
+              </Text>
+            </View>
+          </View>
+        </Surface>
+      ) : (
       <Surface>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: SPACING.md }}>
           Mode de transport
@@ -341,6 +422,11 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm }}>
               Rapide{OPERATIONS.delays?.air ? ` · ${OPERATIONS.delays.air}` : ''}{airFrom ? ` · ${airFrom}` : ''}
             </Text>
+            {flow === 'IMPORT' ? (
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 2 }}>
+                Épicerie, épices, échantillons pro
+              </Text>
+            ) : null}
           </Pressable>
           <Pressable
             onPress={() => setMode('SEA')}
@@ -365,11 +451,12 @@ function StepTrajet({ service }: { service: 'PARCEL' | 'MERCHANDISE' }) {
               Économique{OPERATIONS.delays?.sea ? ` · ${OPERATIONS.delays.sea}` : ''}{seaFrom ? ` · ${seaFrom}` : ''}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 2 }}>
-              {service === 'PARCEL' ? 'Fûts, cartons, valises, électroménager' : 'Au m³ ou à la palette'}
+              {flow === 'IMPORT' ? 'Artisanat, sculptures · au m³' : service === 'PARCEL' ? 'Fûts, cartons, valises, électroménager' : 'Au m³ ou à la palette'}
             </Text>
           </Pressable>
         </View>
       </Surface>
+      )}
 
       <Pressable
         onPress={() => nav.navigate('Tariffs')}

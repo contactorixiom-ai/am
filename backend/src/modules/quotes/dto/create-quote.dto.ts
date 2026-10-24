@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -106,6 +107,11 @@ export class CreateQuoteDto {
   @ValidateNested({ each: true })
   @Type(() => QuoteItemDto)
   items?: QuoteItemDto[];
+
+  @ApiPropertyOptional({ enum: ['VEHICLE', 'IMPORT'], description: 'Voiture vers l\'Afrique (RORO) ou import Afrique → Europe' })
+  @IsOptional()
+  @IsIn(['VEHICLE', 'IMPORT'])
+  flow?: 'VEHICLE' | 'IMPORT';
 
   @ApiPropertyOptional({ enum: QuoteOptionKind, isArray: true })
   @IsOptional()

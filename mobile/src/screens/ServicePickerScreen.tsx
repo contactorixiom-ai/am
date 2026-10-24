@@ -12,7 +12,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
-type ServiceId = 'car' | 'moto' | 'colis' | 'merch';
+type ServiceId = 'car' | 'moto' | 'colis' | 'merch' | 'vehicle' | 'import';
 
 const SERVICES: {
   id: ServiceId;
@@ -25,8 +25,10 @@ const SERVICES: {
 }[] = [
   { id: 'car',   IconComp: Icons.car,    title: 'Convoyage voiture',       sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.car ?? '',   enabled: true },
   { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.moto ?? '',  enabled: true },
-  { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: 'Cartons, valises, effets personnels', tag: 'Eur ⇄ Afr', delay: OPERATIONS.delays?.colis ?? '', enabled: true },
-  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur ⇄ Afr', delay: OPERATIONS.delays?.merch ?? '', enabled: true },
+  { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: 'Cartons, valises, effets personnels', tag: 'Eur → Afr', delay: OPERATIONS.delays?.colis ?? '', enabled: true },
+  { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur → Afr', delay: OPERATIONS.delays?.merch ?? '', enabled: true },
+  { id: 'vehicle', IconComp: Icons.ship, title: 'Voiture vers l\'Afrique', sub: 'Expédition par bateau, du port du Havre', tag: 'Eur → Afr', delay: OPERATIONS.delays?.sea ?? '', enabled: true },
+  { id: 'import', IconComp: Icons.globe, title: 'Import Afrique → France', sub: 'Épices, épicerie, artisanat, échantillons', tag: 'Afr → Eur', delay: '', enabled: true },
 ];
 
 export function ServicePickerScreen() {
@@ -40,6 +42,8 @@ export function ServicePickerScreen() {
     else if (selected === 'moto') nav.navigate('CarRequest', { service: 'CONVOY_MOTO' });
     else if (selected === 'colis') nav.navigate('ParcelRequest', { service: 'PARCEL' });
     else if (selected === 'merch') nav.navigate('ParcelRequest', { service: 'MERCHANDISE' });
+    else if (selected === 'vehicle') nav.navigate('ParcelRequest', { service: 'MERCHANDISE', flow: 'VEHICLE' });
+    else if (selected === 'import') nav.navigate('ParcelRequest', { service: 'PARCEL', flow: 'IMPORT' });
   };
 
   return (
@@ -72,7 +76,7 @@ export function ServicePickerScreen() {
 
         {/* 2x2 grid */}
         <View style={{ gap: 10 }}>
-          {[0, 2].map((startIndex) => (
+          {[0, 2, 4].map((startIndex) => (
             <View key={startIndex} style={{ flexDirection: 'row', gap: 10 }}>
               {SERVICES.slice(startIndex, startIndex + 2).map((s) => {
                 const sel = selected === s.id;

@@ -6,7 +6,7 @@ type MissionStatus =
   | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
 
 type ParcelStatus =
-  | 'DRAFT' | 'AWAITING_DROP_OFF' | 'RECEIVED' | 'IN_TRANSIT'
+  | 'DRAFT' | 'AWAITING_DROP_OFF' | 'AWAITING_PICKUP' | 'RECEIVED' | 'IN_TRANSIT'
   | 'CUSTOMS' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'LOST';
 
 const STATUS_MAP: Record<string, { label: string; tone: PillTone }> = {
@@ -21,6 +21,7 @@ const STATUS_MAP: Record<string, { label: string; tone: PillTone }> = {
   DISPUTED:     { label: 'Litige',        tone: 'warn' },
   // Parcels
   AWAITING_DROP_OFF: { label: 'À déposer',     tone: 'default' },
+  AWAITING_PICKUP:   { label: 'À enlever',     tone: 'default' },
   RECEIVED:          { label: 'Reçu',          tone: 'navy' },
   IN_TRANSIT:        { label: 'En transit',    tone: 'good' },
   CUSTOMS:           { label: 'Douane',        tone: 'warn' },

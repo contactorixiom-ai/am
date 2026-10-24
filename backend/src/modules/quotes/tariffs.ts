@@ -9,10 +9,13 @@
 //   - une fourchette (« 40 à 70 € ») est facturée à son prix de départ :
 //     Axis confirme au dépôt selon la taille réelle et la destination ;
 //   - orderable = commandable en ligne ; sinon « sur devis » (message à Axis).
+//     Parcours : PARCEL (effets personnels), MERCHANDISE (m³, palettes),
+//     VEHICLE (voiture vers l'Afrique, RORO), IMPORT (Afrique → Europe).
 // ─────────────────────────────────────────────────────────────────────
 
 export type TariffSectionId = 'EFFECTS' | 'GENERAL' | 'VEHICLES' | 'AIR' | 'EXPORT';
 export type TariffUnit = 'piece' | 'm3' | 'kg' | 'forfait';
+export type TariffFlow = 'PARCEL' | 'MERCHANDISE' | 'VEHICLE' | 'IMPORT';
 
 export interface TariffItem {
   code: string;
@@ -32,7 +35,9 @@ export interface TariffItem {
   /** Option de convoyage routier jusqu'au port, en cents par km. */
   convoyPerKmCents?: number;
   /** Commandable en ligne, et dans quel parcours. */
-  orderable?: { service: 'PARCEL' | 'MERCHANDISE'; mode: 'SEA' };
+  orderable?: { service: TariffFlow; mode: 'SEA' | 'AIR' };
+  /** Quantité minimale facturée (ex. 30 kg pour l'épicerie aérienne). */
+  minQuantity?: number;
   /** Prix « sur devis » (pas de montant). */
   onQuote?: boolean;
 }
@@ -56,6 +61,15 @@ export const TARIFF_SECTIONS: TariffSection[] = [
 
 const EFFECTS = { service: 'PARCEL', mode: 'SEA' } as const;
 const GENERAL = { service: 'MERCHANDISE', mode: 'SEA' } as const;
+const VEHICLE = { service: 'VEHICLE', mode: 'SEA' } as const;
+const IMPORT_AIR = { service: 'IMPORT', mode: 'AIR' } as const;
+const IMPORT_SEA = { service: 'IMPORT', mode: 'SEA' } as const;
+
+/**
+ * Port d'embarquement des véhicules (RORO). Le convoyage jusqu'au port est
+ * calculé depuis la ville du véhicule jusqu'ici.
+ */
+export const VEHICLE_DEPARTURE_PORT = { city: 'Le Havre', label: 'port du Havre', country: 'FR', latitude: 49.4944, longitude: 0.1079 };
 
 export const TARIFF_ITEMS: TariffItem[] = [
   // 1 — Effets personnels (maritime)
@@ -70,19 +84,19 @@ export const TARIFF_ITEMS: TariffItem[] = [
   { code: 'CBM', section: 'GENERAL', label: 'Marchandise au mètre cube', unit: 'm3', minCents: 18000, maxCents: 23000, orderable: GENERAL },
   { code: 'PALLET', section: 'GENERAL', label: 'Palette standard', detail: '120 × 100 × 150 cm', unit: 'piece', minCents: 23000, maxCents: 28000, orderable: GENERAL },
 
-  // 3 — Véhicules (RORO) : sur devis dans l'app, prix affichés
-  { code: 'RORO_CAR', section: 'VEHICLES', label: 'Voiture citadine / berline', unit: 'piece', minCents: 115000, maxCents: 130000, convoyPerKmCents: 75 },
-  { code: 'RORO_SUV', section: 'VEHICLES', label: 'SUV / 4×4 / pick-up', unit: 'piece', minCents: 145000, maxCents: 178000, convoyPerKmCents: 100 },
-  { code: 'RORO_VAN', section: 'VEHICLES', label: 'Utilitaire', detail: 'type Sprinter, Master · selon m³', unit: 'piece', minCents: 180000, maxCents: 230000, convoyPerKmCents: 140 },
+  // 3 — Véhicules (RORO) : commandables (parcours « Voiture vers l'Afrique »)
+  { code: 'RORO_CAR', section: 'VEHICLES', label: 'Voiture citadine / berline', unit: 'piece', minCents: 115000, maxCents: 130000, convoyPerKmCents: 75, orderable: VEHICLE },
+  { code: 'RORO_SUV', section: 'VEHICLES', label: 'SUV / 4×4 / pick-up', unit: 'piece', minCents: 145000, maxCents: 178000, convoyPerKmCents: 100, orderable: VEHICLE },
+  { code: 'RORO_VAN', section: 'VEHICLES', label: 'Utilitaire', detail: 'type Sprinter, Master · selon m³', unit: 'piece', minCents: 180000, maxCents: 230000, convoyPerKmCents: 140, orderable: VEHICLE },
 
   // 4 — Aérien express
   { code: 'AIR_KG', section: 'AIR', label: 'Petit colis', detail: 'toutes zones', unit: 'kg', minCents: 850 },
   { code: 'AIR_PRO', section: 'AIR', label: 'Expédition professionnelle', unit: 'forfait', minCents: 0, onQuote: true },
 
-  // 5 — Export Afrique → Europe : sur devis dans l'app, prix affichés
-  { code: 'EXPORT_FOOD_AIR', section: 'EXPORT', label: 'Fret aérien épicerie / épices', unit: 'kg', minCents: 850, maxCents: 1000, note: 'Produit sec uniquement. Minimum de perception : 30 kg.' },
-  { code: 'EXPORT_CRAFT_SEA', section: 'EXPORT', label: 'Colis, artisanat / sculpture', detail: 'maritime groupage (LCL)', unit: 'm3', minCents: 23000, maxCents: 28000, note: 'Bon emballage nécessaire : caisse en bois aux normes NIMP-15.' },
-  { code: 'EXPORT_SAMPLES_AIR', section: 'EXPORT', label: 'Échantillons pro aérien', detail: 'certificats inclus', unit: 'forfait', minCents: 12000, note: 'Forfait jusqu\'à 5 kg. Idéal pour les coopératives qui envoient cacao ou café à tester.' },
+  // 5 — Export Afrique → Europe : commandables (parcours « Import Afrique → France »)
+  { code: 'EXPORT_FOOD_AIR', section: 'EXPORT', label: 'Fret aérien épicerie / épices', unit: 'kg', minCents: 850, maxCents: 1000, note: 'Produit sec uniquement. Minimum de perception : 30 kg.', orderable: IMPORT_AIR, minQuantity: 30 },
+  { code: 'EXPORT_CRAFT_SEA', section: 'EXPORT', label: 'Colis, artisanat / sculpture', detail: 'maritime groupage (LCL)', unit: 'm3', minCents: 23000, maxCents: 28000, note: 'Bon emballage nécessaire : caisse en bois aux normes NIMP-15.', orderable: IMPORT_SEA },
+  { code: 'EXPORT_SAMPLES_AIR', section: 'EXPORT', label: 'Échantillons pro aérien', detail: 'certificats inclus', unit: 'forfait', minCents: 12000, note: 'Forfait jusqu\'à 5 kg. Idéal pour les coopératives qui envoient cacao ou café à tester.', orderable: IMPORT_AIR },
 ];
 
 /** Frais de douane forfaitaires, ajoutés aux effets personnels (TTC). */
@@ -124,6 +138,8 @@ export interface TariffLine {
 }
 
 const MAX_PIECES = 50;
+const MAX_VEHICLES = 5;
+const MAX_KG = 1000;
 const MAX_M3 = 100;
 
 function lineLabel(item: TariffItem): string {
@@ -136,7 +152,7 @@ function lineLabel(item: TariffItem): string {
  * dans ce parcours, ou si la quantité est incohérente.
  */
 export function priceTariffLines(
-  service: 'PARCEL' | 'MERCHANDISE',
+  service: TariffFlow,
   inputs: TariffLineInput[],
 ): TariffLine[] {
   const merged = new Map<string, number>();
@@ -148,7 +164,7 @@ export function priceTariffLines(
     }
     const q = Number(i.quantity);
     if (!Number.isFinite(q) || q <= 0) throw new Error(`Quantité invalide pour « ${lineLabel(item)} ».`);
-    if (item.unit === 'piece' && !Number.isInteger(q)) {
+    if ((item.unit === 'piece' || item.unit === 'forfait') && !Number.isInteger(q)) {
       throw new Error(`« ${lineLabel(item)} » se compte à l'unité.`);
     }
     merged.set(item.code, (merged.get(item.code) ?? 0) + q);
@@ -163,14 +179,22 @@ export function priceTariffLines(
     if (item.unit === 'm3' && quantity > MAX_M3) {
       throw new Error(`Au-delà de ${MAX_M3} m³, demande un devis à Axis.`);
     }
+    if (item.section === 'VEHICLES' && quantity > MAX_VEHICLES) {
+      throw new Error(`Au-delà de ${MAX_VEHICLES} véhicules, demande un devis à Axis.`);
+    }
+    if (item.unit === 'kg' && quantity > MAX_KG) {
+      throw new Error(`Au-delà de ${MAX_KG} kg, demande un devis à Axis.`);
+    }
+    // Minimum de perception propre à l'article (épicerie aérienne : 30 kg).
+    const billed = item.minQuantity && quantity < item.minQuantity ? item.minQuantity : quantity;
     lines.push({
       code,
-      label: lineLabel(item),
-      quantity,
+      label: billed > quantity ? `${lineLabel(item)} — minimum ${billed} ${item.unit}` : lineLabel(item),
+      quantity: billed,
       unit: item.unit,
       unitCents: item.minCents,
       maxUnitCents: item.maxCents,
-      totalCents: Math.round(quantity * item.minCents),
+      totalCents: Math.round(billed * item.minCents),
     });
   }
   // Ordre de la grille, quel que soit l'ordre de saisie.

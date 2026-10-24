@@ -101,7 +101,7 @@ export function TariffsScreen() {
             Préparer un envoi
           </Button>
           <Button kind="outline" size="lg" fullWidth loading={opening} onPress={askQuote}>
-            Véhicule, export ou envoi pro : demander un devis
+            Envoi pro ou hors grille : demander un devis
           </Button>
         </View>
       </ScrollView>

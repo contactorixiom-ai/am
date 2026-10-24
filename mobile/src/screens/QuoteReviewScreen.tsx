@@ -42,7 +42,8 @@ export function QuoteReviewScreen() {
     (h.kind !== 'CHEAPER_AT_RELAY' || OPERATIONS.relayPoints) &&
     (h.kind !== 'INSURANCE_RECOMMENDED' || hasInsurance()),
   );
-  const totalLocal = fmtLocal(quote.totalCents, quote.toCountry);
+  // Équivalent en monnaie locale, pour le destinataire en Afrique (pas en import).
+  const totalLocal = parcelDraft.flow === 'IMPORT' ? null : fmtLocal(quote.totalCents, quote.toCountry);
   // Colis et marchandises : lignes TTC de la grille tarifaire, telles que
   // le serveur les a calculées (fûts, cartons, m³, frais de douane…).
   const gridLines: QuoteLine[] = quote.lines ?? [];
@@ -312,7 +313,14 @@ export function QuoteReviewScreen() {
                 />
               ) : null}
               {isParcel ? (
-                <Stat label="Récupération" value={pickupModeLabel(quote.pickupMode, parcelDraft.relayPointLabel)} />
+                <Stat
+                  label={parcelDraft.flow === 'VEHICLE' ? 'Jusqu\'au port' : parcelDraft.flow === 'IMPORT' ? 'Dépôt' : 'Récupération'}
+                  value={parcelDraft.flow === 'VEHICLE'
+                    ? (quote.pickupMode === 'HOME_PICKUP' ? 'Convoyage Axis' : 'Dépôt au port')
+                    : parcelDraft.flow === 'IMPORT'
+                    ? 'Correspondant Axis'
+                    : pickupModeLabel(quote.pickupMode, parcelDraft.relayPointLabel)}
+                />
               ) : null}
             </View>
           ) : null}
@@ -377,8 +385,8 @@ export function QuoteReviewScreen() {
           ) : null}
           {isParcel ? (
             <DetailRow
-              label="Étiquette & preuve de dépôt"
-              sub="Étiquette QR + récépissé PDF"
+              label={parcelDraft.flow === 'VEHICLE' ? 'Remise du véhicule' : 'Étiquette & preuve de dépôt'}
+              sub={parcelDraft.flow === 'VEHICLE' ? 'Reçu de remise et photos du véhicule' : 'Étiquette QR + récépissé PDF'}
               value="Inclus"
               included
             />
@@ -701,7 +709,8 @@ function gridLineSub(l: QuoteLine, pickupMode: string): string {
   if (l.code === 'CUSTOMS_FEE') return 'Forfait par envoi, effets personnels';
   if (l.code === 'MINIMUM') return 'Complément jusqu\'au minimum de perception';
   if (l.code === 'PICKUP') return pickupSub(pickupMode);
-  if (l.unit === 'fee' || l.unit === 'forfait') return 'Option ajoutée';
+  if (l.code === 'CONVOY_TO_PORT') return `Convoyeur Axis · ${fmtEur(l.unitCents)} par véhicule`;
+  if (l.unit === 'fee') return 'Option ajoutée';
   const unit = `${fmtEur(l.unitCents)} ${unitWordFor(l.code, l.unit)}`;
   return l.maxUnitCents && l.maxUnitCents > l.unitCents
     ? `Prix de départ ${unit} · jusqu'à ${fmtEur(l.maxUnitCents)} selon taille et destination`

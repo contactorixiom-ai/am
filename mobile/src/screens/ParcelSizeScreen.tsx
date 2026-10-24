@@ -11,6 +11,7 @@ import {
   ParcelKind,
   PARCEL_KINDS,
 } from '../state/ParcelDraftContext';
+import { ShipmentFlow } from '../api/quotes';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
@@ -21,6 +22,8 @@ interface Props {
   service?: 'PARCEL' | 'MERCHANDISE';
   /** Ouvre l'écran « Nos tarifs ». */
   onOpenTariffs?: () => void;
+  /** Voiture vers l'Afrique ou import Afrique → Europe. */
+  flow?: ShipmentFlow;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,10 +32,91 @@ interface Props {
 // Exporté comme composant pour pouvoir être réutilisé soit en route Stack
 // dédiée (cf. report orchestrateur) soit en sous-vue de ParcelRequestScreen.
 // ─────────────────────────────────────────────────────────────────────────────
-export function ParcelSizeScreen({ draft, onChange, service = 'PARCEL', onOpenTariffs }: Props) {
+export function ParcelSizeScreen({ draft, onChange, service = 'PARCEL', onOpenTariffs, flow }: Props) {
   const { theme } = useTheme();
   const [photoLocal, setPhotoLocal] = useState<string | undefined>(draft.photoUri);
   const [weightText, setWeightText] = useState(draft.weightKg ? String(draft.weightKg) : '');
+
+  // Voiture vers l'Afrique : type de véhicule (prix RORO) et identification.
+  if (flow === 'VEHICLE') {
+    return (
+      <View style={{ gap: SPACING.lg }}>
+        <View>
+          <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
+            Quel véhicule expédier ?
+          </Text>
+          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
+            Choisis son gabarit : le prix de la grille Axis s'affiche en bas.
+          </Text>
+        </View>
+        <TariffItemsPicker
+          service="VEHICLE"
+          counts={draft.items ?? {}}
+          onChange={(items) => onChange({ items })}
+          onOpenTariffs={onOpenTariffs ?? (() => {})}
+        />
+        <Surface>
+          <View style={{ gap: SPACING.md }}>
+            <Field
+              label="Marque et modèle"
+              value={draft.vehicleModel ?? ''}
+              onChangeText={(t) => onChange({ vehicleModel: t })}
+              placeholder="ex : Toyota Corolla"
+              autoCapitalize="words"
+            />
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <Field
+                containerStyle={{ flex: 1 }}
+                label="Immatriculation"
+                value={draft.vehiclePlate ?? ''}
+                onChangeText={(t) => onChange({ vehiclePlate: t.toUpperCase() })}
+                placeholder="AB-123-CD"
+                autoCapitalize="characters"
+              />
+              <Field
+                containerStyle={{ width: 110 }}
+                label="Année"
+                value={draft.vehicleYear ?? ''}
+                onChangeText={(t) => onChange({ vehicleYear: t.replace(/[^0-9]/g, '').slice(0, 4) })}
+                placeholder="2015"
+                keyboardType="number-pad"
+              />
+            </View>
+            <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, lineHeight: 17 }}>
+              Prévoir la carte grise (ou le certificat de cession) et une pièce d'identité : Axis en a besoin pour les documents d'export.
+            </Text>
+          </View>
+        </Surface>
+      </View>
+    );
+  }
+
+  // Import Afrique → Europe : épicerie au kg, échantillons au forfait (aérien)
+  // ou artisanat au m³ (maritime).
+  if (flow === 'IMPORT') {
+    const air = draft.transportMode !== 'SEA';
+    return (
+      <View style={{ gap: SPACING.lg }}>
+        <View>
+          <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
+            {air ? 'Que fais-tu venir par avion ?' : 'Quel volume par bateau ?'}
+          </Text>
+          <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
+            {air
+              ? 'Indique les kilos d\'épicerie ou d\'épices, ou un forfait échantillons : le prix de la grille Axis s\'affiche en bas.'
+              : 'Indique le volume en m³ (caisses d\'artisanat, sculptures) : le prix de la grille Axis s\'affiche en bas.'}
+          </Text>
+        </View>
+        <TariffItemsPicker
+          service="IMPORT"
+          mode={air ? 'AIR' : 'SEA'}
+          counts={draft.items ?? {}}
+          onChange={(items) => onChange({ items })}
+          onOpenTariffs={onOpenTariffs ?? (() => {})}
+        />
+      </View>
+    );
+  }
 
   // Maritime : prix de la grille à la pièce (fûts, cartons…) ou au m³. Le
   // poids ne fait pas le prix ; il reste utile aux documents de transport.

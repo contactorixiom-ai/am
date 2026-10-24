@@ -3,7 +3,7 @@
 // ici, pour que l'écran « Nos tarifs », le choix des articles et le devis
 // affichent toujours les mêmes prix.
 import { useEffect, useState } from 'react';
-import { getTariffs, QuoteItemInput, TariffItem, TariffSheet } from '../api/quotes';
+import { getTariffs, QuoteItemInput, TariffFlow, TariffItem, TariffSheet } from '../api/quotes';
 
 /** « 100 € », « 8,50 € » : décimales seulement quand il y en a. */
 export function eurShort(cents: number): string {
@@ -38,8 +38,8 @@ export function tariffItemLabel(item: TariffItem): string {
 }
 
 /** Articles commandables en ligne dans un parcours. */
-export function orderableItems(sheet: TariffSheet, service: 'PARCEL' | 'MERCHANDISE'): TariffItem[] {
-  return sheet.items.filter((i) => i.orderable?.service === service);
+export function orderableItems(sheet: TariffSheet, service: TariffFlow, mode?: 'SEA' | 'AIR'): TariffItem[] {
+  return sheet.items.filter((i) => i.orderable?.service === service && (!mode || i.orderable.mode === mode));
 }
 
 /** Quantités saisies (code → quantité) → articles à envoyer au serveur. */

@@ -12,9 +12,9 @@ import type { QuoteLine } from '../quotes/pricing';
 function itemsFromQuoteLines(raw: Prisma.JsonValue | null): { description: string; quantity: number }[] {
   if (!Array.isArray(raw)) return [];
   return (raw as unknown as QuoteLine[])
-    .filter((l) => l && (l.unit === 'piece' || l.unit === 'm3'))
-    .map((l) => (l.unit === 'm3'
-      ? { description: `${l.label} — ${String(l.quantity).replace('.', ',')} m³`, quantity: 1 }
+    .filter((l) => l && (l.unit === 'piece' || l.unit === 'm3' || l.unit === 'kg' || l.unit === 'forfait'))
+    .map((l) => (l.unit === 'm3' || l.unit === 'kg'
+      ? { description: `${l.label.replace(/ — minimum .*$/, '')} — ${String(l.quantity).replace('.', ',')} ${l.unit === 'm3' ? 'm³' : 'kg'}`, quantity: 1 }
       : { description: l.label, quantity: Math.max(1, Math.round(l.quantity)) }));
 }
 

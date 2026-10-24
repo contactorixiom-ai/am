@@ -4,7 +4,7 @@
 // total est calculé par le serveur (barre de tarif en bas de l'écran).
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
-import { TariffItem } from '../api/quotes';
+import { TariffFlow, TariffItem } from '../api/quotes';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { eurShort, orderableItems, tariffEmoji, tariffUnitWord, useTariffs } from '../utils/tariffs';
@@ -13,7 +13,9 @@ import { Icons } from './Icons';
 import { Surface } from './Surface';
 
 interface Props {
-  service: 'PARCEL' | 'MERCHANDISE';
+  service: TariffFlow;
+  /** Import : n'affiche que les articles de ce mode (aérien ou maritime). */
+  mode?: 'SEA' | 'AIR';
   counts: Record<string, number>;
   onChange: (counts: Record<string, number>) => void;
   onOpenTariffs: () => void;
@@ -29,7 +31,7 @@ function priceLine(item: TariffItem): string {
   return `${eurShort(item.minCents)} ${unit}`;
 }
 
-export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: Props) {
+export function TariffItemsPicker({ service, mode, counts, onChange, onOpenTariffs }: Props) {
   const { theme } = useTheme();
   const { sheet, failed, reload } = useTariffs();
 
@@ -62,7 +64,7 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
     );
   }
 
-  const items = orderableItems(sheet, service);
+  const items = orderableItems(sheet, service, mode);
   return (
     <Surface>
       <Text
@@ -75,7 +77,7 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
           marginBottom: SPACING.sm,
         }}
       >
-        {service === 'PARCEL' ? 'Ce que tu envoies' : 'Volume à expédier'}
+        {service === 'VEHICLE' ? 'Type de véhicule' : service === 'IMPORT' ? 'Ce que tu fais venir' : service === 'PARCEL' ? 'Ce que tu envoies' : 'Volume à expédier'}
       </Text>
       <View>
         {items.map((item, i) => (
@@ -104,11 +106,21 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
                   {item.included}
                 </Text>
               ) : null}
+              {service === 'IMPORT' && item.note ? (
+                <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 11.5, marginTop: 1, lineHeight: 15 }}>
+                  {item.note}
+                </Text>
+              ) : null}
             </View>
-            {item.unit === 'm3' ? (
-              <VolumeInput value={counts[item.code]} onChange={(v) => setCount(item.code, v)} />
+            {item.unit === 'm3' || item.unit === 'kg' ? (
+              <VolumeInput value={counts[item.code]} onChange={(v) => setCount(item.code, v)} unit={item.unit} />
             ) : (
-              <Stepper value={counts[item.code] ?? 0} onChange={(v) => setCount(item.code, v)} label={item.label} />
+              <Stepper
+                value={counts[item.code] ?? 0}
+                onChange={(v) => setCount(item.code, v)}
+                label={item.label}
+                max={service === 'VEHICLE' ? 5 : item.unit === 'forfait' ? 10 : MAX_PIECES}
+              />
             )}
           </View>
         ))}
@@ -125,7 +137,11 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
           gap: 3,
         }}
       >
-        {service === 'PARCEL' ? (
+        {service === 'VEHICLE' ? (
+          <Text style={{ color: theme.goldDeep, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+            Option à l'étape suivante : Axis convoie le véhicule jusqu'au port
+          </Text>
+        ) : service === 'PARCEL' ? (
           <Text style={{ color: theme.goldDeep, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
             + {eurShort(sheet.customsFeeCents)} TTC de frais de douane par envoi
           </Text>
@@ -135,7 +151,9 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
           </Text>
         )}
         <Text style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12, lineHeight: 16 }}>
-          Prix « dès » : le prix de départ est réglé à la commande, Axis le confirme au dépôt selon la taille et la destination.
+          {service === 'VEHICLE'
+            ? 'Prix « dès » : le prix de départ est réglé à la commande, Axis le confirme à la remise du véhicule selon le gabarit et la destination.'
+            : 'Prix « dès » : le prix de départ est réglé à la commande, Axis le confirme au dépôt selon la taille et la destination.'}
         </Text>
       </View>
 
@@ -147,7 +165,7 @@ export function TariffItemsPicker({ service, counts, onChange, onOpenTariffs }: 
   );
 }
 
-function Stepper({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
+function Stepper({ value, onChange, label, max = MAX_PIECES }: { value: number; onChange: (v: number) => void; label: string; max?: number }) {
   const { theme } = useTheme();
   const btn = (enabled: boolean) => ({
     width: 34,
@@ -173,8 +191,8 @@ function Stepper({ value, onChange, label }: { value: number; onChange: (v: numb
         {value}
       </Text>
       <Pressable
-        onPress={() => onChange(Math.min(MAX_PIECES, value + 1))}
-        disabled={value >= MAX_PIECES}
+        onPress={() => onChange(Math.min(max, value + 1))}
+        disabled={value >= max}
         accessibilityLabel={`Ajouter un ${label.toLowerCase()}`}
         style={[btn(true), { backgroundColor: theme.navy, borderColor: theme.navy }]}
       >
@@ -184,7 +202,8 @@ function Stepper({ value, onChange, label }: { value: number; onChange: (v: numb
   );
 }
 
-function VolumeInput({ value, onChange }: { value?: number; onChange: (v: number) => void }) {
+function VolumeInput({ value, onChange, unit = 'm3' }: { value?: number; onChange: (v: number) => void; unit?: 'm3' | 'kg' }) {
+  const maxValue = unit === 'kg' ? 1000 : 100;
   const { theme } = useTheme();
   const [text, setText] = useState(value ? String(value).replace('.', ',') : '');
   return (
@@ -195,12 +214,12 @@ function VolumeInput({ value, onChange }: { value?: number; onChange: (v: number
           const clean = t.replace(/[^0-9.,]/g, '');
           setText(clean);
           const n = parseFloat(clean.replace(',', '.'));
-          onChange(Number.isFinite(n) && n > 0 ? Math.min(100, Math.round(n * 100) / 100) : 0);
+          onChange(Number.isFinite(n) && n > 0 ? Math.min(maxValue, Math.round(n * 100) / 100) : 0);
         }}
         keyboardType="decimal-pad"
         placeholder="0"
         placeholderTextColor={theme.faint}
-        accessibilityLabel="Volume en mètres cubes"
+        accessibilityLabel={unit === 'kg' ? 'Poids en kilos' : 'Volume en mètres cubes'}
         style={{
           width: 64,
           paddingVertical: 8,
@@ -215,7 +234,7 @@ function VolumeInput({ value, onChange }: { value?: number; onChange: (v: number
           textAlign: 'right',
         }}
       />
-      <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>m³</Text>
+      <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>{unit === 'kg' ? 'kg' : 'm³'}</Text>
     </View>
   );
 }

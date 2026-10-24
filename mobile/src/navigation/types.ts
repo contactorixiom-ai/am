@@ -1,4 +1,4 @@
-import { City, PickupMode, QuoteItemInput, QuoteResponse } from '../api/quotes';
+import { City, PickupMode, QuoteItemInput, QuoteResponse, ShipmentFlow } from '../api/quotes';
 
 export interface ParcelDraft {
   from: City;
@@ -11,6 +11,8 @@ export interface ParcelDraft {
   service?: 'PARCEL' | 'MERCHANDISE';
   /** Maritime : articles de la grille tarifaire et quantités. */
   items?: QuoteItemInput[];
+  /** Voiture vers l'Afrique ou import Afrique → Europe. */
+  flow?: ShipmentFlow;
 }
 
 export type RootStackParamList = {
@@ -25,7 +27,7 @@ export type RootStackParamList = {
   ServicePicker: undefined;
   Tariffs: undefined;
   CarRequest: { service?: 'CONVOY_CAR' | 'CONVOY_MOTO' } | undefined;
-  ParcelRequest: { service?: 'PARCEL' | 'MERCHANDISE' } | undefined;
+  ParcelRequest: { service?: 'PARCEL' | 'MERCHANDISE'; flow?: ShipmentFlow } | undefined;
   PickupMode: { draft: ParcelDraft };
   RelayPointPicker: { draft: ParcelDraft };
   HomePickupAddress: { draft: ParcelDraft };

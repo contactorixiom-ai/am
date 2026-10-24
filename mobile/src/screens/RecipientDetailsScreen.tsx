@@ -17,6 +17,7 @@ import { mapKindToApiCategory, PARCEL_KINDS, useParcelDraft } from '../state/Par
 import { useTheme } from '../theme/ThemeProvider';
 import { SPACING, TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
+import { useSession } from '../state/SessionContext';
 
 export function RecipientDetailsScreen() {
   const { theme } = useTheme();
@@ -33,6 +34,22 @@ export function RecipientDetailsScreen() {
   const [deliverToRelay, setDeliverToRelay] = useState(parcelDraft.deliverToAxisRelay ?? false);
   const [loading, setLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const { user } = useSession();
+  const flow = parcelDraft.flow;
+  // Import : l'expéditeur au pays, qui dépose chez le correspondant Axis.
+  const [senderName, setSenderName] = useState(parcelDraft.senderName ?? '');
+  const [senderPhone, setSenderPhone] = useState(parcelDraft.senderPhone ?? '');
+  const fillWithMe = () => {
+    if (!user) return;
+    setFirstName(user.firstName ?? '');
+    setLastName(user.lastName ?? '');
+    setPhone(user.phone ?? '');
+    setEmail(user.email ?? '');
+    if (user.billingAddress) {
+      setAddress(user.billingAddress);
+      setDeliverToRelay(false);
+    }
+  };
 
   const handleSaveLater = async () => {
     setDraft({
@@ -51,6 +68,10 @@ export function RecipientDetailsScreen() {
   const validate = (): boolean => {
     if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
       notify('Champs manquants', 'Prénom, nom et téléphone sont requis.');
+      return false;
+    }
+    if (flow === 'IMPORT' && (!senderName.trim() || !senderPhone.trim())) {
+      notify('Expéditeur', `Indique le nom et le téléphone de la personne qui dépose l'envoi à ${quote.fromCity}.`);
       return false;
     }
     if (!deliverToRelay && !address.trim()) {
@@ -85,22 +106,26 @@ export function RecipientDetailsScreen() {
       recipientEmail: email.trim() || undefined,
       destinationAddress,
       deliverToAxisRelay: deliverToRelay,
+      senderName: senderName.trim() || undefined,
+      senderPhone: senderPhone.trim() || undefined,
     });
     setLoading(true);
     try {
       const parcel = await createParcel({
         quoteId: quote.id,
-        category: mapKindToApiCategory(parcelDraft.kind, parcelDraft.customsCategory),
+        category: flow === 'VEHICLE' ? 'OTHER' : mapKindToApiCategory(parcelDraft.kind, parcelDraft.customsCategory),
         transportMode: quote.transportMode === 'SEA' ? 'SEA' : 'AIR',
         pickupMode: parcelDraft.pickupMode ?? 'HUB_DROP_OFF',
         relayPointId: parcelDraft.relayPointId,
         pickupAddress: parcelDraft.pickupAddress,
-        pickupAt: parcelDraft.pickupAt,
+        // Ancien brouillon : le créneau pouvait être un libellé, pas une date.
+        pickupAt: parcelDraft.pickupAt && !Number.isNaN(Date.parse(parcelDraft.pickupAt)) ? parcelDraft.pickupAt : undefined,
         // Maritime à la pièce : le poids est facultatif (pesé au dépôt).
         weightKg: quote.weightKg ?? parcelDraft.weightKg ?? (quote.lines?.length ? 0 : 1),
         description: parcelDraft.description,
         originCountry: quote.fromCountry,
         originCity: quote.fromCity,
+        originAddress: flow === 'IMPORT' ? `Expéditeur : ${senderName.trim()} · ${senderPhone.trim()}` : undefined,
         destinationCountry: quote.toCountry,
         destinationCity: quote.toCity,
         destinationAddress,
@@ -138,12 +163,18 @@ export function RecipientDetailsScreen() {
         <ScrollView contentContainerStyle={{ padding: SPACING.lg, paddingBottom: 120, gap: SPACING.lg }}>
           <View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-              À qui livrer le colis ?
+              {flow === 'IMPORT' ? 'Qui reçoit l\'envoi en France ?' : flow === 'VEHICLE' ? 'Qui réceptionne le véhicule ?' : 'À qui livrer le colis ?'}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
               {quote.toCity} · {quote.toCountry}
             </Text>
           </View>
+
+          {flow === 'IMPORT' && user ? (
+            <Button kind="outline" size="md" onPress={fillWithMe} leftIcon={<Icons.user size={16} color={theme.navy} stroke={1.9} />}>
+              C'est moi qui reçois
+            </Button>
+          ) : null}
 
           {/* Coordonnées destinataire */}
           <Surface>
@@ -169,8 +200,8 @@ export function RecipientDetailsScreen() {
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
-                placeholder="+221 77 123 45 67"
-                hint="Indispensable : Axis appelle le destinataire pour organiser la remise"
+                placeholder={flow === 'IMPORT' ? '+33 6 12 34 56 78' : '+221 77 123 45 67'}
+                hint={flow === 'VEHICLE' ? 'Indispensable : Axis appelle cette personne à l\'arrivée du navire' : 'Indispensable : Axis appelle le destinataire pour organiser la remise'}
               />
               <Field
                 label="Email (optionnel)"
@@ -195,7 +226,7 @@ export function RecipientDetailsScreen() {
               placeholder="Numéro, rue, quartier, ville"
               multiline
               numberOfLines={3}
-              hint="ex : Sicap Liberté 6, villa n°2843, Dakar"
+              hint={flow === 'IMPORT' ? 'ex : 12 rue de la République, 69002 Lyon' : 'ex : Sicap Liberté 6, villa n°2843, Dakar'}
               editable={!deliverToRelay}
             />
             <Pressable
@@ -230,6 +261,25 @@ export function RecipientDetailsScreen() {
               </View>
             </Pressable>
           </Surface>
+
+          {flow === 'IMPORT' ? (
+            <Surface>
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: SPACING.md }}>
+                {`Expéditeur à ${quote.fromCity}`}
+              </Text>
+              <View style={{ gap: SPACING.md }}>
+                <Field label="Nom et prénom" value={senderName} onChangeText={setSenderName} autoCapitalize="words" />
+                <Field
+                  label="Téléphone"
+                  value={senderPhone}
+                  onChangeText={setSenderPhone}
+                  keyboardType="phone-pad"
+                  placeholder="+221 77 123 45 67"
+                  hint="Axis lui envoie l'adresse du correspondant et l'appelle pour le dépôt"
+                />
+              </View>
+            </Surface>
+          ) : null}
 
           {/* Éléments rassurants */}
           <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>

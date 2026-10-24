@@ -5,8 +5,13 @@ import {
   MINIMUM_CHARGE_CENTS,
   TariffLine,
   TariffLineInput,
+  VEHICLE_DEPARTURE_PORT,
   priceTariffLines,
+  tariffItem,
 } from './tariffs';
+
+/** Parcours d'envoi particuliers : voiture vers l'Afrique, import Afrique → Europe. */
+export type ShipmentFlow = 'VEHICLE' | 'IMPORT';
 
 // ─────────────────────────────────────────────────────────────────────
 // TARIFS AXIS IMPORT (en cents pour éviter les arrondis flottants)
@@ -144,6 +149,10 @@ export interface QuoteComputationInput {
   pickupDistanceKm?: number;
   /** Articles de la grille (fûts, cartons, m³, palettes…) — envois maritimes. */
   items?: TariffLineInput[];
+  /** Voiture vers l'Afrique ou import Afrique → Europe (sinon colis / marchandise). */
+  flow?: ShipmentFlow;
+  /** Voiture : distance routière jusqu'au port, si Axis y convoie le véhicule. */
+  convoyToPortKm?: number;
 }
 
 export interface ComputedOption {
@@ -273,6 +282,7 @@ const eur = (cents: number) => `${(cents / 100).toLocaleString('fr-FR', { maximu
 // garde la décomposition HT / TVA attendue par la comptabilité, recalculée
 // à partir du prix TTC pour que le client paie exactement le prix affiché.
 function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
+  if (input.flow) return computeFlowQuote(input, input.flow);
   const service = input.service as 'PARCEL' | 'MERCHANDISE';
   let transportMode: TransportMode = input.transportMode === 'SEA' || input.transportMode === 'AIR'
     ? input.transportMode
@@ -395,6 +405,94 @@ function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
     lines,
     volumeM3,
     hints,
+  };
+}
+
+// Voiture vers l'Afrique (RORO) et import Afrique → Europe : même logique
+// TTC que les colis, avec leurs propres règles.
+//   - voiture : prix RORO à la pièce ; si Axis convoie le véhicule jusqu'au
+//     port, km × tarif de convoyage du type de véhicule (grille) ;
+//   - import : épicerie aérienne au kg (30 kg minimum), artisanat au m³,
+//     échantillons au forfait ; un seul mode par envoi ; minimum de
+//     perception sur le fret ; dépôt chez le correspondant Axis au départ.
+function computeFlowQuote(input: QuoteComputationInput, flow: ShipmentFlow): ComputedQuote {
+  if (!input.items || input.items.length === 0) {
+    throw new Error(flow === 'VEHICLE'
+      ? 'Indique le type de véhicule à expédier.'
+      : 'Indique ce que tu fais venir : épicerie, artisanat ou échantillons.');
+  }
+  const lines: QuoteLine[] = [...priceTariffLines(flow, input.items)];
+  const pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
+  let transportMode: TransportMode = 'SEA';
+
+  if (flow === 'VEHICLE') {
+    if (pickupMode === 'HOME_PICKUP') {
+      const km = Math.round(input.convoyToPortKm ?? 0);
+      if (km <= 0) throw new Error(`Distance jusqu'au ${VEHICLE_DEPARTURE_PORT.label} introuvable pour cette ville.`);
+      for (const l of [...lines]) {
+        const perKm = tariffItem(l.code)?.convoyPerKmCents ?? 0;
+        if (!perKm) continue;
+        const unitCents = Math.round(km * perKm);
+        lines.push({
+          code: 'CONVOY_TO_PORT',
+          label: `Convoyage jusqu'au ${VEHICLE_DEPARTURE_PORT.label} (${km} km${l.quantity > 1 ? `, ${l.quantity} véhicules` : ''})`,
+          quantity: l.quantity,
+          unit: 'fee',
+          unitCents,
+          totalCents: unitCents * l.quantity,
+        });
+      }
+    } else if (pickupMode !== 'HUB_DROP_OFF') {
+      throw new Error('Pour un véhicule : dépôt au port, ou convoyage jusqu\'au port par Axis.');
+    }
+  } else {
+    if (pickupMode !== 'HUB_DROP_OFF') {
+      throw new Error('Import : l\'envoi est déposé chez le correspondant Axis au départ.');
+    }
+    const modes = new Set(lines.map((l) => tariffItem(l.code)?.orderable?.mode));
+    if (modes.size > 1) {
+      throw new Error('Aérien et maritime partent séparément : fais une commande par mode.');
+    }
+    transportMode = modes.has('AIR') ? 'AIR' : 'SEA';
+    const freight = lines.reduce((sum, l) => sum + l.totalCents, 0);
+    if (freight < MINIMUM_CHARGE_CENTS) {
+      lines.push({
+        code: 'MINIMUM',
+        label: `Minimum de perception (${eur(MINIMUM_CHARGE_CENTS)})`,
+        quantity: 1,
+        unit: 'fee',
+        unitCents: MINIMUM_CHARGE_CENTS - freight,
+        totalCents: MINIMUM_CHARGE_CENTS - freight,
+      });
+    }
+  }
+
+  const totalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
+  const subtotalCents = Math.round(totalCents / (1 + TAX_RATE));
+  const ranged = lines.filter((l) => l.maxUnitCents && l.maxUnitCents > l.unitCents);
+  const disclaimer = ranged.length > 0
+    ? `Prix de départ : ${ranged.map((l) => `${l.label.toLowerCase()} jusqu'à ${eur(l.maxUnitCents as number)}${l.unit === 'm3' ? ' le m³' : l.unit === 'kg' ? ' le kg' : ' l\'unité'}`).join(', ')} selon ${flow === 'VEHICLE' ? 'le gabarit et la destination' : 'la marchandise et l\'origine'}. Axis confirme le prix ${flow === 'VEHICLE' ? 'à la remise du véhicule' : 'au dépôt'}.`
+    : null;
+  const volumeM3 = Math.round(lines.reduce((v, l) => v + (l.unit === 'm3' ? l.quantity : 0), 0) * 100) / 100 || undefined;
+
+  return {
+    transportMode,
+    pickupMode,
+    basePriceCents: 0,
+    variablePriceCents: subtotalCents,
+    pickupFeeCents: 0,
+    addonsPriceCents: 0,
+    subtotalCents,
+    taxRate: TAX_RATE,
+    taxCents: totalCents - subtotalCents,
+    totalCents,
+    currency: 'EUR',
+    uncertaintyPct: null,
+    disclaimer,
+    options: [],
+    lines,
+    volumeM3,
+    hints: [],
   };
 }
 

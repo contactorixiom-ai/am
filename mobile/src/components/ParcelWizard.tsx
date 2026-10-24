@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO, SAFE_AREA_TOP } from '../theme/tokens';
 import { Icons } from './Icons';
+import { useParcelDraft } from '../state/ParcelDraftContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ParcelWizard
@@ -23,6 +24,24 @@ export const PARCEL_STEPS: { label: string; short: string }[] = [
   { label: 'Paiement',     short: 'Paiement'    }, // 5
 ];
 
+// Mêmes étapes, nommées selon ce qu'on expédie.
+const VEHICLE_STEPS: { label: string; short: string }[] = [
+  { label: 'Trajet', short: 'Trajet' },
+  { label: 'Quel véhicule', short: 'Véhicule' },
+  { label: 'Douane', short: 'Douane' },
+  { label: 'Jusqu\'au port', short: 'Port' },
+  { label: 'Réception', short: 'Réception' },
+  { label: 'Paiement', short: 'Paiement' },
+];
+const IMPORT_STEPS: { label: string; short: string }[] = [
+  { label: 'Trajet', short: 'Trajet' },
+  { label: 'Quoi', short: 'Quoi' },
+  { label: 'Contenu', short: 'Contenu' },
+  { label: 'Dépôt au pays', short: 'Dépôt' },
+  { label: 'Destinataire', short: 'Destinataire' },
+  { label: 'Paiement', short: 'Paiement' },
+];
+
 interface ParcelWizardProps {
   /** Index 0-based de l'étape active. */
   step: number;
@@ -35,9 +54,11 @@ interface ParcelWizardProps {
 
 export function ParcelWizard({ step, onBack, onSaveLater, subtitle }: ParcelWizardProps) {
   const { theme } = useTheme();
-  const total = PARCEL_STEPS.length;
+  const { draft } = useParcelDraft();
+  const STEPS = draft.flow === 'VEHICLE' ? VEHICLE_STEPS : draft.flow === 'IMPORT' ? IMPORT_STEPS : PARCEL_STEPS;
+  const total = STEPS.length;
   const safeStep = Math.max(0, Math.min(step, total - 1));
-  const current = PARCEL_STEPS[safeStep];
+  const current = STEPS[safeStep];
 
   return (
     <View
@@ -119,7 +140,7 @@ export function ParcelWizard({ step, onBack, onSaveLater, subtitle }: ParcelWiza
 
       {/* Barre de progression — segments colorés */}
       <View style={{ flexDirection: 'row', gap: 4 }}>
-        {PARCEL_STEPS.map((s, i) => {
+        {STEPS.map((s, i) => {
           const done = i < safeStep;
           const active = i === safeStep;
           const color = done ? theme.good : active ? theme.gold : theme.bgSoft;
@@ -139,7 +160,7 @@ export function ParcelWizard({ step, onBack, onSaveLater, subtitle }: ParcelWiza
 
       {/* Mini-labels sous la barre — uniquement les étapes principales */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {PARCEL_STEPS.map((s, i) => (
+        {STEPS.map((s, i) => (
           <Text
             key={`${s.short}-${i}`}
             style={{

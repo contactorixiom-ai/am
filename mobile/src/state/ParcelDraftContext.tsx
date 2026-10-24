@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { PickupMode } from '../api/quotes';
+import { PickupMode, ShipmentFlow } from '../api/quotes';
 
 // ───────────────────────── Catégories & types ─────────────────────────
 // On garde l'enum côté UI cohérent avec `ParcelCategory` côté API.
@@ -27,6 +27,16 @@ export interface DraftCity {
 }
 
 export interface ParcelDraftState {
+  /** Parcours : voiture vers l'Afrique, import Afrique → Europe (sinon colis). */
+  flow?: ShipmentFlow;
+  /** Voiture : modèle, immatriculation, année. */
+  vehicleModel?: string;
+  vehiclePlate?: string;
+  vehicleYear?: string;
+  /** Import : l'expéditeur au pays, qui dépose chez le correspondant Axis. */
+  senderName?: string;
+  senderPhone?: string;
+
   // ─── Étape 1 — Depuis / Vers ────────────────────────────────
   from?: DraftCity;
   to?: DraftCity;

@@ -98,7 +98,10 @@ const PARCEL_EXCEPTIONS: { status: ParcelStatus; label: string; hint: string }[]
   { status: 'LOST', label: 'Perdu', hint: 'Colis égaré' },
 ];
 const parcelStatusLabel = (status: string): string =>
-  [...PARCEL_PIPELINE, ...PARCEL_EXCEPTIONS].find((s) => s.status === status)?.label ?? status;
+  status === 'AWAITING_PICKUP' ? 'À enlever'
+    : [...PARCEL_PIPELINE, ...PARCEL_EXCEPTIONS].find((s) => s.status === status)?.label ?? status;
+/** Enlèvement à domicile = même première étape que le dépôt. */
+const pipelineStatus = (status: string): string => (status === 'AWAITING_PICKUP' ? 'AWAITING_DROP_OFF' : status);
 
 // ─── Pré-remplissage d'une liasse depuis un envoi réel ───────────────────────
 // Les clés couvrent l'ensemble des types de documents : chaque formulaire ne
@@ -931,8 +934,8 @@ export function AdminScreen() {
 
                 <View style={{ gap: 6 }}>
                   {PARCEL_PIPELINE.map((s, i) => {
-                    const current = p.status === s.status;
-                    const idx = PARCEL_PIPELINE.findIndex((x) => x.status === p.status);
+                    const current = pipelineStatus(p.status) === s.status;
+                    const idx = PARCEL_PIPELINE.findIndex((x) => x.status === pipelineStatus(p.status));
                     const done = idx >= 0 && i < idx;
                     return (
                       <Pressable
@@ -2069,6 +2072,26 @@ export function AdminScreen() {
                 <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium }}>
                   {p.originCity} → {p.destinationCity} ({p.destinationCountry}) · {parcelLoadLabel(p)}
                 </Text>
+                {p.description ? (
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={2}>
+                    {`Déclaré : ${p.description}`}
+                  </Text>
+                ) : null}
+                {/* À aller chercher : adresse et créneau ; import : l'expéditeur au pays. */}
+                {p.pickupAddress || p.originAddress ? (
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+                    {[
+                      p.originAddress,
+                      p.pickupAddress ? `Enlèvement : ${p.pickupAddress}` : null,
+                      p.pickupAt ? `le ${new Date(p.pickupAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${new Date(p.pickupAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : null,
+                    ].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
+                {p.recipientFirstName ? (
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                    {`Destinataire : ${p.recipientFirstName} ${p.recipientLastName ?? ''}${p.recipientPhone ? ` · ${p.recipientPhone}` : ''}`}
+                  </Text>
+                ) : null}
                 {p.priceCents ? (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     {paymentList.some((x) => x.parcelId === p.id && x.status === 'PAID') ? (

@@ -12,10 +12,13 @@ import {
 } from '../state/ParcelDraftContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
+import { ShipmentFlow } from '../api/quotes';
 
 interface Props {
   draft: ParcelDraftState;
   onChange: (updates: Partial<ParcelDraftState>) => void;
+  /** Voiture vers l'Afrique ou import Afrique → Europe. */
+  flow?: ShipmentFlow;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +27,7 @@ interface Props {
 // Récupère dynamiquement la fiche réglementaire du pays de destination via
 // l'API `customs` (avec fallback démo si offline).
 // ─────────────────────────────────────────────────────────────────────────────
-export function ParcelContentScreen({ draft, onChange }: Props) {
+export function ParcelContentScreen({ draft, onChange, flow }: Props) {
   const { theme } = useTheme();
   const [requirements, setRequirements] = useState<CountryRequirements | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
@@ -32,7 +35,8 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
     draft.declaredValueEur ? String(draft.declaredValueEur) : '',
   );
 
-  const country = draft.to?.country;
+  // Fiche douanière du pays africain : la destination, ou l'origine en import.
+  const country = flow === 'IMPORT' ? draft.from?.country : draft.to?.country;
 
   useEffect(() => {
     if (!country) return;
@@ -63,7 +67,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
     <View style={{ gap: SPACING.lg }}>
       <View>
         <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-          Que contient ton colis ?
+          {flow === 'VEHICLE' ? 'Le véhicule pour la douane' : flow === 'IMPORT' ? 'Que contient l\'envoi ?' : 'Que contient ton colis ?'}
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
           Ces informations servent à la déclaration en douane.
@@ -76,7 +80,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
           label="Description courte"
           value={draft.description ?? ''}
           onChangeText={(t) => onChange({ description: t })}
-          placeholder="ex : 3 robes en tissu, 1 paire de chaussures"
+          placeholder={flow === 'VEHICLE' ? 'ex : Toyota Corolla · AB-123-CD · 2015' : flow === 'IMPORT' ? 'ex : 20 kg de bissap séché, 10 kg de poivre de Penja' : 'ex : 3 robes en tissu, 1 paire de chaussures'}
           multiline
           numberOfLines={3}
           hint="Liste sommaire — pas besoin de tout détailler"
@@ -133,7 +137,7 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
       {/* Valeur déclarée */}
       <Surface>
         <Field
-          label="Valeur déclarée (€)"
+          label={flow === 'VEHICLE' ? 'Valeur du véhicule (€)' : 'Valeur déclarée (€)'}
           value={valueText}
           onChangeText={(t) => {
             setValueText(t);
@@ -188,9 +192,13 @@ export function ParcelContentScreen({ draft, onChange }: Props) {
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
             <Icons.shield size={18} color={theme.gold} stroke={1.8} />
             <Text style={{ flex: 1, color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>
-              Axis prépare les documents de douane{requirements?.countryName ? ` pour ${requirements.countryName}` : ''}
-              {requirements?.cargoMandatory && requirements.cargoTrackingType ? ` (dont le ${requirements.cargoTrackingType})` : ''}.
-              S'il manque une pièce, Axis te la demande.
+              {flow === 'IMPORT'
+                ? `Axis prépare les documents d'export${requirements?.countryName ? ` depuis ${requirements.countryName}` : ''} et d'import en France. Produits alimentaires secs et emballés uniquement. S'il manque une pièce (certificat d'origine, phytosanitaire…), Axis te la demande.`
+                : <>
+                    Axis prépare les documents de douane{requirements?.countryName ? ` pour ${requirements.countryName}` : ''}
+                    {requirements?.cargoMandatory && requirements.cargoTrackingType ? ` (dont le ${requirements.cargoTrackingType})` : ''}.
+                    S'il manque une pièce, Axis te la demande.
+                  </>}
             </Text>
           </View>
         </Surface>

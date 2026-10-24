@@ -12,7 +12,7 @@ import { Text, View } from 'react-native';
 import type { ParcelStatus, ParcelSummary } from '../api/parcels';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
-import { countryFlag, countryName } from '../utils/countries';
+import { countryFlag, countryName, isEuropean } from '../utils/countries';
 import { Icons } from './Icons';
 import { Surface } from './Surface';
 
@@ -28,17 +28,23 @@ interface Stage {
 function stagesFor(parcel: ParcelSummary, recipient?: string): Stage[] {
   const sea = parcel.transportMode !== 'AIR';
   const city = parcel.destinationCity;
+  // Import Afrique → Europe : dépôt chez le correspondant Axis au départ.
+  const imported = isEuropean(parcel.destinationCountry) && !isEuropean(parcel.originCountry);
   return [
     { key: 'ordered', statuses: ['DRAFT'], label: 'Commande confirmée', now: 'Axis prépare ton dossier et les documents de douane.' },
     {
       key: 'handover',
       statuses: ['AWAITING_DROP_OFF', 'AWAITING_PICKUP'],
-      label: parcel.status === 'AWAITING_PICKUP' ? 'Enlèvement à ton adresse' : 'Dépôt chez Axis',
-      now: parcel.status === 'AWAITING_PICKUP'
+      label: imported
+        ? `Dépôt chez le correspondant Axis à ${parcel.originCity}`
+        : parcel.status === 'AWAITING_PICKUP' ? 'Enlèvement à ton adresse' : 'Dépôt chez Axis',
+      now: imported
+        ? 'L\'expéditeur dépose l\'envoi : il est pesé et étiqueté sur place.'
+        : parcel.status === 'AWAITING_PICKUP'
         ? 'Axis vient chercher ton colis au créneau convenu.'
         : 'Dépose ton colis chez Axis : il sera pesé et étiqueté devant toi.',
     },
-    { key: 'received', statuses: ['RECEIVED'], label: 'Pris en charge par Axis', now: 'Contrôlé, pesé et étiqueté à l\'entrepôt, prêt pour le départ.' },
+    { key: 'received', statuses: ['RECEIVED'], label: 'Pris en charge par Axis', now: imported ? 'Contrôlé et emballé pour l\'export, documents en préparation.' : 'Contrôlé, pesé et étiqueté à l\'entrepôt, prêt pour le départ.' },
     {
       key: 'transit',
       statuses: ['IN_TRANSIT'],

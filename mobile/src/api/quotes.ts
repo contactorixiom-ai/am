@@ -59,6 +59,8 @@ export interface CreateQuoteInput {
   pickupDistanceKm?: number;
   /** Envoi maritime : articles de la grille et quantités. */
   items?: QuoteItemInput[];
+  /** Voiture vers l'Afrique ou import Afrique → Europe. */
+  flow?: ShipmentFlow;
 }
 
 export interface QuoteOption {
@@ -173,6 +175,10 @@ export async function listCities(region?: 'EU' | 'AFRICA'): Promise<City[]> {
 // envoi maritime affichent exactement les prix qui serviront au devis.
 
 export type TariffUnit = 'piece' | 'm3' | 'kg' | 'forfait';
+/** Parcours de commande sur la grille. */
+export type TariffFlow = 'PARCEL' | 'MERCHANDISE' | 'VEHICLE' | 'IMPORT';
+/** Parcours particuliers : voiture vers l'Afrique, import Afrique → Europe. */
+export type ShipmentFlow = 'VEHICLE' | 'IMPORT';
 export type TariffSectionId = 'EFFECTS' | 'GENERAL' | 'VEHICLES' | 'AIR' | 'EXPORT';
 
 export interface TariffItem {
@@ -186,7 +192,9 @@ export interface TariffItem {
   included?: string;
   note?: string;
   convoyPerKmCents?: number;
-  orderable?: { service: 'PARCEL' | 'MERCHANDISE'; mode: 'SEA' };
+  orderable?: { service: TariffFlow; mode: 'SEA' | 'AIR' };
+  /** Quantité minimale facturée (épicerie aérienne : 30 kg). */
+  minQuantity?: number;
   onQuote?: boolean;
 }
 

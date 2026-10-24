@@ -6,7 +6,7 @@ import { lookupCity } from '../../common/geocoding';
 import { roadDistanceKm } from '../../common/road-distance';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
-import { publicTariffSheet } from './tariffs';
+import { publicTariffSheet, VEHICLE_DEPARTURE_PORT } from './tariffs';
 
 const QUOTE_VALIDITY_DAYS = 30;
 
@@ -63,6 +63,13 @@ export class QuotesService {
       distanceKm = await roadDistanceKm(fromGeo, toGeo);
     }
 
+    // Voiture convoyée jusqu'au port par Axis : distance calculée ici, depuis
+    // la ville du véhicule, jamais reprise de la requête.
+    let convoyToPortKm: number | undefined;
+    if (dto.flow === 'VEHICLE' && dto.pickupMode === 'HOME_PICKUP' && fromGeo) {
+      convoyToPortKm = await roadDistanceKm(fromGeo, VEHICLE_DEPARTURE_PORT);
+    }
+
     try {
       const computed = computeQuote({
         service: dto.service,
@@ -76,6 +83,8 @@ export class QuotesService {
         vehicleCategory: dto.vehicleCategory,
         pickupDistanceKm: dto.pickupDistanceKm,
         items: dto.items,
+        flow: dto.flow,
+        convoyToPortKm,
       });
       return { fromGeo, toGeo, distanceKm, computed };
     } catch (e) {

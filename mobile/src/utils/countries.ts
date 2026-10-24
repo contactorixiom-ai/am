@@ -26,3 +26,10 @@ export function countryName(code?: string | null): string {
   const c = (code ?? '').trim().toUpperCase();
   return NAMES[c] ?? c;
 }
+
+const EUROPE = new Set(['FR', 'BE', 'LU', 'CH', 'DE', 'NL', 'ES', 'PT', 'IT', 'GB', 'IE', 'AT', 'PL', 'MC']);
+
+/** Pays d'Europe desservi (sens de l'envoi : import si la destination y est). */
+export function isEuropean(code?: string | null): boolean {
+  return EUROPE.has((code ?? '').trim().toUpperCase());
+}

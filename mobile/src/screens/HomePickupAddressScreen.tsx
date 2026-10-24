@@ -16,16 +16,25 @@ import { notify } from '../utils/notify';
 import { buildQuoteFromDraft } from './PickupModeScreen';
 
 // 3 créneaux types — demain matin / après-midi / surlendemain matin
-function buildSlots(): { id: string; label: string; sub: string }[] {
-  const today = new Date();
-  const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
-  const afterTomorrow = new Date(today.getTime() + 48 * 3600 * 1000);
+// `at` : début du créneau en date ISO, ce que le serveur attend. Le libellé
+// était envoyé tel quel (« dimanche 25 octobre — 9h-11h ») et toute commande
+// avec enlèvement était refusée au paiement (« date invalide »).
+function buildSlots(): { id: string; label: string; sub: string; at: string }[] {
+  const day = (offset: number, hour: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    d.setHours(hour, 0, 0, 0);
+    return d;
+  };
   const fmt = (d: Date) =>
     d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const tomorrowAm = day(1, 9);
+  const tomorrowPm = day(1, 14);
+  const afterAm = day(2, 9);
   return [
-    { id: 'tomorrow-am', label: `${fmt(tomorrow)} — 9h-11h`, sub: 'Demain matin' },
-    { id: 'tomorrow-pm', label: `${fmt(tomorrow)} — 14h-16h`, sub: 'Demain après-midi' },
-    { id: 'after-am', label: `${fmt(afterTomorrow)} — 9h-11h`, sub: 'Surlendemain matin' },
+    { id: 'tomorrow-am', label: `${fmt(tomorrowAm)} — 9h-11h`, sub: 'Demain matin', at: tomorrowAm.toISOString() },
+    { id: 'tomorrow-pm', label: `${fmt(tomorrowPm)} — 14h-16h`, sub: 'Demain après-midi', at: tomorrowPm.toISOString() },
+    { id: 'after-am', label: `${fmt(afterAm)} — 9h-11h`, sub: 'Surlendemain matin', at: afterAm.toISOString() },
   ];
 }
 
@@ -58,8 +67,10 @@ export function HomePickupAddressScreen() {
     try {
       setParcelDraft({
         pickupMode: 'HOME_PICKUP',
-        pickupAddress: address.trim(),
-        pickupAt: chosenSlot?.label,
+        // Les consignes (digicode, étage…) voyagent avec l'adresse : c'est ce
+        // que lit la personne qui vient chercher l'envoi.
+        pickupAddress: notes.trim() ? `${address.trim()} — ${notes.trim()}` : address.trim(),
+        pickupAt: chosenSlot?.at,
         pickupNotes: notes.trim() || undefined,
       });
       const quote = await buildQuoteFromDraft(draft, 'HOME_PICKUP');
@@ -76,7 +87,7 @@ export function HomePickupAddressScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ParcelWizard
         step={3}
-        subtitle="Domicile"
+        subtitle={draft.flow === 'VEHICLE' ? 'Convoyage' : 'Domicile'}
         onBack={() => nav.goBack()}
         onSaveLater={handleSaveLater}
       />
@@ -84,10 +95,10 @@ export function HomePickupAddressScreen() {
         <ScrollView contentContainerStyle={{ padding: SPACING.lg, paddingBottom: 120, gap: SPACING.lg }}>
           <View>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS, letterSpacing: -0.3 }}>
-              Où venir chercher ton colis ?
+              {draft.flow === 'VEHICLE' ? 'Où se trouve le véhicule ?' : 'Où venir chercher ton colis ?'}
             </Text>
             <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
-              Notre transporteur partenaire passe sur un créneau de 2h.
+              {draft.flow === 'VEHICLE' ? 'Un convoyeur Axis vient chercher le véhicule et le conduit jusqu\'au port du Havre.' : 'Notre transporteur partenaire passe sur un créneau de 2h.'}
             </Text>
           </View>
 
@@ -115,7 +126,7 @@ export function HomePickupAddressScreen() {
                 marginBottom: SPACING.md,
               }}
             >
-              Créneau d'enlèvement
+              {draft.flow === 'VEHICLE' ? 'Quand le convoyeur peut-il passer ?' : 'Créneau d\'enlèvement'}
             </Text>
             <View style={{ gap: 8 }}>
               {slots.map((s) => {
@@ -177,13 +188,15 @@ export function HomePickupAddressScreen() {
 
           <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-              <Text style={{ fontSize: 18 }}>📦</Text>
+              <Text style={{ fontSize: 18 }}>{draft.flow === 'VEHICLE' ? '🔑' : '📦'}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>
-                  Préparation du colis
+                  {draft.flow === 'VEHICLE' ? 'Préparation du véhicule' : 'Préparation du colis'}
                 </Text>
                 <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 4 }}>
-                  Emballe ton colis dans un carton solide avec ton nom et le numéro de référence visible. Le transporteur t'apporte l'étiquette.
+                  {draft.flow === 'VEHICLE'
+                    ? 'Prévois la carte grise, un double des clés et un quart de réservoir. Vide l\'habitacle : rien ne doit voyager dans la voiture.'
+                    : 'Emballe ton colis dans un carton solide avec ton nom et le numéro de référence visible. Le transporteur t\'apporte l\'étiquette.'}
                 </Text>
               </View>
             </View>
