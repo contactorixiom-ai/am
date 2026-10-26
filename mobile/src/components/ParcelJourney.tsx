@@ -25,11 +25,17 @@ interface Stage {
   now: string;
 }
 
+/** Voiture expédiée (RORO) : reconnue au contenu commandé. */
+export function isVehicleShipment(parcel: ParcelSummary): boolean {
+  return (parcel.items ?? []).some((i) => /^(Voiture|SUV|Utilitaire)\b/.test(i.description));
+}
+
 function stagesFor(parcel: ParcelSummary, recipient?: string): Stage[] {
   const sea = parcel.transportMode !== 'AIR';
   const city = parcel.destinationCity;
   // Import Afrique → Europe : dépôt chez le correspondant Axis au départ.
   const imported = isEuropean(parcel.destinationCountry) && !isEuropean(parcel.originCountry);
+  const vehicle = isVehicleShipment(parcel);
   return [
     { key: 'ordered', statuses: ['DRAFT'], label: 'Commande confirmée', now: 'Axis prépare ton dossier et les documents de douane.' },
     {
@@ -37,9 +43,15 @@ function stagesFor(parcel: ParcelSummary, recipient?: string): Stage[] {
       statuses: ['AWAITING_DROP_OFF', 'AWAITING_PICKUP'],
       label: imported
         ? `Dépôt chez le correspondant Axis à ${parcel.originCity}`
+        : vehicle
+        ? parcel.status === 'AWAITING_PICKUP' ? 'Convoyage jusqu\'au port' : 'Remise au port'
         : parcel.status === 'AWAITING_PICKUP' ? 'Enlèvement à ton adresse' : 'Dépôt chez Axis',
       now: imported
         ? 'L\'expéditeur dépose l\'envoi : il est pesé et étiqueté sur place.'
+        : vehicle
+        ? parcel.status === 'AWAITING_PICKUP'
+          ? 'Un convoyeur Axis vient chercher la voiture au créneau convenu et la conduit au port.'
+          : 'Dépose la voiture au port au rendez-vous fixé par Axis, avec la carte grise et les clés.'
         : parcel.status === 'AWAITING_PICKUP'
         ? 'Axis vient chercher ton colis au créneau convenu.'
         : 'Dépose ton colis chez Axis : il sera pesé et étiqueté devant toi.',
@@ -49,7 +61,9 @@ function stagesFor(parcel: ParcelSummary, recipient?: string): Stage[] {
       key: 'transit',
       statuses: ['IN_TRANSIT'],
       label: sea ? 'En mer' : 'En vol',
-      now: sea ? `Ton colis traverse vers ${city}, en conteneur.` : `Ton colis est en route vers ${city}.`,
+      now: vehicle
+        ? `La voiture navigue vers ${city}, à bord d'un navire roulier.`
+        : sea ? `Ton colis traverse vers ${city}, en conteneur.` : `Ton colis est en route vers ${city}.`,
     },
     { key: 'customs', statuses: ['CUSTOMS'], label: `Arrivé à ${city} · douane`, now: 'Axis s\'occupe du dédouanement à l\'arrivée.' },
     {

@@ -73,3 +73,32 @@ export async function shareParcelTracking(parcel: ParcelSummary): Promise<void> 
     notify('Lien de suivi', url);
   }
 }
+
+/** Import : l'expéditeur au pays, enregistré sous « Expéditeur : Nom · téléphone ». */
+export function senderOf(parcel: ParcelSummary): { name: string; phone: string } | null {
+  const m = /^Expéditeur : (.+?) · (.+)$/.exec(parcel.originAddress ?? '');
+  return m ? { name: m[1].trim(), phone: m[2].trim() } : null;
+}
+
+/** Import : prévient l'expéditeur au pays de déposer l'envoi chez le correspondant. */
+export async function whatsappSender(parcel: ParcelSummary): Promise<void> {
+  const sender = senderOf(parcel);
+  if (!sender) return;
+  const first = sender.name.split(/\s+/)[0];
+  const text = encodeURIComponent([
+    `Bonjour ${first}, j'ai commandé l'envoi de ${contents(parcel)} de ${parcel.originCity} vers ${parcel.destinationCity} avec Axis Import.`,
+    `Le correspondant Axis à ${parcel.originCity} va t'appeler pour te donner l'adresse et les horaires de dépôt.`,
+    `Référence à donner au dépôt : ${parcel.reference}. Suivi : ${trackingLink(parcel.reference)}`,
+  ].join('\n\n'));
+  const digits = sender.phone.replace(/[^\d]/g, '').replace(/^00/, '');
+  const url = `https://wa.me/${digits}?text=${text}`;
+  try {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    await Linking.openURL(url);
+  } catch {
+    notify('WhatsApp indisponible', `Appelle ${sender.name} au ${sender.phone}.`);
+  }
+}

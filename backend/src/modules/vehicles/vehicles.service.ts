@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
@@ -7,14 +7,28 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 export class VehiclesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(ownerId: string, dto: CreateVehicleDto) {
-    return this.prisma.vehicle.create({
-      data: {
-        ownerId,
-        ...dto,
-        insuranceExpiresAt: dto.insuranceExpiresAt ? new Date(dto.insuranceExpiresAt) : null,
-      },
+  async create(ownerId: string, dto: CreateVehicleDto) {
+    const data = {
+      ...dto,
+      insuranceExpiresAt: dto.insuranceExpiresAt ? new Date(dto.insuranceExpiresAt) : null,
+    };
+    // Une immatriculation n'existe qu'une fois. Un client qui fait convoyer
+    // deux fois la même voiture (ou qui recommande après un paiement
+    // abandonné) était bloqué : « véhicule déjà enregistré ». On reprend sa
+    // fiche, mise à jour avec ce qu'il vient de saisir.
+    const existing = await this.prisma.vehicle.findFirst({
+      where: { licensePlate: dto.licensePlate, registrationCountry: dto.registrationCountry ?? null },
+      select: { id: true, ownerId: true },
     });
+    if (existing) {
+      if (existing.ownerId !== ownerId) {
+        throw new ConflictException(
+          'Ce véhicule est déjà enregistré par un autre client. Contactez Axis Import, qui le rattachera à votre compte.',
+        );
+      }
+      return this.prisma.vehicle.update({ where: { id: existing.id }, data: { ...data, deletedAt: null } });
+    }
+    return this.prisma.vehicle.create({ data: { ownerId, ...data } });
   }
 
   async listByOwner(ownerId: string, skip: number, take: number) {

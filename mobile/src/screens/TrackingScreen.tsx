@@ -7,7 +7,9 @@ import { ApiError } from '../api/client';
 import { getMission, listMissions, MissionDetail } from '../api/missions';
 import { getParcel, ParcelSummary, trackParcel } from '../api/parcels';
 import { ParcelJourney } from '../components/ParcelJourney';
-import { shareParcelTracking, whatsappRecipient } from '../utils/parcelShare';
+import { senderOf, shareParcelTracking, whatsappRecipient, whatsappSender } from '../utils/parcelShare';
+import { isEuropean } from '../utils/countries';
+import { isVehicleShipment } from '../components/ParcelJourney';
 import { AppBar } from '../components/AppBar';
 import { Avatar } from '../components/Avatar';
 import { DotLoader } from '../components/DotLoader';
@@ -218,7 +220,11 @@ export function TrackingScreen() {
               missionId={mission?.id ?? route.params.id}
             />
           ) : kind === 'parcel' && parcel ? (
-            <ParcelJourney parcel={parcel} recipientFirstName={parcel.recipientFirstName ?? undefined} />
+            <ParcelJourney
+              parcel={parcel}
+              recipientFirstName={parcel.recipientFirstName ?? undefined}
+              title={isVehicleShipment(parcel) ? 'Le voyage de ta voiture' : 'Le voyage de ton colis'}
+            />
           ) : parcelRoute ? (
             // Vraie carte : Apple Plans sur iPhone, Google Maps sur Android,
             // OpenStreetMap sur le web. L'illustration ne servait à rien.
@@ -311,15 +317,29 @@ export function TrackingScreen() {
                     </View>
                   </View>
                   {parcel.status !== 'DELIVERED' && parcel.status !== 'CANCELLED' ? (
-                    <Button
-                      kind="gold"
-                      size="md"
-                      fullWidth
-                      leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
-                      onPress={() => { void whatsappRecipient(parcel); }}
-                    >
-                      {`Prévenir ${parcel.recipientFirstName} sur WhatsApp`}
-                    </Button>
+                    // Import : c'est l'expéditeur au pays qu'il faut prévenir
+                    // (le destinataire est souvent le client lui-même).
+                    isEuropean(parcel.destinationCountry) && senderOf(parcel) ? (
+                      <Button
+                        kind="gold"
+                        size="md"
+                        fullWidth
+                        leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
+                        onPress={() => { void whatsappSender(parcel); }}
+                      >
+                        {`Prévenir ${senderOf(parcel)!.name.split(' ')[0]} (expéditeur) sur WhatsApp`}
+                      </Button>
+                    ) : (
+                      <Button
+                        kind="gold"
+                        size="md"
+                        fullWidth
+                        leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
+                        onPress={() => { void whatsappRecipient(parcel); }}
+                      >
+                        {`Prévenir ${parcel.recipientFirstName} sur WhatsApp`}
+                      </Button>
+                    )
                   ) : null}
                 </View>
               ) : null}
