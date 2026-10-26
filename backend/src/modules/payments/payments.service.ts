@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
@@ -66,7 +67,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly mail: MailService,
   ) {
     this.appUrl = config.get<string>('appUrl', 'https://contactorixiom-ai.github.io/am/app/');
-    const key = config.get<string>('stripe.secretKey');
+    // Une clé recopiée avec un espace ou un retour à la ligne est refusée par
+    // Stripe : on la nettoie. Une clé publique (pk_…) ne permet pas de créer
+    // de paiement : on le signale dès le démarrage.
+    const key = config.get<string>('stripe.secretKey')?.trim().replace(/^["']|["']$/g, '');
+    if (key && !/^(sk|rk)_(live|test)_/.test(key)) {
+      this.logger.error('STRIPE_SECRET_KEY ne ressemble pas à une clé secrète Stripe (sk_live_… ou sk_test_…).');
+    }
     this.defaultCurrency = config.get<string>('stripe.currency', 'eur');
     this.allowSimulation = config.get<boolean>('stripe.allowSimulation', false);
     this.stripe = key ? new Stripe(key) : null;
@@ -76,6 +83,35 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           ? 'STRIPE_SECRET_KEY absent — paiements en mode SIMULATION (aucun débit réel).'
           : 'STRIPE_SECRET_KEY absent — paiement en ligne désactivé.',
       );
+    }
+  }
+
+  /**
+   * Erreur Stripe traduite en message exploitable. Elle remontait comme une
+   * erreur interne (« Une erreur est survenue ») : ni le client ni Axis ne
+   * savaient que la clé Stripe ou le compte étaient en cause.
+   */
+  private stripeFailure(e: unknown): HttpException {
+    const err = e as { type?: string; message?: string; code?: string };
+    this.logger.error(`Stripe a refusé la création du paiement : ${err.type ?? ''} ${err.code ?? ''} ${err.message ?? e}`);
+    switch (err.type) {
+      case 'StripeAuthenticationError':
+        return new ServiceUnavailableException(
+          'Paiement indisponible : Stripe refuse la clé enregistrée sur le serveur (clé erronée ou révoquée). Axis doit corriger STRIPE_SECRET_KEY dans Railway.',
+        );
+      case 'StripePermissionError':
+        return new ServiceUnavailableException(
+          'Paiement indisponible : la clé Stripe du serveur n\'a pas le droit de créer un paiement. Utiliser la clé secrète (sk_…) du compte.',
+        );
+      case 'StripeConnectionError':
+      case 'StripeAPIError':
+        return new ServiceUnavailableException('Stripe ne répond pas pour le moment. Réessaie dans un instant.');
+      case 'StripeInvalidRequestError':
+        return new ServiceUnavailableException(`Paiement refusé par Stripe : ${err.message ?? 'requête invalide'}`);
+      default:
+        return new ServiceUnavailableException(
+          `Paiement indisponible pour le moment${err.message ? ` (Stripe : ${err.message})` : ''}.`,
+        );
     }
   }
 
@@ -172,31 +208,36 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       url = input.successUrl.replace('{CHECKOUT_SESSION_ID}', id);
     } else {
       const client = await this.prisma.user.findUnique({ where: { id: clientId }, select: { email: true } });
-      const session = await this.stripe.checkout.sessions.create({
-        mode: 'payment',
-        locale: 'fr',
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency,
-              unit_amount: amount,
-              product_data: { name: description },
+      let session: Stripe.Checkout.Session;
+      try {
+        session = await this.stripe.checkout.sessions.create({
+          mode: 'payment',
+          locale: 'fr',
+          line_items: [
+            {
+              quantity: 1,
+              price_data: {
+                currency,
+                unit_amount: amount,
+                product_data: { name: description },
+              },
             },
+          ],
+          // E-mail prérempli sur la page Stripe (et reçu Stripe s'il est activé).
+          ...(client?.email ? { customer_email: client.email } : {}),
+          success_url: input.successUrl,
+          cancel_url: input.cancelUrl,
+          client_reference_id: reference,
+          metadata: {
+            reference,
+            ...(missionId ? { missionId } : {}),
+            ...(parcelId ? { parcelId } : {}),
           },
-        ],
-        // E-mail prérempli sur la page Stripe (et reçu Stripe s'il est activé).
-        ...(client?.email ? { customer_email: client.email } : {}),
-        success_url: input.successUrl,
-        cancel_url: input.cancelUrl,
-        client_reference_id: reference,
-        metadata: {
-          reference,
-          ...(missionId ? { missionId } : {}),
-          ...(parcelId ? { parcelId } : {}),
-        },
-        payment_intent_data: { description, metadata: { reference } },
-      });
+          payment_intent_data: { description, metadata: { reference } },
+        });
+      } catch (e) {
+        throw this.stripeFailure(e);
+      }
       provider = 'stripe';
       id = session.id;
       url = session.url;

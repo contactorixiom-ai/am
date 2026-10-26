@@ -90,3 +90,27 @@ describe('Numérotation des factures', () => {
     expect(seq[2026]).toBe(43);
   });
 });
+
+describe('PaymentsService avec Stripe', () => {
+  function withStripe(error: Record<string, unknown>) {
+    const { svc, prisma } = service(false);
+    (svc as unknown as { stripe: unknown }).stripe = {
+      checkout: { sessions: { create: jest.fn().mockRejectedValue(error), retrieve: jest.fn() } },
+    };
+    return { svc, prisma };
+  }
+
+  it('clé refusée par Stripe : message explicite, pas « une erreur est survenue »', async () => {
+    const { svc, prisma } = withStripe({ type: 'StripeAuthenticationError', message: 'Invalid API Key provided' });
+    const err = await svc.createCheckoutSession('client-1', input).catch((e) => e);
+    expect(err).toBeInstanceOf(ServiceUnavailableException);
+    expect(err.message).toMatch(/STRIPE_SECRET_KEY/);
+    expect(prisma.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('compte Stripe incomplet : la raison donnée par Stripe est affichée', async () => {
+    const { svc } = withStripe({ type: 'StripeInvalidRequestError', message: 'In order to use Checkout, you must set an account or business name' });
+    const err = await svc.createCheckoutSession('client-1', input).catch((e) => e);
+    expect(err.message).toMatch(/business name/);
+  });
+});
