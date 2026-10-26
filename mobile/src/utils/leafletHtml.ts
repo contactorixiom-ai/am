@@ -24,7 +24,7 @@ export interface LeafletHtmlOptions {
 }
 
 /** Origine déclarée de la page : OpenStreetMap exige un référent identifiable. */
-export const MAP_BASE_URL = 'https://contactorixiom-ai.github.io/am/app/';
+export const MAP_BASE_URL = 'https://app-axisimport.com/app/';
 
 const LEAFLET = {
   js: [

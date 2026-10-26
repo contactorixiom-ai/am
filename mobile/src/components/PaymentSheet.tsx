@@ -44,7 +44,7 @@ function returnUrls(): { successUrl: string; cancelUrl: string } {
   const base =
     typeof window !== 'undefined' && window.location
       ? `${window.location.origin}${window.location.pathname}`
-      : 'https://contactorixiom-ai.github.io/am/app/';
+      : 'https://app-axisimport.com/app/';
   return {
     successUrl: `${base}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancelUrl: `${base}?payment=cancel`,

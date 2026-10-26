@@ -67,7 +67,7 @@ l'exportation).
 ## 3. « Configurer votre application » (Contenu de l'application)
 
 ### Règles de confidentialité
-URL : `https://contactorixiom-ai.github.io/am/confidentialite.html`
+URL : `https://app-axisimport.com/confidentialite.html`
 
 ### Accès à l'application
 « Tout ou partie des fonctionnalités sont soumises à restriction » → ajouter
@@ -108,7 +108,7 @@ Non.
 - Les données sont-elles chiffrées en transit ? **Oui** (HTTPS).
 - Les utilisateurs peuvent-ils demander la suppression ? **Oui**.
 - URL de suppression du compte :
-  `https://contactorixiom-ai.github.io/am/suppression-compte.html`
+  `https://app-axisimport.com/suppression-compte.html`
 - Partage avec des tiers : **non**. Stripe (paiement) et Railway
   (hébergement) agissent pour le compte d'Axis : Google les classe comme
   prestataires, ce n'est pas un partage. La position transmise au client est
@@ -227,7 +227,7 @@ Une question ? Écrivez à Axis depuis l'application (Profil → Contacter Axis)
 
 **Catégorie** : Entreprise. **Coordonnées** : e-mail
 `contact@axisimport.fr` (obligatoire), site web
-`https://contactorixiom-ai.github.io/am/` (facultatif).
+`https://app-axisimport.com/` (facultatif).
 
 ---
 

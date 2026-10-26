@@ -55,8 +55,8 @@ Pas besoin de Mac : EAS Build compile sur des machines Apple chez Expo.
 
 Deux pages sont écrites et publiées avec le site :
 
-- <https://contactorixiom-ai.github.io/am/confidentialite.html>
-- <https://contactorixiom-ai.github.io/am/cgu.html>
+- <https://app-axisimport.com/confidentialite.html>
+- <https://app-axisimport.com/cgu.html>
 
 Elles décrivent ce que l'application fait réellement : géolocalisation en
 arrière-plan du convoyeur, pièces d'identité, photos d'état des lieux,
@@ -73,7 +73,7 @@ réellement souscrite. Si des particuliers sont clients, l'adhésion à un
 consommation) et ses coordonnées doivent figurer à l'article 13.
 
 La **page de support** est également écrite et publiée :
-<https://contactorixiom-ai.github.io/am/support.html> — questions fréquentes
+<https://app-axisimport.com/support.html> — questions fréquentes
 et coordonnées. L'adresse et le téléphone y sont à compléter, et l'adresse
 indiquée doit être relevée : App Store Connect vérifie que la page existe.
 

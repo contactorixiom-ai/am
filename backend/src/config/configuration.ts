@@ -66,7 +66,7 @@ export default () => ({
 
   // Adresse de l'application pour les clients (web). Les liens de
   // réinitialisation du mot de passe pointent vers elle.
-  appUrl: (process.env.PUBLIC_APP_URL ?? 'https://contactorixiom-ai.github.io/am/app/').replace(/\/?$/, '/'),
+  appUrl: (process.env.PUBLIC_APP_URL ?? 'https://app-axisimport.com/app/').replace(/\/?$/, '/'),
 
   // Envoi d'e-mails transactionnels (facultatif). Sans clé, les liens de
   // réinitialisation sont seulement générés côté administrateur, à

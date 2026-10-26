@@ -16,8 +16,8 @@ Il reste à finaliser le **déploiement du backend** sur Railway et à **publier
 
 | Service | URL |
 |---|---|
-| **Prototype design** (Figma-like) | https://contactorixiom-ai.github.io/am/ |
-| **App mobile (web preview)** | https://contactorixiom-ai.github.io/am/app/ |
+| **Prototype design** (Figma-like) | https://app-axisimport.com/ |
+| **App mobile (web preview)** | https://app-axisimport.com/app/ |
 | **API backend** | `https://[ton-railway].up.railway.app/api/v1` |
 | **Swagger interactif** | `https://[ton-railway].up.railway.app/api/v1/docs` |
 | **App mobile (vraie)** | Via Expo Go avec project `@am27z/axis-import` |
@@ -76,7 +76,7 @@ Si tu vois ça → 🎉 **backend opérationnel**.
 4. **Value** : `https://[ton-url].up.railway.app/api/v1`
 5. **Save**
 
-Au prochain push, GitHub Actions rebuilde le web bundle avec ton URL backend et le déploie sur `https://contactorixiom-ai.github.io/am/app/`.
+Au prochain push, GitHub Actions rebuilde le web bundle avec ton URL backend et le déploie sur `https://app-axisimport.com/app/`.
 
 → Tu peux **tester l'app dans ton navigateur** depuis n'importe quel appareil.
 
@@ -113,7 +113,7 @@ J'ai configuré le projet avec `owner: "am27z"`. Pour publier sur ton compte Exp
 
 Une fois le backend déployé + le secret ajouté :
 
-1. Ouvre **https://contactorixiom-ai.github.io/am/app/** sur n'importe quel appareil
+1. Ouvre **https://app-axisimport.com/app/** sur n'importe quel appareil
 2. Crée un compte client (email + mdp)
 3. Demande un devis pour **un envoi colis Paris → Dakar** :
    - Poids : 8 kg

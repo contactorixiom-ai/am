@@ -55,7 +55,7 @@
       "favicon": "./assets/favicon.png"
     },
     "experiments": {
-      "baseUrl": "/am/app"
+      "baseUrl": "/app"
     },
     "plugins": [
       "expo-font",

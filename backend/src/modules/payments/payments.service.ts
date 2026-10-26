@@ -66,7 +66,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly notifications: NotificationsService,
     private readonly mail: MailService,
   ) {
-    this.appUrl = config.get<string>('appUrl', 'https://contactorixiom-ai.github.io/am/app/');
+    this.appUrl = config.get<string>('appUrl', 'https://app-axisimport.com/app/');
     // Une clé recopiée avec un espace ou un retour à la ligne est refusée par
     // Stripe : on la nettoie. Une clé publique (pk_…) ne permet pas de créer
     // de paiement : on le signale dès le démarrage.

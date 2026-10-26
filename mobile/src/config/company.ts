@@ -140,7 +140,7 @@ export function companyRegistrationLine(): string {
 
 // Pages légales publiées avec le site : l'App Store exige une politique de
 // confidentialité accessible, et l'application y renvoie directement.
-const LEGAL_BASE = 'https://contactorixiom-ai.github.io/am';
+const LEGAL_BASE = 'https://app-axisimport.com';
 /** Adresse publique de l'application web (liens de suivi partagés). */
 export const PUBLIC_APP_URL = `${LEGAL_BASE}/app/`;
 export const LEGAL_PRIVACY_URL = `${LEGAL_BASE}/confidentialite.html`;

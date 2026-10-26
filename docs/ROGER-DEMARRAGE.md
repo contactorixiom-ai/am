@@ -56,9 +56,9 @@ fiche de la boutique. Il faudra à ce moment :
 - des **captures d'écran** — elles sont déjà prêtes, dans `design/store/` ;
 - les **textes de la fiche** : nom, sous-titre, description, mots-clés ;
 - les **adresses des pages légales** — elles sont en ligne :
-  - <https://contactorixiom-ai.github.io/am/confidentialite.html>
-  - <https://contactorixiom-ai.github.io/am/cgu.html>
-  - <https://contactorixiom-ai.github.io/am/support.html>
+  - <https://app-axisimport.com/confidentialite.html>
+  - <https://app-axisimport.com/cgu.html>
+  - <https://app-axisimport.com/support.html>
 - **deux comptes de démonstration** pour le testeur d'Apple : un client et un
   convoyeur avec une mission en cours. Sans le second, le testeur ne voit pas
   le suivi GPS et refuse l'autorisation de localisation en arrière-plan.
@@ -80,7 +80,7 @@ façons.
 
 Ouvrir cette adresse sur le téléphone :
 
-**<https://contactorixiom-ai.github.io/am/app/>**
+**<https://app-axisimport.com/app/>**
 
 Puis l'ajouter à l'écran d'accueil pour qu'elle ressemble à une vraie
 application :

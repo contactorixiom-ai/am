@@ -341,7 +341,7 @@ export class AuthService {
     await this.prisma.passwordResetToken.create({
       data: { userId, tokenHash: this.hashToken(token), expiresAt, createdBy },
     });
-    const base = this.config.get<string>('appUrl', 'https://contactorixiom-ai.github.io/am/app/');
+    const base = this.config.get<string>('appUrl', 'https://app-axisimport.com/app/');
     return { url: `${base}?reinitialisation=${token}`, expiresAt };
   }
 
