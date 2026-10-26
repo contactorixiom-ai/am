@@ -3,6 +3,7 @@ import { NewsStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateArticleDto } from './dto/create-article.dto';
+import { isStaff } from '../../common/auth/staff';
 
 @Injectable()
 export class NewsService {
@@ -51,7 +52,7 @@ export class NewsService {
   }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto) {
-    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
+    if (!isStaff(user.role)) throw new ForbiddenException('Réservé à l\'administrateur.');
     return this.prisma.newsArticle.create({
       data: {
         title: dto.title,

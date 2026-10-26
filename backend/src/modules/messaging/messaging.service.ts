@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
+import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
 
 @Injectable()
 export class MessagingService {
@@ -37,11 +38,11 @@ export class MessagingService {
    * fait pas partie : le message arrivait au convoyeur, ou nulle part.
    */
   async openSupport(user: AuthenticatedUser) {
-    if (user.role === UserRole.ADMIN) {
+    if (isStaff(user.role)) {
       throw new ForbiddenException('Les échanges avec les clients se trouvent dans la liste des conversations.');
     }
     const admins = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, deletedAt: null },
+      where: { role: { in: STAFF_ROLES }, deletedAt: null },
       select: { id: true },
     });
     let conv = await this.prisma.conversation.findFirst({

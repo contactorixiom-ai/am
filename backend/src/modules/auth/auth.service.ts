@@ -60,7 +60,7 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthResult> {
     // Ceinture et bretelles : même si la validation du DTO venait à changer,
     // l'inscription publique ne crée jamais d'administrateur.
-    if (dto.role === UserRole.ADMIN) {
+    if (dto.role === UserRole.ADMIN || dto.role === UserRole.MANAGER) {
       throw new BadRequestException('Ce rôle ne peut pas être choisi à l\'inscription.');
     }
     // L'adresse était cherchée telle quelle mais enregistrée en minuscules :
@@ -242,6 +242,14 @@ export class AuthService {
       // Un administrateur ne doit pas pouvoir prendre la main sur le compte
       // d'un autre administrateur par ce biais.
       throw new BadRequestException('Impossible pour un compte administrateur.');
+    }
+    if (user.role === UserRole.MANAGER) {
+      // Seul l'administrateur donne accès à un responsable d'exploitation :
+      // un responsable ne peut pas prendre la main sur le compte d'un autre.
+      const caller = await this.prisma.user.findUnique({ where: { id: adminId }, select: { role: true } });
+      if (caller?.role !== UserRole.ADMIN) {
+        throw new BadRequestException('Seul l\'administrateur peut donner accès à un responsable d\'exploitation.');
+      }
     }
     if (user.status === UserStatus.SUSPENDED) {
       throw new BadRequestException('Ce compte est suspendu.');

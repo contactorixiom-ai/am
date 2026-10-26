@@ -1,4 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import * as argon2 from 'argon2';
+import { randomBytes } from 'crypto';
 import { AccountType, Prisma, UserRole, UserStatus } from '@prisma/client';
 import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -290,5 +292,66 @@ export class UsersService {
       return { ...u, verified };
     });
     return { data: withStatus, total };
+  }
+
+  // ─── Équipe Axis : responsables d'exploitation ─────────────────────────
+  // Chacun son compte : l'administrateur (Roger) les crée, leur envoie un
+  // lien d'accès et peut leur retirer l'accès. Ils pilotent l'activité sans
+  // gérer l'équipe, les remboursements ni le chiffre d'affaires.
+
+  listStaff() {
+    return this.prisma.user.findMany({
+      where: { role: { in: [UserRole.ADMIN, UserRole.MANAGER] }, deletedAt: null },
+      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, lastLoginAt: true, createdAt: true },
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createManager(adminId: string, dto: { firstName: string; lastName: string; email: string; phone?: string }) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing && !existing.deletedAt) {
+      throw new ConflictException('Un compte existe déjà avec cet e-mail : utilise une autre adresse pour le compte d\'équipe.');
+    }
+    // Mot de passe aléatoire : le responsable choisit le sien via le lien
+    // d'accès envoyé par l'administrateur.
+    const passwordHash = await argon2.hash(randomBytes(24).toString('hex'), { type: argon2.argon2id });
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        phone: dto.phone?.trim() || null,
+        passwordHash,
+        role: UserRole.MANAGER,
+        status: UserStatus.PENDING,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+      },
+      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
+    });
+    await this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_CREATE', entity: 'User', entityId: user.id } });
+    return user;
+  }
+
+  /** Retire l'accès d'un responsable : compte suspendu, sessions coupées. */
+  async revokeManager(adminId: string, id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    if (!user || user.role !== UserRole.MANAGER) throw new NotFoundException('Responsable introuvable.');
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { status: UserStatus.SUSPENDED } }),
+      this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+      this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_REVOKE', entity: 'User', entityId: id } }),
+    ]);
+    return { id, status: UserStatus.SUSPENDED };
+  }
+
+  /** Rend l'accès à un responsable suspendu (il garde son mot de passe). */
+  async restoreManager(adminId: string, id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    if (!user || user.role !== UserRole.MANAGER) throw new NotFoundException('Responsable introuvable.');
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { status: UserStatus.ACTIVE } }),
+      this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_RESTORE', entity: 'User', entityId: id } }),
+    ]);
+    return { id, status: UserStatus.ACTIVE };
   }
 }

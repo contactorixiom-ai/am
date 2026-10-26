@@ -16,6 +16,7 @@ import { AdminCreateMissionDto } from './dto/admin-create-mission.dto';
 import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
 import { SignContractDto } from './dto/sign-contract.dto';
+import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
 
 @Injectable()
 export class MissionsService {
@@ -118,7 +119,7 @@ export class MissionsService {
     if (status === MissionStatus.PUBLISHED) {
       // Roger doit savoir qu'une commande vient d'arriver.
       const admins = await this.prisma.user.findMany({
-        where: { role: UserRole.ADMIN, deletedAt: null },
+        where: { role: { in: STAFF_ROLES }, deletedAt: null },
         select: { id: true },
       });
       const price = priceCents != null ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: currency ?? 'EUR' })}` : '';
@@ -526,7 +527,7 @@ export class MissionsService {
   async complete(id: string, user: AuthenticatedUser) {
     const mission = await this.requireMission(id);
     // Le client clôture ; Roger peut le faire à sa place (client injoignable).
-    if (mission.clientId !== user.id && user.role !== UserRole.ADMIN) {
+    if (mission.clientId !== user.id && !isStaff(user.role)) {
       throw new ForbiddenException('Seul le client peut clôturer la mission.');
     }
     if (mission.status !== MissionStatus.DELIVERED) {
@@ -556,7 +557,7 @@ export class MissionsService {
    */
   async cancel(id: string, user: AuthenticatedUser, reason?: string) {
     const mission = await this.requireMission(id);
-    const isAdmin = user.role === UserRole.ADMIN;
+    const isAdmin = isStaff(user.role);
     const isClient = mission.clientId === user.id;
     const isDriver = mission.driverId === user.id;
     if (!isAdmin && !isClient && !isDriver) throw new ForbiddenException();
@@ -566,7 +567,7 @@ export class MissionsService {
       throw new BadRequestException(`Annulation impossible : la mission est au statut ${mission.status}.`);
     }
 
-    const admins = await this.prisma.user.findMany({ where: { role: UserRole.ADMIN, deletedAt: null }, select: { id: true } });
+    const admins = await this.prisma.user.findMany({ where: { role: { in: STAFF_ROLES }, deletedAt: null }, select: { id: true } });
 
     if (isDriver && !isAdmin && !isClient) {
       if (mission.status !== MissionStatus.ACCEPTED) {
@@ -641,7 +642,7 @@ export class MissionsService {
       select: CONTRACT_TERMS_SELECT,
     });
     if (!mission) throw new NotFoundException('Mission introuvable');
-    if (mission.clientId !== user.id && user.role !== UserRole.ADMIN) {
+    if (mission.clientId !== user.id && !isStaff(user.role)) {
       throw new ForbiddenException('Seul le client donneur d\'ordre signe son contrat.');
     }
 
@@ -699,7 +700,7 @@ export class MissionsService {
     // Roger doit savoir qu'un contrat vient d'être signé : c'est ce qui
     // débloque le départ du convoyage.
     const admins = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, deletedAt: null },
+      where: { role: { in: STAFF_ROLES }, deletedAt: null },
       select: { id: true },
     });
     await Promise.all(
@@ -810,7 +811,7 @@ export class MissionsService {
     await this.prisma.missionStatusHistory.create({
       data: { missionId: id, status: mission.status, changedBy: driverId, notes: `ALERTE : ${text}` },
     });
-    const admins = await this.prisma.user.findMany({ where: { role: UserRole.ADMIN, deletedAt: null }, select: { id: true } });
+    const admins = await this.prisma.user.findMany({ where: { role: { in: STAFF_ROLES }, deletedAt: null }, select: { id: true } });
     for (const a of admins) {
       await this.notifySafe(a.id, NotificationType.SYSTEM, body.type === 'SOS' ? 'SOS convoyeur' : 'Alerte convoyeur', text, {
         missionId: id,
@@ -862,7 +863,7 @@ export class MissionsService {
   }
 
   private assertCanView(mission: { clientId: string; driverId: string | null; status: MissionStatus }, user: AuthenticatedUser): void {
-    if (user.role === UserRole.ADMIN) return;
+    if (isStaff(user.role)) return;
     if (user.id === mission.clientId) return;
     if (user.id === mission.driverId) return;
     throw new ForbiddenException();

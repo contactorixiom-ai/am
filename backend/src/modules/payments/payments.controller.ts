@@ -1,3 +1,4 @@
+import { AdminOnly } from '../../common/decorators/admin-only.decorator';
 import { ManualPaymentDto } from './dto/manual-payment.dto';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -40,6 +41,7 @@ export class PaymentsController {
 
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
+  @AdminOnly()
   @Post(':id/refunded')
   @ApiOperation({ summary: 'Admin : marquer un règlement comme remboursé' })
   refunded(@CurrentUser('id') adminId: string, @Param('id') id: string) {
@@ -48,6 +50,7 @@ export class PaymentsController {
 
   @Get('summary')
   @Roles(UserRole.ADMIN)
+  @AdminOnly()
   @ApiOperation({ summary: 'Encaissements du mois et restes à encaisser' })
   summary() {
     return this.payments.summary();

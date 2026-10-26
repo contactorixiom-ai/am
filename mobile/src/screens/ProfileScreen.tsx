@@ -15,6 +15,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
+import { isStaff, roleLabel } from '../utils/roles';
 
 export function ProfileScreen() {
   const { theme, isDark, setMode } = useTheme();
@@ -129,7 +130,7 @@ export function ProfileScreen() {
           <View style={{ marginTop: 16, flexDirection: 'row' }}>
             <View style={{ paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999, backgroundColor: theme.gold + '2E' }}>
               <Text style={{ fontSize: 10.5, color: theme.goldHi, letterSpacing: 0.6, fontFamily: TYPO.weights.semibold }}>
-                {user?.role === 'ADMIN' ? 'ADMINISTRATEUR' : user?.role === 'DRIVER' ? 'CONVOYEUR' : 'CLIENT'}
+                {roleLabel(user?.role).toUpperCase()}
               </Text>
             </View>
           </View>
@@ -159,10 +160,10 @@ export function ProfileScreen() {
           <MenuSection label="Aide">
             <MenuRow
               iconKey="chat"
-              label={user?.role === 'ADMIN' ? 'Messages' : 'Contacter Axis'}
-              sub={user?.role === 'ADMIN' ? 'Conversations avec les clients et convoyeurs' : 'Écrire à l\'équipe Axis Import'}
+              label={isStaff(user?.role) ? 'Messages' : 'Contacter Axis'}
+              sub={isStaff(user?.role) ? 'Conversations avec les clients et convoyeurs' : 'Écrire à l\'équipe Axis Import'}
               onPress={async () => {
-                if (user?.role === 'ADMIN') return nav.navigate('Conversations');
+                if (isStaff(user?.role)) return nav.navigate('Conversations');
                 try {
                   const conv = await openSupportConversation();
                   nav.navigate('Messaging', { conversationId: conv.id, driverName: 'Axis Import', subtitle: 'Support' });
@@ -187,9 +188,9 @@ export function ProfileScreen() {
           </MenuSection>
 
           {/* Accès réservés : n'apparaissent que pour les rôles concernés. */}
-          {user?.role === 'ADMIN' || user?.role === 'DRIVER' ? (
+          {isStaff(user?.role) || user?.role === 'DRIVER' ? (
             <MenuSection label="Axis">
-              {user?.role === 'ADMIN' ? (
+              {isStaff(user?.role) ? (
                 <MenuRow
                   iconKey="sliders"
                   label="Espace admin"
@@ -199,7 +200,7 @@ export function ProfileScreen() {
               ) : null}
               {/* Pour le convoyeur, le mode chauffeur est déjà un onglet :
                   on ne double pas l'entrée. L'admin, lui, n'a pas cet onglet. */}
-              {user?.role === 'ADMIN' ? (
+              {isStaff(user?.role) ? (
                 <MenuRow
                   iconKey="pin"
                   label="Mode chauffeur"

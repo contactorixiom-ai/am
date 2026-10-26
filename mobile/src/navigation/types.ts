@@ -16,7 +16,6 @@ export interface ParcelDraft {
 }
 
 export type RootStackParamList = {
-  IntroSlides: undefined;
   Onboarding: undefined;
   Login: undefined;
   Register: { role?: 'CLIENT' | 'DRIVER' } | undefined;

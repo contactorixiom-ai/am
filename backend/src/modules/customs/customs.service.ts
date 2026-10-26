@@ -30,6 +30,7 @@ import {
   CreateCargoNoteDto,
   UpdateCargoNoteStatusDto,
 } from './dto/cargo-note.dto';
+import { isStaff } from '../../common/auth/staff';
 
 @Injectable()
 export class CustomsService implements OnApplicationBootstrap {
@@ -271,7 +272,7 @@ export class CustomsService implements OnApplicationBootstrap {
     if (parcelId) await this.assertOwnsParcel(parcelId, user);
     const where: Prisma.CargoTrackingNoteWhereInput = parcelId
       ? { parcelId }
-      : user.role === UserRole.ADMIN
+      : isStaff(user.role)
         ? {}
         : { parcel: { senderId: user.id } };
     return this.prisma.cargoTrackingNote.findMany({
@@ -289,7 +290,7 @@ export class CustomsService implements OnApplicationBootstrap {
       select: { senderId: true },
     });
     if (!parcel) throw new BadRequestException('Colis introuvable');
-    if (parcel.senderId !== user.id && user.role !== UserRole.ADMIN) {
+    if (parcel.senderId !== user.id && !isStaff(user.role)) {
       throw new ForbiddenException('Ce colis ne vous appartient pas.');
     }
   }

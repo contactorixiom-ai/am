@@ -7,6 +7,7 @@ import { roadDistanceKm } from '../../common/road-distance';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
 import { publicTariffSheet, VEHICLE_DEPARTURE_PORT } from './tariffs';
+import { isStaff } from '../../common/auth/staff';
 
 const QUOTE_VALIDITY_DAYS = 30;
 
@@ -57,7 +58,7 @@ export class QuotesService {
     // La distance fait le prix : elle est calculée ici, jamais reprise de la
     // requête (un « distanceKm: 1 » donnait un convoyage Paris → Lyon au
     // forfait minimum). Seul Roger peut l'imposer, pour un trajet atypique.
-    const isAdmin = user?.role === UserRole.ADMIN;
+    const isAdmin = isStaff(user?.role);
     let distanceKm: number | undefined = isAdmin ? dto.distanceKm : undefined;
     if (distanceKm == null && fromGeo && toGeo) {
       distanceKm = await roadDistanceKm(fromGeo, toGeo);
@@ -170,7 +171,7 @@ export class QuotesService {
     });
     if (!quote) throw new NotFoundException('Devis introuvable.');
     // Quotes are accessible by their owner or by anyone who has the id (anonymous quotes).
-    if (quote.customerId && user?.id !== quote.customerId && user?.role !== 'ADMIN') {
+    if (quote.customerId && user?.id !== quote.customerId && !isStaff(user?.role)) {
       throw new NotFoundException('Devis introuvable.');
     }
     return quote;

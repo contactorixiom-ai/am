@@ -1,3 +1,4 @@
+import { isStaff } from '../utils/roles';
 import { apiFetch } from './client';
 
 // ─── Types alignés sur le backend (modules/messaging + schema.prisma) ──────
@@ -126,8 +127,8 @@ export function conversationTitle(conv: ConversationSummary, myUserId?: string):
   // client (pas la liste des administrateurs).
   if (conv.type === 'SUPPORT') {
     const me = conv.participants?.find((p) => p.userId === myUserId);
-    if ((me?.user as { role?: string } | undefined)?.role !== 'ADMIN') return 'Support Axis';
-    const customer = conv.participants?.find((p) => (p.user as { role?: string } | undefined)?.role !== 'ADMIN');
+    if (!isStaff((me?.user as { role?: string } | undefined)?.role)) return 'Support Axis';
+    const customer = conv.participants?.find((p) => !isStaff((p.user as { role?: string } | undefined)?.role));
     const name = `${customer?.user?.firstName ?? ''} ${customer?.user?.lastName ?? ''}`.trim();
     return name ? `${name} · support` : 'Support Axis';
   }
@@ -148,10 +149,10 @@ export function conversationTitle(conv: ConversationSummary, myUserId?: string):
  */
 export function conversationPhone(conv: ConversationSummary, myUserId: string | undefined, axisPhone: string): string | null {
   const me = conv.participants?.find((p) => p.userId === myUserId);
-  const iAmAdmin = me?.user?.role === 'ADMIN';
+  const iAmAdmin = isStaff(me?.user?.role);
   if (conv.type === 'SUPPORT' && !iAmAdmin) return axisPhone.trim() || null;
   const other = conv.participants?.find(
-    (p) => p.userId !== myUserId && p.user?.role !== 'ADMIN' && p.user?.phone,
+    (p) => p.userId !== myUserId && !isStaff(p.user?.role) && p.user?.phone,
   );
   return other?.user?.phone ?? null;
 }

@@ -38,6 +38,7 @@ const REPLAYABLE = [
   '20260925010000_billing_address',
   '20261001000000_payment_refunded',
   '20261008000000_quote_lines',
+  '20261027000000_manager_role',
 ];
 
 function migrationNames() {

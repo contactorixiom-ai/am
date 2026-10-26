@@ -25,6 +25,7 @@ import { Stagger } from '../components/Stagger';
 import { listPayments } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
+import { isStaff } from '../utils/roles';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -224,7 +225,7 @@ export function HomeScreen() {
         ) : null}
 
         {/* Accès direct Espace admin — réservé aux opérateurs (rôle ADMIN) */}
-        {user?.role === 'ADMIN' ? (
+        {isStaff(user?.role) ? (
           <Pressable
             onPress={() => nav.navigate('Admin')}
             style={({ pressed }) => ({

@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
 import { SignDocumentDto } from './dto/sign-document.dto';
+import { isStaff } from '../../../common/auth/staff';
 
 @Injectable()
 export class SignaturesService {
@@ -28,7 +29,7 @@ export class SignaturesService {
     const isOwner = doc.ownerId === user.id;
     const m = doc.mission;
     const isParticipant = !!m && (m.clientId === user.id || m.driverId === user.id);
-    if (!isOwner && !isParticipant && user.role !== 'ADMIN') {
+    if (!isOwner && !isParticipant && !isStaff(user.role)) {
       throw new ForbiddenException('Vous ne pouvez pas signer ce document');
     }
 

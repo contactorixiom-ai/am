@@ -21,7 +21,6 @@ import { MessagingScreen } from '../screens/MessagingScreen';
 import { MissionDetailsScreen } from '../screens/MissionDetailsScreen';
 import { NewsScreen } from '../screens/NewsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
-import { IntroSlidesScreen, shouldShowIntroSlides } from '../screens/IntroSlidesScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParcelRequestScreen } from '../screens/ParcelRequestScreen';
 import { PickupModeScreen } from '../screens/PickupModeScreen';
@@ -117,7 +116,6 @@ function takeTrackingRefFromUrl(): string | undefined {
 export function RootNavigator() {
   const { theme } = useTheme();
   const { user, initializing } = useSession();
-  const [introSeen, setIntroSeen] = React.useState<boolean | null>(null);
   const [resetToken] = React.useState(takeResetTokenFromUrl);
   const [trackingRef] = React.useState(takeTrackingRefFromUrl);
 
@@ -141,18 +139,12 @@ export function RootNavigator() {
   const [minElapsed, setMinElapsed] = React.useState(false);
 
   React.useEffect(() => {
-    // Filet de sécurité : si shouldShowIntroSlides échoue (ex. AsyncStorage
-    // bloqué en navigation privée Safari iOS), on saute l'intro pour ne
-    // pas bloquer l'utilisateur sur un écran blanc.
-    shouldShowIntroSlides()
-      .then((needs) => setIntroSeen(!needs))
-      .catch(() => setIntroSeen(true));
     // Durée minimale d'affichage du splash pour laisser jouer l'animation.
     const t = setTimeout(() => setMinElapsed(true), 1500);
     return () => clearTimeout(t);
   }, []);
 
-  if (initializing || introSeen === null || !minElapsed) {
+  if (initializing || !minElapsed) {
     return <SplashScreen />;
   }
 
@@ -208,9 +200,6 @@ export function RootNavigator() {
           </>
         ) : (
           <>
-            {!introSeen ? (
-              <RootStack.Screen name="IntroSlides" component={IntroSlidesScreen} />
-            ) : null}
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Tariffs" component={TariffsScreen} />

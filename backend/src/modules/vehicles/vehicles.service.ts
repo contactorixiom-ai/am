@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { isStaff } from '../../common/auth/staff';
 
 @Injectable()
 export class VehiclesService {
@@ -52,7 +53,7 @@ export class VehiclesService {
       include: { photos: { orderBy: { position: 'asc' } } },
     });
     if (!vehicle) throw new NotFoundException('Véhicule introuvable.');
-    if (vehicle.ownerId !== user.id && user.role !== 'ADMIN') {
+    if (vehicle.ownerId !== user.id && !isStaff(user.role)) {
       const driving = await this.prisma.mission.count({ where: { vehicleId: id, driverId: user.id } });
       if (driving === 0) throw new ForbiddenException('Ce véhicule ne vous concerne pas.');
     }

@@ -3,6 +3,7 @@ import { MissionStatus, UserRole } from '@prisma/client';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TrackLocationDto } from './dto/track-location.dto';
+import { isStaff } from '../../common/auth/staff';
 
 @Injectable()
 export class GpsService {
@@ -42,7 +43,7 @@ export class GpsService {
       select: { clientId: true, driverId: true },
     });
     if (!mission) throw new NotFoundException('Mission introuvable.');
-    if (user.role !== UserRole.ADMIN && mission.clientId !== user.id && mission.driverId !== user.id) {
+    if (!isStaff(user.role) && mission.clientId !== user.id && mission.driverId !== user.id) {
       throw new ForbiddenException('Ce convoyage ne vous concerne pas.');
     }
   }

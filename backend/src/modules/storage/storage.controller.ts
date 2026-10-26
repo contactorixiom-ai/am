@@ -15,6 +15,7 @@ import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-
 import { PrismaService } from '../../prisma/prisma.service';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { StorageService } from './storage.service';
+import { isStaff } from '../../common/auth/staff';
 
 @ApiTags('storage')
 @ApiBearerAuth()
@@ -61,7 +62,7 @@ export class StorageController {
   ): Promise<StreamableFile> {
     const found = await this.storage.locate(folder, name);
 
-    if (folder === 'kyc' && user.role !== UserRole.ADMIN) {
+    if (folder === 'kyc' && !isStaff(user.role)) {
       const owned = await this.prisma.kycDocument.findFirst({
         where: { userId: user.id, fileUrl: { endsWith: `${folder}/${name}` } },
         select: { id: true },

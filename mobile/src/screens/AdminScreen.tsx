@@ -38,6 +38,8 @@ import { EmptyState } from '../components/EmptyState';
 import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
+import { StaffPanel } from '../components/StaffPanel';
+import { isAdmin } from '../utils/roles';
 import { SectionHead } from '../components/SectionHead';
 import { Skeleton } from '../components/Skeleton';
 import { StatusBadge } from '../components/StatusBadge';
@@ -68,7 +70,7 @@ import { parcelLoadLabel } from '../utils/shipment';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers';
+type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'team';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Tableau' },
@@ -76,6 +78,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
   { id: 'drivers', label: 'Convoyeurs' },
+  // Administrateur seulement : comptes des responsables d'exploitation.
+  { id: 'team', label: 'Équipe' },
 ];
 
 const ACTIVITY_LABEL: Record<AdminActivity, string> = {
@@ -231,6 +235,9 @@ function prefillFromMission(m: MissionSummary): AdminValues {
 export function AdminScreen() {
   const { theme } = useTheme();
   const { user: me } = useSession();
+  // Responsable d'exploitation : pilote l'activité, sans l'onglet Équipe ni
+  // le chiffre d'affaires.
+  const meIsAdmin = isAdmin(me?.role);
   const [compareMode, setCompareMode] = useState(false);
   const [tab, setTab] = useState<TabId>('dashboard');
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
@@ -308,7 +315,7 @@ export function AdminScreen() {
   }, []);
 
   const loadShipments = useCallback(async () => {
-    getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
+    if (isAdmin(me?.role)) getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
     listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
     listDocuments({ category: 'CONTRACT' })
       .then((docs) => {
@@ -335,7 +342,7 @@ export function AdminScreen() {
     }
     setShipmentsLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [me?.role]);
 
   /** États des lieux des convoyages affichés, chargés en parallèle. */
   const loadInspections = async (ms: MissionSummary[]) => {
@@ -631,7 +638,7 @@ export function AdminScreen() {
         style={{ flexGrow: 0, flexShrink: 0, minHeight: 58 }}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}
       >
-        {TABS.map((t) => {
+        {TABS.filter((t) => t.id !== 'team' || meIsAdmin).map((t) => {
           const on = tab === t.id;
           return (
             <Pressable
@@ -681,6 +688,7 @@ export function AdminScreen() {
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
         {tab === 'drivers' && <KycReviewPanel onCountChange={setKycPending} />}
+        {tab === 'team' && meIsAdmin ? <StaffPanel onSendAccess={setAccessTarget} /> : null}
       </ScrollView>
 
       {renderStatusModal()}
@@ -1417,7 +1425,9 @@ export function AdminScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <DashTile theme={theme} label="Envois à traiter" value={String(toProcess)} tone="navy" onPress={() => setTab('shipments')} />
           <DashTile theme={theme} label="En douane" value={String(inCustoms)} tone={inCustoms > 0 ? 'warn' : 'plain'} onPress={() => setTab('shipments')} />
-          <DashTile theme={theme} label={payments ? 'Encaissé (mois)' : 'CA facturé (mois)'} value={fmtEuro(caMonth)} tone="gold" />
+          {meIsAdmin ? (
+            <DashTile theme={theme} label={payments ? 'Encaissé (mois)' : 'CA facturé (mois)'} value={fmtEuro(caMonth)} tone="gold" />
+          ) : null}
           <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
         </View>
 

@@ -17,6 +17,8 @@ enum UserRole {
   CLIENT
   DRIVER
   ADMIN
+  /// Responsable d'exploitation : pilote l'activité, sans gérer l'équipe ni la caisse.
+  MANAGER
 }
 
 enum UserStatus {

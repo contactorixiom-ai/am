@@ -3,6 +3,7 @@ import { DocumentCategory, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateDocumentDto } from './dto/create-document.dto';
+import { isStaff } from '../../common/auth/staff';
 
 @Injectable()
 export class DocumentsService {
@@ -34,7 +35,7 @@ export class DocumentsService {
     // restait invisible pour Roger, à qui il est pourtant destiné. Le
     // convoyeur voit les documents des missions qu'il conduit.
     const where: Prisma.DocumentWhereInput =
-      user.role === 'ADMIN'
+      isStaff(user.role)
         ? {}
         : { OR: [{ ownerId: user.id }, { mission: { driverId: user.id } }] };
     if (opts.category) where.category = opts.category;
@@ -65,7 +66,7 @@ export class DocumentsService {
     if (doc.ownerId !== user.id && doc.visibility !== 'PUBLIC') {
       const m = doc.mission;
       const isParticipant = m && (m.clientId === user.id || m.driverId === user.id);
-      if (!isParticipant && user.role !== 'ADMIN') throw new ForbiddenException('Ce document ne vous est pas destiné.');
+      if (!isParticipant && !isStaff(user.role)) throw new ForbiddenException('Ce document ne vous est pas destiné.');
     }
     return doc;
   }
@@ -73,7 +74,7 @@ export class DocumentsService {
   async remove(id: string, user: AuthenticatedUser) {
     const doc = await this.prisma.document.findUnique({ where: { id }, select: { ownerId: true } });
     if (!doc) throw new NotFoundException('Document introuvable.');
-    if (doc.ownerId !== user.id && user.role !== 'ADMIN') throw new ForbiddenException();
+    if (doc.ownerId !== user.id && !isStaff(user.role)) throw new ForbiddenException();
     return this.prisma.document.delete({ where: { id } });
   }
 }

@@ -16,6 +16,7 @@ import { AuthenticatedUser } from '../../common/decorators/current-user.decorato
 import { PrismaService } from '../../prisma/prisma.service';
 import { mailLayout, MailService, escapeHtml } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
 
 export interface CreateCheckoutInput {
   /** Ignoré : le montant est celui de la commande, lu en base. */
@@ -288,7 +289,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    */
   async getSession(id: string, user: AuthenticatedUser) {
     const record = await this.prisma.payment.findUnique({ where: { sessionId: id } });
-    if (record && record.clientId !== user.id && user.role !== UserRole.ADMIN) {
+    if (record && record.clientId !== user.id && !isStaff(user.role)) {
       throw new ForbiddenException('Ce paiement ne vous appartient pas.');
     }
 
@@ -326,7 +327,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   async link(sessionId: string, user: AuthenticatedUser, dto: { missionId?: string; parcelId?: string }) {
     const record = await this.prisma.payment.findUnique({ where: { sessionId } });
     if (!record) throw new NotFoundException('Paiement introuvable.');
-    if (record.clientId !== user.id && user.role !== UserRole.ADMIN) {
+    if (record.clientId !== user.id && !isStaff(user.role)) {
       throw new ForbiddenException('Ce paiement ne vous appartient pas.');
     }
     const missionId = await this.ownedMissionId(record.clientId, dto.missionId);
@@ -346,9 +347,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   /** Règlements du client connecté, ou tous pour l'administrateur. */
   async list(user: AuthenticatedUser, skip: number, take: number) {
-    await this.reconcilePending(user.role === UserRole.ADMIN ? undefined : user.id);
+    await this.reconcilePending(isStaff(user.role) ? undefined : user.id);
     const where: Prisma.PaymentWhereInput =
-      user.role === UserRole.ADMIN ? {} : { clientId: user.id };
+      isStaff(user.role) ? {} : { clientId: user.id };
     const [data, total] = await Promise.all([
       this.prisma.payment.findMany({
         where,
@@ -594,7 +595,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         select: { firstName: true, lastName: true },
       });
       const admins = await this.prisma.user.findMany({
-        where: { role: UserRole.ADMIN, deletedAt: null },
+        where: { role: { in: STAFF_ROLES }, deletedAt: null },
         select: { id: true },
       });
       const who = client ? `${client.firstName} ${client.lastName}`.trim() : 'Un client';

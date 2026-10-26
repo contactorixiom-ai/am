@@ -40,7 +40,7 @@ interface Msg {
 // Réponses rapides selon qui écrit : le convoyeur annonce, le client
 // demande, Roger répond.
 function quickReplies(role: string | undefined, support: boolean): string[] {
-  if (role === 'ADMIN') return ['Bien reçu, je regarde', 'Je vous rappelle', 'C\'est réglé 👍'];
+  if (role === 'ADMIN' || role === 'MANAGER') return ['Bien reçu, je regarde', 'Je vous rappelle', 'C\'est réglé 👍'];
   if (role === 'DRIVER') {
     return support
       ? ['Merci 🙏', 'J\'ai une question sur une mission', 'Pouvez-vous me rappeler ?']

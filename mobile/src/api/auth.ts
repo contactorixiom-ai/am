@@ -1,6 +1,6 @@
 import { apiFetch, clearSession, setSession } from './client';
 
-export type UserRole = 'CLIENT' | 'DRIVER' | 'ADMIN';
+export type UserRole = 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER';
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 
 export interface SessionUser {

@@ -7,6 +7,7 @@ import { AuthenticatedUser } from '../../common/decorators/current-user.decorato
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { AddParcelEventDto } from './dto/parcel-event.dto';
 import type { QuoteLine } from '../quotes/pricing';
+import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
 
 /** Contenu commandé sur la grille (fûts, cartons, m³…) → lignes du colis. */
 function itemsFromQuoteLines(raw: Prisma.JsonValue | null): { description: string; quantity: number }[] {
@@ -170,7 +171,7 @@ export class ParcelsService {
 
     // Roger doit savoir qu'un envoi vient d'être commandé.
     const admins = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, deletedAt: null },
+      where: { role: { in: STAFF_ROLES }, deletedAt: null },
       select: { id: true },
     });
     const price = priceCents != null
@@ -187,7 +188,7 @@ export class ParcelsService {
 
   async list(user: AuthenticatedUser, opts: { skip: number; take: number; status?: ParcelStatus }) {
     const where: Prisma.ParcelWhereInput =
-      user.role === UserRole.ADMIN ? {} : { senderId: user.id };
+      isStaff(user.role) ? {} : { senderId: user.id };
     if (opts.status) where.status = opts.status;
 
     const [data, total] = await Promise.all([
@@ -211,7 +212,7 @@ export class ParcelsService {
       include: { items: true, trackingEvents: { orderBy: { occurredAt: 'asc' } } },
     });
     if (!parcel) throw new NotFoundException('Colis introuvable.');
-    if (user.role !== UserRole.ADMIN && parcel.senderId !== user.id) {
+    if (!isStaff(user.role) && parcel.senderId !== user.id) {
       throw new ForbiddenException();
     }
     return this.withCoords(parcel);
@@ -241,7 +242,7 @@ export class ParcelsService {
   }
 
   async addEvent(id: string, dto: AddParcelEventDto, user: AuthenticatedUser) {
-    if (user.role !== UserRole.ADMIN) throw new ForbiddenException('Réservé à l\'administrateur.');
+    if (!isStaff(user.role)) throw new ForbiddenException('Réservé à l\'administrateur.');
     const parcel = await this.prisma.parcel.findUnique({ where: { id } });
     if (!parcel) throw new NotFoundException('Colis introuvable.');
     // Un colis livré ou annulé est clos : le faire « repartir en transit »
