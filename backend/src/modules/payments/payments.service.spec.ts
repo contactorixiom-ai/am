@@ -113,4 +113,10 @@ describe('PaymentsService avec Stripe', () => {
     const err = await svc.createCheckoutSession('client-1', input).catch((e) => e);
     expect(err.message).toMatch(/business name/);
   });
+
+  it('aucun moyen de paiement actif : message en français pour le client', async () => {
+    const { svc } = withStripe({ type: 'StripeInvalidRequestError', message: 'No valid payment method types for this Checkout Session.' });
+    const err = await svc.createCheckoutSession('client-1', input).catch((e) => e);
+    expect(err.message).toMatch(/aucun moyen de paiement/);
+  });
 });

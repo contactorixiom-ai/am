@@ -107,6 +107,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       case 'StripeAPIError':
         return new ServiceUnavailableException('Stripe ne répond pas pour le moment. Réessaie dans un instant.');
       case 'StripeInvalidRequestError':
+        // Compte Stripe sans moyen de paiement actif (compte pas encore
+        // activé, ou cartes désactivées dans le tableau de bord).
+        if (/payment method types/i.test(err.message ?? '')) {
+          return new ServiceUnavailableException(
+            'Le paiement en ligne n\'est pas encore ouvert : aucun moyen de paiement n\'est activé sur le compte Stripe d\'Axis. Réessaie un peu plus tard ou contacte Axis Import.',
+          );
+        }
         return new ServiceUnavailableException(`Paiement refusé par Stripe : ${err.message ?? 'requête invalide'}`);
       default:
         return new ServiceUnavailableException(
