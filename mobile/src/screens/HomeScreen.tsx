@@ -40,6 +40,7 @@ export function HomeScreen() {
   // L'administrateur, lui, passe aussi des commandes pour ses clients :
   // il garde donc l'interface cliente complète.
   const isDriverOnly = user?.role === 'DRIVER';
+  const staff = isStaff(user?.role);
   useEffect(() => {
     // Inutile d'interroger l'API pour un client : le KYC ne le concerne pas.
     if (!isDriver) return;
@@ -252,6 +253,46 @@ export function HomeScreen() {
           </Pressable>
         ) : null}
 
+        {/* Équipe Axis (administrateur, responsables d'exploitation) : pas
+            de blocs « client » sur l'accueil — les envois des autres s'y
+            affichaient comme « Ton colis ». À la place, le pilotage du jour. */}
+        {staff ? (
+          <Surface padded style={{ gap: 4 }}>
+            <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
+              Pilotage
+            </Text>
+            {[
+              { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
+              { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+              { label: 'Messages', sub: 'Clients et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
+              { label: 'Documents officiels', sub: 'Douane, factures, contrats', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'generate' }) },
+            ].map((row, idx) => (
+              <Pressable
+                key={row.label}
+                onPress={row.go}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 11,
+                  borderTopWidth: idx === 0 ? 0 : 1,
+                  borderTopColor: theme.line,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <row.icon size={18} color={theme.navy} stroke={1.8} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{row.label}</Text>
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>{row.sub}</Text>
+                </View>
+                <Icons.chev size={16} color={theme.muted} stroke={2} />
+              </Pressable>
+            ))}
+          </Surface>
+        ) : (
+        <>
         {/* Envoi en cours — données réelles du client */}
         {shipments === null ? (
           <Skeleton variant="card" count={1} />
@@ -611,6 +652,8 @@ export function HomeScreen() {
           </Pressable>
         ) : null}
 
+        </>
+        )}
         {/* Aperçu actualités — masqué tant qu'Axis n'a rien publié */}
         {latestNews ? (
           <View>

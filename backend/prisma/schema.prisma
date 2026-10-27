@@ -1135,3 +1135,32 @@ model InvoiceSequence {
   year Int @id
   last Int @default(0)
 }
+
+/// Documents officiels générés par l'équipe (douane, factures, étiquettes…).
+/// L'historique était gardé dans le navigateur du téléphone de l'administrateur :
+/// perdu en changeant d'appareil, invisible des responsables d'exploitation.
+model AdminDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// Identifiant donné par l'appli (reprise sans doublon de l'ancien historique local).
+  clientRef     String?  @unique
+  typeId        String
+  typeLabel     String
+  reference     String
+  activity      String
+  values        Json
+  createdById   String   @db.Uuid
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([typeId])
+}
+
+/// Numérotation des documents officiels (AAAA-NNNN), partagée par toute l'équipe.
+model DocumentSequence {
+  typeId String
+  year   Int
+  seq    Int    @default(0)
+
+  @@id([typeId, year])
+}

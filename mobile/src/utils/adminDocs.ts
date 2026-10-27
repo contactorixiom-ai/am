@@ -3,6 +3,7 @@
 // activité) et route les valeurs saisies vers le bon générateur de pdf.ts.
 // L'étiquette colis n'existe pas dans pdf.ts (fichier gelé) : elle est
 // générée ici, en local, avec jsPDF + QRCode dans le même style N&B.
+import { AdminDocumentRecord, commitDocumentSequence, listAdminDocuments, peekDocumentSequence, saveAdminDocument } from '../api/adminDocuments';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
@@ -178,18 +179,36 @@ function formatReference(prefix: string, year: number, seq: number): string {
   return prefix ? `${prefix}-${num}` : num;
 }
 
-/** Prochaine référence pour ce type, SANS consommer le compteur. */
+/**
+ * Prochaine référence pour ce type, SANS consommer le compteur. Le compteur
+ * est sur le serveur, commun à toute l'équipe : chaque téléphone comptait de
+ * son côté et deux personnes pouvaient sortir le même numéro. Hors connexion,
+ * on retombe sur le compteur local.
+ */
 export async function peekReference(typeId: AdminDocTypeId): Promise<string> {
   const type = adminDocTypeById(typeId);
-  const year = new Date().getFullYear();
-  const map = await readSeqMap();
-  const cur = map[typeId];
-  const seq = cur && cur.year === year ? cur.seq + 1 : 1;
-  return formatReference(type?.refPrefix ?? '', year, seq);
+  try {
+    const { year, seq } = await peekDocumentSequence(typeId);
+    return formatReference(type?.refPrefix ?? '', year, seq);
+  } catch {
+    const year = new Date().getFullYear();
+    const map = await readSeqMap();
+    const cur = map[typeId];
+    const seq = cur && cur.year === year ? cur.seq + 1 : 1;
+    return formatReference(type?.refPrefix ?? '', year, seq);
+  }
+}
+
+/** Numéro d'ordre contenu dans une référence « PFX-2026-0042 » (0 si aucun). */
+function seqFromReference(reference: string, year: number): number {
+  const m = new RegExp(`${year}-(\\d{1,6})$`).exec(reference.trim());
+  return m ? Number(m[1]) : 0;
 }
 
 /** Consomme le compteur après une génération réussie (repart chaque année). */
-export async function commitReference(typeId: AdminDocTypeId): Promise<void> {
+export async function commitReference(typeId: AdminDocTypeId, reference?: string): Promise<void> {
+  const used = reference ? seqFromReference(reference, new Date().getFullYear()) : 0;
+  await commitDocumentSequence(typeId, used).catch(() => undefined);
   try {
     const year = new Date().getFullYear();
     const map = await readSeqMap();
@@ -214,9 +233,11 @@ export interface AdminHistoryEntry {
   dateISO: string;
   activity: AdminActivity;
   values: AdminValues;
+  /** Qui l'a généré (équipe Axis). */
+  author?: string;
 }
 
-export async function readAdminHistory(): Promise<AdminHistoryEntry[]> {
+async function readLocalHistory(): Promise<AdminHistoryEntry[]> {
   try {
     const raw = await AsyncStorage.getItem(ADMIN_HISTORY_KEY);
     if (!raw) return [];
@@ -227,14 +248,69 @@ export async function readAdminHistory(): Promise<AdminHistoryEntry[]> {
   }
 }
 
-export async function pushAdminHistory(entry: AdminHistoryEntry): Promise<AdminHistoryEntry[]> {
-  const list = [entry, ...(await readAdminHistory())].slice(0, HISTORY_MAX);
+function fromRecord(r: AdminDocumentRecord): AdminHistoryEntry {
+  return {
+    id: r.clientRef ?? r.id,
+    typeId: r.typeId as AdminDocTypeId,
+    typeLabel: r.typeLabel,
+    reference: r.reference,
+    dateISO: r.createdAt,
+    activity: r.activity as AdminActivity,
+    values: r.values as AdminValues,
+    author: r.createdByName,
+  };
+}
+
+const MIGRATED_KEY = 'axis.admin.history.migrated.v1';
+
+/**
+ * Historique des documents générés, lu sur le serveur (commun à l'équipe,
+ * conservé quel que soit le téléphone). L'ancien historique gardé sur ce
+ * téléphone y est versé une fois, sans doublon. Hors connexion : historique
+ * local.
+ */
+export async function readAdminHistory(): Promise<AdminHistoryEntry[]> {
+  const local = await readLocalHistory();
   try {
-    await AsyncStorage.setItem(ADMIN_HISTORY_KEY, JSON.stringify(list));
+    const migrated = (await AsyncStorage.getItem(MIGRATED_KEY).catch(() => null)) === 'yes';
+    if (!migrated && local.length > 0) {
+      for (const e of [...local].reverse()) {
+        await saveAdminDocument({
+          clientRef: e.id,
+          typeId: e.typeId,
+          typeLabel: e.typeLabel,
+          reference: e.reference,
+          activity: e.activity,
+          values: e.values as Record<string, unknown>,
+          createdAt: e.dateISO,
+        });
+      }
+      await AsyncStorage.setItem(MIGRATED_KEY, 'yes').catch(() => undefined);
+    }
+    return (await listAdminDocuments(HISTORY_MAX * 3)).map(fromRecord);
   } catch {
-    // Persistance impossible : on renvoie quand même la liste pour l'UI.
+    return local;
   }
-  return list;
+}
+
+export async function pushAdminHistory(entry: AdminHistoryEntry): Promise<AdminHistoryEntry[]> {
+  // Copie locale : filet de sécurité hors connexion.
+  const localList = [entry, ...(await readLocalHistory())].slice(0, HISTORY_MAX);
+  await AsyncStorage.setItem(ADMIN_HISTORY_KEY, JSON.stringify(localList)).catch(() => undefined);
+  try {
+    await saveAdminDocument({
+      clientRef: entry.id,
+      typeId: entry.typeId,
+      typeLabel: entry.typeLabel,
+      reference: entry.reference,
+      activity: entry.activity,
+      values: entry.values as Record<string, unknown>,
+      createdAt: entry.dateISO,
+    });
+    return (await listAdminDocuments(HISTORY_MAX * 3)).map(fromRecord);
+  } catch {
+    return localList;
+  }
 }
 
 // ─── Helpers de coercition des valeurs de formulaire ────────────────────────

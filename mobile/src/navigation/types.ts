@@ -47,7 +47,7 @@ export type RootStackParamList = {
     | undefined;
   Conversations: undefined;
   DriverMode: undefined;
-  Admin: undefined;
+  Admin: { tab?: 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'team' } | undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
   VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; missionId?: string; reference?: string; vehicleLabel?: string; clientName?: string } | undefined;

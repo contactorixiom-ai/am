@@ -11,6 +11,7 @@ import { AuthenticatedUser } from '../../common/decorators/current-user.decorato
 import { AddInspectionPhotoDto } from './dto/add-photo.dto';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
 import { SignInspectionDto } from './dto/sign-inspection.dto';
+import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
 
 @Injectable()
 export class InspectionsService {
@@ -110,7 +111,7 @@ export class InspectionsService {
       // d'enregistrement du serveur reste visible sur chaque photo.
       const signedAt = insp.driverSignedAt ?? insp.clientSignedAt ?? insp.submittedAt;
       const lateAllowed =
-        (user.role === UserRole.ADMIN || insp.inspectorId === user.id) &&
+        (isStaff(user.role) || insp.inspectorId === user.id) &&
         !!signedAt && Date.now() - new Date(signedAt).getTime() < 24 * 3600_000;
       if (!lateAllowed) throw new BadRequestException('État des lieux signé : photos closes.');
     }
@@ -204,7 +205,7 @@ export class InspectionsService {
     const phase = type === InspectionType.PRE_DEPARTURE ? 'de prise en charge' : 'de livraison';
     const complet = status === InspectionStatus.SIGNED;
     const admins = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, deletedAt: null },
+      where: { role: { in: STAFF_ROLES }, deletedAt: null },
       select: { id: true },
     });
     const targets = new Set(
@@ -233,7 +234,7 @@ export class InspectionsService {
     mission: { clientId: string; driverId: string | null },
     user: AuthenticatedUser,
   ): void {
-    if (user.role === 'ADMIN') return;
+    if (isStaff(user.role)) return;
     if (user.id !== mission.clientId && user.id !== mission.driverId) {
       throw new ForbiddenException();
     }

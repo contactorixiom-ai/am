@@ -17,6 +17,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { ParcelsModule } from './modules/parcels/parcels.module';
 import { NewsModule } from './modules/news/news.module';
+import { AdminDocumentsModule } from './modules/admin-documents/admin-documents.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -69,6 +70,7 @@ import { HealthModule } from './modules/health/health.module';
     MessagingModule,
     ParcelsModule,
     NewsModule,
+    AdminDocumentsModule,
     PaymentsModule,
     CustomsModule,
   ],

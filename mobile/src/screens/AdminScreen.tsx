@@ -1,3 +1,5 @@
+import { RouteProp, useRoute } from '@react-navigation/native';
+import { RootStackParamList } from '../navigation/types';
 // Espace admin — poste de travail de Roger, l'opérateur de la plateforme.
 // Trois onglets internes (état local, pas de routes dédiées) :
 //   1. Générer   — générateur de documents officiels (formulaire → PDF)
@@ -239,7 +241,8 @@ export function AdminScreen() {
   // le chiffre d'affaires.
   const meIsAdmin = isAdmin(me?.role);
   const [compareMode, setCompareMode] = useState(false);
-  const [tab, setTab] = useState<TabId>('dashboard');
+  const route = useRoute<RouteProp<RootStackParamList, 'Admin'>>();
+  const [tab, setTab] = useState<TabId>(route.params?.tab ?? 'dashboard');
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
   useEffect(() => {
@@ -385,7 +388,7 @@ export function AdminScreen() {
     setGenerating(true);
     try {
       const reference = await generateAdminDocument(selectedType, values);
-      await commitReference(selectedType.id);
+      await commitReference(selectedType.id, reference);
       const entry: AdminHistoryEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         typeId: selectedType.id,
@@ -630,14 +633,9 @@ export function AdminScreen() {
       <AppBar title="Espace admin" subtitle="Axis Import · commandes, documents, encaissements" />
 
       {/* Onglets internes */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // Hauteur figée : sans flexShrink 0, la rangée s'écrasait sous le
-        // contenu de l'onglet et les pastilles étaient rognées.
-        style={{ flexGrow: 0, flexShrink: 0, minHeight: 58 }}
-        contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}
-      >
+      {/* Onglets sur une ou deux lignes : en défilement horizontal, les
+          derniers (Convoyeurs, Équipe) sortaient de l'écran d'un téléphone. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10, flexShrink: 0 }}>
         {TABS.filter((t) => t.id !== 'team' || meIsAdmin).map((t) => {
           const on = tab === t.id;
           return (
@@ -666,7 +664,7 @@ export function AdminScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 12 }}
@@ -2227,8 +2225,8 @@ export function AdminScreen() {
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
               <Pill tone="ghost">{ACTIVITY_LABEL[entry.activity]}</Pill>
-              <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                {dateLabel}
+              <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                {entry.author ? `${dateLabel} · ${entry.author}` : dateLabel}
               </Text>
             </View>
           </View>
