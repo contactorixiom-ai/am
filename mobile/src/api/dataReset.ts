@@ -20,9 +20,44 @@ export function getResetPreview(): Promise<ResetPreview> {
   return apiFetch<ResetPreview>('/admin/reset');
 }
 
-/** Efface toute l'activité de test. Une seule fois ; il faut taper « EFFACER ». */
-export async function runReset(confirmation: string): Promise<ResetPreview> {
-  const res = await apiFetch<ResetPreview>('/admin/reset', { method: 'POST', body: { confirmation } });
+export interface ResetOperation {
+  kind: 'mission' | 'parcel';
+  id: string;
+  reference: string;
+  createdAt: string;
+  status: string;
+  route: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  /** Véhicule (convoyage) ou contenu déclaré (colis). */
+  detail: string;
+  recipient: string;
+  driverName: string;
+  priceCents: number | null;
+  paymentStatus: string | null;
+  paidCents: number | null;
+  invoiceNumber: string | null;
+}
+
+/** Toutes les opérations, la plus ancienne d'abord. */
+export function listResetOperations(): Promise<ResetOperation[]> {
+  return apiFetch<ResetOperation[]>('/admin/reset/operations');
+}
+
+/**
+ * Efface l'activité de test, sauf les opérations gardées. Une seule fois ;
+ * il faut taper « EFFACER ».
+ */
+export async function runReset(confirmation: string, keep: ResetOperation[] = []): Promise<ResetPreview & { kept: string[] }> {
+  const res = await apiFetch<ResetPreview & { kept: string[] }>('/admin/reset', {
+    method: 'POST',
+    body: {
+      confirmation,
+      keepMissionIds: keep.filter((o) => o.kind === 'mission').map((o) => o.id),
+      keepParcelIds: keep.filter((o) => o.kind === 'parcel').map((o) => o.id),
+    },
+  });
   await clearLocalActivity();
   return res;
 }

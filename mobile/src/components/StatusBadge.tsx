@@ -29,6 +29,11 @@ const STATUS_MAP: Record<string, { label: string; tone: PillTone }> = {
   LOST:              { label: 'Perdu',         tone: 'bad' },
 };
 
+/** Libellé en français d'un statut (exports, textes). */
+export function statusLabel(status: string): string {
+  return STATUS_MAP[status]?.label ?? status;
+}
+
 export function StatusBadge({ status }: { status: MissionStatus | ParcelStatus | string }) {
   const info = STATUS_MAP[status] ?? { label: status, tone: 'default' as PillTone };
   return <Pill tone={info.tone}>{info.label}</Pill>;

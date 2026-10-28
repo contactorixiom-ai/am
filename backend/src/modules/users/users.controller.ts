@@ -112,6 +112,20 @@ export class UsersController {
     return paginate(data, total, pagination.page, pagination.pageSize);
   }
 
+  @Post('drivers/invite')
+  @Roles(UserRole.ADMIN) // administrateur et responsables d'exploitation
+  @ApiOperation({ summary: 'Équipe : inviter un convoyeur (compte créé, lien d\'accès à envoyer)' })
+  inviteDriver(@CurrentUser('id') staffId: string, @Body() dto: CreateManagerDto) {
+    return this.users.inviteDriver(staffId, dto);
+  }
+
+  @Get('drivers/invited')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Équipe : convoyeurs invités pas encore connectés' })
+  invitedDrivers() {
+    return this.users.listInvitedDrivers();
+  }
+
   @Get('drivers')
   @ApiOperation({ summary: 'Lister les convoyeurs actifs' })
   async listDrivers(@Query() pagination: DriverQueryDto) {

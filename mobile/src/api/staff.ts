@@ -30,3 +30,24 @@ export function revokeManager(id: string): Promise<{ id: string }> {
 export function restoreManager(id: string): Promise<{ id: string }> {
   return apiFetch(`/users/staff/${id}/restore`, { method: 'PATCH' });
 }
+
+export interface InvitedDriver {
+  id: string;
+  email: string;
+  phone: string | null;
+  firstName: string;
+  lastName: string;
+  status: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'DELETED';
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+/** Équipe : invite un convoyeur (compte créé, lien d'accès à lui envoyer). */
+export function inviteDriver(input: { firstName: string; lastName: string; email: string; phone?: string }): Promise<InvitedDriver> {
+  return apiFetch<InvitedDriver>('/users/drivers/invite', { method: 'POST', body: input });
+}
+
+/** Convoyeurs invités qui ne se sont pas encore connectés. */
+export function listInvitedDrivers(): Promise<InvitedDriver[]> {
+  return apiFetch<InvitedDriver[]>('/users/drivers/invited');
+}

@@ -324,6 +324,7 @@ export class UsersService {
     if (existing && !existing.deletedAt) {
       throw new ConflictException('Un compte existe déjà avec cet e-mail : utilise une autre adresse pour le compte d\'équipe.');
     }
+    await this.assertPhoneFree(dto.phone);
     // Mot de passe aléatoire : le responsable choisit le sien via le lien
     // d'accès envoyé par l'administrateur.
     const passwordHash = await argon2.hash(randomBytes(24).toString('hex'), { type: argon2.argon2id });
@@ -341,6 +342,58 @@ export class UsersService {
     });
     await this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_CREATE', entity: 'User', entityId: user.id } });
     return user;
+  }
+
+  /** Le téléphone est unique : message clair plutôt qu'une erreur serveur. */
+  private async assertPhoneFree(phone?: string) {
+    const p = phone?.trim();
+    if (!p) return;
+    const taken = await this.prisma.user.findUnique({ where: { phone: p }, select: { id: true } });
+    if (taken) throw new ConflictException('Ce numéro de téléphone est déjà utilisé par un autre compte.');
+  }
+
+  /**
+   * Invitation d'un convoyeur par l'équipe Axis : compte convoyeur sans mot
+   * de passe connu. Il choisit le sien via le lien d'accès, puis envoie son
+   * permis et sa pièce d'identité, que Roger valide comme pour une
+   * inscription spontanée.
+   */
+  async inviteDriver(staffId: string, dto: { firstName: string; lastName: string; email: string; phone?: string }) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({ where: { email }, select: { role: true, deletedAt: true } });
+    if (existing && !existing.deletedAt) {
+      throw new ConflictException(
+        existing.role === UserRole.DRIVER
+          ? 'Ce convoyeur a déjà un compte : envoie-lui plutôt un lien d\'accès depuis sa fiche.'
+          : 'Un compte existe déjà avec cet e-mail.',
+      );
+    }
+    await this.assertPhoneFree(dto.phone);
+    const passwordHash = await argon2.hash(randomBytes(24).toString('hex'), { type: argon2.argon2id });
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        phone: dto.phone?.trim() || null,
+        passwordHash,
+        role: UserRole.DRIVER,
+        status: UserStatus.PENDING,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+      },
+      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
+    });
+    await this.prisma.auditLog.create({ data: { userId: staffId, action: 'DRIVER_INVITE', entity: 'User', entityId: user.id } });
+    return user;
+  }
+
+  /** Convoyeurs invités qui ne se sont pas encore connectés. */
+  listInvitedDrivers() {
+    return this.prisma.user.findMany({
+      where: { role: UserRole.DRIVER, deletedAt: null, lastLoginAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
+    });
   }
 
   /** Retire l'accès d'un responsable : compte suspendu, sessions coupées. */

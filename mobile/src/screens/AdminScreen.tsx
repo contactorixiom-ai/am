@@ -31,6 +31,7 @@ import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { DirectoryPanel } from '../components/DirectoryPanel';
+import { DriverInvitePanel } from '../components/DriverInvitePanel';
 import { KycReviewPanel } from '../components/KycReviewPanel';
 import { InspectionCompare } from '../components/InspectionCompare';
 import { listPendingKyc } from '../api/kyc';
@@ -698,7 +699,12 @@ export function AdminScreen() {
         {tab === 'generate' && renderGenerateTab()}
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
-        {tab === 'drivers' && <KycReviewPanel onCountChange={setKycPending} />}
+        {tab === 'drivers' ? (
+          <View style={{ gap: 14 }}>
+            <DriverInvitePanel onSendAccess={setAccessTarget} />
+            <KycReviewPanel onCountChange={setKycPending} />
+          </View>
+        ) : null}
         {tab === 'members' && meIsAdmin ? <DirectoryPanel onSendAccess={setAccessTarget} /> : null}
         {tab === 'team' && meIsAdmin ? (
           <StaffPanel

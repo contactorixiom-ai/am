@@ -7,6 +7,7 @@ function prismaMock(doneAt: Date | null) {
     'invoiceSequence', 'review', 'call', 'message', 'conversationParticipant', 'inspectionPhoto', 'missionLocation', 'missionStatusHistory',
     'quoteOption', 'cargoTrackingNote', 'parcelTrackingEvent', 'parcelItem', 'vehiclePhoto', 'documentSequence', 'driverProfile'];
   const p: Record<string, any> = Object.fromEntries(names.map((n) => [n, model()]));
+  p.mission.groupBy = jest.fn().mockResolvedValue([]); p.review.groupBy = jest.fn().mockResolvedValue([]);
   p.auditLog = { findFirst: jest.fn().mockResolvedValue(doneAt ? { createdAt: doneAt } : null), create: jest.fn().mockReturnValue('log') };
   p.$transaction = jest.fn().mockResolvedValue([]);
   return p;
