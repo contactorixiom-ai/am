@@ -120,15 +120,16 @@ export class MissionsService {
       // Roger doit savoir qu'une commande vient d'arriver.
       const admins = await this.prisma.user.findMany({
         where: { role: { in: STAFF_ROLES }, deletedAt: null },
-        select: { id: true },
+        select: { id: true, role: true },
       });
       const price = priceCents != null ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: currency ?? 'EUR' })}` : '';
       for (const a of admins) {
+        // Les responsables d'exploitation ne voient aucun prix.
         await this.notifySafe(
           a.id,
           NotificationType.MISSION_CREATED,
           'Nouvelle commande de convoyage',
-          `${mission.reference} — ${mission.pickupCity} → ${mission.deliveryCity}${price}. Un convoyeur est à affecter.`,
+          `${mission.reference} — ${mission.pickupCity} → ${mission.deliveryCity}${a.role === UserRole.ADMIN ? price : ''}. Un convoyeur est à affecter.`,
           { missionId: mission.id },
         );
       }

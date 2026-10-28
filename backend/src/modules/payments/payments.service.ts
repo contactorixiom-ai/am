@@ -347,6 +347,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   /** Règlements du client connecté, ou tous pour l'administrateur. */
   async list(user: AuthenticatedUser, skip: number, take: number) {
+    // Les règlements sont des chiffres : réservés à l'administrateur.
+    if (user.role === UserRole.MANAGER) throw new ForbiddenException('Réservé à l\'administrateur.');
     await this.reconcilePending(isStaff(user.role) ? undefined : user.id);
     const where: Prisma.PaymentWhereInput =
       isStaff(user.role) ? {} : { clientId: user.id };
@@ -594,8 +596,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         where: { id: record.clientId },
         select: { firstName: true, lastName: true },
       });
+      // Montants : administrateur seulement, pas les responsables d'exploitation.
       const admins = await this.prisma.user.findMany({
-        where: { role: { in: STAFF_ROLES }, deletedAt: null },
+        where: { role: UserRole.ADMIN, deletedAt: null },
         select: { id: true },
       });
       const who = client ? `${client.firstName} ${client.lastName}`.trim() : 'Un client';

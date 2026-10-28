@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SaveAdminDocumentDto } from './save-admin-document.dto';
 
@@ -9,15 +9,26 @@ import { SaveAdminDocumentDto } from './save-admin-document.dto';
  * navigateur du téléphone de l'administrateur : perdus en changeant
  * d'appareil, et deux personnes pouvaient sortir le même numéro.
  */
+/** Documents chiffrés que seul l'administrateur voit et émet. */
+export const ADMIN_ONLY_TYPES = ['invoice'];
+
 @Injectable()
 export class AdminDocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(take = 200) {
-    return this.prisma.adminDocument.findMany({ orderBy: { createdAt: 'desc' }, take: Math.min(Math.max(take, 1), 500) });
+  list(user: { role: UserRole }, take = 200) {
+    return this.prisma.adminDocument.findMany({
+      // Les factures clients sont des chiffres : administrateur seulement.
+      where: user.role === UserRole.ADMIN ? {} : { typeId: { notIn: ADMIN_ONLY_TYPES } },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(take, 1), 500),
+    });
   }
 
-  async save(user: { id: string }, dto: SaveAdminDocumentDto) {
+  async save(user: { id: string; role: UserRole }, dto: SaveAdminDocumentDto) {
+    if (user.role !== UserRole.ADMIN && ADMIN_ONLY_TYPES.includes(dto.typeId)) {
+      throw new ForbiddenException('Les factures clients sont réservées à l\'administrateur.');
+    }
     const author = await this.prisma.user.findUnique({ where: { id: user.id }, select: { firstName: true, lastName: true } });
     const data = {
       typeId: dto.typeId,

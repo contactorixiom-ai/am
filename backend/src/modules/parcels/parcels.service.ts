@@ -172,7 +172,7 @@ export class ParcelsService {
     // Roger doit savoir qu'un envoi vient d'être commandé.
     const admins = await this.prisma.user.findMany({
       where: { role: { in: STAFF_ROLES }, deletedAt: null },
-      select: { id: true },
+      select: { id: true, role: true },
     });
     const price = priceCents != null
       ? ` · ${(priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`
@@ -180,7 +180,7 @@ export class ParcelsService {
     for (const a of admins) {
       await this.notifications
         .notify(a.id, NotificationType.PARCEL_STATUS_UPDATE, 'Nouvel envoi de colis',
-          `${parcel.reference} — ${parcel.originCity} → ${parcel.destinationCity}${price}.`, { parcelId: parcel.id })
+          `${parcel.reference} — ${parcel.originCity} → ${parcel.destinationCity}${a.role === UserRole.ADMIN ? price : ''}.`, { parcelId: parcel.id })
         .catch(() => undefined);
     }
     return parcel;

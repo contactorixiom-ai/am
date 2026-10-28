@@ -42,6 +42,11 @@ import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StaffPanel } from '../components/StaffPanel';
 import { isAdmin } from '../utils/roles';
+
+// Responsables d'exploitation : aucun prix ni montant. Les factures clients
+// et les champs de prix des documents sont réservés à l'administrateur.
+const ADMIN_ONLY_DOC_TYPES = ['invoice'];
+const MONEY_FIELDS = ['amountEur', 'priceEur'];
 import { SectionHead } from '../components/SectionHead';
 import { Skeleton } from '../components/Skeleton';
 import { StatusBadge } from '../components/StatusBadge';
@@ -240,6 +245,8 @@ export function AdminScreen() {
   // Responsable d'exploitation : pilote l'activité, sans l'onglet Équipe ni
   // le chiffre d'affaires.
   const meIsAdmin = isAdmin(me?.role);
+  // Documents d'une liasse visibles pour ce compte (pas de facture pour un responsable).
+  const packItems = (pack: DocPack) => pack.items.filter((i) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(i.typeId));
   const [compareMode, setCompareMode] = useState(false);
   const route = useRoute<RouteProp<RootStackParamList, 'Admin'>>();
   const [tab, setTab] = useState<TabId>(route.params?.tab ?? 'dashboard');
@@ -319,7 +326,8 @@ export function AdminScreen() {
 
   const loadShipments = useCallback(async () => {
     if (isAdmin(me?.role)) getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
-    listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
+    // Règlements = chiffres : l'administrateur seulement.
+    if (isAdmin(me?.role)) listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
     listDocuments({ category: 'CONTRACT' })
       .then((docs) => {
         const map = new Map<string, DocumentRecord>();
@@ -377,10 +385,11 @@ export function AdminScreen() {
     } catch {
       setFormInitial({ ...(prefill ?? {}) });
     }
-    setSelectedType(type);
+    // Responsable d'exploitation : aucun prix dans les documents.
+    setSelectedType(meIsAdmin ? type : { ...type, fields: type.fields.filter((f) => !MONEY_FIELDS.includes(f.key)) });
     setFormActivity(activity ?? null);
     setTab('generate');
-  }, []);
+  }, [meIsAdmin]);
 
   // ─── Génération depuis le formulaire ──────────────────────────────────────
   const handleGenerate = useCallback(async (values: AdminValues) => {
@@ -1304,8 +1313,10 @@ export function AdminScreen() {
               </View>
 
               {/* 4. Prix + convoyeur */}
-              <SectionHead title="4 · Prix et convoyeur" />
-              <Field label="Prix convenu (EUR TTC)" value={order.price} onChangeText={setOrderField('price')} placeholder="690" keyboardType="decimal-pad" hint="Facultatif — sert à la facturation et au chiffre d'affaires." />
+              <SectionHead title={meIsAdmin ? '4 · Prix et convoyeur' : '4 · Convoyeur'} />
+              {meIsAdmin ? (
+                <Field label="Prix convenu (EUR TTC)" value={order.price} onChangeText={setOrderField('price')} placeholder="690" keyboardType="decimal-pad" hint="Facultatif — sert à la facturation et au chiffre d'affaires." />
+              ) : null}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 <Pressable
                   onPress={() => setOrder((p) => ({ ...p, driverId: '' }))}
@@ -1384,6 +1395,7 @@ export function AdminScreen() {
 
     // Documents les plus utilisés au quotidien.
     const quickDocs = ['invoice', 'contract', 'cmr', 'commercialInvoice', 'shippingLabel']
+      .filter((id) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(id))
       .map((id) => adminDocTypeById(id))
       .filter((t): t is AdminDocType => !!t);
 
@@ -1426,7 +1438,9 @@ export function AdminScreen() {
           {meIsAdmin ? (
             <DashTile theme={theme} label={payments ? 'Encaissé (mois)' : 'CA facturé (mois)'} value={fmtEuro(caMonth)} tone="gold" />
           ) : null}
-          <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
+          {meIsAdmin ? (
+            <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
+          ) : null}
         </View>
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1701,7 +1715,7 @@ export function AdminScreen() {
     if (selectedPack) {
       const pack = selectedPack;
       const doneIds = new Set(history.map((h) => h.typeId));
-      const doneCount = pack.items.filter((i) => doneIds.has(i.typeId)).length;
+      const doneCount = packItems(pack).filter((i) => doneIds.has(i.typeId)).length;
 
       // Envois proposés : missions pour le convoyage, colis pour le reste.
       const isConvoy = pack.activity === 'convoyage';
@@ -1731,10 +1745,10 @@ export function AdminScreen() {
             <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{pack.subtitle}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
               <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: theme.bgSoft, overflow: 'hidden' }}>
-                <View style={{ width: `${Math.round((doneCount / pack.items.length) * 100)}%`, height: 6, backgroundColor: theme.gold }} />
+                <View style={{ width: `${Math.round((doneCount / packItems(pack).length) * 100)}%`, height: 6, backgroundColor: theme.gold }} />
               </View>
               <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
-                {doneCount}/{pack.items.length}
+                {doneCount}/{packItems(pack).length}
               </Text>
             </View>
           </Surface>
@@ -1773,7 +1787,7 @@ export function AdminScreen() {
             officiel ou du fabricant.
           </Text>
           <View style={{ gap: 8 }}>
-            {pack.items.map((item) => {
+            {packItems(pack).map((item) => {
               const t = adminDocTypeById(item.typeId);
               if (!t) return null;
               const done = doneIds.has(item.typeId);
@@ -1848,7 +1862,7 @@ export function AdminScreen() {
         <View style={{ gap: 8 }}>
           {DOC_PACKS.map((pack) => {
             const doneIds = new Set(history.map((h) => h.typeId));
-            const done = pack.items.filter((i) => doneIds.has(i.typeId)).length;
+            const done = packItems(pack).filter((i) => doneIds.has(i.typeId)).length;
             return (
               <Pressable key={pack.id} onPress={() => setSelectedPack(pack)}>
                 <Surface padded flat style={{ padding: 14 }}>
@@ -1865,7 +1879,7 @@ export function AdminScreen() {
                       </Text>
                     </View>
                     <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.semibold }}>
-                      {done}/{pack.items.length}
+                      {done}/{packItems(pack).length}
                     </Text>
                     <Icons.arrow size={16} color={theme.muted} stroke={1.8} />
                   </View>
@@ -1877,7 +1891,7 @@ export function AdminScreen() {
 
         <SectionHead title="Tous les documents" style={{ marginTop: 8 }} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {ADMIN_DOC_TYPES.map((t) => (
+          {ADMIN_DOC_TYPES.filter((t) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(t.id)).map((t) => (
             <Pressable
               key={t.id}
               onPress={() => openDocForm(t)}
@@ -1974,7 +1988,7 @@ export function AdminScreen() {
                   {`Enlèvement : ${slotLabel(m)}`}
                   {m.pickupAddress && m.deliveryAddress ? `\n${m.pickupAddress} → ${m.deliveryAddress}` : ''}
                 </Text>
-                {m.priceCents ? (
+                {m.priceCents && meIsAdmin ? (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     {(() => {
                       // Commande annulée après règlement : Roger doit rembourser.
@@ -2023,9 +2037,11 @@ export function AdminScreen() {
                       {m.driver ? 'Changer' : 'Affecter'}
                     </Button>
                   ) : null}
-                  <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromMission(m)}>
-                    Facture
-                  </Button>
+                  {meIsAdmin ? (
+                    <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromMission(m)}>
+                      Facture
+                    </Button>
+                  ) : null}
                   {m.client?.id ? (
                     <Button
                       kind="outline"
@@ -2100,7 +2116,7 @@ export function AdminScreen() {
                     {`Destinataire : ${p.recipientFirstName} ${p.recipientLastName ?? ''}${p.recipientPhone ? ` · ${p.recipientPhone}` : ''}`}
                   </Text>
                 ) : null}
-                {p.priceCents ? (
+                {p.priceCents && meIsAdmin ? (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     {paymentList.some((x) => x.parcelId === p.id && x.status === 'PAID') ? (
                       <Pill tone="good">{`Payé · ${(p.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}</Pill>
@@ -2120,9 +2136,11 @@ export function AdminScreen() {
                   <Button kind="primary" size="sm" style={{ flex: 1 }} onPress={() => setStatusParcel(p)}>
                     Statut
                   </Button>
-                  <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromParcel(p)}>
-                    Facture
-                  </Button>
+                  {meIsAdmin ? (
+                    <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => invoiceFromParcel(p)}>
+                      Facture
+                    </Button>
+                  ) : null}
                   <Button kind="outline" size="sm" style={{ flex: 1 }} onPress={() => labelFromParcel(p)}>
                     Étiquette
                   </Button>

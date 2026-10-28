@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminDocumentsService } from './admin-documents.service';
 import { SaveAdminDocumentDto } from './save-admin-document.dto';
@@ -15,13 +15,13 @@ export class AdminDocumentsController {
 
   @Get()
   @ApiOperation({ summary: 'Équipe : historique des documents officiels générés' })
-  list(@Query('take') take?: string) {
-    return this.docs.list(take ? Number(take) || 200 : 200);
+  list(@CurrentUser() user: AuthenticatedUser, @Query('take') take?: string) {
+    return this.docs.list(user, take ? Number(take) || 200 : 200);
   }
 
   @Post()
   @ApiOperation({ summary: 'Équipe : enregistrer un document généré' })
-  save(@CurrentUser() user: { id: string }, @Body() dto: SaveAdminDocumentDto) {
+  save(@CurrentUser() user: AuthenticatedUser, @Body() dto: SaveAdminDocumentDto) {
     return this.docs.save(user, dto);
   }
 

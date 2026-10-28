@@ -31,8 +31,8 @@ export class PaymentsController {
   }
 
   @ApiBearerAuth()
-  @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
+  @AdminOnly()
   @Post('manual')
   @ApiOperation({ summary: 'Admin : enregistrer un règlement reçu hors application (virement, espèces…)' })
   manual(@CurrentUser('id') adminId: string, @Body() dto: ManualPaymentDto) {

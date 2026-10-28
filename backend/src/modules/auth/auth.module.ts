@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { HideAmountsInterceptor } from '../../common/interceptors/hide-amounts.interceptor';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { DefaultAccountsGuard } from './default-accounts.guard';
@@ -34,6 +35,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Après les gardes (l'utilisateur est connu) : aucun montant pour les responsables.
+    { provide: APP_INTERCEPTOR, useClass: HideAmountsInterceptor },
   ],
   exports: [AuthService],
 })
