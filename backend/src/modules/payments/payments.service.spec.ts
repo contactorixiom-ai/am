@@ -119,4 +119,15 @@ describe('PaymentsService avec Stripe', () => {
     const err = await svc.createCheckoutSession('client-1', input).catch((e) => e);
     expect(err.message).toMatch(/aucun moyen de paiement/);
   });
+
+  it('aucun moyen de paiement actif : nouvel essai en carte bancaire', async () => {
+    const { svc } = service(false);
+    const create = jest.fn()
+      .mockRejectedValueOnce({ type: 'StripeInvalidRequestError', message: 'No valid payment method types for this Checkout Session.' })
+      .mockResolvedValueOnce({ id: 'cs_test_1', url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
+    (svc as unknown as { stripe: unknown }).stripe = { checkout: { sessions: { create, retrieve: jest.fn() } } };
+    const res = await svc.createCheckoutSession('client-1', input);
+    expect(res.url).toMatch(/checkout\.stripe\.com/);
+    expect(create.mock.calls[1][0].payment_method_types).toEqual(['card']);
+  });
 });

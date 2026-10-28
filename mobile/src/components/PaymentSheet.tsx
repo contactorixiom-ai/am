@@ -40,6 +40,30 @@ function openExternal(url: string) {
   }
 }
 
+/**
+ * Safari (iPhone) bloque toute fenêtre ouverte après une attente réseau : la
+ * page Stripe ne s'ouvrait pas. On ouvre donc l'onglet tout de suite, au
+ * toucher sur « Payer », puis on y charge la page Stripe une fois prête.
+ */
+function preopenTab(): Window | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  try {
+    const w = window.open('', '_blank');
+    if (!w) return null;
+    try {
+      w.opener = null;
+      w.document.title = 'Paiement sécurisé…';
+      w.document.body.style.cssText = 'font-family:-apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#0B2545';
+      w.document.body.textContent = 'Ouverture du paiement sécurisé…';
+    } catch {
+      // Onglet ouvert mais non modifiable : sans importance.
+    }
+    return w;
+  } catch {
+    return null;
+  }
+}
+
 function returnUrls(): { successUrl: string; cancelUrl: string } {
   const base =
     typeof window !== 'undefined' && window.location
@@ -57,7 +81,11 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
   const [provider, setProvider] = useState<Provider>('simulation');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Page Stripe à rouvrir d'un toucher si le navigateur a bloqué l'onglet.
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const activeRef = useRef(true);
+  // Chaque tentative a son numéro : « Annuler » arrête l'attente en cours.
+  const runRef = useRef(0);
 
   useEffect(() => {
     activeRef.current = true;
@@ -66,15 +94,15 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
   // Si la feuille est masquée, on stoppe tout sondage en cours.
   useEffect(() => { if (!visible) activeRef.current = false; else activeRef.current = true; }, [visible]);
 
-  const reset = () => { setStep('pick'); setError(null); setSessionId(null); };
+  const reset = () => { setStep('pick'); setError(null); setSessionId(null); setCheckoutUrl(null); };
 
   // Sonde le statut de la session Stripe jusqu'au règlement (≤ 15 min : le
   // temps de saisir sa carte et de valider auprès de sa banque).
-  const pollPaid = async (id: string): Promise<boolean> => {
+  const pollPaid = async (id: string, run: number): Promise<boolean> => {
     const deadline = Date.now() + 15 * 60 * 1000;
-    while (Date.now() < deadline && activeRef.current) {
+    while (Date.now() < deadline && activeRef.current && runRef.current === run) {
       await new Promise((r) => setTimeout(r, 2500));
-      if (!activeRef.current) return false;
+      if (!activeRef.current || runRef.current !== run) return false;
       try {
         const s = await getPaymentSession(id);
         if (s.paid) return true;
@@ -87,6 +115,9 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
 
   const pay = async () => {
     setError(null);
+    setCheckoutUrl(null);
+    const tab = preopenTab();
+    const run = ++runRef.current;
     setStep('processing');
     try {
       const { successUrl, cancelUrl } = returnUrls();
@@ -105,9 +136,11 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
 
       if (session.provider === 'stripe' && session.url) {
         // Stripe réel : on ouvre la page hébergée et on attend la confirmation.
-        openExternal(session.url);
-        const paid = await pollPaid(session.id);
-        if (!activeRef.current) return;
+        setCheckoutUrl(session.url);
+        if (tab && !tab.closed) tab.location.href = session.url;
+        else if (Platform.OS !== 'web') openExternal(session.url);
+        const paid = await pollPaid(session.id, run);
+        if (!activeRef.current || runRef.current !== run) return;
         if (paid) setStep('success');
         else {
           // Ne pas pousser à repayer : un paiement passé après ce délai est
@@ -116,12 +149,14 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
           setStep('pick');
         }
       } else {
+        tab?.close();
         // Mode simulation (aucune clé Stripe côté serveur) : aucun débit réel.
         await new Promise((r) => setTimeout(r, 1300));
         if (!activeRef.current) return;
         setStep('success');
       }
     } catch (e) {
+      tab?.close();
       if (!activeRef.current) return;
       // Le serveur explique pourquoi (paiement pas encore activé, montant…).
       setError(
@@ -223,6 +258,26 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                     : 'Merci de patienter quelques secondes.'}
                 </Text>
               </View>
+              {checkoutUrl ? (
+                <Pressable
+                  onPress={() => openExternal(checkoutUrl)}
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    height: 50,
+                    borderRadius: RADII.lg,
+                    backgroundColor: pressed ? theme.goldDeep : theme.gold,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  })}
+                >
+                  <Text style={{ color: theme.navy, fontSize: 15, fontFamily: TYPO.weights.bold }}>Ouvrir la page de paiement</Text>
+                </Pressable>
+              ) : null}
+              {checkoutUrl ? (
+                <Pressable onPress={() => { runRef.current += 1; reset(); }} hitSlop={8}>
+                  <Text style={{ fontSize: 13, color: theme.muted, fontFamily: TYPO.weights.semibold }}>Annuler</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <View style={{ paddingVertical: 20, alignItems: 'center', gap: 16 }}>

@@ -639,7 +639,7 @@ export function AdminScreen() {
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Espace admin" subtitle="Axis Import · commandes, documents, encaissements" />
+      <AppBar title="Espace admin" subtitle={meIsAdmin ? 'Axis Import · commandes, documents, encaissements' : 'Axis Import · commandes, convoyeurs, documents'} />
 
       {/* Onglets internes */}
       {/* Onglets sur une ou deux lignes : en défilement horizontal, les

@@ -81,7 +81,8 @@ export function HomeScreen() {
           ...(pRes.status === 'fulfilled' ? pRes.value.data.map(parcelView) : []),
         ];
         setShipments(sortForClient(views));
-        if (isDriverOnly) {
+        // Convoyeur et équipe Axis : pas de bloc « à signer / à régler » client.
+        if (isDriverOnly || staff) {
           setToSign(0);
           setToPay(0);
         } else {
@@ -106,7 +107,7 @@ export function HomeScreen() {
         setLatestNews(news.status === 'fulfilled' ? news.value.data[0] ?? null : null);
       })();
       return () => { cancelled = true; };
-    }, [isDriverOnly, user?.id]),
+    }, [isDriverOnly, staff, user?.id]),
   );
 
   const primary = shipments?.[0] ?? null;

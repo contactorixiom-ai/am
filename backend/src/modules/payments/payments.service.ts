@@ -217,34 +217,44 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     } else {
       const client = await this.prisma.user.findUnique({ where: { id: clientId }, select: { email: true } });
       let session: Stripe.Checkout.Session;
-      try {
-        session = await this.stripe.checkout.sessions.create({
-          mode: 'payment',
-          locale: 'fr',
-          line_items: [
-            {
-              quantity: 1,
-              price_data: {
-                currency,
-                unit_amount: amount,
-                product_data: { name: description },
-              },
+      const params: Stripe.Checkout.SessionCreateParams = {
+        mode: 'payment',
+        locale: 'fr',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency,
+              unit_amount: amount,
+              product_data: { name: description },
             },
-          ],
-          // E-mail prérempli sur la page Stripe (et reçu Stripe s'il est activé).
-          ...(client?.email ? { customer_email: client.email } : {}),
-          success_url: input.successUrl,
-          cancel_url: input.cancelUrl,
-          client_reference_id: reference,
-          metadata: {
-            reference,
-            ...(missionId ? { missionId } : {}),
-            ...(parcelId ? { parcelId } : {}),
           },
-          payment_intent_data: { description, metadata: { reference } },
-        });
+        ],
+        // E-mail prérempli sur la page Stripe (et reçu Stripe s'il est activé).
+        ...(client?.email ? { customer_email: client.email } : {}),
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        client_reference_id: reference,
+        metadata: {
+          reference,
+          ...(missionId ? { missionId } : {}),
+          ...(parcelId ? { parcelId } : {}),
+        },
+        payment_intent_data: { description, metadata: { reference } },
+      };
+      try {
+        session = await this.stripe.checkout.sessions.create(params);
       } catch (e) {
-        throw this.stripeFailure(e);
+        // Moyens de paiement du tableau de bord Stripe désactivés : la carte
+        // bancaire (avec Apple Pay / Google Pay) reste acceptée si le compte
+        // peut encaisser.
+        if (!/payment method types/i.test((e as { message?: string }).message ?? '')) throw this.stripeFailure(e);
+        this.logger.warn('Aucun moyen de paiement actif dans Stripe : nouvel essai en carte bancaire.');
+        try {
+          session = await this.stripe.checkout.sessions.create({ ...params, payment_method_types: ['card'] });
+        } catch (e2) {
+          throw this.stripeFailure(e2);
+        }
       }
       provider = 'stripe';
       id = session.id;

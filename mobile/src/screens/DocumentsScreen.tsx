@@ -71,7 +71,8 @@ export function DocumentsScreen() {
         const [mRes, pRes, payRes, docRes, signedRaw, paidRaw] = await Promise.all([
           listMissions().catch(() => null),
           listParcels().catch(() => null),
-          listPayments().catch(() => null),
+          // Responsable d'exploitation : pas d'accès aux règlements.
+          user?.role === 'MANAGER' ? Promise.resolve(null) : listPayments().catch(() => null),
           listDocuments({ category: 'CONTRACT' }).catch(() => null),
           AsyncStorage.getItem(CONTRACTS_KEY).catch(() => null),
           AsyncStorage.getItem(INVOICE_STORAGE_KEY).catch(() => null),
