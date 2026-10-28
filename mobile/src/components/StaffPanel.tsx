@@ -17,16 +17,19 @@ import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Pill } from './Pill';
+import { ResetPanel } from './ResetPanel';
 import { Surface } from './Surface';
 
 interface Props {
   /** Ouvre la fenêtre « lien d'accès » (WhatsApp / SMS / copier). */
   onSendAccess: (target: { userId: string; name: string }) => void;
+  /** Après la remise à zéro : recharger les envois et l'historique affichés. */
+  onReset?: () => void;
 }
 
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '' };
 
-export function StaffPanel({ onSendAccess }: Props) {
+export function StaffPanel({ onSendAccess, onReset }: Props) {
   const { theme } = useTheme();
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -178,6 +181,9 @@ export function StaffPanel({ onSendAccess }: Props) {
           Ajouter un responsable d'exploitation
         </Button>
       )}
+
+      <View style={{ height: 12 }} />
+      <ResetPanel onDone={onReset} />
     </View>
   );
 }

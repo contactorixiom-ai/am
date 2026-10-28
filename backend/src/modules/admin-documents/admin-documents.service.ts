@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SaveAdminDocumentDto } from './save-admin-document.dto';
+import { RESET_ACTION } from '../data-reset/data-reset.service';
 
 /**
  * Historique et numérotation des documents officiels (douane, factures,
@@ -43,6 +44,12 @@ export class AdminDocumentsService {
     // Reprise de l'ancien historique local : un même identifiant n'est
     // enregistré qu'une fois.
     if (dto.clientRef) {
+      // Un téléphone resté hors ligne ne doit pas renvoyer les documents
+      // de test effacés par la remise à zéro.
+      if (dto.createdAt) {
+        const reset = await this.prisma.auditLog.findFirst({ where: { action: RESET_ACTION }, orderBy: { createdAt: 'desc' } });
+        if (reset && new Date(dto.createdAt) < reset.createdAt) return { skipped: true };
+      }
       return this.prisma.adminDocument.upsert({
         where: { clientRef: dto.clientRef },
         create: { ...data, clientRef: dto.clientRef },

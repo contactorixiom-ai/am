@@ -700,7 +700,12 @@ export function AdminScreen() {
         {tab === 'documents' && renderDocumentsTab()}
         {tab === 'drivers' && <KycReviewPanel onCountChange={setKycPending} />}
         {tab === 'members' && meIsAdmin ? <DirectoryPanel onSendAccess={setAccessTarget} /> : null}
-        {tab === 'team' && meIsAdmin ? <StaffPanel onSendAccess={setAccessTarget} /> : null}
+        {tab === 'team' && meIsAdmin ? (
+          <StaffPanel
+            onSendAccess={setAccessTarget}
+            onReset={() => { void loadShipments(); readAdminHistory().then(setHistory); }}
+          />
+        ) : null}
       </ScrollView>
 
       {renderStatusModal()}
