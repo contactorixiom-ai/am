@@ -3,10 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
+import { paginate } from '../../common/dto/pagination.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 import { UsersService } from './users.service';
+import { DirectoryQueryDto, DriverQueryDto } from './dto/directory-query.dto';
 import { AdminOnly } from '../../common/decorators/admin-only.decorator';
 import { CreateManagerDto } from './dto/create-manager.dto';
 import { isStaff } from '../../common/auth/staff';
@@ -77,25 +78,47 @@ export class UsersController {
     return this.users.restoreManager(adminId, id);
   }
 
+  @Get('directory')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : annuaire de tous les inscrits' })
+  async directory(@Query() query: DirectoryQueryDto) {
+    const { data, total } = await this.users.directory({ skip: query.skip, take: query.take, segment: query.segment, q: query.q });
+    return paginate(data, total, query.page, query.pageSize);
+  }
+
+  @Get('directory/stats')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : nombre d\'inscrits par type' })
+  directoryStats() {
+    return this.users.directoryStats();
+  }
+
+  @Get('directory/:id')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : fiche complète d\'un inscrit' })
+  directoryEntry(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.directoryEntry(id);
+  }
+
   @Get('clients')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Admin : annuaire des clients' })
-  async listClients(@Query() pagination: PaginationDto, @Query('q') q?: string) {
+  async listClients(@Query() pagination: DirectoryQueryDto) {
     const { data, total } = await this.users.listClients({
       skip: pagination.skip,
       take: pagination.take,
-      q,
+      q: pagination.q,
     });
     return paginate(data, total, pagination.page, pagination.pageSize);
   }
 
   @Get('drivers')
   @ApiOperation({ summary: 'Lister les convoyeurs actifs' })
-  async listDrivers(@Query() pagination: PaginationDto, @Query('city') city?: string) {
+  async listDrivers(@Query() pagination: DriverQueryDto) {
     const { data, total } = await this.users.listDrivers({
       skip: pagination.skip,
       take: pagination.take,
-      city,
+      city: pagination.city,
     });
     return paginate(data, total, pagination.page, pagination.pageSize);
   }

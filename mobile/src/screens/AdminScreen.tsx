@@ -30,6 +30,7 @@ import { Modal } from 'react-native';
 import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
+import { DirectoryPanel } from '../components/DirectoryPanel';
 import { KycReviewPanel } from '../components/KycReviewPanel';
 import { InspectionCompare } from '../components/InspectionCompare';
 import { listPendingKyc } from '../api/kyc';
@@ -77,7 +78,7 @@ import { parcelLoadLabel } from '../utils/shipment';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'team';
+type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'members' | 'team';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Tableau' },
@@ -85,9 +86,12 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
   { id: 'drivers', label: 'Convoyeurs' },
-  // Administrateur seulement : comptes des responsables d'exploitation.
+  // Administrateur seulement : tous les inscrits, et les comptes des
+  // responsables d'exploitation.
+  { id: 'members', label: 'Inscrits' },
   { id: 'team', label: 'Équipe' },
 ];
+const ADMIN_ONLY_TABS: TabId[] = ['members', 'team'];
 
 const ACTIVITY_LABEL: Record<AdminActivity, string> = {
   convoyage: 'Convoyage',
@@ -639,13 +643,13 @@ export function AdminScreen() {
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Espace admin" subtitle={meIsAdmin ? 'Axis Import · commandes, documents, encaissements' : 'Axis Import · commandes, convoyeurs, documents'} />
+      <AppBar title="Espace admin" subtitle={meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'} />
 
       {/* Onglets internes */}
       {/* Onglets sur une ou deux lignes : en défilement horizontal, les
           derniers (Convoyeurs, Équipe) sortaient de l'écran d'un téléphone. */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10, flexShrink: 0 }}>
-        {TABS.filter((t) => t.id !== 'team' || meIsAdmin).map((t) => {
+        {TABS.filter((t) => meIsAdmin || !ADMIN_ONLY_TABS.includes(t.id)).map((t) => {
           const on = tab === t.id;
           return (
             <Pressable
@@ -695,6 +699,7 @@ export function AdminScreen() {
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}
         {tab === 'drivers' && <KycReviewPanel onCountChange={setKycPending} />}
+        {tab === 'members' && meIsAdmin ? <DirectoryPanel onSendAccess={setAccessTarget} /> : null}
         {tab === 'team' && meIsAdmin ? <StaffPanel onSendAccess={setAccessTarget} /> : null}
       </ScrollView>
 

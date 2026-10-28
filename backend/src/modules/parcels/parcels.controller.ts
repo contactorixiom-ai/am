@@ -7,6 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { IsEnum, IsOptional } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ParcelStatus } from '@prisma/client';
 import { Public } from '../../common/decorators/public.decorator';
@@ -15,6 +16,11 @@ import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { AddParcelEventDto } from './dto/parcel-event.dto';
 import { ParcelsService } from './parcels.service';
+
+// Le filtre fait partie du DTO : la validation refuse tout champ inconnu.
+class ParcelQueryDto extends PaginationDto {
+  @IsOptional() @IsEnum(ParcelStatus) status?: ParcelStatus;
+}
 
 @ApiTags('parcels')
 @Controller('parcels')
@@ -33,13 +39,12 @@ export class ParcelsController {
   @ApiOperation({ summary: 'Mes colis (ou tous, si admin)' })
   async list(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() pagination: PaginationDto,
-    @Query('status') status?: ParcelStatus,
+    @Query() pagination: ParcelQueryDto,
   ) {
     const { data, total } = await this.parcels.list(user, {
       skip: pagination.skip,
       take: pagination.take,
-      status,
+      status: pagination.status,
     });
     return paginate(data, total, pagination.page, pagination.pageSize);
   }

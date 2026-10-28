@@ -25,7 +25,7 @@ import { Stagger } from '../components/Stagger';
 import { listPayments } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { isStaff } from '../utils/roles';
+import { isAdmin, isStaff } from '../utils/roles';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -266,7 +266,11 @@ export function HomeScreen() {
               { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
               { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
               { label: 'Messages', sub: 'Clients et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
-              { label: 'Documents officiels', sub: 'Douane, factures, contrats', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'generate' }) },
+              { label: 'Documents officiels', sub: isAdmin(user?.role) ? 'Douane, factures, contrats' : 'Douane, contrats, étiquettes', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'generate' }) },
+              // Administrateur : la base des comptes de l'application.
+              ...(isAdmin(user?.role)
+                ? [{ label: 'Inscrits', sub: 'Clients, pros, convoyeurs : tous les comptes', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'members' }) }]
+                : []),
             ].map((row, idx) => (
               <Pressable
                 key={row.label}

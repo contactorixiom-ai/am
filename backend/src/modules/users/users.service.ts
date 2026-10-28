@@ -8,6 +8,9 @@ import { StorageService } from '../storage/storage.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 
+export type DirectorySegment = 'all' | 'individual' | 'pro' | 'driver' | 'staff';
+export const DIRECTORY_SEGMENTS: DirectorySegment[] = ['all', 'individual', 'pro', 'driver', 'staff'];
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -353,5 +356,143 @@ export class UsersService {
       this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_RESTORE', entity: 'User', entityId: id } }),
     ]);
     return { id, status: UserStatus.ACTIVE };
+  }
+  // ─── Annuaire des inscrits (espace admin de Roger) ─────────────────────────
+
+  private directoryWhere(segment: DirectorySegment, q?: string): Prisma.UserWhereInput {
+    const term = q?.trim();
+    const bySegment: Record<DirectorySegment, Prisma.UserWhereInput> = {
+      all: {},
+      individual: { role: UserRole.CLIENT, accountType: AccountType.INDIVIDUAL },
+      pro: { role: UserRole.CLIENT, accountType: AccountType.PROFESSIONAL },
+      driver: { role: UserRole.DRIVER },
+      staff: { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+    };
+    return {
+      deletedAt: null,
+      ...bySegment[segment],
+      ...(term
+        ? {
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' as const } },
+              { lastName: { contains: term, mode: 'insensitive' as const } },
+              { email: { contains: term, mode: 'insensitive' as const } },
+              { phone: { contains: term, mode: 'insensitive' as const } },
+              { companyName: { contains: term, mode: 'insensitive' as const } },
+              { companySiret: { contains: term.replace(/\s/g, '') } },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  /** Tous les comptes, avec leur activité (commandes, colis, missions, pièces). */
+  async directory(opts: { skip: number; take: number; segment?: DirectorySegment; q?: string }) {
+    const where = this.directoryWhere(opts.segment ?? 'all', opts.q);
+    const [rows, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip: opts.skip,
+        take: opts.take,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          ...this.safeSelect,
+          termsAcceptedAt: true,
+          driverProfile: { select: { baseCity: true, completedMissions: true, isAvailable: true } },
+          kycDocuments: { select: { status: true } },
+          _count: { select: { clientMissions: true, driverMissions: true, parcelsSent: true, ownedVehicles: true } },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    const ids = rows.map((r) => r.id);
+    const paid = ids.length
+      ? await this.prisma.payment.groupBy({
+          by: ['clientId'],
+          where: { clientId: { in: ids }, status: 'PAID' },
+          _sum: { amountCents: true },
+        })
+      : [];
+    const paidBy = new Map(paid.map((p) => [p.clientId, p._sum.amountCents ?? 0]));
+    const data = rows.map(({ kycDocuments, _count, ...u }) => ({
+      ...u,
+      missionsCount: _count.clientMissions,
+      driverMissionsCount: _count.driverMissions,
+      parcelsCount: _count.parcelsSent,
+      vehiclesCount: _count.ownedVehicles,
+      kyc: {
+        approved: kycDocuments.filter((k) => k.status === 'APPROVED').length,
+        pending: kycDocuments.filter((k) => k.status === 'PENDING').length,
+        rejected: kycDocuments.filter((k) => k.status === 'REJECTED').length,
+      },
+      paidCents: paidBy.get(u.id) ?? 0,
+    }));
+    return { data, total };
+  }
+
+  /** Chiffres de l'annuaire : combien d'inscrits, par type, et la dynamique. */
+  async directoryStats() {
+    const now = Date.now();
+    const since7 = new Date(now - 7 * 86400_000);
+    const since30 = new Date(now - 30 * 86400_000);
+    const month = new Date();
+    month.setDate(1);
+    month.setHours(0, 0, 0, 0);
+    const alive = { deletedAt: null };
+    const [total, individual, pro, driver, staff, new7, newMonth, active30, deleted] = await Promise.all([
+      this.prisma.user.count({ where: alive }),
+      this.prisma.user.count({ where: this.directoryWhere('individual') }),
+      this.prisma.user.count({ where: this.directoryWhere('pro') }),
+      this.prisma.user.count({ where: this.directoryWhere('driver') }),
+      this.prisma.user.count({ where: this.directoryWhere('staff') }),
+      this.prisma.user.count({ where: { ...alive, createdAt: { gte: since7 } } }),
+      this.prisma.user.count({ where: { ...alive, createdAt: { gte: month } } }),
+      this.prisma.user.count({ where: { ...alive, lastLoginAt: { gte: since30 } } }),
+      this.prisma.user.count({ where: { deletedAt: { not: null } } }),
+    ]);
+    return { total, individual, pro, driver, staff, new7, newMonth, active30, deleted };
+  }
+
+  /** Fiche complète d'un inscrit : profil et derniers dossiers. */
+  async directoryEntry(id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        ...this.safeSelect,
+        termsAcceptedAt: true,
+        termsVersion: true,
+        driverProfile: true,
+        kycDocuments: { select: { id: true, type: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+        ownedVehicles: { select: { id: true, make: true, model: true, licensePlate: true }, take: 10 },
+      },
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    const [missions, driverMissions, parcels, payments] = await Promise.all([
+      this.prisma.mission.findMany({
+        where: { clientId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: { id: true, reference: true, status: true, pickupCity: true, deliveryCity: true, createdAt: true, priceCents: true },
+      }),
+      this.prisma.mission.findMany({
+        where: { driverId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: { id: true, reference: true, status: true, pickupCity: true, deliveryCity: true, createdAt: true },
+      }),
+      this.prisma.parcel.findMany({
+        where: { senderId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: { id: true, reference: true, status: true, originCity: true, destinationCity: true, createdAt: true, priceCents: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { clientId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: { id: true, reference: true, status: true, amountCents: true, paidAt: true, createdAt: true, invoiceNumber: true },
+      }),
+    ]);
+    return { ...user, missions, driverMissions, parcels, payments };
   }
 }
