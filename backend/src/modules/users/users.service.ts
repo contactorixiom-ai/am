@@ -9,6 +9,14 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 
 export type DirectorySegment = 'all' | 'individual' | 'pro' | 'driver' | 'staff';
+export interface DirectoryAddress {
+  line: string;
+  postalCode: string | null;
+  city: string | null;
+  country: string | null;
+  /** D'où vient l'adresse : facturation, société ou dernière commande. */
+  source: string;
+}
 export const DIRECTORY_SEGMENTS: DirectorySegment[] = ['all', 'individual', 'pro', 'driver', 'staff'];
 
 @Injectable()
@@ -414,8 +422,10 @@ export class UsersService {
         })
       : [];
     const paidBy = new Map(paid.map((p) => [p.clientId, p._sum.amountCents ?? 0]));
+    const addressBy = await this.lastKnownAddresses(rows);
     const data = rows.map(({ kycDocuments, _count, ...u }) => ({
       ...u,
+      address: addressBy.get(u.id) ?? null,
       missionsCount: _count.clientMissions,
       driverMissionsCount: _count.driverMissions,
       parcelsCount: _count.parcelsSent,
@@ -428,6 +438,51 @@ export class UsersService {
       paidCents: paidBy.get(u.id) ?? 0,
     }));
     return { data, total };
+  }
+
+  /**
+   * Adresse la plus fiable de chaque inscrit : facturation, sinon société,
+   * sinon la plus récente de ses commandes (enlèvement à domicile, dépôt,
+   * prise en charge du véhicule).
+   */
+  private async lastKnownAddresses(users: { id: string; billingAddress: string | null; companyAddress: string | null }[]) {
+    const out = new Map<string, DirectoryAddress>();
+    const missing: string[] = [];
+    for (const u of users) {
+      const line = u.billingAddress?.trim() || u.companyAddress?.trim();
+      if (line) out.set(u.id, { line, postalCode: null, city: null, country: null, source: u.billingAddress ? 'Facturation' : 'Société' });
+      else missing.push(u.id);
+    }
+    if (!missing.length) return out;
+    const [parcels, missions] = await Promise.all([
+      this.prisma.parcel.findMany({
+        where: { senderId: { in: missing } },
+        orderBy: { createdAt: 'desc' },
+        select: { senderId: true, pickupAddress: true, originAddress: true, originCity: true, originCountry: true, createdAt: true },
+      }),
+      this.prisma.mission.findMany({
+        where: { clientId: { in: missing } },
+        orderBy: { createdAt: 'desc' },
+        select: { clientId: true, pickupAddress: true, pickupPostalCode: true, pickupCity: true, pickupCountry: true, createdAt: true },
+      }),
+    ]);
+    const candidates = new Map<string, (DirectoryAddress & { at: Date })[]>();
+    const push = (id: string, a: DirectoryAddress & { at: Date }) => candidates.set(id, [...(candidates.get(id) ?? []), a]);
+    for (const p of parcels) {
+      // En import, l'adresse d'origine est l'expéditeur au pays, pas le client.
+      const line = p.pickupAddress?.trim() || (p.originAddress && !p.originAddress.startsWith('Expéditeur') ? p.originAddress.trim() : '');
+      if (line) push(p.senderId, { line, postalCode: null, city: p.originCity, country: p.originCountry, source: 'Commande colis', at: p.createdAt });
+    }
+    for (const m of missions) {
+      if (m.pickupAddress?.trim()) {
+        push(m.clientId, { line: m.pickupAddress.trim(), postalCode: m.pickupPostalCode, city: m.pickupCity, country: m.pickupCountry, source: 'Commande convoyage', at: m.createdAt });
+      }
+    }
+    for (const [id, list] of candidates) {
+      const { at: _at, ...latest } = list.sort((x, y) => y.at.getTime() - x.at.getTime())[0];
+      out.set(id, latest);
+    }
+    return out;
   }
 
   /** Chiffres de l'annuaire : combien d'inscrits, par type, et la dynamique. */
@@ -493,6 +548,7 @@ export class UsersService {
         select: { id: true, reference: true, status: true, amountCents: true, paidAt: true, createdAt: true, invoiceNumber: true },
       }),
     ]);
-    return { ...user, missions, driverMissions, parcels, payments };
+    const address = (await this.lastKnownAddresses([user])).get(user.id) ?? null;
+    return { ...user, address, missions, driverMissions, parcels, payments };
   }
 }

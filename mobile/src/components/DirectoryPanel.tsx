@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
+  DirectoryAddress,
   DirectoryEntry,
   DirectorySegment,
   DirectoryStats,
@@ -57,6 +58,11 @@ const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtEur = (cents: number) =>
   (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const formatAddress = (a: DirectoryAddress) => {
+  const place = [a.postalCode, a.city].filter(Boolean).join(' ');
+  const parts = [a.line, place && !a.line.includes(place) ? place : '', a.country && a.country !== 'FR' ? a.country : ''];
+  return parts.filter(Boolean).join(', ');
+};
 const fullName = (u: { firstName: string; lastName: string }) => `${u.firstName} ${u.lastName}`.trim();
 
 function typeOf(u: Pick<DirectoryUser, 'role' | 'accountType'>): { label: string; tone: PillTone } {
@@ -137,7 +143,8 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         all.push(...res.data);
         if (res.data.length < 100) break;
       }
-      const headers = ['Inscrit le', 'Type', 'Prénom', 'Nom', 'Société', 'SIRET', 'E-mail', 'Téléphone', 'Adresse de facturation',
+      const headers = ['Inscrit le', 'Type', 'Prénom', 'Nom', 'Société', 'SIRET', 'N° TVA', 'E-mail', 'Téléphone',
+        'Adresse', 'Code postal', 'Ville', 'Pays', 'Origine de l\'adresse',
         'Dernière connexion', 'Convoyages', 'Colis', 'Missions convoyeur', 'Réglé (EUR)', 'Statut'];
       const lines = all.map((u) => [
         new Date(u.createdAt).toLocaleDateString('fr-FR'),
@@ -146,9 +153,14 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         u.lastName,
         u.companyName ?? '',
         u.companySiret ?? '',
+        u.companyVatId ?? '',
         u.email,
         u.phone ?? '',
-        u.billingAddress ?? u.companyAddress ?? '',
+        u.address?.line ?? '',
+        u.address?.postalCode ?? '',
+        u.address?.city ?? '',
+        u.address?.country ?? '',
+        u.address?.source ?? '',
         u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('fr-FR') : 'Jamais',
         u.missionsCount,
         u.parcelsCount,
@@ -269,6 +281,11 @@ export function DirectoryPanel({ onSendAccess }: Props) {
                 {u.status === 'SUSPENDED' ? <Pill tone="bad">Suspendu</Pill> : null}
                 {u.role === 'DRIVER' && u.kyc.pending > 0 ? <Pill tone="warn">{`${u.kyc.pending} pièce(s) à vérifier`}</Pill> : null}
               </View>
+              {u.address ? (
+                <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                  {formatAddress(u.address)}
+                </Text>
+              ) : null}
               {activity ? (
                 <Text style={{ fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.semibold }}>{activity}</Text>
               ) : null}
@@ -392,7 +409,7 @@ function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onCl
                   <Row label="Société" value={e.companyName} />
                   <Row label="SIRET" value={e.companySiret} />
                   <Row label="N° TVA" value={e.companyVatId} />
-                  <Row label="Adresse" value={e.billingAddress ?? e.companyAddress} />
+                  <Row label="Adresse" value={e.address ? `${formatAddress(e.address)}\n(${e.address.source.toLowerCase()})` : null} />
                   <Row label="Inscrit le" value={fmtDate(e.createdAt)} />
                   <Row label="Dernière visite" value={e.lastLoginAt ? fmtDate(e.lastLoginAt) : 'Jamais connecté'} />
                   <Row label="E-mail confirmé" value={e.emailVerifiedAt ? `Oui, le ${fmtDate(e.emailVerifiedAt)}` : 'Non'} />

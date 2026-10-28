@@ -2,6 +2,15 @@ import { apiFetch } from './client';
 
 export type DirectorySegment = 'all' | 'individual' | 'pro' | 'driver' | 'staff';
 
+export interface DirectoryAddress {
+  line: string;
+  postalCode: string | null;
+  city: string | null;
+  country: string | null;
+  /** Facturation, Société, Commande colis ou Commande convoyage. */
+  source: string;
+}
+
 export interface DirectoryUser {
   id: string;
   email: string;
@@ -27,6 +36,7 @@ export interface DirectoryUser {
   vehiclesCount: number;
   kyc: { approved: number; pending: number; rejected: number };
   paidCents: number;
+  address: DirectoryAddress | null;
 }
 
 export interface DirectoryStats {
