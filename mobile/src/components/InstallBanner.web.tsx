@@ -4,6 +4,13 @@
 // poser sur son écran d'accueil, où elle s'ouvre ensuite en plein écran avec
 // son icône. Android (Chrome) propose une installation en un geste via
 // `beforeinstallprompt` ; iOS n'en a pas : on montre le chemin dans Safari.
+//
+// Android hors Chrome (Samsung Internet, Edge, Opera, Firefox, navigateur
+// Xiaomi, navigateur intégré de Facebook…) : ces navigateurs fabriquent leur
+// propre paquet d'installation, basé sur une ancienne version d'Android, et
+// Android 14+ le bloque (« conçue pour une ancienne version d'Android »). On
+// n'y propose donc pas d'installer : on envoie vers Chrome, dont le paquet
+// est fabriqué par Google et s'installe sans alerte.
 // Masqué une fois l'appli installée, ou pendant 14 jours après « Plus tard ».
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -38,13 +45,38 @@ function recentlyDismissed(): boolean {
   }
 }
 
-type Kind = 'ios-safari' | 'ios-other' | 'android-prompt' | 'android-menu' | null;
+type Kind = 'ios-safari' | 'ios-other' | 'android-prompt' | 'android-menu' | 'android-other' | null;
+
+const ANDROID_NOT_CHROME =
+  /SamsungBrowser|EdgA|OPR\/|Opera|OPT\/|Firefox|FxA|MiuiBrowser|XiaoMi|HuaweiBrowser|HeyTapBrowser|VivoBrowser|YaBrowser|UCBrowser|DuckDuckGo|FBAN|FBAV|FB_IAB|Instagram|Snapchat|TikTok|Line\/|; wv\)/;
+
+/** Android avec un autre navigateur que Google Chrome. */
+export function isAndroidNonChrome(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (!/Android/.test(ua)) return false;
+  if (ANDROID_NOT_CHROME.test(ua)) return true;
+  // Brave a la même signature que Chrome.
+  if ((navigator as unknown as { brave?: unknown }).brave) return true;
+  return !/Chrome\/\d+/.test(ua);
+}
+
+/** Ouvre la page courante dans Chrome (repli : Play Store de Chrome). */
+export function openInChrome(): void {
+  const { host, pathname, search, hash } = window.location;
+  const fallback = encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome');
+  window.location.href =
+    `intent://${host}${pathname}${search}${hash}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+}
 
 function detectKind(prompt: InstallPromptEvent | null): Kind {
   const ua = navigator.userAgent || '';
   const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
   if (ios) return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios-safari';
-  if (/Android/.test(ua)) return prompt ? 'android-prompt' : 'android-menu';
+  if (/Android/.test(ua)) {
+    if (isAndroidNonChrome()) return 'android-other';
+    return prompt ? 'android-prompt' : 'android-menu';
+  }
   return null; // ordinateur : pas de bandeau
 }
 
@@ -54,10 +86,13 @@ export function InstallBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (isInstalled() || recentlyDismissed()) return;
+    // Hors Chrome sur Android, le bandeau revient malgré « Plus tard » :
+    // c'est lui qui évite l'installation bloquée par Android.
+    if (isInstalled() || (recentlyDismissed() && !isAndroidNonChrome())) return;
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setPrompt(e as InstallPromptEvent);
+      // Pas d'installation proposée par un navigateur dont le paquet est bloqué.
+      if (!isAndroidNonChrome()) setPrompt(e as InstallPromptEvent);
     };
     const onInstalled = () => setVisible(false);
     window.addEventListener('beforeinstallprompt', onPrompt);
@@ -90,6 +125,8 @@ export function InstallBanner() {
       ? 'Touchez le bouton Partager (carré avec une flèche, en bas de Safari), puis «\u00a0Sur l\'écran d\'accueil\u00a0».'
       : kind === 'ios-other'
       ? 'Ouvrez cette page dans Safari, touchez Partager, puis «\u00a0Sur l\'écran d\'accueil\u00a0».'
+      : kind === 'android-other'
+      ? 'Ouvrez-la dans Google Chrome pour l\'installer : depuis ce navigateur, Android la bloque («\u00a0conçue pour une ancienne version d\'Android\u00a0»).'
       : kind === 'android-menu'
       ? 'Touchez le menu ⋮ de Chrome, puis «\u00a0Installer l\'application\u00a0» ou «\u00a0Ajouter à l\'écran d\'accueil\u00a0».'
       : 'Elle s\'ouvrira en plein écran depuis son icône, comme une application.';
@@ -128,6 +165,20 @@ export function InstallBanner() {
           <Icons.x size={18} color="rgba(255,255,255,0.7)" stroke={2} />
         </Pressable>
       </View>
+      {kind === 'android-other' ? (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button kind="gold" size="md" style={{ flex: 1.5 }} onPress={openInChrome}>
+            Ouvrir dans Chrome
+          </Button>
+          <Pressable
+            accessibilityRole="button"
+            onPress={dismiss}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: RADII.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}
+          >
+            <Text style={{ color: '#fff', fontSize: 14.5, fontFamily: TYPO.weights.semibold }}>Plus tard</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {kind === 'android-prompt' ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button kind="gold" size="md" style={{ flex: 1 }} onPress={install}>

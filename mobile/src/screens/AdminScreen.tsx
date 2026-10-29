@@ -1171,7 +1171,7 @@ export function AdminScreen() {
                     <EmptyState
                       iconKey="user"
                       title="Aucun convoyeur"
-                      subtitle="Les convoyeurs s'inscrivent depuis l'application (« Je suis chauffeur » sur l'écran d'accueil) : ils apparaîtront ici une fois inscrits."
+                      subtitle="Invite un convoyeur avec « Inviter un convoyeur » (onglet Convoyeurs), ou laisse-le s'inscrire (« Je suis chauffeur ») : il apparaîtra ici une fois ses pièces validées."
                     />
                   </Surface>
                 ) : (
