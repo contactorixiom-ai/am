@@ -1,5 +1,5 @@
-import React from 'react';
-import { Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Text, TextInput, TextInputProps, TextStyle, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 
@@ -12,6 +12,8 @@ interface FieldProps extends Omit<TextInputProps, 'style'> {
 
 export function Field({ label, hint, error, containerStyle, ...input }: FieldProps) {
   const { theme } = useTheme();
+  // Contour doré pendant la saisie : on voit tout de suite où l'on écrit.
+  const [focused, setFocused] = useState(false);
   return (
     <View style={[{ gap: 6 }, containerStyle]}>
       {label ? (
@@ -29,17 +31,21 @@ export function Field({ label, hint, error, containerStyle, ...input }: FieldPro
       ) : null}
       <TextInput
         {...input}
+        onFocus={(e) => { setFocused(true); input.onFocus?.(e); }}
+        onBlur={(e) => { setFocused(false); input.onBlur?.(e); }}
         placeholderTextColor={theme.faint}
         style={{
-          backgroundColor: theme.surface2,
           borderWidth: 1,
-          borderColor: error ? theme.bad : theme.line,
+          borderColor: error ? theme.bad : focused && input.editable !== false ? theme.gold : theme.line,
+          backgroundColor: input.editable === false ? theme.bgSoft : focused ? theme.surface : theme.surface2,
           borderRadius: RADII.md,
           paddingHorizontal: SPACING.md,
           paddingVertical: SPACING.md,
           color: theme.ink,
           fontFamily: TYPO.weights.medium,
           fontSize: TYPO.sizes.body,
+          // Sur le web, le contour du navigateur masquait le contour doré.
+          ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
         }}
       />
       {error ? (

@@ -6,6 +6,7 @@ import { ApiError } from '../api/client';
 import { createParcel } from '../api/parcels';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { AddressField } from '../components/AddressField';
 import { Icons } from '../components/Icons';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { PaymentSheet } from '../components/PaymentSheet';
@@ -216,16 +217,17 @@ export function RecipientDetailsScreen() {
 
           {/* Adresse + option point relais */}
           <Surface>
-            <Field
+            <AddressField
               label="Adresse de livraison"
               value={address}
               onChangeText={(t) => {
                 setAddress(t);
                 if (t.trim()) setDeliverToRelay(false);
               }}
-              placeholder="Numéro, rue, quartier, ville"
+              country={quote.toCountry}
+              city={quote.toCity}
+              placeholder="Commence à taper : rue, quartier, ville"
               multiline
-              numberOfLines={3}
               hint={flow === 'IMPORT' ? 'ex : 12 rue de la République, 69002 Lyon' : 'ex : Sicap Liberté 6, villa n°2843, Dakar'}
               editable={!deliverToRelay}
             />

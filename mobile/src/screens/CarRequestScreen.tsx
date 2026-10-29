@@ -12,6 +12,7 @@ import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
 import { Field } from '../components/Field';
+import { AddressField } from '../components/AddressField';
 import { Icons } from '../components/Icons';
 import { LivePriceBar } from '../components/LivePriceBar';
 import { Pill } from '../components/Pill';
@@ -207,18 +208,23 @@ export function CarRequestScreen() {
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Adresses" />
             <View style={{ gap: 10 }}>
-              <Field
+              <AddressField
                 label={`Adresse de départ${from ? ` (${from.city})` : ''}`}
                 value={pickupAddress}
                 onChangeText={setPickupAddress}
-                placeholder="Numéro et rue"
-                autoComplete="street-address"
+                country={from?.country}
+                city={from?.city}
+                fill="line"
+                placeholder="Commence à taper : numéro et rue"
               />
-              <Field
+              <AddressField
                 label={`Adresse d'arrivée${to ? ` (${to.city})` : ''}`}
                 value={deliveryAddress}
                 onChangeText={setDeliveryAddress}
-                placeholder="Numéro et rue"
+                country={to?.country}
+                city={to?.city}
+                fill="line"
+                placeholder="Commence à taper : numéro et rue"
               />
               {needsPhone ? (
                 <Field

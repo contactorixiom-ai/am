@@ -154,6 +154,27 @@ export async function searchCities(q: string, region?: 'EU' | 'AFRICA'): Promise
   return Array.isArray(res) ? res : [];
 }
 
+export interface AddressSuggestion {
+  /** « 12 Rue de la République, 69002 Lyon » */
+  label: string;
+  /** Numéro et rue : « 12 Rue de la République » */
+  line: string;
+  postalCode: string | null;
+  city: string | null;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+/** Adresses suggérées pendant la saisie (France : BAN ; ailleurs : OpenStreetMap). */
+export async function searchAddresses(q: string, opts: { country?: string; city?: string } = {}): Promise<AddressSuggestion[]> {
+  const params: Record<string, string> = { q };
+  if (opts.country) params.country = opts.country;
+  if (opts.city) params.city = opts.city;
+  const res = await apiFetch<AddressSuggestion[]>('/cities/addresses', { skipAuth: true, params });
+  return Array.isArray(res) ? res : [];
+}
+
 export async function createQuote(input: CreateQuoteInput): Promise<QuoteResponse> {
   return apiFetch<QuoteResponse>('/quotes', { method: 'POST', body: input, skipAuth: true });
 }

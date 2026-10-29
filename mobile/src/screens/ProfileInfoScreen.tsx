@@ -5,6 +5,7 @@ import { updateProfile } from '../api/auth';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { AddressField } from '../components/AddressField';
 import { Surface } from '../components/Surface';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -98,11 +99,11 @@ export function ProfileInfoScreen() {
             </View>
             <Field label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33 6 12 34 56 78" />
             <Field label="E-mail" value={user?.email ?? ''} editable={false} hint="L'adresse de connexion ne se modifie pas ici." />
-            <Field
+            <AddressField
               label="Adresse de facturation"
               value={billingAddress}
               onChangeText={setBillingAddress}
-              placeholder="Numéro, rue, code postal, ville"
+              placeholder="Commence à taper : numéro et rue"
               multiline
             />
           </Surface>
@@ -132,7 +133,7 @@ export function ProfileInfoScreen() {
                   <Field label="Raison sociale" value={companyName} onChangeText={setCompanyName} placeholder="Garage Martin SARL" />
                   <Field label="SIRET" value={companySiret} onChangeText={setCompanySiret} keyboardType="number-pad" placeholder="14 chiffres" />
                   <Field label="N° de TVA intracommunautaire (facultatif)" value={companyVatId} onChangeText={setCompanyVatId} autoCapitalize="characters" placeholder="FR12345678901" />
-                  <Field label="Adresse du siège (si différente)" value={companyAddress} onChangeText={setCompanyAddress} multiline />
+                  <AddressField label="Adresse du siège (si différente)" value={companyAddress} onChangeText={setCompanyAddress} placeholder="Commence à taper : numéro et rue" multiline />
                 </>
               ) : null}
             </Surface>

@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Te
 import { ApiError } from '../api/client';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
+import { AddressField } from '../components/AddressField';
 import { Icons } from '../components/Icons';
 import { ParcelWizard } from '../components/ParcelWizard';
 import { Surface } from '../components/Surface';
@@ -103,14 +104,14 @@ export function HomePickupAddressScreen() {
           </View>
 
           <Surface>
-            <Field
+            <AddressField
               label="Adresse complète"
               value={address}
               onChangeText={setAddress}
-              placeholder="Numéro, rue, code postal, ville"
-              multiline
-              numberOfLines={3}
-              hint="Indique aussi l'étage, le digicode, le bâtiment"
+              country={draft.from?.country}
+              city={draft.from?.city}
+              placeholder="Commence à taper : numéro et rue"
+              hint="Choisis ton adresse dans la liste. L'étage, le digicode ou le bâtiment vont dans les consignes ci-dessous."
             />
           </Surface>
 

@@ -31,6 +31,7 @@ import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { DirectoryPanel } from '../components/DirectoryPanel';
+import { AddressField } from '../components/AddressField';
 import { DriverInvitePanel } from '../components/DriverInvitePanel';
 import { KycReviewPanel } from '../components/KycReviewPanel';
 import { InspectionCompare } from '../components/InspectionCompare';
@@ -1301,7 +1302,15 @@ export function AdminScreen() {
 
               {/* 3. Trajet */}
               <SectionHead title="3 · Trajet" />
-              <Field label="Adresse de départ" value={order.pickupAddress} onChangeText={setOrderField('pickupAddress')} placeholder="12 rue des Lilas" />
+              <AddressField
+                label="Adresse de départ"
+                value={order.pickupAddress}
+                onChangeText={setOrderField('pickupAddress')}
+                country={order.pickupCountry || undefined}
+                fill="line"
+                placeholder="Commence à taper : numéro et rue"
+                onSelect={(a) => setOrder((p) => ({ ...p, pickupCity: a.city ?? p.pickupCity, pickupPostalCode: a.postalCode ?? p.pickupPostalCode, pickupCountry: a.country || p.pickupCountry }))}
+              />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
                   <Field label="Ville départ" value={order.pickupCity} onChangeText={setOrderField('pickupCity')} placeholder="Paris" />
@@ -1315,7 +1324,15 @@ export function AdminScreen() {
               </View>
               <Field label="Date d'enlèvement" value={order.pickupAt} onChangeText={setOrderField('pickupAt')} placeholder="15/10/2026" hint="Format JJ/MM/AAAA" />
 
-              <Field label="Adresse d'arrivée" value={order.deliveryAddress} onChangeText={setOrderField('deliveryAddress')} placeholder="8 avenue du Port" />
+              <AddressField
+                label="Adresse d'arrivée"
+                value={order.deliveryAddress}
+                onChangeText={setOrderField('deliveryAddress')}
+                country={order.deliveryCountry || undefined}
+                fill="line"
+                placeholder="Commence à taper : numéro et rue"
+                onSelect={(a) => setOrder((p) => ({ ...p, deliveryCity: a.city ?? p.deliveryCity, deliveryPostalCode: a.postalCode ?? p.deliveryPostalCode, deliveryCountry: a.country || p.deliveryCountry }))}
+              />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
                   <Field label="Ville arrivée" value={order.deliveryCity} onChangeText={setOrderField('deliveryCity')} placeholder="Marseille" />
