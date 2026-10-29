@@ -1,4 +1,5 @@
 {
+  "id": "/app/",
   "name": "Axis Import",
   "short_name": "Axis Import",
   "description": "Convoyage de véhicules en Europe et envoi de colis vers l'Afrique.",
@@ -29,5 +30,10 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "categories": [
+    "business",
+    "travel",
+    "shopping"
   ]
 }
