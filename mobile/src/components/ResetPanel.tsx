@@ -29,6 +29,9 @@ export function ResetPanel({ onDone }: { onDone?: () => void }) {
   const [typed, setTyped] = useState('');
   const [running, setRunning] = useState(false);
   const [kept, setKept] = useState<string[]>([]);
+  // Résultat affiché dans le bloc lui-même : un message de navigateur peut
+  // être bloqué, et Roger ne voyait alors rien se passer.
+  const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
     getResetPreview()
@@ -44,7 +47,7 @@ export function ResetPanel({ onDone }: { onDone?: () => void }) {
   if (preview.doneAt) {
     return (
       <Surface padded style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.bold }}>Remise à zéro faite</Text>
+        <Text style={{ fontSize: 14, color: theme.good, fontFamily: TYPO.weights.bold }}>✓ Remise à zéro faite</Text>
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>
           {`L'activité de test a été effacée le ${new Date(preview.doneAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}${
             kept.length ? `, en gardant ${kept.join(', ')}` : ''
@@ -92,27 +95,29 @@ export function ResetPanel({ onDone }: { onDone?: () => void }) {
          : 'L\'export CSV est disponible sur la version web / bureau.');
   };
 
+  const execute = async () => {
+    setRunning(true);
+    setFailure(null);
+    try {
+      const res = await runReset(typed, keptOps);
+      setKept(res.kept ?? []);
+      setPreview({ ...res, doneAt: res.doneAt ?? new Date().toISOString() });
+      setTyped('');
+      onDone?.();
+    } catch (e) {
+      setFailure(e instanceof Error && e.message ? e.message : 'Le serveur n\'a pas répondu. Vérifie la connexion et réessaie.');
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const run = () => {
     confirmAction(
       'Tout effacer ?',
       keptOps.length
         ? `${erased} opération(s) de test effacée(s) définitivement. Gardée(s) intacte(s) : ${keptOps.map((o) => o.reference).join(', ')}. Les comptes inscrits sont conservés.`
         : 'Toute l\'activité est supprimée définitivement, sans rien garder. Les comptes inscrits sont conservés.',
-      async () => {
-        setRunning(true);
-        try {
-          const res = await runReset(typed, keptOps);
-          setKept(res.kept ?? []);
-          setPreview({ ...res, doneAt: res.doneAt ?? new Date().toISOString() });
-          setTyped('');
-          notify('Remise à zéro faite', res.kept?.length ? `Gardé : ${res.kept.join(', ')}.` : 'L\'application est vierge.');
-          onDone?.();
-        } catch (e) {
-          notify('Remise à zéro impossible', e instanceof Error ? e.message : 'Réessaie dans un instant.');
-        } finally {
-          setRunning(false);
-        }
-      },
+      () => { void execute(); },
       'Tout effacer',
     );
   };
@@ -205,6 +210,11 @@ export function ResetPanel({ onDone }: { onDone?: () => void }) {
         Les paiements de test restent visibles dans ton tableau de bord Stripe (mode test) : ils ne sont pas affectés.
       </Text>
       <Field label="Tape EFFACER pour confirmer" value={typed} onChangeText={setTyped} autoCapitalize="characters" autoCorrect={false} />
+      {failure ? (
+        <View style={{ padding: 12, borderRadius: 10, backgroundColor: theme.bad + '15', borderWidth: 1, borderColor: theme.bad + '40' }}>
+          <Text style={{ fontSize: 12.5, color: theme.bad, fontFamily: TYPO.weights.semibold }}>{`Rien n'a été effacé : ${failure}`}</Text>
+        </View>
+      ) : null}
       <Button kind="danger" size="md" fullWidth disabled={!ready || running} loading={running} onPress={run}>
         {keptOps.length ? `Tout effacer sauf ${keptOps.length} opération${keptOps.length > 1 ? 's' : ''}` : 'Tout effacer'}
       </Button>

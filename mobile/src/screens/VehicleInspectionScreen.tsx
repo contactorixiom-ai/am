@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Image, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -22,7 +22,7 @@ import {
   signInspection,
   submitInspection,
 } from '../api/inspections';
-import { notify } from '../utils/notify';
+import { askYesNo, notify } from '../utils/notify';
 import { SHOT_GROUPS, Shot, shotsFor } from '../utils/inspectionShots';
 import { capturePhoto } from '../utils/pickImage';
 import { sketchKindFor } from '../utils/vehicleViews';
@@ -1016,20 +1016,6 @@ function RefKv({ label, value }: { label: string; value: string }) {
 function fuelLabel(v: number | null): string {
   if (v === null) return '—';
   return v === 0 ? 'Vide' : v === 1 ? 'Plein' : v === 0.25 ? '¼' : v === 0.5 ? '½' : v === 0.75 ? '¾' : `${v}`;
-}
-
-/** Question Oui / Non qui attend la réponse (web et téléphone). */
-function askYesNo(title: string, message: string, yes: string): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    // eslint-disable-next-line no-alert
-    return Promise.resolve(typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`));
-  }
-  return new Promise((resolve) => {
-    Alert.alert(title, message, [
-      { text: 'Plus tard', style: 'cancel', onPress: () => resolve(false) },
-      { text: yes, onPress: () => resolve(true) },
-    ], { cancelable: true, onDismiss: () => resolve(false) });
-  });
 }
 
 /** « Côté gauche », « Réservoir »… : où se trouve le dommage. */
