@@ -172,7 +172,7 @@ function Stepper({ value, onChange, label, max = MAX_PIECES }: { value: number; 
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: enabled ? theme.navy : theme.line,
+    borderColor: enabled ? theme.accent : theme.line,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     backgroundColor: theme.surface,
@@ -185,7 +185,7 @@ function Stepper({ value, onChange, label, max = MAX_PIECES }: { value: number; 
         accessibilityLabel={`Retirer un ${label.toLowerCase()}`}
         style={btn(value > 0)}
       >
-        <View style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: value > 0 ? theme.navy : theme.faint }} />
+        <View style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: value > 0 ? theme.accent : theme.faint }} />
       </Pressable>
       <Text style={{ minWidth: 22, textAlign: 'center', color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: 16, fontVariant: ['tabular-nums'] }}>
         {value}
@@ -194,7 +194,7 @@ function Stepper({ value, onChange, label, max = MAX_PIECES }: { value: number; 
         onPress={() => onChange(Math.min(max, value + 1))}
         disabled={value >= max}
         accessibilityLabel={`Ajouter un ${label.toLowerCase()}`}
-        style={[btn(true), { backgroundColor: theme.navy, borderColor: theme.navy }]}
+        style={[btn(true), { backgroundColor: theme.accent, borderColor: theme.navy }]}
       >
         <Icons.plus size={15} color="#fff" stroke={2.2} />
       </Pressable>

@@ -19,8 +19,8 @@ export function TermsCheckbox({ checked, onChange }: { checked: boolean; onChang
       <View
         style={{
           width: 22, height: 22, borderRadius: 6, marginTop: 1,
-          borderWidth: 1.5, borderColor: checked ? theme.navy : theme.muted,
-          backgroundColor: checked ? theme.navy : 'transparent',
+          borderWidth: 1.5, borderColor: checked ? theme.accent : theme.muted,
+          backgroundColor: checked ? theme.accent : 'transparent',
           alignItems: 'center', justifyContent: 'center',
         }}
       >

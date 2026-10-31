@@ -152,7 +152,7 @@ export function RelayPointPickerScreen() {
                     padded
                     flat
                     style={{
-                      borderColor: active ? theme.navy : theme.line,
+                      borderColor: active ? theme.accent : theme.line,
                       backgroundColor: active ? theme.bgSoft : theme.surface,
                     }}
                   >
@@ -186,8 +186,8 @@ export function RelayPointPickerScreen() {
                           height: 22,
                           borderRadius: 11,
                           borderWidth: 2,
-                          borderColor: active ? theme.navy : theme.line,
-                          backgroundColor: active ? theme.navy : 'transparent',
+                          borderColor: active ? theme.accent : theme.line,
+                          backgroundColor: active ? theme.accent : 'transparent',
                           alignItems: 'center',
                           justifyContent: 'center',
                           marginLeft: SPACING.sm,

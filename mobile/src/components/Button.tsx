@@ -123,6 +123,6 @@ function kindColors(k: ButtonKind, t: ReturnType<typeof useTheme>['theme']) {
     case 'ghost':   return { bg: 'transparent',  fg: t.ink,     border: null };
     case 'danger':  return { bg: t.bad,          fg: '#FFFFFF', border: null };
     case 'primary':
-    default:        return { bg: t.navy,         fg: '#FFFFFF', border: null };
+    default:        return { bg: t.accent,       fg: '#FFFFFF', border: null };
   }
 }

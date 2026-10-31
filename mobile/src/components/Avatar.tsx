@@ -14,7 +14,7 @@ export function Avatar({ name, size = 36, tone = 'navy', style }: AvatarProps) {
   const { theme } = useTheme();
   const initials = name.split(' ').slice(0, 2).map((s) => s[0] ?? '').join('').toUpperCase();
 
-  const bg = tone === 'gold' ? theme.gold + '2E' : theme.navy;
+  const bg = tone === 'gold' ? theme.gold + '2E' : theme.accent;
   const fg = tone === 'gold' ? theme.goldDeep : '#F5F1E8';
 
   return (

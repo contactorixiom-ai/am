@@ -125,7 +125,7 @@ export function ParcelJourney({ parcel, recipientFirstName, title = 'Le voyage d
   return (
     <View style={{ gap: 12 }}>
       {/* Bannière de route : départ → arrivée, le colis avance dessus. */}
-      <View style={{ backgroundColor: theme.navy, borderRadius: RADII.xl, padding: 18, overflow: 'hidden' }}>
+      <View style={{ backgroundColor: theme.accent, borderRadius: RADII.xl, padding: 18, overflow: 'hidden' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <Endpoint flag={countryFlag(parcel.originCountry)} city={parcel.originCity} country={countryName(parcel.originCountry)} />
           <Endpoint flag={countryFlag(parcel.destinationCountry)} city={parcel.destinationCity} country={countryName(parcel.destinationCountry)} right />
@@ -147,7 +147,7 @@ export function ParcelJourney({ parcel, recipientFirstName, title = 'Le voyage d
             ))}
           </View>
           <View style={{ position: 'absolute', left: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: theme.gold }} />
-          <View style={{ position: 'absolute', right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: progress >= 1 ? theme.gold : 'rgba(255,255,255,0.45)', backgroundColor: progress >= 1 ? theme.gold : theme.navy }} />
+          <View style={{ position: 'absolute', right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: progress >= 1 ? theme.gold : 'rgba(255,255,255,0.45)', backgroundColor: progress >= 1 ? theme.gold : theme.accent }} />
           {!stopped ? (
             <View
               style={{
@@ -215,7 +215,7 @@ export function ParcelJourney({ parcel, recipientFirstName, title = 'Le voyage d
                   }}
                 >
                   {done ? <Icons.check size={9} color="#fff" stroke={3.2} /> : null}
-                  {current ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.navy }} /> : null}
+                  {current ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.accent }} /> : null}
                 </View>
                 {!last ? (
                   <View style={{ flex: 1, width: 2, minHeight: 14, backgroundColor: done ? theme.good : theme.line, marginVertical: 2 }} />

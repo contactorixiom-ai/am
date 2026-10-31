@@ -414,7 +414,7 @@ export function TrackingScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: pressed ? theme.navyDeep : theme.navy,
+                  backgroundColor: pressed ? theme.navyDeep : theme.accent,
                   alignItems: 'center',
                   justifyContent: 'center',
                 })}

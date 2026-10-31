@@ -1,35 +1,19 @@
-// Cadre de l'application. Sur téléphone, il ne change rien. Sur ordinateur
-// (web, écran large), l'application s'affiche dans une colonne centrée de la
-// largeur d'un grand téléphone, sur le fond de la marque : les cartes ne
-// s'étirent plus sur tout l'écran.
+// Cadre de l'application. Sur téléphone, il ne change rien. Sur ordinateur,
+// le contenu est centré dans une largeur de page (1120 px) sur le même fond
+// que l'application : les écrans gardent leurs proportions et les listes
+// passent en grille (cf. Grid) au lieu de s'étirer.
 import React from 'react';
-import { Platform, useWindowDimensions, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { APP_MAX_WIDTH } from '../theme/tokens';
+import { APP_MAX_WIDTH, useLayout } from '../theme/layout';
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
-  const { width } = useWindowDimensions();
-  const wide = Platform.OS === 'web' && width > APP_MAX_WIDTH + 40;
+  const { wide } = useLayout();
   if (!wide) return <View style={{ flex: 1 }}>{children}</View>;
   return (
-    <View style={{ flex: 1, alignItems: 'center', backgroundColor: theme.name === 'dark' ? '#030E1C' : theme.bgSoft }}>
-      <View
-        style={{
-          flex: 1,
-          width: '100%',
-          maxWidth: APP_MAX_WIDTH,
-          overflow: 'hidden',
-          backgroundColor: theme.bg,
-          borderLeftWidth: 1,
-          borderRightWidth: 1,
-          borderColor: theme.line,
-          shadowColor: '#000',
-          shadowOpacity: theme.name === 'dark' ? 0.5 : 0.12,
-          shadowRadius: 30,
-          shadowOffset: { width: 0, height: 0 },
-        }}
-      >
+    <View style={{ flex: 1, alignItems: 'center', backgroundColor: theme.bg }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: APP_MAX_WIDTH, overflow: 'hidden', backgroundColor: theme.bg }}>
         {children}
       </View>
     </View>

@@ -103,7 +103,7 @@ export function ParcelDimensions({ value, onChange, onPickPreset }: Props) {
                   padding: SPACING.md,
                   borderRadius: RADII.md,
                   borderWidth: 1,
-                  borderColor: active ? theme.navy : theme.line,
+                  borderColor: active ? theme.accent : theme.line,
                   backgroundColor: active ? theme.bgSoft : pressed ? theme.bgSoft : theme.surface,
                 })}
               >

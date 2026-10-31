@@ -46,7 +46,7 @@ export function DialogHost() {
           ) : null}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
             {current.buttons.map((b) => {
-              const bg = b.kind === 'danger' ? theme.bad : b.kind === 'cancel' ? theme.bgSoft : theme.navy;
+              const bg = b.kind === 'danger' ? theme.bad : b.kind === 'cancel' ? theme.bgSoft : theme.accent;
               const fg = b.kind === 'cancel' ? theme.ink : '#FFFFFF';
               return (
                 <Pressable

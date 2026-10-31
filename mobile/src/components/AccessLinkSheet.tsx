@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, Share, Text, View } from 'react-native';
 import { AccessLink, createAccessLink } from '../api/auth';
 import { useTheme } from '../theme/ThemeProvider';
-import { TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import { Button } from './Button';
 
 /**

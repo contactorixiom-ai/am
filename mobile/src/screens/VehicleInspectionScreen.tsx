@@ -29,7 +29,8 @@ import { sketchKindFor } from '../utils/vehicleViews';
 import { generateContractPdf } from '../utils/pdf';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 
 const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'top', label: 'Dessus' },
@@ -572,7 +573,7 @@ export function VehicleInspectionScreen() {
                       <Pressable
                         key={t.key}
                         onPress={() => setVehicleCategory(t.key)}
-                        style={{ flexGrow: 1, minWidth: '46%', height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface, alignItems: 'center', justifyContent: 'center' }}
+                        style={{ flexGrow: 1, minWidth: '46%', height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.surface, alignItems: 'center', justifyContent: 'center' }}
                       >
                         <Text style={{ fontSize: 14, color: on ? '#F5F1E8' : theme.ink, fontFamily: on ? TYPO.weights.bold : TYPO.weights.semibold }}>{t.label}</Text>
                       </Pressable>
@@ -595,7 +596,7 @@ export function VehicleInspectionScreen() {
                       <Pressable
                         key={f.v}
                         onPress={() => setFuel(f.v)}
-                        style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface, alignItems: 'center', justifyContent: 'center' }}
+                        style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.surface, alignItems: 'center', justifyContent: 'center' }}
                       >
                         <Text style={{ fontSize: 16, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.bold }}>{f.label}</Text>
                       </Pressable>

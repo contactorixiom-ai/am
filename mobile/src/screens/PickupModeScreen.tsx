@@ -194,7 +194,7 @@ export function PickupModeScreen() {
                   padded
                   flat
                   style={{
-                    borderColor: active ? theme.navy : theme.line,
+                    borderColor: active ? theme.accent : theme.line,
                     backgroundColor: active ? theme.bgSoft : theme.surface,
                   }}
                 >
@@ -244,8 +244,8 @@ export function PickupModeScreen() {
                         height: 22,
                         borderRadius: 11,
                         borderWidth: 2,
-                        borderColor: active ? theme.navy : theme.line,
-                        backgroundColor: active ? theme.navy : 'transparent',
+                        borderColor: active ? theme.accent : theme.line,
+                        backgroundColor: active ? theme.accent : 'transparent',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}

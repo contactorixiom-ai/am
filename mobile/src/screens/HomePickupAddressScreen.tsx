@@ -143,7 +143,7 @@ export function HomePickupAddressScreen() {
                       padding: SPACING.md,
                       borderRadius: RADII.md,
                       borderWidth: 1,
-                      borderColor: active ? theme.navy : theme.line,
+                      borderColor: active ? theme.accent : theme.line,
                       backgroundColor: active ? theme.bgSoft : 'transparent',
                     }}
                   >
@@ -162,8 +162,8 @@ export function HomePickupAddressScreen() {
                         height: 22,
                         borderRadius: 11,
                         borderWidth: 2,
-                        borderColor: active ? theme.navy : theme.line,
-                        backgroundColor: active ? theme.navy : 'transparent',
+                        borderColor: active ? theme.accent : theme.line,
+                        backgroundColor: active ? theme.accent : 'transparent',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}

@@ -350,7 +350,7 @@ export function LiveConvoyPanel({
                 missionId: missionId && missionId !== 'demo' ? missionId : undefined,
               })
             }
-            style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.navy, alignItems: 'center', justifyContent: 'center' })}
+            style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 10, backgroundColor: pressed ? theme.navyDeep : theme.accent, alignItems: 'center', justifyContent: 'center' })}
           >
             <Icons.chat size={16} color="#F5F1E8" stroke={1.8} />
           </Pressable>

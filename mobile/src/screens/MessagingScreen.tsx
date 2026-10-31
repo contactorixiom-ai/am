@@ -476,7 +476,7 @@ function MessageBubble({ msg, onRetry }: { msg: Msg; onRetry?: () => void }) {
         style={{
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: mine ? (failed ? theme.surface : theme.navy) : theme.surface,
+          backgroundColor: mine ? (failed ? theme.surface : theme.accent) : theme.surface,
           borderWidth: mine ? (failed ? 1 : 0) : 1,
           borderColor: failed ? theme.bad : theme.line,
           borderRadius: 14,

@@ -582,7 +582,7 @@ export function DriverModeScreen() {
                     <Pressable
                       key={m.id}
                       onPress={() => setMissionId(m.id)}
-                      style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface }}
+                      style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.surface }}
                     >
                       <Text style={{ fontSize: 12.5, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.semibold }}>
                         {m.pickupCity} → {m.deliveryCity}

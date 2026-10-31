@@ -254,8 +254,8 @@ export function CarRequestScreen() {
                     onPress={() => setPickupDay(d)}
                     style={{
                       width: 62, paddingVertical: 8, borderRadius: RADII.md, alignItems: 'center',
-                      borderWidth: 1.5, borderColor: on ? theme.navy : theme.line,
-                      backgroundColor: on ? theme.navy : theme.surface,
+                      borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
+                      backgroundColor: on ? theme.accent : theme.surface,
                     }}
                   >
                     <Text style={{ fontSize: 11, color: on ? theme.goldHi : theme.muted, fontFamily: TYPO.weights.semibold, textTransform: 'uppercase' }}>
@@ -280,7 +280,7 @@ export function CarRequestScreen() {
                     onPress={() => setSlot(k)}
                     style={{
                       flex: 1, paddingVertical: 10, borderRadius: RADII.md, alignItems: 'center',
-                      borderWidth: 1.5, borderColor: on ? theme.navy : theme.line,
+                      borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
                       backgroundColor: on ? theme.bgSoft : theme.surface,
                     }}
                   >
@@ -381,7 +381,7 @@ export function CarRequestScreen() {
                       flat
                       style={{
                         padding: 14,
-                        borderColor: active ? theme.navy : theme.line,
+                        borderColor: active ? theme.accent : theme.line,
                         backgroundColor: active ? theme.bgSoft : theme.surface,
                       }}
                     >

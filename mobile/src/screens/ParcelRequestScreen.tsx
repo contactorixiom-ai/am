@@ -407,13 +407,13 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
               padding: SPACING.md,
               borderRadius: RADII.md,
               borderWidth: 1,
-              borderColor: draft.transportMode === 'AIR' ? theme.navy : theme.line,
+              borderColor: draft.transportMode === 'AIR' ? theme.accent : theme.line,
               backgroundColor: draft.transportMode === 'AIR' ? theme.bgSoft : 'transparent',
               gap: 4,
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'AIR' ? theme.navy : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'AIR' ? theme.accent : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
                 <Icons.plane size={20} color={draft.transportMode === 'AIR' ? '#F5F1E8' : theme.goldDeep} stroke={1.9} />
               </View>
               {draft.transportMode === 'AIR' ? <Pill tone="navy">Choisi</Pill> : null}
@@ -435,13 +435,13 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
               padding: SPACING.md,
               borderRadius: RADII.md,
               borderWidth: 1,
-              borderColor: draft.transportMode === 'SEA' ? theme.navy : theme.line,
+              borderColor: draft.transportMode === 'SEA' ? theme.accent : theme.line,
               backgroundColor: draft.transportMode === 'SEA' ? theme.bgSoft : 'transparent',
               gap: 4,
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'SEA' ? theme.navy : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: draft.transportMode === 'SEA' ? theme.accent : theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
                 <Icons.ship size={20} color={draft.transportMode === 'SEA' ? '#F5F1E8' : theme.goldDeep} stroke={1.9} />
               </View>
               {draft.transportMode === 'SEA' ? <Pill tone="navy">Choisi</Pill> : null}

@@ -81,7 +81,7 @@ export function EmptyState({ iconKey = 'box', title, subtitle, cta, variant = 's
             paddingVertical: 10,
             paddingHorizontal: 18,
             borderRadius: RADII.md,
-            backgroundColor: pressed ? theme.navyDeep : theme.navy,
+            backgroundColor: pressed ? theme.navyDeep : theme.accent,
           })}
         >
           <Text style={{ color: '#F5F1E8', fontSize: 13, fontFamily: TYPO.weights.semibold }}>

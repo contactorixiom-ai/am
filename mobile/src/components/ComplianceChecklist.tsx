@@ -38,7 +38,7 @@ export function ComplianceChecklist({
   const { theme } = useTheme();
   const pct = total > 0 ? Math.round((conform / total) * 100) : 0;
   const complete = total > 0 && conform >= total;
-  const bg = complete ? '#0F4D2C' : theme.navy;
+  const bg = complete ? '#0F4D2C' : theme.accent;
 
   return (
     <Surface padded flat style={{ padding: 16, backgroundColor: bg, borderColor: bg }}>

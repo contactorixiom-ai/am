@@ -143,8 +143,8 @@ export function RegisterScreen() {
                   accessibilityState={{ selected: isPro === o.v }}
                   style={{
                     flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 12, borderWidth: 1.5,
-                    borderColor: isPro === o.v ? theme.navy : theme.line,
-                    backgroundColor: isPro === o.v ? theme.navy : theme.surface,
+                    borderColor: isPro === o.v ? theme.accent : theme.line,
+                    backgroundColor: isPro === o.v ? theme.accent : theme.surface,
                   }}
                 >
                   <Text style={{ fontSize: 14, color: isPro === o.v ? '#FFFFFF' : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.l}</Text>

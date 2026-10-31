@@ -27,6 +27,9 @@ export const AXIS_LIGHT = {
   link:      '#0B2545',
   // Texte et icônes sur fond doré (boutons dorés).
   onGold:    '#06182E',
+  // Fond des boutons, cases cochées, options sélectionnées. En sombre, le
+  // bleu marine se confondait avec le fond : un bleu plus clair, texte blanc.
+  accent:    '#0B2545',
 };
 
 export const AXIS_DARK = {
@@ -41,9 +44,7 @@ export const AXIS_DARK = {
   faint:     '#6E7891',
   line:      '#1B3D67',
   lineSoft:  '#163358',
-  // En sombre, le bleu marine des boutons, cases cochées et sélections
-  // était identique au fond : invisible. Bleu plus clair, texte blanc lisible.
-  navy:      '#2F64A6',
+  navy:      '#0B2545',
   navyDeep:  '#06182E',
   gold:      '#D4B262',
   goldHi:    '#F2D789',
@@ -56,6 +57,7 @@ export const AXIS_DARK = {
   selectInk: '#06182E',
   link:      '#9DBDE8',
   onGold:    '#06182E',
+  accent:    '#2F64A6',
 };
 
 // Le type relâche `name` en string union pour accepter light ET dark.
@@ -120,17 +122,3 @@ export const SHADOWS = {
 // Safe-area du design d'origine (iOS 26)
 export const SAFE_AREA_TOP = 62;
 export const SAFE_AREA_BOTTOM = 28;
-
-// ─── Largeur sur ordinateur ──────────────────────────────────────────────
-// L'application est pensée pour un téléphone : sur un grand écran, elle
-// s'affiche dans une colonne centrée au lieu de s'étirer (cartes démesurées).
-export const APP_MAX_WIDTH = 560;
-
-/**
- * À ajouter au voile des fenêtres qui montent du bas : sur ordinateur, la
- * fenêtre garde la largeur de l'application au lieu de tout l'écran.
- */
-export const SHEET_GUTTER: Record<string, unknown> =
-  typeof document !== 'undefined'
-    ? { paddingHorizontal: `max(0px, calc((100% - ${APP_MAX_WIDTH}px) / 2))` }
-    : {};

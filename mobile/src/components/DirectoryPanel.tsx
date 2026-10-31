@@ -16,13 +16,15 @@ import {
   listDirectory,
 } from '../api/directory';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import { downloadCsv } from '../utils/csv';
 import { notify } from '../utils/notify';
 import { roleLabel } from '../utils/roles';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Field } from './Field';
+import { Grid } from './Grid';
 import { Icons } from './Icons';
 import { Pill, PillTone } from './Pill';
 import { StatusBadge } from './StatusBadge';
@@ -250,6 +252,7 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         </Surface>
       ) : null}
 
+      <Grid gap={12} minItemWidth={440} maxColumns={2}>
       {(rows ?? []).map((u) => {
         const type = typeOf(u);
         const activity = [
@@ -293,6 +296,7 @@ export function DirectoryPanel({ onSendAccess }: Props) {
           </Pressable>
         );
       })}
+      </Grid>
 
       {rows && rows.length < total ? (
         <Button kind="outline" size="md" fullWidth loading={loadingMore} onPress={loadMore}>

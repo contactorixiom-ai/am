@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { ManualMethod, recordManualPayment } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import { Button } from './Button';
 import { Field } from './Field';
 
@@ -77,8 +78,8 @@ export function ManualPaymentSheet({ target, onClose, onDone }: { target: Encash
                 onPress={() => setMethod(m.v)}
                 style={{
                   paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.pill, borderWidth: 1.5,
-                  borderColor: method === m.v ? theme.navy : theme.line,
-                  backgroundColor: method === m.v ? theme.navy : theme.surface,
+                  borderColor: method === m.v ? theme.accent : theme.line,
+                  backgroundColor: method === m.v ? theme.accent : theme.surface,
                 }}
               >
                 <Text style={{ fontSize: 13, color: method === m.v ? '#FFFFFF' : theme.ink, fontFamily: TYPO.weights.semibold }}>{m.l}</Text>

@@ -18,7 +18,8 @@ import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import { notify } from '../utils/notify';
 import {
   ContractDoc,

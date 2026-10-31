@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
 import { City, listCities, searchCities } from '../api/quotes';
-import { AppFrame } from './AppFrame';
 import { useTheme } from '../theme/ThemeProvider';
+import { useLayout } from '../theme/layout';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { countryFlag, countryName } from '../utils/countries';
 
@@ -15,6 +15,7 @@ interface Props {
 
 export function CityPicker({ label, value, onChange, region }: Props) {
   const { theme } = useTheme();
+  const { wide } = useLayout();
   const [open, setOpen] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [query, setQuery] = useState('');
@@ -89,8 +90,27 @@ export function CityPicker({ label, value, onChange, region }: Props) {
         </Text>
       </Pressable>
 
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-        <AppFrame>
+      <Modal
+        visible={open}
+        animationType={wide ? 'fade' : 'slide'}
+        transparent={wide}
+        presentationStyle={wide ? 'overFullScreen' : 'pageSheet'}
+        onRequestClose={() => setOpen(false)}
+      >
+        {/* Ordinateur : fenêtre centrée et villes en grille de bulles ;
+            téléphone : feuille plein écran et liste. */}
+        <Pressable
+          onPress={wide ? () => setOpen(false) : undefined}
+          style={wide ? { flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 } : { flex: 1 }}
+        >
+          <Pressable
+            onPress={() => undefined}
+            style={
+              wide
+                ? { width: '100%', maxWidth: 900, height: '85%', backgroundColor: theme.bg, borderRadius: 24, overflow: 'hidden' }
+                : { flex: 1 }
+            }
+          >
           <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
             <View style={{ padding: SPACING.lg, gap: SPACING.md }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -123,10 +143,13 @@ export function CityPicker({ label, value, onChange, region }: Props) {
               />
             </View>
             <FlatList
+              key={wide ? 'grid' : 'list'}
+              numColumns={wide ? 3 : 1}
+              columnWrapperStyle={wide ? { gap: 10 } : undefined}
               data={filtered}
               keyExtractor={(item) => `${item.country}-${item.city}-${item.postalCode ?? ''}-${item.latitude}`}
-              contentContainerStyle={{ padding: SPACING.lg, paddingTop: 0 }}
-              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: theme.line }} />}
+              contentContainerStyle={{ padding: SPACING.lg, paddingTop: 0, gap: wide ? 10 : 0 }}
+              ItemSeparatorComponent={wide ? undefined : () => <View style={{ height: 1, backgroundColor: theme.line }} />}
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => {
@@ -134,12 +157,24 @@ export function CityPicker({ label, value, onChange, region }: Props) {
                     setOpen(false);
                     setQuery('');
                   }}
-                  style={({ pressed }) => ({
-                    paddingVertical: SPACING.md,
-                    paddingHorizontal: SPACING.sm,
-                    backgroundColor: pressed ? theme.bgSoft : 'transparent',
-                    borderRadius: RADII.md,
-                  })}
+                  style={({ pressed }) =>
+                    wide
+                      ? {
+                          flex: 1,
+                          paddingVertical: 14,
+                          paddingHorizontal: 14,
+                          backgroundColor: pressed ? theme.bgSoft : theme.surface,
+                          borderRadius: RADII.xl,
+                          borderWidth: 1,
+                          borderColor: pressed ? theme.gold : theme.line,
+                        }
+                      : {
+                          paddingVertical: SPACING.md,
+                          paddingHorizontal: SPACING.sm,
+                          backgroundColor: pressed ? theme.bgSoft : 'transparent',
+                          borderRadius: RADII.md,
+                        }
+                  }
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Text style={{ fontSize: 22 }}>{countryFlag(item.country)}</Text>
@@ -169,7 +204,8 @@ export function CityPicker({ label, value, onChange, region }: Props) {
               }
             />
           </SafeAreaView>
-        </AppFrame>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );

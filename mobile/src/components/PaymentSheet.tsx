@@ -5,7 +5,8 @@ import { AxisLoader } from './AxisLoader';
 import { Icons } from './Icons';
 import { SuccessCheck } from './SuccessCheck';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import { createCheckoutSession, getPaymentSession } from '../api/payments';
 
 // Flux de paiement Stripe Checkout (cartes + Apple Pay + Google Pay + Link).

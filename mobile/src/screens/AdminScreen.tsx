@@ -31,6 +31,7 @@ import { AccessLinkSheet } from '../components/AccessLinkSheet';
 import { EncashTarget, ManualPaymentSheet } from '../components/ManualPaymentSheet';
 import { AdminDocForm } from '../components/AdminDocForm';
 import { DirectoryPanel } from '../components/DirectoryPanel';
+import { Grid } from '../components/Grid';
 import { AddressField } from '../components/AddressField';
 import { DriverInvitePanel } from '../components/DriverInvitePanel';
 import { KycReviewPanel } from '../components/KycReviewPanel';
@@ -56,7 +57,8 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Surface } from '../components/Surface';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
+import { RADII, TYPO } from '../theme/tokens';
+import { SHEET_GUTTER } from '../theme/layout';
 import {
   ADMIN_DOC_TYPES,
   AdminActivity,
@@ -1465,7 +1467,7 @@ export function AdminScreen() {
         ) : null}
 
         {/* Chiffres clés */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <Grid gap={10} minItemWidth={160} maxColumns={4}>
           <DashTile theme={theme} label="Envois à traiter" value={String(toProcess)} tone="navy" onPress={() => setTab('shipments')} />
           <DashTile theme={theme} label="En douane" value={String(inCustoms)} tone={inCustoms > 0 ? 'warn' : 'plain'} onPress={() => setTab('shipments')} />
           {meIsAdmin ? (
@@ -1474,7 +1476,7 @@ export function AdminScreen() {
           {meIsAdmin ? (
             <DashTile theme={theme} label="À encaisser" value={fmtEuro(toCollect)} tone={toCollect > 0 ? 'warn' : 'plain'} />
           ) : null}
-        </View>
+        </Grid>
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <DashMini theme={theme} label="Convoyages actifs" value={String(activeConvoys)} icon={<Icons.truck size={15} color={theme.muted} stroke={1.7} />} />
@@ -1796,7 +1798,7 @@ export function AdminScreen() {
                     <Pressable
                       key={o.id}
                       onPress={() => setPackShipment(on ? null : { kind: o.kind, id: o.id })}
-                      style={{ paddingVertical: 9, paddingHorizontal: 13, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.navy : theme.line, backgroundColor: on ? theme.navy : theme.surface }}
+                      style={{ paddingVertical: 9, paddingHorizontal: 13, borderRadius: RADII.pill, borderWidth: 1.5, borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.surface }}
                     >
                       <Text style={{ fontSize: 12.5, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.ref}</Text>
                       <Text style={{ fontSize: 10.5, color: on ? 'rgba(245,241,232,0.75)' : theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{o.route}</Text>
@@ -1923,12 +1925,11 @@ export function AdminScreen() {
         </View>
 
         <SectionHead title="Tous les documents" style={{ marginTop: 8 }} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <Grid gap={10} minItemWidth={170} maxColumns={4}>
           {ADMIN_DOC_TYPES.filter((t) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(t.id)).map((t) => (
             <Pressable
               key={t.id}
               onPress={() => openDocForm(t)}
-              style={{ width: '48%', flexGrow: 1 }}
             >
               <Surface padded style={{ padding: 12, gap: 8, minHeight: 108 }}>
                 <View
@@ -1955,7 +1956,7 @@ export function AdminScreen() {
               </Surface>
             </Pressable>
           ))}
-        </View>
+        </Grid>
 
         {history.length > 0 ? (
           <>
@@ -2000,7 +2001,7 @@ export function AdminScreen() {
             />
           </Surface>
         ) : (
-          <View style={{ gap: 10 }}>
+          <Grid gap={10} minItemWidth={440} maxColumns={2}>
             {missions.map((m) => (
               <Surface key={`m-${m.id}`} padded style={{ padding: 12, gap: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -2180,7 +2181,7 @@ export function AdminScreen() {
                 </View>
               </Surface>
             ))}
-          </View>
+          </Grid>
         )}
       </>
     );
@@ -2488,7 +2489,7 @@ function DashTile({
     <Container
       onPress={onPress}
       style={{
-        width: '47%',
+        flex: 1,
         flexGrow: 1,
         padding: 14,
         borderRadius: RADII.lg,

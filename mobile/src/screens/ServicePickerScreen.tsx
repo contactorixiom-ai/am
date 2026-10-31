@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
+import { Grid } from '../components/Grid';
 import { Icons } from '../components/Icons';
 import { coverageLabel, hasInsurance, INSURANCE, OPERATIONS } from '../config/company';
 import { Pill } from '../components/Pill';
@@ -74,11 +75,9 @@ export function ServicePickerScreen() {
           Choisis le service : le prix s'affiche tout de suite, puis Axis confirme ta commande.
         </Text>
 
-        {/* 2x2 grid */}
-        <View style={{ gap: 10 }}>
-          {[0, 2, 4].map((startIndex) => (
-            <View key={startIndex} style={{ flexDirection: 'row', gap: 10 }}>
-              {SERVICES.slice(startIndex, startIndex + 2).map((s) => {
+        {/* 2 colonnes sur téléphone, 3 sur ordinateur */}
+        <Grid gap={10} minItemWidth={150} maxColumns={3}>
+              {SERVICES.map((s) => {
                 const sel = selected === s.id;
                 return (
                   <Pressable
@@ -150,9 +149,7 @@ export function ServicePickerScreen() {
                   </Pressable>
                 );
               })}
-            </View>
-          ))}
-        </View>
+        </Grid>
 
         {/* La grille tarifaire complète, avant même de choisir. */}
         <Pressable

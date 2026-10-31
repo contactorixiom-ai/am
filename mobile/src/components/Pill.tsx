@@ -45,7 +45,7 @@ export function Pill({ children, tone = 'default', style }: PillProps) {
 
 function colorsFor(tone: PillTone, t: ReturnType<typeof useTheme>['theme']) {
   switch (tone) {
-    case 'navy':  return { bg: t.navy,          fg: '#FFFFFF',    border: null as string | null };
+    case 'navy':  return { bg: t.accent,        fg: '#FFFFFF',    border: null as string | null };
     case 'gold':  return { bg: t.gold,          fg: t.onGold,       border: null };
     case 'good':  return { bg: t.good + '22',   fg: t.good,       border: t.good + '55' };
     case 'warn':  return { bg: t.warn + '22',   fg: t.warn,       border: t.warn + '55' };

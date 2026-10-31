@@ -120,7 +120,7 @@ export function ProfileInfoScreen() {
                     onPress={() => setIsPro(o.v)}
                     style={{
                       flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: RADII.md, borderWidth: 1.5,
-                      borderColor: isPro === o.v ? theme.navy : theme.line,
+                      borderColor: isPro === o.v ? theme.accent : theme.line,
                       backgroundColor: isPro === o.v ? theme.bgSoft : theme.surface,
                     }}
                   >
