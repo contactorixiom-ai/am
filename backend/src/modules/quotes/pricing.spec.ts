@@ -96,17 +96,47 @@ describe('computeQuote — grille import-export', () => {
   });
 });
 
-describe('computeQuote — convoyage (inchangé)', () => {
-  it('tarif kilométrique HT + TVA', () => {
+describe('computeQuote — convoyage, grilles 2026', () => {
+  it('particulier : frais de dossier + tarif au km TTC tout inclus', () => {
     const q = computeQuote({ ...base, service: 'CONVOY_CAR', distanceKm: 100, vehicleCategory: 'berline' });
-    expect(q.subtotalCents).toBe(7000);
-    expect(q.totalCents).toBe(8400);
-    expect(q.lines).toEqual([]);
+    expect(q.totalCents).toBe(2900 + 100 * 98);
+    expect(q.taxCents + q.subtotalCents).toBe(q.totalCents);
+    expect(q.lines.map((l) => l.code)).toEqual(['CONVOY_FEE', 'CONVOY_KM']);
   });
 
-  it('forfait minimum sous 60 km', () => {
+  it('particulier : tarif longue distance au-delà de 350 km, sur tout le trajet', () => {
+    const q = computeQuote({ ...base, service: 'CONVOY_CAR', distanceKm: 400, vehicleCategory: 'citadine' });
+    expect(q.totalCents).toBe(2900 + 400 * 79);
+  });
+
+  it('particulier : minimum 69 € TTC sous 50 km', () => {
     const q = computeQuote({ ...base, service: 'CONVOY_CAR', distanceKm: 20, vehicleCategory: 'citadine' });
-    expect(q.subtotalCents).toBe(4000);
+    expect(q.totalCents).toBe(6900);
+  });
+
+  it('professionnel : forfait urbain, régional, puis €/km HT', () => {
+    const pro = { ...base, service: 'CONVOY_CAR' as const, customerType: 'PROFESSIONAL' as const };
+    expect(computeQuote({ ...pro, distanceKm: 15, vehicleCategory: 'berline' }).subtotalCents).toBe(4500);
+    expect(computeQuote({ ...pro, distanceKm: 40, vehicleCategory: 'utilitaire' }).subtotalCents).toBe(7500);
+    const long = computeQuote({ ...pro, distanceKm: 300, vehicleCategory: 'suv' });
+    expect(long.subtotalCents).toBe(300 * 75);
+    expect(long.totalCents).toBe(Math.round(300 * 75 * 1.2));
+  });
+
+  it('plateau : forfait ≤ 200 km, paliers au km, jamais moins cher qu\'un trajet plus court', () => {
+    const q200 = computeQuote({ ...base, service: 'CONVOY_FLATBED', distanceKm: 150, vehicleCategory: 'citadine' });
+    expect(q200.totalCents).toBe(18000);
+    const q210 = computeQuote({ ...base, service: 'CONVOY_FLATBED', distanceKm: 210, vehicleCategory: 'citadine' });
+    expect(q210.totalCents).toBe(18000); // 210 × 0,68 = 142,80 < 180 : plancher
+    const q800 = computeQuote({ ...base, service: 'CONVOY_FLATBED', distanceKm: 800, vehicleCategory: 'berline' });
+    expect(q800.totalCents).toBe(800 * 58);
+    const pro = computeQuote({ ...base, service: 'CONVOY_FLATBED', distanceKm: 100, vehicleCategory: 'utilitaire', customerType: 'PROFESSIONAL' });
+    expect(pro.subtotalCents).toBe(21000);
+  });
+
+  it('plateau : véhicule non roulant = colonne hors d\'usage + treuil', () => {
+    const q = computeQuote({ ...base, service: 'CONVOY_FLATBED', distanceKm: 100, vehicleCategory: 'berline', options: ['NON_ROLLING'] });
+    expect(q.totalCents).toBe(23000 + 4500);
   });
 });
 

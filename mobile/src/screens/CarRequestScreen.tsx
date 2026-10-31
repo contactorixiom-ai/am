@@ -27,53 +27,81 @@ import { RADII, TYPO } from '../theme/tokens';
 // « Assurance Premium » n'est proposée qu'avec une police réellement
 // souscrite (app.json → extra.insurance) : vendre une garantie qui n'existe
 // pas engagerait Axis, et la distribution d'assurance est réglementée.
-const OPTIONS: { kind: QuoteOptionKind; label: string; hint: string }[] = [
-  { kind: 'EXPRESS',           label: 'Express 24h',           hint: '+15 %' },
-  ...(hasInsurance()
-    ? [{ kind: 'PREMIUM_INSURANCE' as QuoteOptionKind, label: 'Garantie étendue', hint: '+29,61 € · plafond 350 k€' }]
-    : []),
-  { kind: 'DOOR_TO_DOOR',      label: 'Porte-à-porte',         hint: 'Gratuit' },
-  { kind: 'WEEKEND_PICKUP',    label: 'Enlèvement weekend',    hint: '+60 €' },
-];
+type Cat = { key: string; label: string; rate: string };
+type Opt = { kind: QuoteOptionKind; label: string; hint: string };
 
-// Catégories de la grille tarifaire Convoyage 2026 (tarif €/km HT).
-const VEHICLE_CATEGORIES: { key: string; label: string; rate: string }[] = [
-  { key: 'citadine', label: 'Citadine', rate: '0,65 €' },
-  { key: 'berline', label: 'Berline', rate: '0,70 €' },
-  { key: 'break', label: 'Break', rate: '0,75 €' },
-  { key: 'coupe', label: 'Coupé', rate: '0,75 €' },
-  { key: 'electrique', label: 'Électrique', rate: '0,80 €' },
-  { key: 'hybride', label: 'Hybride', rate: '0,80 €' },
-  { key: 'monospace', label: 'Monospace', rate: '0,85 €' },
-  { key: 'suv', label: 'SUV', rate: '0,85 €' },
-  { key: '4x4', label: '4×4', rate: '0,85 €' },
-  { key: 'camping_car', label: 'Camping-car', rate: '0,85 €' },
-  { key: 'poids_lourd', label: 'Poids lourd', rate: '0,90 €' },
-  { key: 'utilitaire', label: 'Utilitaire', rate: '1,00 €' },
-  { key: 'luxe', label: 'Luxe', rate: '1,10 €' },
-  { key: 'collection', label: 'Collection', rate: '1,30 €' },
+// ─── Grilles 2026 (documents « Grille tarifaire » Axis Import) ───
+// Particuliers : TTC tout inclus (chauffeur, carburant, péages, assurance),
+// frais de dossier + €/km (< 350 km) ; tarif longue distance au-delà.
+const INDIVIDUAL_CATEGORIES: Cat[] = [
+  { key: 'citadine', label: 'Citadine / compacte', rate: '0,89 €' },
+  { key: 'berline', label: 'Berline / break', rate: '0,98 €' },
+  { key: 'suv', label: 'SUV / monospace', rate: '0,98 €' },
+  { key: '4x4', label: '4×4', rate: '0,98 €' },
+  { key: 'electrique', label: 'Électrique', rate: '1,05 €' },
+  { key: 'hybride', label: 'Hybride', rate: '1,05 €' },
+  { key: 'utilitaire', label: 'Utilitaire', rate: '1,35 €' },
+  { key: 'camping_car', label: 'Camping-car', rate: '1,35 €' },
+  { key: 'luxe', label: 'Prestige', rate: '1,35 €' },
+  { key: 'collection', label: 'Collection', rate: '1,35 €' },
 ];
-
-// Transport de personnes : chauffeur titulaire du permis D (FIMO voyageurs).
-const BUS_CATEGORIES: { key: string; label: string; rate: string }[] = [
+// Professionnels : HT, forfaits sous 50 km puis €/km ; carburant et péages au réel.
+const PRO_CATEGORIES: Cat[] = [
+  { key: 'citadine', label: 'Citadine / compacte', rate: '0,65 €' },
+  { key: 'berline', label: 'Berline / break / coupé', rate: '0,70 €' },
+  { key: 'suv', label: 'SUV / monospace', rate: '0,75 €' },
+  { key: '4x4', label: '4×4', rate: '0,75 €' },
+  { key: 'electrique', label: 'Électrique', rate: '0,75 €' },
+  { key: 'hybride', label: 'Hybride', rate: '0,75 €' },
+  { key: 'utilitaire', label: 'Utilitaire', rate: '0,90 €' },
+  { key: 'camping_car', label: 'Camping-car', rate: '0,90 €' },
+  { key: 'poids_lourd', label: 'Poids lourd', rate: '1,20 €' },
+  { key: 'luxe', label: 'Prestige', rate: '1,20 €' },
+  { key: 'collection', label: 'Collection', rate: '1,20 €' },
+];
+// Transport de personnes : chauffeur titulaire du permis D (grille à confirmer).
+const BUS_CATEGORIES: Cat[] = [
   { key: 'minibus', label: 'Minibus (≤ 22 places)', rate: '0,95 €' },
   { key: 'bus', label: 'Bus urbain', rate: '1,20 €' },
   { key: 'autocar', label: 'Autocar', rate: '1,30 €' },
 ];
-
-// Transport sur plateau (camion porte-voiture) : le véhicule ne roule pas.
-const FLATBED_CATEGORIES: { key: string; label: string; rate: string }[] = [
-  { key: 'citadine', label: 'Citadine', rate: '1,60 €' },
-  { key: 'berline', label: 'Berline', rate: '1,60 €' },
-  { key: 'break', label: 'Break / coupé', rate: '1,65 €' },
-  { key: 'electrique', label: 'Électrique / hybride', rate: '1,65 €' },
-  { key: 'monospace', label: 'Monospace', rate: '1,75 €' },
-  { key: 'suv', label: 'SUV / 4×4', rate: '1,80 €' },
-  { key: 'utilitaire', label: 'Utilitaire', rate: '1,90 €' },
-  { key: 'luxe', label: 'Luxe / collection', rate: '1,90 €' },
-  { key: 'camping_car', label: 'Camping-car', rate: '2,20 €' },
-  { key: 'moto', label: 'Moto', rate: '1,20 €' },
+// Plateau (groupage porte-voitures) : forfait jusqu'à 200 km, puis au km.
+const FLATBED_INDIVIDUAL: Cat[] = [
+  { key: 'citadine', label: 'Citadine / compacte', rate: 'dès 180 €' },
+  { key: 'berline', label: 'Berline / SUV / monospace', rate: 'dès 210 €' },
+  { key: 'utilitaire', label: 'Utilitaire léger (< 2,5 t)', rate: 'dès 260 €' },
+  { key: 'electrique', label: 'Électrique / hybride', rate: 'dès 230 €' },
 ];
+const FLATBED_PRO: Cat[] = [
+  { key: 'citadine', label: 'Citadine / compacte', rate: 'dès 145 €' },
+  { key: 'berline', label: 'Berline / SUV / crossover', rate: 'dès 169 €' },
+  { key: 'utilitaire', label: 'Utilitaire léger (< 2,5 t)', rate: 'dès 210 €' },
+  { key: 'electrique', label: 'Électrique / hybride', rate: 'dès 185 €' },
+];
+
+function optionsFor(service: string, pro: boolean): Opt[] {
+  if (service === 'CONVOY_FLATBED') {
+    return [
+      { kind: 'NON_ROLLING', label: 'Véhicule non roulant / en panne', hint: pro ? '+35 € HT · treuil' : '+45 € · treuil' },
+      { kind: 'EXPRESS', label: pro ? 'Livraison prioritaire 24h' : 'Livraison express 24/48h', hint: pro ? '+10 %' : '+15 %' },
+    ];
+  }
+  if (pro) {
+    return [
+      { kind: 'EXPRESS', label: 'Express 24h', hint: '+15 %' },
+      { kind: 'DOOR_TO_DOOR', label: 'Porte-à-porte', hint: 'Gratuit' },
+      { kind: 'WEEKEND_PICKUP', label: 'Enlèvement weekend', hint: '+60 € HT' },
+    ];
+  }
+  return [
+    { kind: 'EXPRESS', label: 'Express 24h', hint: '+15 %' },
+    ...(hasInsurance() ? [{ kind: 'PREMIUM_INSURANCE' as QuoteOptionKind, label: 'Garantie étendue', hint: '+35,53 € · plafond 350 k€' }] : []),
+    { kind: 'VIP_HANDOVER', label: 'Mise en main VIP', hint: '+29 €' },
+    { kind: 'EXPRESS_WASH', label: 'Lavage express', hint: '+25 €' },
+    { kind: 'DOOR_TO_DOOR', label: 'Porte-à-porte', hint: 'Gratuit' },
+    { kind: 'WEEKEND_PICKUP', label: 'Livraison dimanche / férié', hint: '+39 €' },
+  ];
+}
 
 export function CarRequestScreen() {
   const { theme } = useTheme();
@@ -83,7 +111,11 @@ export function CarRequestScreen() {
   const isMoto = service === 'CONVOY_MOTO';
   const isBus = service === 'CONVOY_BUS';
   const isFlatbed = service === 'CONVOY_FLATBED';
-  const categories = isBus ? BUS_CATEGORIES : isFlatbed ? FLATBED_CATEGORIES : VEHICLE_CATEGORIES;
+  const { user, refresh } = useSession();
+  const pro = user?.accountType === 'PROFESSIONAL';
+  const categories = isBus ? BUS_CATEGORIES : isFlatbed ? (pro ? FLATBED_PRO : FLATBED_INDIVIDUAL) : pro ? PRO_CATEGORIES : INDIVIDUAL_CATEGORIES;
+  const OPTIONS = optionsFor(service, pro);
+  const rateUnit = isFlatbed ? (pro ? 'HT' : 'TTC') : pro ? 'HT/km' : 'TTC/km';
   const title = isMoto ? 'Convoyage moto' : isBus ? 'Bus & autocar' : isFlatbed ? 'Transport sur plateau' : 'Convoyage voiture';
 
   const [from, setFrom] = useState<City | null>(null);
@@ -102,7 +134,6 @@ export function CarRequestScreen() {
   const [pickupAddress, setPickupAddress] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   // Le convoyeur doit pouvoir joindre le client le jour de l'enlèvement.
-  const { user, refresh } = useSession();
   const needsPhone = !user?.phone;
   const [contactPhone, setContactPhone] = useState('');
   // Un enlèvement le samedi ou le dimanche est facturé comme tel.
@@ -297,22 +328,26 @@ export function CarRequestScreen() {
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Véhicule" />
             <View style={{ gap: 10 }}>
-              {isBus || isFlatbed ? (
-                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 12, borderRadius: RADII.md, backgroundColor: theme.bgSoft }}>
-                  <Icons.shield size={16} color={theme.gold} stroke={1.8} />
-                  <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
-                    {isBus
-                      ? 'Conduit par un chauffeur titulaire du permis D (transport en commun), à vide, sous plaques W garage si le véhicule n\'est pas immatriculé. Minimum de perception : 90 € HT.'
-                      : 'Le véhicule ne roule pas : il est chargé sur un camion porte-voiture (plateau). Idéal pour un véhicule neuf, de collection, non roulant ou sans plaques. Prix au km du camion, carburant et péages inclus. Minimum : 150 € HT.'}
-                  </Text>
-                </View>
-              ) : null}
+              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 12, borderRadius: RADII.md, backgroundColor: theme.bgSoft }}>
+                <Icons.shield size={16} color={theme.gold} stroke={1.8} />
+                <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+                  {isBus
+                    ? 'Conduit par un chauffeur titulaire du permis D (transport en commun), à vide, sous plaques W garage si le véhicule n\'est pas immatriculé. Tarif HT, minimum 90 € HT.'
+                    : isFlatbed
+                    ? (pro
+                      ? 'Groupage sur notre réseau de camions porte-voitures, tarifs HT : forfait jusqu\'à 200 km, puis au km. Camion complet (3 à 8 véhicules) et transfert de parc : sur devis, remise de 8 % dès 10 véhicules par mois.'
+                      : 'Le véhicule voyage sur un camion porte-voiture (6 à 8 places) : zéro kilomètre au compteur. Forfait jusqu\'à 200 km, puis tarif au km. Véhicules roulants, en panne ou accidentés acceptés.')
+                    : pro
+                    ? 'Tarifs professionnels HT : forfait urbain (≤ 20 km) 45 à 75 €, forfait régional (21-50 km) 65 à 105 €, puis tarif au km. Carburant et péages refacturés au réel. Remise de 5 à 15 % selon le volume mensuel, facturation centralisée, paiement à 30 jours.'
+                    : 'Prix tout inclus : chauffeur, carburant, péages, assurance tous risques et RC pro. Frais de dossier de 29 à 49 € selon la catégorie, tarif longue distance au-delà de 350 km, minimum 69 € pour un trajet de moins de 50 km.'}
+                </Text>
+              </View>
               {/* Catégorie → détermine le tarif au km (grille Convoyage 2026).
                   Masquée pour la moto (tarif unique 0,60 €/km). */}
               {isMoto ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
                   <Icons.bike size={18} color={theme.gold} stroke={1.8} />
-                  <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Tarif moto : 0,60 €/km HT</Text>
+                  <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{pro ? 'Tarif moto : 0,60 € HT/km' : 'Tarif moto : 29 € de dossier + 0,72 € TTC/km, tout inclus'}</Text>
                 </View>
               ) : (
                 <>
@@ -333,7 +368,7 @@ export function CarRequestScreen() {
                           }}
                         >
                           <Text style={{ fontSize: 13, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{c.label}</Text>
-                          <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>{c.rate}/km</Text>
+                          <Text style={{ fontSize: 11, color: on ? theme.selectInk : theme.gold, fontFamily: TYPO.weights.semibold, marginTop: 1 }}>{`${c.rate} ${rateUnit}`}</Text>
                         </Pressable>
                       );
                     })}

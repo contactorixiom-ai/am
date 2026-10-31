@@ -14,7 +14,10 @@ export type QuoteOptionKind =
   | 'WEEKEND_PICKUP'
   | 'EXTRA_DRIVER'
   | 'DOOR_TO_DOOR'
-  | 'CUSTOMS_HANDLING';
+  | 'CUSTOMS_HANDLING'
+  | 'NON_ROLLING'
+  | 'VIP_HANDOVER'
+  | 'EXPRESS_WASH';
 
 export interface QuoteHint {
   kind: 'SAVE_WITH_SEA' | 'FAST_WITH_AIR' | 'CHEAPER_AT_RELAY' | 'INSURANCE_RECOMMENDED' | 'CONSOLIDATE';

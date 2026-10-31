@@ -955,6 +955,9 @@ enum QuoteOptionKind {
   EXTRA_DRIVER
   DOOR_TO_DOOR
   CUSTOMS_HANDLING
+  NON_ROLLING // plateau : véhicule non roulant, treuillage
+  VIP_HANDOVER // mise en main VIP à la livraison
+  EXPRESS_WASH // lavage extérieur avant livraison
 }
 
 model QuoteOption {

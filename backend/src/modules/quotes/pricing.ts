@@ -178,7 +178,109 @@ export const OPTIONS_CATALOG: Record<QuoteOptionKind, { label: string; flatCents
   EXTRA_DRIVER:      { label: 'Convoyeur supplémentaire',   flatCents: 12000, pctOfSubtotal: 0 },
   DOOR_TO_DOOR:      { label: 'Porte-à-porte',              flatCents: 0,     pctOfSubtotal: 0 },
   CUSTOMS_HANDLING:  { label: 'Démarches douanières',       flatCents: 6000,  pctOfSubtotal: 0 },
+  NON_ROLLING:       { label: 'Véhicule non roulant (treuil)', flatCents: 3500, pctOfSubtotal: 0 },
+  VIP_HANDOVER:      { label: 'Mise en main VIP',           flatCents: 2900,  pctOfSubtotal: 0 },
+  EXPRESS_WASH:      { label: 'Lavage express',             flatCents: 2500,  pctOfSubtotal: 0 },
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// CONVOYAGE — grilles 2026 (documents « Grille tarifaire » d'Axis Import)
+// ─────────────────────────────────────────────────────────────────────
+// Deux grilles selon le client :
+// - PARTICULIERS : prix TTC tout inclus (chauffeur, carburant, péages,
+//   assurance), frais de dossier + tarif au km ; tarif « longue distance »
+//   appliqué à tout le trajet au-delà de 350 km ; minimum 69 € TTC sous 50 km.
+// - PROFESSIONNELS : prix HT ; forfait urbain (≤ 20 km) ou régional
+//   (21-50 km), puis tarif au km ; carburant et péages refacturés au réel.
+export type CustomerType = 'INDIVIDUAL' | 'PROFESSIONAL';
+
+type ConvoyGroup = 'moto' | 'citadine' | 'berline' | 'electrique' | 'utilitaire' | 'prestige';
+function convoyGroup(catKey: string | null): ConvoyGroup {
+  switch (catKey) {
+    case 'moto': return 'moto';
+    case 'citadine': return 'citadine';
+    case 'electrique': case 'hybride': return 'electrique';
+    case 'utilitaire': case 'camping_car': return 'utilitaire';
+    case 'luxe': case 'collection': case 'poids_lourd': return 'prestige';
+    default: return 'berline'; // berline, break, coupé, SUV, monospace, 4×4
+  }
+}
+
+/** Particuliers (TTC) : frais de dossier, €/km < 350 km, €/km > 350 km. */
+const INDIVIDUAL_CONVOY_TTC: Record<ConvoyGroup, { feeCents: number; shortCents: number; longCents: number }> = {
+  moto:       { feeCents: 2900, shortCents: 72,  longCents: 65 },  // hors grille : 0,60 € HT + TVA (à confirmer)
+  citadine:   { feeCents: 2900, shortCents: 89,  longCents: 79 },
+  berline:    { feeCents: 2900, shortCents: 98,  longCents: 88 },
+  electrique: { feeCents: 3900, shortCents: 105, longCents: 95 },
+  utilitaire: { feeCents: 4900, shortCents: 135, longCents: 122 },
+  prestige:   { feeCents: 4900, shortCents: 135, longCents: 122 },
+};
+export const INDIVIDUAL_CONVOY_LONG_KM = 350;
+export const INDIVIDUAL_CONVOY_MIN_TTC_CENTS = 6900; // trajets < 50 km
+export const INDIVIDUAL_CONVOY_MIN_KM = 50;
+
+/** Professionnels (HT) : forfait ≤ 20 km, forfait 21-50 km, puis €/km. */
+const PRO_CONVOY_HT: Record<ConvoyGroup, { urbanCents: number; regionalCents: number; perKmCents: number }> = {
+  moto:       { urbanCents: 4500, regionalCents: 6500,  perKmCents: 60 },
+  citadine:   { urbanCents: 4500, regionalCents: 6500,  perKmCents: 65 },
+  berline:    { urbanCents: 4500, regionalCents: 6500,  perKmCents: 70 },
+  electrique: { urbanCents: 5500, regionalCents: 7500,  perKmCents: 75 },
+  utilitaire: { urbanCents: 5500, regionalCents: 7500,  perKmCents: 90 },
+  prestige:   { urbanCents: 7500, regionalCents: 10500, perKmCents: 120 },
+};
+// SUV, monospace, 4×4 : 0,75 € HT/km (même forfait que berline).
+const PRO_CONVOY_SUV_PER_KM = 75;
+
+// Plateau (camion porte-voiture, groupage) : forfait ≤ 200 km, €/km
+// 201-500 km, €/km au-delà de 500 km. Quatre colonnes de la grille.
+type FlatbedGroup = 'citadine' | 'berline' | 'utilitaire' | 'electrique';
+function flatbedGroup(catKey: string | null, nonRolling: boolean): FlatbedGroup {
+  if (nonRolling) return 'electrique'; // colonne « Électrique / hors d'usage »
+  switch (catKey) {
+    case 'citadine': case 'moto': return 'citadine';
+    case 'utilitaire': case 'camping_car': case 'poids_lourd': return 'utilitaire';
+    case 'electrique': case 'hybride': return 'electrique';
+    default: return 'berline'; // berline, SUV, monospace, luxe, collection…
+  }
+}
+const FLATBED_TIERS: Record<CustomerType, Record<FlatbedGroup, { flatCents: number; midCents: number; longCents: number }>> = {
+  INDIVIDUAL: { // TTC
+    citadine:   { flatCents: 18000, midCents: 68, longCents: 52 },
+    berline:    { flatCents: 21000, midCents: 75, longCents: 58 },
+    utilitaire: { flatCents: 26000, midCents: 88, longCents: 69 },
+    electrique: { flatCents: 23000, midCents: 82, longCents: 64 },
+  },
+  PROFESSIONAL: { // HT
+    citadine:   { flatCents: 14500, midCents: 55, longCents: 42 },
+    berline:    { flatCents: 16900, midCents: 62, longCents: 48 },
+    utilitaire: { flatCents: 21000, midCents: 72, longCents: 56 },
+    electrique: { flatCents: 18500, midCents: 68, longCents: 52 },
+  },
+};
+export const FLATBED_FLAT_KM = 200;
+export const FLATBED_LONG_KM = 500;
+
+function flatbedPrice(tier: { flatCents: number; midCents: number; longCents: number }, km: number): number {
+  if (km <= FLATBED_FLAT_KM) return tier.flatCents;
+  // Jamais moins cher qu'un trajet plus court : le palier précédent sert de plancher.
+  const mid = Math.max(tier.flatCents, Math.round(km * tier.midCents));
+  if (km <= FLATBED_LONG_KM) return mid;
+  return Math.max(Math.round(FLATBED_LONG_KM * tier.midCents), Math.round(km * tier.longCents));
+}
+
+/** Options en TTC pour un particulier (grille particuliers), HT pour un pro. */
+function optionPrice(kind: QuoteOptionKind, customer: CustomerType, service: ConvoyService, base: number): number {
+  const cfg = OPTIONS_CATALOG[kind];
+  if (customer === 'INDIVIDUAL') {
+    const ttc: Partial<Record<QuoteOptionKind, number>> = { WEEKEND_PICKUP: 3900, NON_ROLLING: 4500, VIP_HANDOVER: 2900, EXPRESS_WASH: 2500 };
+    if (ttc[kind] != null) return ttc[kind] as number;
+    if (kind === 'EXPRESS') return Math.round(base * 15 / 100);
+    return Math.round(cfg.flatCents * (1 + TAX_RATE)) + Math.round(base * cfg.pctOfSubtotal / 100);
+  }
+  // Pro : plateau prioritaire +10 %, convoyage express +15 %.
+  if (kind === 'EXPRESS') return Math.round(base * (service === 'CONVOY_FLATBED' ? 10 : 15) / 100);
+  return cfg.flatCents + Math.round(base * cfg.pctOfSubtotal / 100);
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // TYPES
@@ -194,6 +296,8 @@ export interface QuoteComputationInput {
   options: QuoteOptionKind[];
   /** Catégorie de véhicule pour le convoyage (berline, SUV, utilitaire…). */
   vehicleCategory?: string;
+  /** Particulier (grille TTC tout inclus) ou professionnel (grille HT). */
+  customerType?: CustomerType;
   /** Pays de destination (port d'embarquement des véhicules, règles locales). */
   toCountry?: string;
   /** Distance du premier km (domicile → hub) pour l'enlèvement à domicile. */
@@ -267,50 +371,118 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
   throw new Error('Service non supporté');
 }
 
-// Convoyage : tarif kilométrique HT, TVA ajoutée.
+// Convoyage : grilles 2026 (voir CONVOYAGE ci-dessus). Bus et autocar :
+// tarif HT au km, en attendant une grille dédiée.
 function computeConvoyQuote(input: QuoteComputationInput): ComputedQuote {
   const service = input.service as ConvoyService;
   const rules = PRICING[service];
+  const customer: CustomerType = input.customerType ?? 'INDIVIDUAL';
   const km = input.distanceKm ?? 0;
   if (km <= 0) {
     throw new Error('distanceKm est requis pour un convoyage (ou ville reconnue)');
   }
-  // Tarif au km selon la catégorie de véhicule (grille Convoyage 2026).
-  // Plateau : grille du camion porte-voiture, quelle que soit la catégorie.
   const catKey = normalizeVehicleCategory(input.vehicleCategory);
-  const perKmCents = service === 'CONVOY_FLATBED'
-    ? ((catKey && FLATBED_RATE_CENTS[catKey]) || FLATBED_RATE_CENTS.default)
-    : ((catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey]) || CONVOY_DEFAULT_RATE_CENTS[service]);
   const transportMode = rules.defaultMode;
-  const basePriceCents = 0;
-  const variablePriceCents = Math.round(km * perKmCents);
-  // Forfait minimum : 40 € HT pour une voiture ou une moto sur moins de
-  // 60 km ; 90 € HT pour un bus ; 150 € HT pour un plateau (mise à
-  // disposition du camion), quelle que soit la distance.
-  const minCents = service === 'CONVOY_FLATBED'
-    ? FLATBED_MIN_FORFAIT_CENTS
-    : service === 'CONVOY_BUS'
-      ? BUS_MIN_FORFAIT_CENTS
-      : km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
-  const uncertaintyPct = rules.uncertaintyPct;
   const pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
+  const uncertaintyPct = rules.uncertaintyPct;
+  const lines: QuoteLine[] = [];
+  const nonRolling = input.options.includes('NON_ROLLING');
 
-  const rawSubtotal = basePriceCents + variablePriceCents;
-  const computedOptions: ComputedOption[] = input.options.map((kind) => {
-    const cfg = OPTIONS_CATALOG[kind];
-    const price = cfg.flatCents + Math.round(rawSubtotal * cfg.pctOfSubtotal / 100);
-    return { kind, label: cfg.label, priceCents: price };
-  });
+  // Montant « de base » (hors options) dans l'unité de la grille : TTC pour
+  // un particulier, HT pour un professionnel (et pour les bus).
+  let basePriceCents = 0;
+  let variablePriceCents = 0;
+  let minCents = 0;
+  let grossIsTtc = customer === 'INDIVIDUAL';
+  let note: string | null = null;
+
+  if (service === 'CONVOY_FLATBED') {
+    const tier = FLATBED_TIERS[customer][flatbedGroup(catKey, nonRolling)];
+    variablePriceCents = flatbedPrice(tier, km);
+    lines.push({
+      code: 'FLATBED', unit: 'forfait', quantity: 1, unitCents: variablePriceCents, totalCents: variablePriceCents,
+      label: km <= FLATBED_FLAT_KM
+        ? `Transport sur plateau, forfait jusqu'à ${FLATBED_FLAT_KM} km`
+        : `Transport sur plateau, ${km} km`,
+    });
+    note = customer === 'INDIVIDUAL'
+      ? 'Groupage sur camion porte-voiture (6 à 8 véhicules) : zéro kilomètre au compteur. Camion complet (3 à 8 véhicules) : sur devis.'
+      : 'Tarifs HT, groupage réseau porte-voitures. Camion complet ou transfert de parc : sur devis ; remise de 8 % dès 10 véhicules par mois.';
+  } else if (service === 'CONVOY_BUS') {
+    grossIsTtc = false;
+    const perKm = (catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey]) || CONVOY_DEFAULT_RATE_CENTS.CONVOY_BUS;
+    variablePriceCents = Math.round(km * perKm);
+    minCents = BUS_MIN_FORFAIT_CENTS;
+    lines.push({ code: 'CONVOY_KM', unit: 'fee', quantity: 1, unitCents: variablePriceCents, totalCents: variablePriceCents, label: `Convoyage ${km} km, chauffeur permis D` });
+    note = 'Chauffeur titulaire du permis D, convoyage à vide. Carburant et péages refacturés au réel.';
+  } else if (customer === 'PROFESSIONAL') {
+    const group = convoyGroup(catKey);
+    const g = PRO_CONVOY_HT[group];
+    const perKm = catKey && ['suv', 'monospace', '4x4'].includes(catKey) ? PRO_CONVOY_SUV_PER_KM : g.perKmCents;
+    if (km <= 20) {
+      basePriceCents = g.urbanCents;
+      lines.push({ code: 'CONVOY_FORFAIT', unit: 'forfait', quantity: 1, unitCents: g.urbanCents, totalCents: g.urbanCents, label: 'Forfait urbain (≤ 20 km), carburant et péages inclus' });
+    } else if (km <= 50) {
+      basePriceCents = g.regionalCents;
+      lines.push({ code: 'CONVOY_FORFAIT', unit: 'forfait', quantity: 1, unitCents: g.regionalCents, totalCents: g.regionalCents, label: 'Forfait régional (21-50 km), carburant et péages inclus' });
+    } else {
+      variablePriceCents = Math.round(km * perKm);
+      lines.push({ code: 'CONVOY_KM', unit: 'fee', quantity: 1, unitCents: variablePriceCents, totalCents: variablePriceCents, label: `Convoyage ${km} km × ${(perKm / 100).toFixed(2).replace('.', ',')} € HT` });
+    }
+    note = km > 50
+      ? 'Tarif professionnel HT. Carburant et péages refacturés au réel sur justificatifs. Remise de 5 à 15 % selon le volume mensuel.'
+      : 'Tarif professionnel HT, déplacement, carburant et péages inclus. Remise de 5 à 15 % selon le volume mensuel.';
+  } else {
+    const g = INDIVIDUAL_CONVOY_TTC[convoyGroup(catKey)];
+    const perKm = km > INDIVIDUAL_CONVOY_LONG_KM ? g.longCents : g.shortCents;
+    basePriceCents = g.feeCents;
+    variablePriceCents = Math.round(km * perKm);
+    if (km < INDIVIDUAL_CONVOY_MIN_KM) minCents = INDIVIDUAL_CONVOY_MIN_TTC_CENTS;
+    lines.push({ code: 'CONVOY_FEE', unit: 'forfait', quantity: 1, unitCents: g.feeCents, totalCents: g.feeCents, label: 'Frais de dossier' });
+    lines.push({ code: 'CONVOY_KM', unit: 'fee', quantity: 1, unitCents: variablePriceCents, totalCents: variablePriceCents, label: `Convoyage ${km} km × ${(perKm / 100).toFixed(2).replace('.', ',')} € TTC${km > INDIVIDUAL_CONVOY_LONG_KM ? ' (tarif longue distance)' : ''}` });
+    note = 'Prix tout inclus : chauffeur, carburant, péages, assurance tous risques et RC pro. État des lieux contradictoire au départ et à l\'arrivée.';
+  }
+
+  const rawBase = basePriceCents + variablePriceCents;
+  const computedOptions: ComputedOption[] = input.options.map((kind) => ({
+    kind,
+    label: OPTIONS_CATALOG[kind].label,
+    priceCents: optionPrice(kind, grossIsTtc ? 'INDIVIDUAL' : 'PROFESSIONAL', service, rawBase),
+  }));
   const addonsPriceCents = computedOptions.reduce((s, o) => s + o.priceCents, 0);
+  let gross = rawBase + addonsPriceCents;
+  if (gross < minCents) {
+    lines.push({ code: 'CONVOY_MIN', unit: 'forfait', quantity: 1, unitCents: minCents - gross, totalCents: minCents - gross, label: grossIsTtc ? 'Minimum de perception (trajet court)' : 'Minimum de perception' });
+    gross = minCents;
+  }
 
-  let subtotalCents = rawSubtotal + addonsPriceCents;
-  if (subtotalCents < minCents) subtotalCents = minCents;
-  const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const totalCents = subtotalCents + taxCents;
+  // Décomposition HT / TVA / TTC : la grille particuliers est en TTC.
+  let subtotalCents: number;
+  let taxCents: number;
+  let totalCents: number;
+  if (grossIsTtc) {
+    totalCents = gross;
+    subtotalCents = Math.round(gross / (1 + TAX_RATE));
+    taxCents = totalCents - subtotalCents;
+  } else {
+    subtotalCents = gross;
+    taxCents = Math.round(subtotalCents * TAX_RATE);
+    totalCents = subtotalCents + taxCents;
+  }
+  if (!grossIsTtc) {
+    // Les lignes restent en HT pour un pro : on le dit.
+    for (const l of lines) l.label = `${l.label} (HT)`;
+  }
+  // Particulier : les montants de base sont TTC ; on les ramène en HT pour
+  // garder des champs cohérents avec le total.
+  if (grossIsTtc) {
+    basePriceCents = Math.round(basePriceCents / (1 + TAX_RATE));
+    variablePriceCents = subtotalCents - basePriceCents - Math.round(addonsPriceCents / (1 + TAX_RATE));
+  }
 
-  const disclaimer = uncertaintyPct != null
+  const disclaimer = note ?? (uncertaintyPct != null
     ? `Devis estimé ±${uncertaintyPct} % — frais de douane et fluctuations de fret possibles.`
-    : null;
+    : null);
   const hints = computeHints({
     service: input.service, transportMode, pickupMode, weightKg: input.weightKg ?? 0,
     totalCents, hasInsurance: input.options.includes('PREMIUM_INSURANCE'),
@@ -322,7 +494,7 @@ function computeConvoyQuote(input: QuoteComputationInput): ComputedQuote {
     basePriceCents,
     variablePriceCents,
     pickupFeeCents: 0,
-    addonsPriceCents,
+    addonsPriceCents: grossIsTtc ? Math.round(addonsPriceCents / (1 + TAX_RATE)) : addonsPriceCents,
     subtotalCents,
     taxRate: TAX_RATE,
     taxCents,
@@ -331,7 +503,7 @@ function computeConvoyQuote(input: QuoteComputationInput): ComputedQuote {
     uncertaintyPct,
     disclaimer,
     options: computedOptions,
-    lines: [],
+    lines,
     hints,
   };
 }

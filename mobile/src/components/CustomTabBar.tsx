@@ -2,6 +2,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
+import { useLayout } from '../theme/layout';
 import { SAFE_AREA_BOTTOM, TYPO } from '../theme/tokens';
 import { Icons } from './Icons';
 
@@ -19,6 +20,9 @@ const TAB_CONFIG: Record<string, { label: string; icon: IconKey; isCenter?: bool
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
+  const { wide } = useLayout();
+  // Grand écran : le menu latéral remplace la barre du bas.
+  if (wide) return null;
 
   return (
     <View

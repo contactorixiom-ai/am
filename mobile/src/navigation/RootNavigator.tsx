@@ -2,8 +2,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { CustomTabBar } from '../components/CustomTabBar';
+import { SideNav } from '../components/SideNav';
+import { APP_MAX_WIDTH, useLayout } from '../theme/layout';
 import { SplashScreen } from '../components/SplashScreen';
 import { BookingConfirmationScreen } from '../screens/BookingConfirmationScreen';
 import { CarRequestScreen } from '../screens/CarRequestScreen';
@@ -114,6 +116,7 @@ function takeTrackingRefFromUrl(): string | undefined {
 }
 
 export function RootNavigator() {
+  const { wide } = useLayout();
   const { theme } = useTheme();
   const { user, initializing } = useSession();
   const [resetToken] = React.useState(takeResetTokenFromUrl);
@@ -150,6 +153,10 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+      {wide && user ? <SideNav navigationRef={navigationRef} /> : null}
+      {/* À droite du menu : contenu limité à une largeur lisible, sans cadre. */}
+      <View style={{ flex: 1, minWidth: 0, maxWidth: wide ? APP_MAX_WIDTH : undefined }}>
       <RootStack.Navigator
         initialRouteName={trackingRef && !resetToken ? 'TrackByReference' : undefined}
         screenOptions={{
@@ -211,6 +218,8 @@ export function RootNavigator() {
           </>
         )}
       </RootStack.Navigator>
+      </View>
+      </View>
     </NavigationContainer>
   );
 }

@@ -42,6 +42,7 @@ const REPLAYABLE = [
   '20261027010000_admin_documents',
   '20261031000000_acid_cargo',
   '20261031010000_convoy_bus_flatbed',
+  '20261031020000_quote_options_2026',
 ];
 
 function migrationNames() {

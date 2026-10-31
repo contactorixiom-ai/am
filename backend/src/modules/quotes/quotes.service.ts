@@ -71,9 +71,15 @@ export class QuotesService {
       convoyToPortKm = await roadDistanceKm(fromGeo, vehicleDeparturePort(dto.toCountry));
     }
 
+    // Particulier (grille TTC tout inclus) ou professionnel (grille HT).
+    const customerType = user
+      ? (await this.prisma.user.findUnique({ where: { id: user.id }, select: { accountType: true } }))?.accountType ?? undefined
+      : undefined;
+
     try {
       const computed = computeQuote({
         service: dto.service,
+        customerType,
         transportMode: dto.transportMode,
         pickupMode: dto.pickupMode,
         distanceKm,

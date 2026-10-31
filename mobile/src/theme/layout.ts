@@ -4,7 +4,7 @@
 import { Platform, useWindowDimensions } from 'react-native';
 
 /** Largeur du contenu sur ordinateur. */
-export const APP_MAX_WIDTH = 1120;
+export const APP_MAX_WIDTH = 1280;
 /** Largeur des fenêtres (paiement, affectation, fiches…) sur ordinateur. */
 export const SHEET_MAX_WIDTH = 600;
 /** Au-delà : mise en page « large ». */
