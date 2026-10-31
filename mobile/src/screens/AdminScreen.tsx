@@ -56,7 +56,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Surface } from '../components/Surface';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
 import {
   ADMIN_DOC_TYPES,
   AdminActivity,
@@ -918,7 +918,7 @@ export function AdminScreen() {
     const p = statusParcel;
     return (
       <Modal visible={!!p} transparent animationType="slide" onRequestClose={() => setStatusParcel(null)}>
-        <Pressable onPress={() => setStatusParcel(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={() => setStatusParcel(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
           <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '90%' }}>
             {p ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
@@ -1060,7 +1060,7 @@ export function AdminScreen() {
 
     return (
       <Modal visible={!!m} transparent animationType="slide" onRequestClose={() => setInspectionMission(null)}>
-        <Pressable onPress={() => setInspectionMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={() => setInspectionMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
           <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '92%' }}>
             {m ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
@@ -1122,7 +1122,7 @@ export function AdminScreen() {
     const m = assignMission;
     return (
       <Modal visible={!!m} transparent animationType="slide" onRequestClose={() => setAssignMission(null)}>
-        <Pressable onPress={() => setAssignMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={() => setAssignMission(null)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
           <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '90%' }}>
             {m ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
@@ -1224,7 +1224,7 @@ export function AdminScreen() {
     const newClient = !order.clientId;
     return (
       <Modal visible={orderOpen} transparent animationType="slide" onRequestClose={() => setOrderOpen(false)}>
-        <Pressable onPress={() => setOrderOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={() => setOrderOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
           <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, gap: 12, maxHeight: '92%' }}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 4 }}>
               <View>

@@ -10,6 +10,7 @@ import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppFrame } from './src/components/AppFrame';
 import { DialogHost } from './src/components/DialogHost';
 import { DotLoader } from './src/components/DotLoader';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -67,8 +68,10 @@ export default function App() {
               <ParcelDraftProvider>
                 <ToastProvider>
                   <StatusBar style="auto" />
-                  <RootNavigator />
-                  <InstallBanner />
+                  <AppFrame>
+                    <RootNavigator />
+                    <InstallBanner />
+                  </AppFrame>
                   <DialogHost />
                 </ToastProvider>
               </ParcelDraftProvider>

@@ -5,7 +5,7 @@ import { AxisLoader } from './AxisLoader';
 import { Icons } from './Icons';
 import { SuccessCheck } from './SuccessCheck';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
 import { createCheckoutSession, getPaymentSession } from '../api/payments';
 
 // Flux de paiement Stripe Checkout (cartes + Apple Pay + Google Pay + Link).
@@ -176,7 +176,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
         <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 16 }}>
           {step === 'pick' ? (
             <>

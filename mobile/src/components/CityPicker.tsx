@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
 import { City, listCities, searchCities } from '../api/quotes';
+import { AppFrame } from './AppFrame';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SPACING, TYPO } from '../theme/tokens';
 import { countryFlag, countryName } from '../utils/countries';
@@ -89,84 +90,86 @@ export function CityPicker({ label, value, onChange, region }: Props) {
       </Pressable>
 
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-          <View style={{ padding: SPACING.lg, gap: SPACING.md }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS }}>
-                {label}
-              </Text>
-              <Pressable onPress={() => setOpen(false)}>
-                <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
-                  Fermer
+        <AppFrame>
+          <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+            <View style={{ padding: SPACING.lg, gap: SPACING.md }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: TYPO.sizes.displayS }}>
+                  {label}
                 </Text>
-              </Pressable>
-            </View>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Rechercher une ville..."
-              placeholderTextColor={theme.faint}
-              autoFocus
-              style={{
-                backgroundColor: theme.surface2,
-                borderWidth: 1,
-                borderColor: theme.line,
-                borderRadius: RADII.md,
-                paddingHorizontal: SPACING.md,
-                paddingVertical: SPACING.md,
-                color: theme.ink,
-                fontFamily: TYPO.weights.medium,
-                fontSize: TYPO.sizes.body,
-              }}
-            />
-          </View>
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => `${item.country}-${item.city}-${item.postalCode ?? ''}-${item.latitude}`}
-            contentContainerStyle={{ padding: SPACING.lg, paddingTop: 0 }}
-            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: theme.line }} />}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  onChange(item);
-                  setOpen(false);
-                  setQuery('');
-                }}
-                style={({ pressed }) => ({
-                  paddingVertical: SPACING.md,
-                  paddingHorizontal: SPACING.sm,
-                  backgroundColor: pressed ? theme.bgSoft : 'transparent',
-                  borderRadius: RADII.md,
-                })}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text style={{ fontSize: 22 }}>{countryFlag(item.country)}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
-                      {item.city}
-                    </Text>
-                    <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-                      {item.postalCode ? `${item.postalCode} · ` : ''}{countryName(item.country)}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            )}
-            ListEmptyComponent={
-              <Text
+                <Pressable onPress={() => setOpen(false)}>
+                  <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
+                    Fermer
+                  </Text>
+                </Pressable>
+              </View>
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Rechercher une ville..."
+                placeholderTextColor={theme.faint}
+                autoFocus
                 style={{
-                  color: theme.muted,
+                  backgroundColor: theme.surface2,
+                  borderWidth: 1,
+                  borderColor: theme.line,
+                  borderRadius: RADII.md,
+                  paddingHorizontal: SPACING.md,
+                  paddingVertical: SPACING.md,
+                  color: theme.ink,
                   fontFamily: TYPO.weights.medium,
                   fontSize: TYPO.sizes.body,
-                  textAlign: 'center',
-                  marginTop: SPACING.xxl,
                 }}
-              >
-                {searching ? 'Recherche…' : 'Aucune ville trouvée. Vérifie l\'orthographe.'}
-              </Text>
-            }
-          />
-        </SafeAreaView>
+              />
+            </View>
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => `${item.country}-${item.city}-${item.postalCode ?? ''}-${item.latitude}`}
+              contentContainerStyle={{ padding: SPACING.lg, paddingTop: 0 }}
+              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: theme.line }} />}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    onChange(item);
+                    setOpen(false);
+                    setQuery('');
+                  }}
+                  style={({ pressed }) => ({
+                    paddingVertical: SPACING.md,
+                    paddingHorizontal: SPACING.sm,
+                    backgroundColor: pressed ? theme.bgSoft : 'transparent',
+                    borderRadius: RADII.md,
+                  })}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={{ fontSize: 22 }}>{countryFlag(item.country)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
+                        {item.city}
+                      </Text>
+                      <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
+                        {item.postalCode ? `${item.postalCode} · ` : ''}{countryName(item.country)}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                <Text
+                  style={{
+                    color: theme.muted,
+                    fontFamily: TYPO.weights.medium,
+                    fontSize: TYPO.sizes.body,
+                    textAlign: 'center',
+                    marginTop: SPACING.xxl,
+                  }}
+                >
+                  {searching ? 'Recherche…' : 'Aucune ville trouvée. Vérifie l\'orthographe.'}
+                </Text>
+              }
+            />
+          </SafeAreaView>
+        </AppFrame>
       </Modal>
     </View>
   );

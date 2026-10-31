@@ -16,7 +16,7 @@ import {
   listDirectory,
 } from '../api/directory';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
 import { downloadCsv } from '../utils/csv';
 import { notify } from '../utils/notify';
 import { roleLabel } from '../utils/roles';
@@ -358,7 +358,7 @@ function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onCl
 
   return (
     <Modal visible={!!id} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
         <View style={{ maxHeight: '90%', backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 12 }}>
             <Text style={{ flex: 1, fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>

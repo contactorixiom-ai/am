@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, Share, Text, View } from 'react-native';
 import { AccessLink, createAccessLink } from '../api/auth';
 import { useTheme } from '../theme/ThemeProvider';
-import { TYPO } from '../theme/tokens';
+import { TYPO, SHEET_GUTTER } from '../theme/tokens';
 import { Button } from './Button';
 
 /**
@@ -75,7 +75,7 @@ export function AccessLinkSheet({
 
   return (
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
         <Pressable
           onPress={(e) => e.stopPropagation?.()}
           style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 12 }}

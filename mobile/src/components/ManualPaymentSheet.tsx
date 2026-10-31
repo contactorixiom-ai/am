@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { ManualMethod, recordManualPayment } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
 import { Button } from './Button';
 import { Field } from './Field';
 
@@ -63,7 +63,7 @@ export function ManualPaymentSheet({ target, onClose, onDone }: { target: Encash
 
   return (
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
         <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 12 }}>
           <Text style={{ fontSize: 17, color: theme.ink, fontFamily: TYPO.weights.bold }}>Encaisser — {target?.reference}</Text>
           <Text style={{ fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>

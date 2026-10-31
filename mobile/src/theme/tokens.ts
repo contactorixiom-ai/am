@@ -120,3 +120,17 @@ export const SHADOWS = {
 // Safe-area du design d'origine (iOS 26)
 export const SAFE_AREA_TOP = 62;
 export const SAFE_AREA_BOTTOM = 28;
+
+// ─── Largeur sur ordinateur ──────────────────────────────────────────────
+// L'application est pensée pour un téléphone : sur un grand écran, elle
+// s'affiche dans une colonne centrée au lieu de s'étirer (cartes démesurées).
+export const APP_MAX_WIDTH = 560;
+
+/**
+ * À ajouter au voile des fenêtres qui montent du bas : sur ordinateur, la
+ * fenêtre garde la largeur de l'application au lieu de tout l'écran.
+ */
+export const SHEET_GUTTER: Record<string, unknown> =
+  typeof document !== 'undefined'
+    ? { paddingHorizontal: `max(0px, calc((100% - ${APP_MAX_WIDTH}px) / 2))` }
+    : {};

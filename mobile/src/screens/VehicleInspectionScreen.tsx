@@ -29,7 +29,7 @@ import { sketchKindFor } from '../utils/vehicleViews';
 import { generateContractPdf } from '../utils/pdf';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { RADII, TYPO } from '../theme/tokens';
+import { RADII, TYPO, SHEET_GUTTER } from '../theme/tokens';
 
 const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'top', label: 'Dessus' },
@@ -676,7 +676,7 @@ export function VehicleInspectionScreen() {
 
             {/* Prise de vue guidée : consigne, puis appareil photo. */}
             <Modal visible={!!guided} transparent animationType="fade" onRequestClose={() => setGuided(null)}>
-              <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.6)', justifyContent: 'flex-end' }}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.6)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
                 {guided ? (
                   <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 28, gap: 12 }}>
                     <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>

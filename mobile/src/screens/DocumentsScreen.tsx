@@ -18,7 +18,7 @@ import { SignaturePad, SignaturePadHandle } from '../components/SignaturePad';
 import { Surface } from '../components/Surface';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { TYPO } from '../theme/tokens';
+import { TYPO, SHEET_GUTTER } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import {
   ContractDoc,
@@ -353,7 +353,7 @@ export function DocumentsScreen() {
 
       {/* ─── Modal signature ─── */}
       <Modal visible={!!signing} transparent animationType="slide" onRequestClose={() => setSigning(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(11,37,69,0.55)', justifyContent: 'flex-end', ...SHEET_GUTTER }}>
           <View style={{ backgroundColor: theme.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28, gap: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: theme.navy, alignItems: 'center', justifyContent: 'center' }}>
