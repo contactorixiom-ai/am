@@ -78,6 +78,13 @@ export function TrackingScreen() {
   const [parcel, setParcel] = useState<ParcelSummary | null>(null);
   const [mission, setMission] = useState<MissionDetail | null>(null);
   const { user } = useSession();
+  // Le client peut être lui-même le destinataire (« C'est moi qui reçois ») :
+  // lui proposer de se prévenir sur WhatsApp n'avait aucun sens.
+  const digits = (v?: string | null) => (v ?? '').replace(/[^\d]/g, '').replace(/^00/, '').replace(/^33/, '0');
+  const recipientIsMe = !!parcel && !!user && (
+    (!!parcel.recipientPhone && !!user.phone && digits(parcel.recipientPhone) === digits(user.phone))
+    || (`${parcel.recipientFirstName ?? ''} ${parcel.recipientLastName ?? ''}`.trim().toLowerCase() === `${user.firstName} ${user.lastName}`.trim().toLowerCase())
+  );
   const [acting, setActing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -316,7 +323,11 @@ export function TrackingScreen() {
                       ) : null}
                     </View>
                   </View>
-                  {parcel.status !== 'DELIVERED' && parcel.status !== 'CANCELLED' ? (
+                  {recipientIsMe ? (
+                    <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
+                      C'est toi qui reçois cet envoi : Axis t'appelle pour organiser la remise.
+                    </Text>
+                  ) : parcel.status !== 'DELIVERED' && parcel.status !== 'CANCELLED' ? (
                     // Import : c'est l'expéditeur au pays qu'il faut prévenir
                     // (le destinataire est souvent le client lui-même).
                     isEuropean(parcel.destinationCountry) && senderOf(parcel) ? (
@@ -337,9 +348,14 @@ export function TrackingScreen() {
                         leftIcon={<Icons.chat size={17} color={theme.onGold} stroke={1.9} />}
                         onPress={() => { void whatsappRecipient(parcel); }}
                       >
-                        {`Prévenir ${parcel.recipientFirstName} sur WhatsApp`}
+                        {`Envoyer le suivi à ${parcel.recipientFirstName} sur WhatsApp`}
                       </Button>
                     )
+                  ) : null}
+                  {!recipientIsMe && parcel.status !== 'DELIVERED' && parcel.status !== 'CANCELLED' ? (
+                    <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium, textAlign: 'center' }}>
+                      La personne qui reçoit obtient le lien de suivi et la référence, sans avoir besoin de l'application.
+                    </Text>
                   ) : null}
                 </View>
               ) : null}
