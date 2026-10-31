@@ -40,8 +40,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Le SDK est déjà installé sur le runner. Sans « packages: '' », l'action
+      # tente d'installer le paquet « tools », retiré par Google : échec.
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Installer les dépendances
         working-directory: mobile
