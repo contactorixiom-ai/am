@@ -12,6 +12,13 @@ const NAMES: Record<string, string> = {
   CF: 'Centrafrique', GN: 'Guinée', MG: 'Madagascar', DJ: 'Djibouti', MA: 'Maroc', DZ: 'Algérie',
   TN: 'Tunisie', MR: 'Mauritanie', GM: 'Gambie', GW: 'Guinée-Bissau', CV: 'Cap-Vert', NG: 'Nigeria',
   GH: 'Ghana', KM: 'Comores', RW: 'Rwanda', BI: 'Burundi', GQ: 'Guinée équatoriale',
+  LY: 'Libye', EG: 'Égypte', SL: 'Sierra Leone', LR: 'Liberia', ST: 'Sao Tomé-et-Principe',
+  KE: 'Kenya', TZ: 'Tanzanie', UG: 'Ouganda', SD: 'Soudan', SS: 'Soudan du Sud', ET: 'Éthiopie',
+  ER: 'Érythrée', SO: 'Somalie', SC: 'Seychelles', ZA: 'Afrique du Sud', NA: 'Namibie',
+  BW: 'Botswana', ZW: 'Zimbabwe', ZM: 'Zambie', MW: 'Malawi', MZ: 'Mozambique', AO: 'Angola',
+  LS: 'Lesotho', SZ: 'Eswatini', MU: 'Maurice',
+  // Europe (suite)
+  DK: 'Danemark', CZ: 'Tchéquie', SE: 'Suède', FI: 'Finlande', NO: 'Norvège', GR: 'Grèce',
 };
 
 /** « 🇸🇳 » à partir du code ISO à deux lettres ; chaîne vide si inconnu. */

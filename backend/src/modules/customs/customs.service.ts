@@ -20,7 +20,9 @@ import {
   RequiredDocument,
   ShipmentKind,
   filterDocumentsForShipment,
+  findRegulation,
   trackingTypeForCountry,
+  zoneForCountry,
 } from './customs.data';
 import {
   CreateCountryRegulationDto,
@@ -58,6 +60,31 @@ export class CustomsService implements OnApplicationBootstrap {
         skipDuplicates: true,
       });
       if (res.count > 0) this.logger.log(`${res.count} fiche(s) pays de réglementation douanière ajoutée(s).`);
+      // Fiches jamais retouchées par Roger (updatedAt = createdAt) : on les
+      // rafraîchit depuis le référentiel, pour que les notes (limites d'âge,
+      // documents) suivent les mises à jour de l'application.
+      const rows = await this.prisma.countryRegulation.findMany({ select: { countryCode: true, createdAt: true, updatedAt: true } });
+      let refreshed = 0;
+      for (const row of rows) {
+        const seed = COUNTRY_REGULATIONS.find((r) => r.countryCode === row.countryCode);
+        if (!seed || Math.abs(row.updatedAt.getTime() - row.createdAt.getTime()) > 5000) continue;
+        await this.prisma.countryRegulation.update({
+          where: { countryCode: row.countryCode },
+          data: {
+            countryName: seed.countryName,
+            cargoTrackingType: seed.cargoTrackingType,
+            cargoMandatory: seed.cargoMandatory,
+            authority: seed.authority,
+            currency: seed.currency,
+            customsNotes: seed.customsNotes,
+            requiredDocuments: seed.requiredDocuments as unknown as Prisma.InputJsonValue,
+            // Même horodatage : la fiche reste « jamais retouchée ».
+            updatedAt: row.createdAt,
+          },
+        });
+        refreshed += 1;
+      }
+      if (refreshed > 0) this.logger.log(`${refreshed} fiche(s) pays mise(s) à jour depuis le référentiel.`);
     } catch (err) {
       this.logger.warn(`Réglementations douanières non initialisées : ${(err as Error).message}`);
     }
@@ -65,9 +92,11 @@ export class CustomsService implements OnApplicationBootstrap {
 
   // ─── CountryRegulation CRUD ──────────────────────────────────────────────
 
-  listRegulations() {
-    return this.prisma.countryRegulation.findMany({
-      orderBy: { countryName: 'asc' },
+  async listRegulations() {
+    const rows = await this.prisma.countryRegulation.findMany({ orderBy: { countryName: 'asc' } });
+    return rows.map((r) => {
+      const seed = findRegulation(r.countryCode);
+      return { ...r, zone: zoneForCountry(r.countryCode), vehicleRules: seed?.vehicleRules ?? null, parcelRestrictions: seed?.parcelRestrictions ?? [] };
     });
   }
 
@@ -170,6 +199,8 @@ export class CustomsService implements OnApplicationBootstrap {
     // envoi précis ne l'est pas. Sans ce contrôle, n'importe qui pouvait
     // savoir quels documents manquaient au colis d'un autre client.
     if (parcelId) await this.assertOwnsParcel(parcelId, user);
+    // Règles véhicules et interdictions colis : référentiel embarqué (pas en base).
+    const seed = findRegulation(reg.countryCode);
     const allDocs = (reg.requiredDocuments as unknown as RequiredDocument[]) ?? [];
     // Filtrage par type d'envoi : un colis ne demande pas les docs véhicule.
     const requiredDocuments = kind ? filterDocumentsForShipment(allDocs, kind) : allDocs;
@@ -210,6 +241,9 @@ export class CustomsService implements OnApplicationBootstrap {
       authority: reg.authority,
       currency: reg.currency,
       customsNotes: reg.customsNotes,
+      zone: zoneForCountry(reg.countryCode),
+      vehicleRules: seed?.vehicleRules ?? null,
+      parcelRestrictions: seed?.parcelRestrictions ?? [],
       checklist,
       cargoNote,
     };

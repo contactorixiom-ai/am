@@ -344,7 +344,7 @@ function bool(values: AdminValues, key: string): boolean {
 // ─── Catalogue des types de documents ──────────────────────────────────────
 
 const VEHICLE_CATEGORY_OPTIONS = [
-  'Citadine', 'Berline', 'Break', 'SUV', '4×4', 'Utilitaire', 'Moto', 'Luxe',
+  'Citadine', 'Berline', 'Break', 'SUV', '4×4', 'Utilitaire', 'Moto', 'Luxe', 'Minibus', 'Bus', 'Autocar',
 ];
 
 // ─── DGD : options et contrôles ─────────────────────────────────────────────

@@ -25,7 +25,7 @@ export type RootStackParamList = {
   AppTabs: undefined;
   ServicePicker: undefined;
   Tariffs: undefined;
-  CarRequest: { service?: 'CONVOY_CAR' | 'CONVOY_MOTO' } | undefined;
+  CarRequest: { service?: 'CONVOY_CAR' | 'CONVOY_MOTO' | 'CONVOY_BUS' | 'CONVOY_FLATBED' } | undefined;
   ParcelRequest: { service?: 'PARCEL' | 'MERCHANDISE'; flow?: ShipmentFlow } | undefined;
   PickupMode: { draft: ParcelDraft };
   RelayPointPicker: { draft: ParcelDraft };

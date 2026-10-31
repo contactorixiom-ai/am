@@ -177,6 +177,7 @@ enum VehicleType {
   VAN
   TRUCK
   MOTORCYCLE
+  BUS
   OTHER
 }
 
@@ -871,6 +872,8 @@ model PushToken {
 enum QuoteService {
   CONVOY_CAR
   CONVOY_MOTO
+  CONVOY_BUS // bus, autocar, minibus : chauffeur permis D
+  CONVOY_FLATBED // véhicule transporté sur camion plateau (ne roule pas)
   PARCEL
   MERCHANDISE
 }
@@ -998,6 +1001,7 @@ enum CargoTrackingType {
   ECTN // Electronic Cargo Tracking Note (Togo, Bénin, Niger, RDC…)
   BIETC // Bordereau d'Identification Électronique du Transport de Cargaison (Gabon)
   FERI // Fiche Électronique de Renseignement à l'Importation (RDC, Congo)
+  ACID // Advance Cargo Information Declaration, numéro NAFEZA (Égypte)
   CARGO_WAIVER // Terme générique
 }
 

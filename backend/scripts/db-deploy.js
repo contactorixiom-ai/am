@@ -40,6 +40,8 @@ const REPLAYABLE = [
   '20261008000000_quote_lines',
   '20261027000000_manager_role',
   '20261027010000_admin_documents',
+  '20261031000000_acid_cargo',
+  '20261031010000_convoy_bus_flatbed',
 ];
 
 function migrationNames() {

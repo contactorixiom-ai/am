@@ -2,7 +2,7 @@ import { apiFetch } from './client';
 
 // ─── Types (miroir des enums Prisma backend) ───────────────────────────────
 export type CargoTrackingType =
-  | 'BSC' | 'BESC' | 'ECTN' | 'BIETC' | 'FERI' | 'CARGO_WAIVER';
+  | 'BSC' | 'BESC' | 'ECTN' | 'BIETC' | 'FERI' | 'CARGO_WAIVER' | 'ACID';
 
 export type CargoTrackingStatus =
   | 'NOT_REQUIRED' | 'TO_REQUEST' | 'DRAFT' | 'SUBMITTED'
@@ -43,8 +43,21 @@ export interface CountryRequirements {
   authority: string | null;
   currency: string;
   customsNotes: string | null;
+  zone?: string | null;
+  /** Règles d'importation des véhicules d'occasion (âge, conduite à droite). */
+  vehicleRules?: VehicleRules | null;
+  /** Interdictions et limites à rappeler avant un envoi de colis. */
+  parcelRestrictions?: string[];
   checklist: RequiredDocument[];
   cargoNote: CargoTrackingNote | null;
+}
+
+export interface VehicleRules {
+  maxAgeYears: number | null;
+  rightHandDrive: boolean;
+  usedAllowed?: boolean;
+  note: string;
+  source?: string;
 }
 
 // ─── Libellés FR des types de bordereau ────────────────────────────────────
@@ -55,6 +68,7 @@ export const CARGO_TYPE_LABEL: Record<CargoTrackingType, string> = {
   BIETC: 'Bordereau d\'Identification Électronique du Transport de Cargaison (BIETC)',
   FERI: 'Fiche Électronique de Renseignement à l\'Importation (FERI)',
   CARGO_WAIVER: 'Cargo Tracking Note',
+  ACID: 'Numéro ACID (NAFEZA, Égypte)',
 };
 
 export const CARGO_STATUS_LABEL: Record<CargoTrackingStatus, string> = {

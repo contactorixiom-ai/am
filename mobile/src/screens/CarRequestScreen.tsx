@@ -11,6 +11,7 @@ import { useSession } from '../state/SessionContext';
 import { AppBar } from '../components/AppBar';
 import { Button } from '../components/Button';
 import { CityPicker } from '../components/CityPicker';
+import { CalendarPicker } from '../components/CalendarPicker';
 import { Field } from '../components/Field';
 import { AddressField } from '../components/AddressField';
 import { Icons } from '../components/Icons';
@@ -53,16 +54,41 @@ const VEHICLE_CATEGORIES: { key: string; label: string; rate: string }[] = [
   { key: 'collection', label: 'Collection', rate: '1,30 €' },
 ];
 
+// Transport de personnes : chauffeur titulaire du permis D (FIMO voyageurs).
+const BUS_CATEGORIES: { key: string; label: string; rate: string }[] = [
+  { key: 'minibus', label: 'Minibus (≤ 22 places)', rate: '0,95 €' },
+  { key: 'bus', label: 'Bus urbain', rate: '1,20 €' },
+  { key: 'autocar', label: 'Autocar', rate: '1,30 €' },
+];
+
+// Transport sur plateau (camion porte-voiture) : le véhicule ne roule pas.
+const FLATBED_CATEGORIES: { key: string; label: string; rate: string }[] = [
+  { key: 'citadine', label: 'Citadine', rate: '1,60 €' },
+  { key: 'berline', label: 'Berline', rate: '1,60 €' },
+  { key: 'break', label: 'Break / coupé', rate: '1,65 €' },
+  { key: 'electrique', label: 'Électrique / hybride', rate: '1,65 €' },
+  { key: 'monospace', label: 'Monospace', rate: '1,75 €' },
+  { key: 'suv', label: 'SUV / 4×4', rate: '1,80 €' },
+  { key: 'utilitaire', label: 'Utilitaire', rate: '1,90 €' },
+  { key: 'luxe', label: 'Luxe / collection', rate: '1,90 €' },
+  { key: 'camping_car', label: 'Camping-car', rate: '2,20 €' },
+  { key: 'moto', label: 'Moto', rate: '1,20 €' },
+];
+
 export function CarRequestScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CarRequest'>>();
   const service = route.params?.service ?? 'CONVOY_CAR';
   const isMoto = service === 'CONVOY_MOTO';
+  const isBus = service === 'CONVOY_BUS';
+  const isFlatbed = service === 'CONVOY_FLATBED';
+  const categories = isBus ? BUS_CATEGORIES : isFlatbed ? FLATBED_CATEGORIES : VEHICLE_CATEGORIES;
+  const title = isMoto ? 'Convoyage moto' : isBus ? 'Bus & autocar' : isFlatbed ? 'Transport sur plateau' : 'Convoyage voiture';
 
   const [from, setFrom] = useState<City | null>(null);
   const [to, setTo] = useState<City | null>(null);
-  const [category, setCategory] = useState(isMoto ? 'moto' : 'berline');
+  const [category, setCategory] = useState(isMoto ? 'moto' : isBus ? 'autocar' : 'berline');
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
@@ -71,8 +97,7 @@ export function CarRequestScreen() {
   // Date et créneau d'enlèvement choisis par le client (ils étaient figés sur
   // « 22 mai · Matin »), et adresses exactes : sans elles, le convoyeur ne
   // savait pas où aller.
-  const dates = useMemo(() => nextDays(21), []);
-  const [pickupDay, setPickupDay] = useState<Date>(dates[1]);
+  const [pickupDay, setPickupDay] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d; });
   const [slot, setSlot] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [pickupAddress, setPickupAddress] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -188,7 +213,7 @@ export function CarRequestScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title={isMoto ? 'Convoyage moto' : 'Convoyage voiture'} subtitle="Étape 2 sur 2 · détails" />
+      <AppBar title={title} subtitle="Étape 2 sur 2 · détails" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 16 }}>
           {/* Trajet */}
@@ -245,32 +270,7 @@ export function CarRequestScreen() {
             <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginBottom: 8 }}>
               Jour d'enlèvement souhaité — Axis te confirme le créneau.
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-              {dates.map((d) => {
-                const on = d.getTime() === pickupDay.getTime();
-                return (
-                  <Pressable
-                    key={d.toISOString()}
-                    onPress={() => setPickupDay(d)}
-                    style={{
-                      width: 62, paddingVertical: 8, borderRadius: RADII.md, alignItems: 'center',
-                      borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                      backgroundColor: on ? theme.accent : theme.surface,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, color: on ? theme.goldHi : theme.muted, fontFamily: TYPO.weights.semibold, textTransform: 'uppercase' }}>
-                      {d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}
-                    </Text>
-                    <Text style={{ fontSize: 17, color: on ? '#F5F1E8' : theme.ink, fontFamily: TYPO.weights.bold, marginTop: 2 }}>
-                      {d.getDate()}
-                    </Text>
-                    <Text style={{ fontSize: 10.5, color: on ? 'rgba(245,241,232,0.7)' : theme.muted, fontFamily: TYPO.weights.medium }}>
-                      {d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <CalendarPicker value={pickupDay} onChange={setPickupDay} closedWeekdays={[]} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               {(['MORNING', 'AFTERNOON'] as const).map((k) => {
                 const on = slot === k;
@@ -297,6 +297,16 @@ export function CarRequestScreen() {
           <Surface padded style={{ padding: 16 }}>
             <SectionHead title="Véhicule" />
             <View style={{ gap: 10 }}>
+              {isBus || isFlatbed ? (
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 12, borderRadius: RADII.md, backgroundColor: theme.bgSoft }}>
+                  <Icons.shield size={16} color={theme.gold} stroke={1.8} />
+                  <Text style={{ flex: 1, fontSize: 12.5, color: theme.inkSoft, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
+                    {isBus
+                      ? 'Conduit par un chauffeur titulaire du permis D (transport en commun), à vide, sous plaques W garage si le véhicule n\'est pas immatriculé. Minimum de perception : 90 € HT.'
+                      : 'Le véhicule ne roule pas : il est chargé sur un camion porte-voiture (plateau). Idéal pour un véhicule neuf, de collection, non roulant ou sans plaques. Prix au km du camion, carburant et péages inclus. Minimum : 150 € HT.'}
+                  </Text>
+                </View>
+              ) : null}
               {/* Catégorie → détermine le tarif au km (grille Convoyage 2026).
                   Masquée pour la moto (tarif unique 0,60 €/km). */}
               {isMoto ? (
@@ -310,7 +320,7 @@ export function CarRequestScreen() {
                     Catégorie · tarif au km
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-                    {VEHICLE_CATEGORIES.map((c) => {
+                    {categories.map((c) => {
                       const on = category === c.key;
                       return (
                         <Pressable

@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 
 // Aligné sur backend/src/modules/vehicles/dto/create-vehicle.dto.ts
-export type VehicleType = 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER';
+export type VehicleType = 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'BUS' | 'OTHER';
 export type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRIC' | 'HYBRID' | 'LPG' | 'OTHER';
 export type TransmissionType = 'MANUAL' | 'AUTOMATIC';
 

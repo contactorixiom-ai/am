@@ -1,6 +1,11 @@
 import { apiFetch } from './client';
 
-export type QuoteService = 'CONVOY_CAR' | 'CONVOY_MOTO' | 'PARCEL' | 'MERCHANDISE';
+export type QuoteService = 'CONVOY_CAR' | 'CONVOY_MOTO' | 'CONVOY_BUS' | 'CONVOY_FLATBED' | 'PARCEL' | 'MERCHANDISE';
+
+/** Convoyage par la route (voiture, moto, bus, plateau), par opposition aux envois. */
+export function isConvoyService(service?: string | null): boolean {
+  return service === 'CONVOY_CAR' || service === 'CONVOY_MOTO' || service === 'CONVOY_BUS' || service === 'CONVOY_FLATBED';
+}
 export type TransportMode = 'ROAD' | 'AIR' | 'SEA';
 export type PickupMode = 'HUB_DROP_OFF' | 'RELAY_DROP_OFF' | 'HOME_PICKUP';
 export type QuoteOptionKind =

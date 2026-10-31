@@ -586,7 +586,7 @@ export function HomeScreen() {
               Convoyer ou expédier
             </Text>
             <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.65)', marginTop: 10, fontFamily: TYPO.weights.medium }}>
-              6 services · prix affiché tout de suite
+              8 services · prix affiché tout de suite
             </Text>
           </Pressable>
           <Pressable

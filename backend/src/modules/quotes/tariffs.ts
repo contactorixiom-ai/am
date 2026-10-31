@@ -70,6 +70,13 @@ const IMPORT_SEA = { service: 'IMPORT', mode: 'SEA' } as const;
  * calculé depuis la ville du véhicule jusqu'ici.
  */
 export const VEHICLE_DEPARTURE_PORT = { city: 'Le Havre', label: 'port du Havre', country: 'FR', latitude: 49.4944, longitude: 0.1079 };
+/** Maghreb, Libye, Égypte : les navires partent de Marseille (bassin de Fos). */
+export const VEHICLE_DEPARTURE_PORT_MED = { city: 'Marseille', label: 'port de Marseille', country: 'FR', latitude: 43.3290, longitude: 5.3447 };
+const MEDITERRANEAN = new Set(['MA', 'DZ', 'TN', 'LY', 'EG']);
+/** Port d'embarquement des véhicules selon le pays de destination. */
+export function vehicleDeparturePort(destinationCountry?: string | null) {
+  return MEDITERRANEAN.has((destinationCountry ?? '').toUpperCase()) ? VEHICLE_DEPARTURE_PORT_MED : VEHICLE_DEPARTURE_PORT;
+}
 
 export const TARIFF_ITEMS: TariffItem[] = [
   // 1 — Effets personnels (maritime)

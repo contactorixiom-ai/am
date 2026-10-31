@@ -17,6 +17,7 @@ import { CreateMissionDto } from './dto/create-mission.dto';
 import { SearchMissionsDto } from './dto/search-missions.dto';
 import { SignContractDto } from './dto/sign-contract.dto';
 import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
+import { isConvoyService } from '../quotes/pricing';
 
 @Injectable()
 export class MissionsService {
@@ -41,7 +42,7 @@ export class MissionsService {
     if (dto.quoteId) {
       const quote = await this.prisma.quote.findUnique({ where: { id: dto.quoteId }, include: { options: true } });
       if (!quote) throw new NotFoundException('Devis introuvable.');
-      if (quote.service !== 'CONVOY_CAR' && quote.service !== 'CONVOY_MOTO') {
+      if (!isConvoyService(quote.service)) {
         throw new BadRequestException('Ce devis ne concerne pas un convoyage.');
       }
       if (quote.customerId && quote.customerId !== clientId) {
@@ -343,6 +344,7 @@ export class MissionsService {
     // compris, pouvait jusqu'ici accepter une mission publiée et repartir
     // avec le véhicule d'un client sans le moindre contrôle.
     await this.assertVerifiedDriver(driverId);
+    await this.assertLicenceForVehicle(driverId, mission.vehicleId);
     return this.prisma.mission.update({
       where: { id },
       data: {
@@ -386,6 +388,7 @@ export class MissionsService {
     // la pièce d'identité et le permis n'ont pas été validés. Roger peut
     // s'affecter lui-même.
     if (driver.role === UserRole.DRIVER) await this.assertVerifiedDriver(driverId);
+    if (driver.role === UserRole.DRIVER) await this.assertLicenceForVehicle(driverId, mission.vehicleId);
 
     // DRAFT/PUBLISHED -> ACCEPTED. Une mission déjà démarrée garde son statut.
     const nextStatus =
@@ -764,6 +767,21 @@ export class MissionsService {
    * « approuvé » dès que tous les documents déposés le sont, même si seul un
    * justificatif de domicile a été déposé.
    */
+  /**
+   * Bus, autocar, minibus : le convoyeur doit avoir déclaré le permis D
+   * (transport en commun) dans son profil. Affecter un titulaire du seul
+   * permis B serait illégal et non couvert par l'assurance.
+   */
+  private async assertLicenceForVehicle(driverId: string, vehicleId: string): Promise<void> {
+    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId }, select: { type: true } });
+    if (vehicle?.type !== 'BUS') return;
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId: driverId }, select: { licenseCategories: true } });
+    const cats = (profile?.licenseCategories ?? []).map((c) => c.toUpperCase().trim());
+    if (!cats.some((c) => c === 'D' || c === 'D1' || c === 'DE' || c === 'D1E')) {
+      throw new BadRequestException('Ce véhicule est un bus ou un autocar : le convoyeur doit avoir le permis D (déclaré dans son profil convoyeur).');
+    }
+  }
+
   private async assertVerifiedDriver(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -6,7 +6,7 @@ import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { notify } from '../utils/notify';
 import { ApiError } from '../api/client';
-import { QuoteHint, QuoteLine } from '../api/quotes';
+import { QuoteHint, QuoteLine, isConvoyService } from '../api/quotes';
 import { createVehicle } from '../api/vehicles';
 import { clearConvoyDraft, createMission, readConvoyDraft } from '../api/missions';
 import { AppBar } from '../components/AppBar';
@@ -34,7 +34,7 @@ export function QuoteReviewScreen() {
   const { quote } = route.params;
   const { draft: parcelDraft } = useParcelDraft();
 
-  const isConvoy = quote.service === 'CONVOY_CAR' || quote.service === 'CONVOY_MOTO';
+  const isConvoy = isConvoyService(quote.service);
   const isParcel = quote.service === 'PARCEL' || quote.service === 'MERCHANDISE';
   // Pas de conseil vers un point relais qu'Axis ne propose pas, ni vers une
   // assurance tant qu'aucune police n'est renseignée.
@@ -75,7 +75,7 @@ export function QuoteReviewScreen() {
         return;
       }
       const vehicle = await createVehicle({
-        type: quote.service === 'CONVOY_MOTO' ? 'MOTORCYCLE' : 'CAR',
+        type: quote.service === 'CONVOY_MOTO' ? 'MOTORCYCLE' : quote.service === 'CONVOY_BUS' ? 'BUS' : 'CAR',
         make: draft.vehicleMake,
         model: draft.vehicleModel || 'À préciser',
         year: draft.vehicleYear ?? new Date().getFullYear(),

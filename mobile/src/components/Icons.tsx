@@ -30,6 +30,8 @@ export const Icons = {
   arrow:   wrap(<><Path d="M5 12h14M13 5l7 7-7 7" /></>),
   arrowL:  wrap(<><Path d="M19 12H5M11 5l-7 7 7 7" /></>),
   chev:    wrap(<><Path d="M9 6l6 6-6 6" /></>),
+  bus:     wrap(<><Path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11H4z" /><Path d="M4 11h16M8 4v7M16 4v7" /><Path d="M6 17v2M18 17v2" /><Circle cx="7.5" cy="14.5" r="1" /><Circle cx="16.5" cy="14.5" r="1" /></>),
+  flatbed: wrap(<><Path d="M2 15h13V8H2z" /><Path d="M15 11h3l3 3v1h-6" /><Path d="M5 11l1.5-3h4L12 11" /><Circle cx="6" cy="18" r="1.8" /><Circle cx="18" cy="18" r="1.8" /></>),
   car:     wrap(<><Path d="M4 14l2-5a2 2 0 0 1 2-1.5h8a2 2 0 0 1 2 1.5l2 5v4h-3v-2H7v2H4z" /><Circle cx="7.5" cy="14.5" r="1.4" /><Circle cx="16.5" cy="14.5" r="1.4" /></>),
   bike:    wrapFill(<Path d="M19.44 9.03 15.41 5H11v2h3.59l2 2H5c-2.8 0-5 2.2-5 5s2.2 5 5 5c2.46 0 4.45-1.69 4.9-4h1.65l2.77-2.77c-.21.54-.32 1.14-.32 1.77 0 2.8 2.2 5 5 5s5-2.2 5-5c0-2.79-2.21-5-4.56-4.97zM7.82 15C7.4 16.15 6.28 17 5 17c-1.63 0-3-1.37-3-3s1.37-3 3-3c1.28 0 2.4.85 2.82 2H5v2h2.82zM19 17c-1.63 0-3-1.37-3-3s1.37-3 3-3 3 1.37 3 3-1.37 3-3 3z" />),
   box:     wrap(<><Path d="M3 7l9-4 9 4v10l-9 4-9-4z" /><Path d="M3 7l9 4 9-4M12 11v10" /></>),

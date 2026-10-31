@@ -1,9 +1,10 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { Button } from '../components/Button';
+import { CalendarPicker } from '../components/CalendarPicker';
 import { Field } from '../components/Field';
 import { AddressField } from '../components/AddressField';
 import { Icons } from '../components/Icons';
@@ -20,23 +21,11 @@ import { buildQuoteFromDraft } from './PickupModeScreen';
 // `at` : début du créneau en date ISO, ce que le serveur attend. Le libellé
 // était envoyé tel quel (« dimanche 25 octobre — 9h-11h ») et toute commande
 // avec enlèvement était refusée au paiement (« date invalide »).
-function buildSlots(): { id: string; label: string; sub: string; at: string }[] {
-  const day = (offset: number, hour: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    d.setHours(hour, 0, 0, 0);
-    return d;
-  };
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const tomorrowAm = day(1, 9);
-  const tomorrowPm = day(1, 14);
-  const afterAm = day(2, 9);
-  return [
-    { id: 'tomorrow-am', label: `${fmt(tomorrowAm)} — 9h-11h`, sub: 'Demain matin', at: tomorrowAm.toISOString() },
-    { id: 'tomorrow-pm', label: `${fmt(tomorrowPm)} — 14h-16h`, sub: 'Demain après-midi', at: tomorrowPm.toISOString() },
-    { id: 'after-am', label: `${fmt(afterAm)} — 9h-11h`, sub: 'Surlendemain matin', at: afterAm.toISOString() },
-  ];
+// Heure du créneau : matin 9h-12h, après-midi 14h-17h.
+function slotAt(day: Date, slot: 'MORNING' | 'AFTERNOON'): Date {
+  const d = new Date(day);
+  d.setHours(slot === 'MORNING' ? 9 : 14, 0, 0, 0);
+  return d;
 }
 
 export function HomePickupAddressScreen() {
@@ -47,10 +36,10 @@ export function HomePickupAddressScreen() {
   const { set: setParcelDraft, saveForLater } = useParcelDraft();
 
   const [address, setAddress] = useState('');
-  const [slot, setSlot] = useState<string>('tomorrow-am');
+  const [pickupDay, setPickupDay] = useState<Date | null>(null);
+  const [slot, setSlot] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const slots = useMemo(() => buildSlots(), []);
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -63,7 +52,10 @@ export function HomePickupAddressScreen() {
       notify('Champ manquant', 'Adresse de retrait requise.');
       return;
     }
-    const chosenSlot = slots.find((s) => s.id === slot);
+    if (!pickupDay) {
+      notify('Date manquante', 'Choisis le jour de passage dans le calendrier.');
+      return;
+    }
     setLoading(true);
     try {
       setParcelDraft({
@@ -71,7 +63,7 @@ export function HomePickupAddressScreen() {
         // Les consignes (digicode, étage…) voyagent avec l'adresse : c'est ce
         // que lit la personne qui vient chercher l'envoi.
         pickupAddress: notes.trim() ? `${address.trim()} — ${notes.trim()}` : address.trim(),
-        pickupAt: chosenSlot?.at,
+        pickupAt: slotAt(pickupDay, slot).toISOString(),
         pickupNotes: notes.trim() || undefined,
       });
       const quote = await buildQuoteFromDraft(draft, 'HOME_PICKUP');
@@ -115,7 +107,7 @@ export function HomePickupAddressScreen() {
             />
           </Surface>
 
-          {/* Créneaux pré-calculés */}
+          {/* Calendrier : le client choisit librement le jour, puis le créneau */}
           <Surface>
             <Text
               style={{
@@ -127,53 +119,34 @@ export function HomePickupAddressScreen() {
                 marginBottom: SPACING.md,
               }}
             >
-              {draft.flow === 'VEHICLE' ? 'Quand le convoyeur peut-il passer ?' : 'Créneau d\'enlèvement'}
+              {draft.flow === 'VEHICLE' ? 'Quand le convoyeur peut-il passer ?' : 'Jour d\'enlèvement'}
             </Text>
-            <View style={{ gap: 8 }}>
-              {slots.map((s) => {
-                const active = slot === s.id;
+            <CalendarPicker value={pickupDay} onChange={setPickupDay} />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              {(['MORNING', 'AFTERNOON'] as const).map((k) => {
+                const active = slot === k;
                 return (
                   <Pressable
-                    key={s.id}
-                    onPress={() => setSlot(s.id)}
+                    key={k}
+                    onPress={() => setSlot(k)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: SPACING.md,
-                      borderRadius: RADII.md,
-                      borderWidth: 1,
-                      borderColor: active ? theme.accent : theme.line,
-                      backgroundColor: active ? theme.bgSoft : 'transparent',
+                      flex: 1, paddingVertical: 10, borderRadius: RADII.md, alignItems: 'center',
+                      borderWidth: 1.5, borderColor: active ? theme.accent : theme.line,
+                      backgroundColor: active ? theme.bgSoft : theme.surface,
                     }}
                   >
-                    <Icons.calendar size={20} color={active ? theme.link : theme.muted} stroke={1.8} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
-                        {s.label}
-                      </Text>
-                      <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 2 }}>
-                        {s.sub}
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 11,
-                        borderWidth: 2,
-                        borderColor: active ? theme.accent : theme.line,
-                        backgroundColor: active ? theme.accent : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {active ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.surface }} /> : null}
-                    </View>
+                    <Text style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold }}>
+                      {k === 'MORNING' ? 'Matin · 9h-12h' : 'Après-midi · 14h-17h'}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
+            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 8 }}>
+              Axis te confirme l'heure exacte la veille.
+            </Text>
           </Surface>
 
           <Surface>

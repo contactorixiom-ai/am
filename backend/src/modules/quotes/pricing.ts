@@ -5,7 +5,7 @@ import {
   MINIMUM_CHARGE_CENTS,
   TariffLine,
   TariffLineInput,
-  VEHICLE_DEPARTURE_PORT,
+  vehicleDeparturePort,
   priceTariffLines,
   tariffItem,
 } from './tariffs';
@@ -41,16 +41,50 @@ export const VEHICLE_CATEGORY_RATE_CENTS: Record<string, number> = {
   utilitaire: 100,
   luxe: 110,
   collection: 130,
+  // Transport de personnes (chauffeur titulaire du permis D, FIMO voyageurs)
+  minibus: 95,
+  bus: 120,
+  autocar: 130,
 };
+
+// Transport sur plateau (camion porte-voiture) : le véhicule ne roule pas.
+// Pour un véhicule neuf, de collection, non roulant ou sans plaques.
+// Tarif €/km HT du camion, carburant et péages du camion inclus.
+export const FLATBED_RATE_CENTS: Record<string, number> = {
+  default: 160,
+  citadine: 160,
+  berline: 160,
+  break: 165,
+  coupe: 165,
+  electrique: 165,
+  hybride: 165,
+  monospace: 175,
+  suv: 180,
+  '4x4': 180,
+  utilitaire: 190,
+  camping_car: 220,
+  luxe: 190,
+  collection: 190,
+  moto: 120,
+};
+export const FLATBED_MIN_FORFAIT_CENTS = 15000; // 150 € HT minimum (mise à disposition du camion)
+export const BUS_MIN_FORFAIT_CENTS = 9000;      // 90 € HT minimum
 
 // Forfait minimum : 40 € HT pour toute mission de moins de 60 km.
 export const CONVOY_MIN_FORFAIT_CENTS = 4000;
 export const CONVOY_MIN_FORFAIT_KM = 60;
 
 // Tarif appliqué si la catégorie n'est pas précisée (repli prudent).
-const CONVOY_DEFAULT_RATE_CENTS: Record<'CONVOY_CAR' | 'CONVOY_MOTO', number> = {
-  CONVOY_CAR: 70,  // berline
-  CONVOY_MOTO: 60, // moto
+export type ConvoyService = 'CONVOY_CAR' | 'CONVOY_MOTO' | 'CONVOY_BUS' | 'CONVOY_FLATBED';
+export const CONVOY_SERVICES: ConvoyService[] = ['CONVOY_CAR', 'CONVOY_MOTO', 'CONVOY_BUS', 'CONVOY_FLATBED'];
+export function isConvoyService(service: string | null | undefined): service is ConvoyService {
+  return CONVOY_SERVICES.includes(service as ConvoyService);
+}
+const CONVOY_DEFAULT_RATE_CENTS: Record<ConvoyService, number> = {
+  CONVOY_CAR: 70,      // berline
+  CONVOY_MOTO: 60,     // moto
+  CONVOY_BUS: 120,     // bus
+  CONVOY_FLATBED: 160, // plateau, véhicule léger
 };
 
 // Normalise un libellé de catégorie (« SUV », « 4×4 », « Camping-car »,
@@ -70,6 +104,7 @@ export function normalizeVehicleCategory(raw?: string): string | null {
     campingcar: 'camping_car', camping_car: 'camping_car',
     poidslourd: 'poids_lourd', poids_lourd: 'poids_lourd',
     suv: 'suv', vehicule_de_luxe: 'luxe', collection: 'collection',
+    minibus: 'minibus', bus: 'bus', autobus: 'bus', autocar: 'autocar', car: 'autocar', coach: 'autocar',
   };
   return alias[k] ?? null;
 }
@@ -88,6 +123,20 @@ export const PRICING = {
     baseCents: 0,
     perKmCents: 55,            // 0,55 €/km HT (moins coûteux qu'une voiture)
     minCents: 4000,
+    uncertaintyPct: null as number | null,
+    defaultMode: 'ROAD' as TransportMode,
+  },
+  CONVOY_BUS: {
+    baseCents: 0,
+    perKmCents: 120,           // 1,20 €/km HT (chauffeur permis D)
+    minCents: 9000,
+    uncertaintyPct: null as number | null,
+    defaultMode: 'ROAD' as TransportMode,
+  },
+  CONVOY_FLATBED: {
+    baseCents: 0,
+    perKmCents: 160,           // 1,60 €/km HT (camion porte-voiture)
+    minCents: 15000,
     uncertaintyPct: null as number | null,
     defaultMode: 'ROAD' as TransportMode,
   },
@@ -145,6 +194,8 @@ export interface QuoteComputationInput {
   options: QuoteOptionKind[];
   /** Catégorie de véhicule pour le convoyage (berline, SUV, utilitaire…). */
   vehicleCategory?: string;
+  /** Pays de destination (port d'embarquement des véhicules, règles locales). */
+  toCountry?: string;
   /** Distance du premier km (domicile → hub) pour l'enlèvement à domicile. */
   pickupDistanceKm?: number;
   /** Articles de la grille (fûts, cartons, m³, palettes…) — envois maritimes. */
@@ -207,7 +258,7 @@ export interface QuoteHint {
 const TAX_RATE = 0.20;
 
 export function computeQuote(input: QuoteComputationInput): ComputedQuote {
-  if (input.service === 'CONVOY_CAR' || input.service === 'CONVOY_MOTO') {
+  if (isConvoyService(input.service)) {
     return computeConvoyQuote(input);
   }
   if (input.service === 'PARCEL' || input.service === 'MERCHANDISE') {
@@ -218,20 +269,29 @@ export function computeQuote(input: QuoteComputationInput): ComputedQuote {
 
 // Convoyage : tarif kilométrique HT, TVA ajoutée.
 function computeConvoyQuote(input: QuoteComputationInput): ComputedQuote {
-  const rules = PRICING[input.service as 'CONVOY_CAR' | 'CONVOY_MOTO'];
+  const service = input.service as ConvoyService;
+  const rules = PRICING[service];
   const km = input.distanceKm ?? 0;
   if (km <= 0) {
     throw new Error('distanceKm est requis pour un convoyage (ou ville reconnue)');
   }
   // Tarif au km selon la catégorie de véhicule (grille Convoyage 2026).
+  // Plateau : grille du camion porte-voiture, quelle que soit la catégorie.
   const catKey = normalizeVehicleCategory(input.vehicleCategory);
-  const perKmCents = (catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey])
-    || CONVOY_DEFAULT_RATE_CENTS[input.service as 'CONVOY_CAR' | 'CONVOY_MOTO'];
+  const perKmCents = service === 'CONVOY_FLATBED'
+    ? ((catKey && FLATBED_RATE_CENTS[catKey]) || FLATBED_RATE_CENTS.default)
+    : ((catKey && VEHICLE_CATEGORY_RATE_CENTS[catKey]) || CONVOY_DEFAULT_RATE_CENTS[service]);
   const transportMode = rules.defaultMode;
   const basePriceCents = 0;
   const variablePriceCents = Math.round(km * perKmCents);
-  // Forfait minimum 40 € HT pour les missions courtes (< 60 km).
-  const minCents = km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
+  // Forfait minimum : 40 € HT pour une voiture ou une moto sur moins de
+  // 60 km ; 90 € HT pour un bus ; 150 € HT pour un plateau (mise à
+  // disposition du camion), quelle que soit la distance.
+  const minCents = service === 'CONVOY_FLATBED'
+    ? FLATBED_MIN_FORFAIT_CENTS
+    : service === 'CONVOY_BUS'
+      ? BUS_MIN_FORFAIT_CENTS
+      : km < CONVOY_MIN_FORFAIT_KM ? CONVOY_MIN_FORFAIT_CENTS : 0;
   const uncertaintyPct = rules.uncertaintyPct;
   const pickupMode: PickupMode = input.pickupMode ?? 'HUB_DROP_OFF';
 
@@ -428,14 +488,15 @@ function computeFlowQuote(input: QuoteComputationInput, flow: ShipmentFlow): Com
   if (flow === 'VEHICLE') {
     if (pickupMode === 'HOME_PICKUP') {
       const km = Math.round(input.convoyToPortKm ?? 0);
-      if (km <= 0) throw new Error(`Distance jusqu'au ${VEHICLE_DEPARTURE_PORT.label} introuvable pour cette ville.`);
+      const port = vehicleDeparturePort(input.toCountry);
+      if (km <= 0) throw new Error(`Distance jusqu'au ${port.label} introuvable pour cette ville.`);
       for (const l of [...lines]) {
         const perKm = tariffItem(l.code)?.convoyPerKmCents ?? 0;
         if (!perKm) continue;
         const unitCents = Math.round(km * perKm);
         lines.push({
           code: 'CONVOY_TO_PORT',
-          label: `Convoyage jusqu'au ${VEHICLE_DEPARTURE_PORT.label} (${km} km${l.quantity > 1 ? `, ${l.quantity} véhicules` : ''})`,
+          label: `Convoyage jusqu'au ${port.label} (${km} km${l.quantity > 1 ? `, ${l.quantity} véhicules` : ''})`,
           quantity: l.quantity,
           unit: 'fee',
           unitCents,

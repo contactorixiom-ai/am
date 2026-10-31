@@ -8,7 +8,7 @@ import type { CountryRegulationSeed, RequiredDocument } from '../customs.data';
  * douane à l'import. Le sigle varie selon le pays (NINEA, IFU, NIU, NIF…) :
  * on paramètre le libellé pour rester exact pays par pays.
  */
-function importerTaxIdDoc(label: string, note?: string): RequiredDocument {
+export function importerTaxIdDoc(label: string, note?: string): RequiredDocument {
   return {
     key: 'importer_tax_id',
     label,
@@ -20,7 +20,7 @@ function importerTaxIdDoc(label: string, note?: string): RequiredDocument {
 
 // Déclaration préalable d'importation / intention d'importation (DPI / FDI).
 // Souvent exigée au-delà d'un seuil de valeur FOB dans la zone UEMOA/CEMAC.
-function importIntentDoc(note: string): RequiredDocument {
+export function importIntentDoc(note: string): RequiredDocument {
   return {
     key: 'import_intent_declaration',
     label: 'Déclaration préalable d\'importation (DPI)',
@@ -32,7 +32,7 @@ function importIntentDoc(note: string): RequiredDocument {
 
 // Attestation / engagement de domiciliation bancaire de l'importation.
 // Conditionnel : au-delà d'un seuil de valeur, variable selon le pays.
-function bankDomiciliationDoc(note: string): RequiredDocument {
+export function bankDomiciliationDoc(note: string): RequiredDocument {
   return {
     key: 'bank_domiciliation',
     label: 'Attestation de domiciliation bancaire (engagement d\'importation)',
@@ -44,7 +44,7 @@ function bankDomiciliationDoc(note: string): RequiredDocument {
 
 // Documents conditionnels selon la nature de la marchandise — jamais
 // obligatoires par défaut, à activer au cas par cas.
-const PHYTOSANITARY_DOC: RequiredDocument = {
+export const PHYTOSANITARY_DOC: RequiredDocument = {
   key: 'phytosanitary_certificate',
   label: 'Certificat phytosanitaire',
   mandatory: false,
@@ -52,7 +52,7 @@ const PHYTOSANITARY_DOC: RequiredDocument = {
   note: 'Pour les végétaux et produits d\'origine végétale. Délivré par le service de protection des végétaux du pays d\'export.',
 };
 
-const SANITARY_DOC: RequiredDocument = {
+export const SANITARY_DOC: RequiredDocument = {
   key: 'sanitary_certificate',
   label: 'Certificat sanitaire / vétérinaire',
   mandatory: false,
@@ -68,7 +68,7 @@ const FUMIGATION_DOC: RequiredDocument = {
   note: 'Pour les emballages et calages en bois (palettes, caisses) — norme NIMP 15.',
 };
 
-const IMPORT_LICENSE_DOC: RequiredDocument = {
+export const IMPORT_LICENSE_DOC: RequiredDocument = {
   key: 'import_license',
   label: 'Autorisation / licence d\'importation',
   mandatory: false,
@@ -99,14 +99,14 @@ const IMPORT_DECLARATION_DOC: RequiredDocument = {
 // Tronc commun "formalités préalables" pour la zone UEMOA/CEMAC : DPI + engagement
 // de domiciliation bancaire, tous deux conditionnés à un seuil de valeur.
 const UEMOA_IMPORT_DOCS: RequiredDocument[] = [
-  importIntentDoc('Déclaration préalable d\'importation (DPI) généralement exigée au-delà d\'un seuil de valeur FOB dans la zone UEMOA. // TODO: à confirmer le seuil exact auprès d\'un commissionnaire en douane.'),
-  bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA en vigueur. // TODO: à confirmer le seuil exact.'),
+  importIntentDoc('Déclaration préalable d\'importation (DPI) généralement exigée au-delà d\'un seuil de valeur FOB dans la zone UEMOA. À confirmer : le seuil exact auprès d\'un commissionnaire en douane.'),
+  bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA en vigueur. À confirmer : le seuil exact.'),
 ];
 
 // Variante CEMAC (Afrique centrale) : même logique, libellé adapté à la zone.
 const CEMAC_IMPORT_DOCS: RequiredDocument[] = [
-  importIntentDoc('Déclaration / autorisation préalable d\'importation souvent exigée au-delà d\'un seuil de valeur (zone CEMAC). // TODO: à confirmer le seuil exact auprès d\'un commissionnaire en douane.'),
-  bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil CEMAC en vigueur. // TODO: à confirmer le seuil exact.'),
+  importIntentDoc('Déclaration / autorisation préalable d\'importation souvent exigée au-delà d\'un seuil de valeur (zone CEMAC). À confirmer : le seuil exact auprès d\'un commissionnaire en douane.'),
+  bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil CEMAC en vigueur. À confirmer : le seuil exact.'),
 ];
 
 /**
@@ -130,7 +130,7 @@ interface BaseDocsOptions {
   importLicense?: { mandatory: boolean; note?: string };
 }
 
-function baseDocs(
+export function baseDocs(
   extra: RequiredDocument[] = [],
   taxId: RequiredDocument = importerTaxIdDoc('Identifiant fiscal de l\'importateur'),
   options: BaseDocsOptions = {},
@@ -190,7 +190,7 @@ function baseDocs(
   ];
 }
 
-function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocument {
+export function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocument {
   const labels: Record<CargoTrackingType, string> = {
     BSC: 'Bordereau de Suivi de Cargaison (BSC)',
     BESC: 'Bordereau Électronique de Suivi de Cargaison (BESC)',
@@ -198,6 +198,7 @@ function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocume
     BIETC: 'Bordereau d\'Identification Électronique de Traçabilité des Cargaisons (BIETC)',
     FERI: 'Fiche Électronique de Renseignement à l\'Importation (FERI)',
     CARGO_WAIVER: 'Cargo Tracking Note',
+    ACID: 'Numéro ACID (NAFEZA)',
   };
   return {
     key: 'cargo_tracking_note',
@@ -209,7 +210,7 @@ function trackingDoc(type: CargoTrackingType, authority: string): RequiredDocume
 }
 
 // Documents véhicule (import voiture, deux-roues, engin)
-const VEHICLE_DOCS: RequiredDocument[] = [
+export const VEHICLE_DOCS: RequiredDocument[] = [
   { key: 'vehicle_registration', label: 'Carte grise (certificat d\'immatriculation)', mandatory: true, category: 'vehicle' },
   { key: 'vehicle_non_pledge', label: 'Certificat de non-gage', mandatory: true, category: 'vehicle', note: 'Datant de moins de 30 jours.' },
   { key: 'vehicle_deregistration', label: 'Certificat de désimmatriculation / cession', mandatory: false, category: 'vehicle' },
@@ -222,7 +223,7 @@ const VEHICLE_DOCS: RequiredDocument[] = [
  * note non bloquante rappelant la limite d'âge d'import du pays. Cette note est
  * portée par un document informatif (jamais "fourni", purement réglementaire).
  */
-function vehicleDocs(ageLimitNote?: string): RequiredDocument[] {
+export function vehicleDocs(ageLimitNote?: string): RequiredDocument[] {
   if (!ageLimitNote) return VEHICLE_DOCS;
   return [
     {
@@ -243,6 +244,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   {
     countryCode: 'SN',
+    vehicleRules: {
+      maxAgeYears: 10,
+      rightHandDrive: false,
+      note: '10 ans pour les voitures particulières et utilitaires légers, 15 ans pour les camions et véhicules de transport de personnes (décret n° 2025-1752 du 24 octobre 2025).',
+      source: 'Décret n° 2025-1752 du 24 octobre 2025.',
+    },
     countryName: 'Sénégal',
     cargoTrackingType: CargoTrackingType.BSC,
     cargoMandatory: true,
@@ -254,7 +261,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
       [
         trackingDoc(CargoTrackingType.BSC, 'le COSEC'),
         importIntentDoc('Obligatoire dès 1 000 000 FCFA de valeur FOB (DPI sénégalaise).'),
-        bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA. // TODO: à confirmer le seuil exact en vigueur auprès d\'un commissionnaire en douane.'),
+        bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA. À confirmer : le seuil exact en vigueur auprès d\'un commissionnaire en douane.'),
         ...vehicleDocs('10 ans pour les voitures particulières, 15 ans pour camions et véhicules de transport de personnes (décret du 24 octobre 2025).'),
       ],
       importerTaxIdDoc('NINEA (identifiant fiscal de l\'importateur)'),
@@ -262,6 +269,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'CI',
+    vehicleRules: {
+      maxAgeYears: 5,
+      rightHandDrive: false,
+      note: '5 ans pour les voitures particulières, 7 ans pour les utilitaires légers, 10 ans pour les poids lourds (date de première mise en circulation sur la carte grise).',
+      source: 'Douanes ivoiriennes, guides 2025-2026 : à confirmer.',
+    },
     countryName: 'Côte d\'Ivoire',
     cargoTrackingType: CargoTrackingType.BSC,
     cargoMandatory: true,
@@ -273,8 +286,8 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
       [
         trackingDoc(CargoTrackingType.BSC, 'l\'OIC'),
         { key: 'certificate_of_conformity', label: 'Certificat de conformité VoC (CODINORM)', mandatory: true, category: 'compliance', note: 'Programme VoC ivoirien — émis avant embarquement par Bureau Veritas, Cotecna, Intertek ou SGS pour les produits réglementés.' },
-        importIntentDoc('FDI (Fiche de Déclaration à l\'Importation) dans le cadre UEMOA. // TODO: à confirmer le seuil de valeur exact auprès d\'un commissionnaire en douane.'),
-        bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA. // TODO: à confirmer le seuil exact en vigueur.'),
+        importIntentDoc('FDI (Fiche de Déclaration à l\'Importation) dans le cadre UEMOA. À confirmer : le seuil de valeur exact auprès d\'un commissionnaire en douane.'),
+        bankDomiciliationDoc('Domiciliation bancaire de l\'import requise au-delà du seuil UEMOA. À confirmer : le seuil exact en vigueur.'),
         ...vehicleDocs('5 ans pour les véhicules légers (réglementation 2025) — importation interdite au-delà.'),
       ],
       importerTaxIdDoc('Compte Contribuable / numéro d\'identification fiscale ivoirien'),
@@ -348,18 +361,24 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     authority: 'CNCT (Conseil National des Chargeurs du Togo)',
     currency: 'XOF',
     customsNotes:
-      'ECTN obligatoire pour le port de Lomé. Référence à mentionner sur la déclaration douanière. Zone UEMOA : DPI et domiciliation bancaire au-delà des seuils en vigueur. Limite d\'âge des véhicules importés : sources contradictoires (décret 2018-005 évoquant 10 ans vs absence de limite appliquée). // TODO: à confirmer la règle en vigueur auprès d\'un commissionnaire en douane.',
+      'ECTN obligatoire pour le port de Lomé. Référence à mentionner sur la déclaration douanière. Zone UEMOA : DPI et domiciliation bancaire au-delà des seuils en vigueur. Limite d\'âge des véhicules importés : sources contradictoires (décret 2018-005 évoquant 10 ans vs absence de limite appliquée). À confirmer : la règle en vigueur auprès d\'un commissionnaire en douane.',
     requiredDocuments: baseDocs(
       [
         trackingDoc(CargoTrackingType.ECTN, 'le CNCT'),
         ...UEMOA_IMPORT_DOCS,
-        ...vehicleDocs('Règle d\'âge à confirmer (décret 2018-005 ~10 ans vs pas de limite appliquée en pratique). // TODO: à confirmer auprès d\'un commissionnaire en douane.'),
+        ...vehicleDocs('Règle d\'âge à confirmer (décret 2018-005 ~10 ans vs pas de limite appliquée en pratique). À confirmer : auprès d\'un commissionnaire en douane.'),
       ],
       importerTaxIdDoc('NIF (numéro d\'identification fiscale togolais)'),
     ),
   },
   {
     countryCode: 'GN',
+    vehicleRules: {
+      maxAgeYears: 13,
+      rightHandDrive: false,
+      note: 'Limite de 13 ans (texte ancien, à confirmer avec la douane guinéenne avant la commande).',
+      source: 'À confirmer.',
+    },
     countryName: 'Guinée',
     cargoTrackingType: CargoTrackingType.ECTN,
     cargoMandatory: true,
@@ -370,7 +389,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     requiredDocuments: baseDocs([trackingDoc(CargoTrackingType.ECTN, 'le CGC'), ...VEHICLE_DOCS]),
   },
   {
-    // TODO: à confirmer — délégataire officiel (Catalyst Business Solutions / Antaser selon les périodes).
+    // À confirmer : délégataire officiel (Catalyst Business Solutions / Antaser selon les périodes).
     countryCode: 'GW',
     countryName: 'Guinée-Bissau',
     cargoTrackingType: CargoTrackingType.ECTN,
@@ -405,6 +424,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'GH',
+    vehicleRules: {
+      maxAgeYears: 10,
+      rightHandDrive: false,
+      note: '10 ans : au-delà, pénalités douanières croissantes ; interdiction totale au-delà de 15 ans annoncée à partir du 1er octobre 2026. À confirmer.',
+      source: 'Ghana Customs / GSA : à confirmer.',
+    },
     countryName: 'Ghana',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -422,29 +447,41 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'NG',
+    vehicleRules: {
+      maxAgeYears: 12,
+      rightHandDrive: false,
+      note: '12 ans à compter de la date de FABRICATION (plaque VIN), pas de l\'année modèle : un véhicule fabriqué fin 2013 vendu comme modèle 2014 peut être saisi.',
+      source: 'Nigeria Customs Service (règle en vigueur depuis 2022).',
+    },
     countryName: 'Nigeria',
     cargoTrackingType: null,
     cargoMandatory: false,
     authority: 'Nigerian Shippers\' Council (NSC) / SON',
     currency: 'NGN',
     customsNotes:
-      'CTN suspendu. Mais SONCAP obligatoire (Standards Organisation of Nigeria Conformity Assessment Programme) pour la plupart des produits réglementés. Form M et PAAR via le système NICIS. Limite d\'âge des véhicules importés : historiquement 15 ans, ramenée à 12 ans selon plusieurs sources (politique VIN Valuation, en débat). // TODO: à confirmer la limite en vigueur auprès d\'un commissionnaire en douane.',
+      'CTN suspendu. Mais SONCAP obligatoire (Standards Organisation of Nigeria Conformity Assessment Programme) pour la plupart des produits réglementés. Form M et PAAR via le système NICIS. Limite d\'âge des véhicules importés : historiquement 15 ans, ramenée à 12 ans selon plusieurs sources (politique VIN Valuation, en débat). À confirmer : la limite en vigueur auprès d\'un commissionnaire en douane.',
     requiredDocuments: baseDocs(
       [
         { key: 'soncap_certificate', label: 'SONCAP Certificate', mandatory: true, category: 'compliance', note: 'Certificat de conformité émis avant embarquement.' },
         { key: 'form_m', label: 'Form M', mandatory: true, category: 'compliance', note: 'Déclaration préalable à toute importation au Nigeria.' },
-        ...vehicleDocs('Limite d\'âge ~12 à 15 ans selon la période (politique VIN Valuation). // TODO: à confirmer la limite en vigueur auprès d\'un commissionnaire en douane.'),
+        ...vehicleDocs('Limite d\'âge ~12 à 15 ans selon la période (politique VIN Valuation). À confirmer : la limite en vigueur auprès d\'un commissionnaire en douane.'),
       ],
       importerTaxIdDoc('TIN (Tax Identification Number nigérian)'),
     ),
   },
   {
-    // TODO: à confirmer — l'émetteur du BSC en Mauritanie n'est pas formellement identifié dans nos sources publiques (DGD ou PANPA / Port Autonome de Nouakchott).
+    // À confirmer : l'émetteur du BSC en Mauritanie n'est pas formellement identifié dans nos sources publiques (DGD ou PANPA / Port Autonome de Nouakchott).
     countryCode: 'MR',
+    vehicleRules: {
+      maxAgeYears: 8,
+      rightHandDrive: false,
+      note: 'Limite signalée à 8 ans (à confirmer avec la douane mauritanienne).',
+      source: 'À confirmer.',
+    },
     countryName: 'Mauritanie',
     cargoTrackingType: CargoTrackingType.BSC,
     cargoMandatory: true,
-    authority: 'Direction Générale des Douanes (DGD) — TODO à confirmer',
+    authority: 'Direction Générale des Douanes (DGD) (à confirmer)',
     currency: 'MRU',
     customsNotes:
       'BSC/ECTN exigé pour les ports de Nouakchott (PANPA — Port Autonome de Nouakchott) et Nouadhibou. Visa préalable de l\'autorité portuaire.',
@@ -478,6 +515,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   {
     countryCode: 'CM',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: false,
+      note: 'Pas de limite d\'âge stricte, mais une surtaxe indexée sur l\'âge (loi de finances 2026 : 12,5 % pour les véhicules de 13 à 20 ans, en plus des droits et de la TVA).',
+      source: 'Loi de finances 2026 (Cameroun).',
+    },
     countryName: 'Cameroun',
     cargoTrackingType: CargoTrackingType.BESC,
     cargoMandatory: true,
@@ -497,6 +540,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'GA',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: false,
+      note: 'Limite d\'âge non confirmée (des restrictions à 3 ans ont été évoquées) : vérifier avec la douane gabonaise avant la commande. BIETC obligatoire.',
+      source: 'À confirmer.',
+    },
     countryName: 'Gabon',
     cargoTrackingType: CargoTrackingType.BIETC,
     cargoMandatory: true,
@@ -530,6 +579,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'CD',
+    vehicleRules: {
+      maxAgeYears: 15,
+      rightHandDrive: false,
+      note: '15 ans maximum pour les voitures particulières, utilitaires et poids lourds (décret du 24 janvier 2026) ; 20 ans pour les tracteurs agricoles, forestiers et miniers.',
+      source: 'Décret du 24 janvier 2026 (RDC).',
+    },
     countryName: 'République Démocratique du Congo',
     cargoTrackingType: CargoTrackingType.FERI,
     cargoMandatory: true,
@@ -547,7 +602,7 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
     ),
   },
   {
-    // TODO: à confirmer — la RCA n'a pas de Conseil National des Chargeurs. Selon plusieurs sources, le BESC est émis par la Direction Générale des Douanes ; un accord 2023 délègue l'opérationnel à JSL Africa SAS / SAIGE pour la zone Cameroun↔RCA.
+    // À confirmer : la RCA n'a pas de Conseil National des Chargeurs. Selon plusieurs sources, le BESC est émis par la Direction Générale des Douanes ; un accord 2023 délègue l'opérationnel à JSL Africa SAS / SAIGE pour la zone Cameroun↔RCA.
     countryCode: 'CF',
     countryName: 'République Centrafricaine',
     cargoTrackingType: CargoTrackingType.BESC,
@@ -600,6 +655,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   {
     countryCode: 'KE',
+    vehicleRules: {
+      maxAgeYears: 8,
+      rightHandDrive: true,
+      note: '8 ans maximum (première immatriculation à partir du 1er janvier 2019 pour 2026) ET conduite à droite obligatoire : un véhicule français (volant à gauche) ne peut pas être importé.',
+      source: 'KEBS / KRA : règle appliquée strictement.',
+    },
     countryName: 'Kenya',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -618,6 +679,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'TZ',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: true,
+      note: 'Conduite à droite obligatoire (un véhicule français ne peut pas être immatriculé). Pas d\'interdiction d\'âge stricte, mais droits d\'accise croissants au-delà de 8 ans.',
+      source: 'TRA / TBS : à confirmer.',
+    },
     countryName: 'Tanzanie',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -632,6 +699,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'UG',
+    vehicleRules: {
+      maxAgeYears: 15,
+      rightHandDrive: true,
+      note: '15 ans maximum et conduite à droite obligatoire (volant à gauche interdit). Inspection avant expédition (PVoC UNBS) pour les véhicules d\'occasion.',
+      source: 'UNBS / URA, règles 2025.',
+    },
     countryName: 'Ouganda',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -696,6 +769,13 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'ET',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: false,
+      usedAllowed: false,
+      note: 'Importation de véhicules thermiques (essence, diesel) INTERDITE depuis 2024 : seuls les véhicules 100 % électriques sont admis, avec forte réduction de droits.',
+      source: 'Ministère éthiopien des Transports (2024) : à confirmer.',
+    },
     countryName: 'Éthiopie',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -752,6 +832,13 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   {
     countryCode: 'ZA',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: true,
+      usedAllowed: false,
+      note: 'Importation de véhicules d\'occasion en principe interdite (permis ITAC seulement pour cas particuliers : immigrants, retour de résidents) ; conduite à droite obligatoire, volant à gauche interdit sauf véhicules de plus de 25 ans ou de collection.',
+      source: 'ITAC / SARS.',
+    },
     countryName: 'Afrique du Sud',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -827,6 +914,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'MZ',
+    vehicleRules: {
+      maxAgeYears: null,
+      rightHandDrive: true,
+      note: 'Conduite à droite requise pour l\'immatriculation : un véhicule français (volant à gauche) ne peut pas être immatriculé. Pas de limite d\'âge confirmée.',
+      source: 'À confirmer.',
+    },
     countryName: 'Mozambique',
     cargoTrackingType: null,
     cargoMandatory: false,
@@ -838,6 +931,12 @@ export const AFRICA_SUBSAHARAN_REGULATIONS: CountryRegulationSeed[] = [
   },
   {
     countryCode: 'AO',
+    vehicleRules: {
+      maxAgeYears: 6,
+      rightHandDrive: false,
+      note: 'Limite d\'âge signalée à 6 ans pour les véhicules légers et autobus (source ancienne, à confirmer). CNCA obligatoire.',
+      source: 'À confirmer auprès des douanes angolaises.',
+    },
     countryName: 'Angola',
     cargoTrackingType: CargoTrackingType.CARGO_WAIVER,
     cargoMandatory: true,

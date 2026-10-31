@@ -311,7 +311,7 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
         </Text>
         <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: TYPO.sizes.bodySm, marginTop: 6 }}>
           {flow === 'VEHICLE'
-            ? 'Axis embarque ton véhicule au port du Havre (bateau RORO) et prépare les documents d\'export et de douane.'
+            ? 'Axis embarque ton véhicule par bateau (RORO) depuis Le Havre, ou Marseille pour le Maghreb, et prépare les documents d\'export et de douane.'
             : flow === 'IMPORT'
             ? 'L\'expéditeur dépose l\'envoi chez le correspondant Axis au pays ; Axis l\'achemine jusqu\'à toi.'
             : 'On organise le transport jusqu\'au destinataire et les documents de douane.'}
@@ -334,6 +334,46 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
         </View>
       </Surface>
 
+      {/* Règles du pays de destination : véhicules (âge, conduite à droite) et colis (interdits). */}
+      {draft.to && reqs && flow === 'VEHICLE' && reqs.vehicleRules ? (
+        <Surface flat style={{ backgroundColor: reqs.vehicleRules.usedAllowed === false || reqs.vehicleRules.rightHandDrive ? theme.bad + '14' : theme.warn + '14', borderColor: reqs.vehicleRules.usedAllowed === false || reqs.vehicleRules.rightHandDrive ? theme.bad + '55' : theme.warn + '66' }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <Icons.warn size={18} color={reqs.vehicleRules.usedAllowed === false || reqs.vehicleRules.rightHandDrive ? theme.bad : theme.warn} stroke={1.9} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: 13 }}>
+                {reqs.vehicleRules.rightHandDrive
+                  ? `${reqs.countryName} : conduite à droite obligatoire`
+                  : reqs.vehicleRules.usedAllowed === false
+                  ? `${reqs.countryName} : véhicules d'occasion refusés`
+                  : reqs.vehicleRules.maxAgeYears != null
+                  ? `${reqs.countryName} : véhicule de ${reqs.vehicleRules.maxAgeYears} ans maximum`
+                  : `${reqs.countryName} : règles d'importation à vérifier`}
+              </Text>
+              <Text style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>
+                {reqs.vehicleRules.note}
+              </Text>
+              {reqs.vehicleRules.rightHandDrive ? (
+                <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+                  Un véhicule acheté en France (volant à gauche) ne pourra pas être immatriculé dans ce pays.
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </Surface>
+      ) : null}
+      {draft.to && reqs && flow !== 'VEHICLE' && flow !== 'IMPORT' && reqs.parcelRestrictions && reqs.parcelRestrictions.length > 0 ? (
+        <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <Icons.shield size={18} color={theme.gold} stroke={1.8} />
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.bold, fontSize: 13 }}>{`À savoir pour ${reqs.countryName}`}</Text>
+              {reqs.parcelRestrictions.map((r) => (
+                <Text key={r} style={{ color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 12.5, lineHeight: 17 }}>{`• ${r}`}</Text>
+              ))}
+            </View>
+          </View>
+        </Surface>
+      ) : null}
       {flow === 'IMPORT' ? (
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>

@@ -9,7 +9,16 @@ import { GeoPoint, listCities } from './geocoding';
 
 const EU = new Set(['FR', 'BE', 'LU', 'CH', 'DE', 'NL', 'IT', 'ES', 'PT', 'GB', 'AT', 'MC', 'IE', 'DK', 'PL', 'CZ']);
 const AFRICA = new Set([
-  'SN', 'CI', 'CM', 'BJ', 'TG', 'GA', 'CG', 'CD', 'BF', 'ML', 'NE', 'GN', 'TD', 'CF', 'MG', 'DJ', 'MR', 'KM', 'RW', 'BI', 'MA', 'DZ', 'TN',
+  // Afrique du Nord
+  'MA', 'DZ', 'TN', 'LY', 'EG',
+  // Afrique de l'Ouest
+  'SN', 'CI', 'ML', 'BF', 'NE', 'BJ', 'TG', 'GN', 'GW', 'SL', 'LR', 'GH', 'NG', 'MR', 'CV', 'GM',
+  // Afrique centrale
+  'CM', 'GA', 'CG', 'CD', 'CF', 'TD', 'GQ', 'ST',
+  // Afrique de l'Est
+  'KE', 'TZ', 'UG', 'RW', 'BI', 'SD', 'SS', 'ET', 'ER', 'DJ', 'SO', 'SC',
+  // Afrique australe et océan Indien
+  'ZA', 'NA', 'BW', 'ZW', 'ZM', 'MW', 'MZ', 'AO', 'LS', 'SZ', 'MG', 'KM', 'MU',
 ]);
 
 export function regionOf(country: string): 'EU' | 'AFRICA' | null {

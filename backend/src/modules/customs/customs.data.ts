@@ -1,4 +1,5 @@
 import { CargoTrackingType } from '@prisma/client';
+import { AFRICA_NORTH_REGULATIONS } from './regulations/africa-north';
 import { AFRICA_SUBSAHARAN_REGULATIONS } from './regulations/africa-subsaharan';
 import { EUROPE_REGULATIONS } from './regulations/europe';
 
@@ -28,6 +29,18 @@ export interface RequiredDocument {
   provided?: boolean;
 }
 
+/** Règles d'importation des véhicules d'occasion (convoyage, RORO). */
+export interface VehicleRules {
+  /** Âge maximal à la première mise en circulation ; null si pas de limite. */
+  maxAgeYears: number | null;
+  /** true : conduite à droite obligatoire (un véhicule français, volant à gauche, ne peut pas être immatriculé). */
+  rightHandDrive: boolean;
+  /** false : importation de véhicules d'occasion interdite ou quasi impossible. */
+  usedAllowed?: boolean;
+  note: string;
+  source?: string;
+}
+
 export interface CountryRegulationSeed {
   countryCode: string;
   countryName: string;
@@ -37,6 +50,9 @@ export interface CountryRegulationSeed {
   currency: string;
   customsNotes: string;
   requiredDocuments: RequiredDocument[];
+  /** Interdictions et limites à rappeler au client avant un envoi de colis. */
+  parcelRestrictions?: string[];
+  vehicleRules?: VehicleRules;
 }
 
 /**
@@ -44,6 +60,7 @@ export interface CountryRegulationSeed {
  * (sélecteur de pays groupé) et pour le rapport orchestrateur.
  */
 export type CountryZone =
+  | 'AFRICA_NORTH'
   | 'AFRICA_WEST'
   | 'AFRICA_CENTRAL'
   | 'AFRICA_EAST'
@@ -53,6 +70,8 @@ export type CountryZone =
   | 'EUROPE_OTHER';
 
 const COUNTRY_ZONE: Record<string, CountryZone> = {
+  // Afrique du Nord
+  MA: 'AFRICA_NORTH', DZ: 'AFRICA_NORTH', TN: 'AFRICA_NORTH', LY: 'AFRICA_NORTH', EG: 'AFRICA_NORTH',
   // Afrique de l'Ouest
   SN: 'AFRICA_WEST', CI: 'AFRICA_WEST', ML: 'AFRICA_WEST', BF: 'AFRICA_WEST',
   NE: 'AFRICA_WEST', BJ: 'AFRICA_WEST', TG: 'AFRICA_WEST', GN: 'AFRICA_WEST',
@@ -69,7 +88,7 @@ const COUNTRY_ZONE: Record<string, CountryZone> = {
   ZA: 'AFRICA_SOUTH', NA: 'AFRICA_SOUTH', BW: 'AFRICA_SOUTH', ZW: 'AFRICA_SOUTH',
   ZM: 'AFRICA_SOUTH', MW: 'AFRICA_SOUTH', MZ: 'AFRICA_SOUTH', AO: 'AFRICA_SOUTH',
   LS: 'AFRICA_SOUTH', SZ: 'AFRICA_SOUTH', MG: 'AFRICA_SOUTH', KM: 'AFRICA_SOUTH',
-  MU: 'AFRICA_SOUTH',
+  MU: 'AFRICA_SOUTH', SC: 'AFRICA_EAST',
   // UE 27
   FR: 'EUROPE_EU', DE: 'EUROPE_EU', IT: 'EUROPE_EU', ES: 'EUROPE_EU',
   PT: 'EUROPE_EU', BE: 'EUROPE_EU', NL: 'EUROPE_EU', LU: 'EUROPE_EU',
@@ -87,6 +106,7 @@ const COUNTRY_ZONE: Record<string, CountryZone> = {
 };
 
 export const COUNTRY_ZONE_LABEL: Record<CountryZone, string> = {
+  AFRICA_NORTH: 'Afrique du Nord (Maghreb, Égypte, Libye)',
   AFRICA_WEST: 'Afrique de l\'Ouest',
   AFRICA_CENTRAL: 'Afrique Centrale',
   AFRICA_EAST: 'Afrique de l\'Est',
@@ -104,6 +124,7 @@ export function zoneForCountry(countryCode: string): CountryZone | null {
 // On délègue le détail par région à `regulations/*.ts` pour garder ce fichier
 // digeste. Tout ajout ou correction passe par les fichiers régionaux.
 export const COUNTRY_REGULATIONS: CountryRegulationSeed[] = [
+  ...AFRICA_NORTH_REGULATIONS,
   ...AFRICA_SUBSAHARAN_REGULATIONS,
   ...EUROPE_REGULATIONS,
 ];

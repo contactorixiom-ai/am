@@ -6,7 +6,7 @@ import { lookupCity } from '../../common/geocoding';
 import { roadDistanceKm } from '../../common/road-distance';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { computeQuote } from './pricing';
-import { publicTariffSheet, VEHICLE_DEPARTURE_PORT } from './tariffs';
+import { publicTariffSheet, vehicleDeparturePort } from './tariffs';
 import { isStaff } from '../../common/auth/staff';
 
 const QUOTE_VALIDITY_DAYS = 30;
@@ -68,7 +68,7 @@ export class QuotesService {
     // la ville du véhicule, jamais reprise de la requête.
     let convoyToPortKm: number | undefined;
     if (dto.flow === 'VEHICLE' && dto.pickupMode === 'HOME_PICKUP' && fromGeo) {
-      convoyToPortKm = await roadDistanceKm(fromGeo, VEHICLE_DEPARTURE_PORT);
+      convoyToPortKm = await roadDistanceKm(fromGeo, vehicleDeparturePort(dto.toCountry));
     }
 
     try {
@@ -82,6 +82,7 @@ export class QuotesService {
         units: dto.units,
         options: dto.options ?? [],
         vehicleCategory: dto.vehicleCategory,
+        toCountry: dto.toCountry,
         pickupDistanceKm: dto.pickupDistanceKm,
         items: dto.items,
         flow: dto.flow,

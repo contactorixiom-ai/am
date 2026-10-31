@@ -13,7 +13,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
-type ServiceId = 'car' | 'moto' | 'colis' | 'merch' | 'vehicle' | 'import';
+type ServiceId = 'car' | 'moto' | 'bus' | 'flatbed' | 'colis' | 'merch' | 'vehicle' | 'import';
 
 const SERVICES: {
   id: ServiceId;
@@ -26,6 +26,8 @@ const SERVICES: {
 }[] = [
   { id: 'car',   IconComp: Icons.car,    title: 'Convoyage voiture',       sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.car ?? '',   enabled: true },
   { id: 'moto',  IconComp: Icons.bike,   title: 'Convoyage moto',          sub: 'Particulier ou pro',           tag: 'Europe',   delay: OPERATIONS.delays?.moto ?? '',  enabled: true },
+  { id: 'bus',   IconComp: Icons.bus,    title: 'Bus & autocar',           sub: 'Minibus, bus, autocar · chauffeur permis D', tag: 'Europe', delay: OPERATIONS.delays?.car ?? '', enabled: true },
+  { id: 'flatbed', IconComp: Icons.flatbed, title: 'Transport sur plateau', sub: 'Véhicule neuf, de collection ou non roulant, sur camion', tag: 'Europe', delay: OPERATIONS.delays?.car ?? '', enabled: true },
   { id: 'colis', IconComp: Icons.box,    title: 'Colis & paquets',         sub: 'Cartons, valises, effets personnels', tag: 'Eur → Afr', delay: OPERATIONS.delays?.colis ?? '', enabled: true },
   { id: 'merch', IconComp: Icons.pallet, title: 'Marchandise volumineuse', sub: 'Palettes, machines, mobilier', tag: 'Eur → Afr', delay: OPERATIONS.delays?.merch ?? '', enabled: true },
   { id: 'vehicle', IconComp: Icons.ship, title: 'Voiture vers l\'Afrique', sub: 'Expédition par bateau, du port du Havre', tag: 'Eur → Afr', delay: OPERATIONS.delays?.sea ?? '', enabled: true },
@@ -41,6 +43,8 @@ export function ServicePickerScreen() {
     if (!selected) return;
     if (selected === 'car') nav.navigate('CarRequest', { service: 'CONVOY_CAR' });
     else if (selected === 'moto') nav.navigate('CarRequest', { service: 'CONVOY_MOTO' });
+    else if (selected === 'bus') nav.navigate('CarRequest', { service: 'CONVOY_BUS' });
+    else if (selected === 'flatbed') nav.navigate('CarRequest', { service: 'CONVOY_FLATBED' });
     else if (selected === 'colis') nav.navigate('ParcelRequest', { service: 'PARCEL' });
     else if (selected === 'merch') nav.navigate('ParcelRequest', { service: 'MERCHANDISE' });
     else if (selected === 'vehicle') nav.navigate('ParcelRequest', { service: 'MERCHANDISE', flow: 'VEHICLE' });
