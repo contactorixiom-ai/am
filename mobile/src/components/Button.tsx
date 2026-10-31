@@ -118,7 +118,7 @@ function sizeFor(s: ButtonSize) {
 
 function kindColors(k: ButtonKind, t: ReturnType<typeof useTheme>['theme']) {
   switch (k) {
-    case 'gold':    return { bg: t.gold,         fg: t.navy,    border: null as string | null };
+    case 'gold':    return { bg: t.gold,         fg: t.onGold,    border: null as string | null };
     case 'outline': return { bg: 'transparent',  fg: t.ink,     border: t.line };
     case 'ghost':   return { bg: 'transparent',  fg: t.ink,     border: null };
     case 'danger':  return { bg: t.bad,          fg: '#FFFFFF', border: null };

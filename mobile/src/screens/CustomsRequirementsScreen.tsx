@@ -332,7 +332,7 @@ export function CustomsRequirementsScreen() {
                   fullWidth
                   loading={requesting}
                   onPress={requestCargoNote}
-                  rightIcon={<Icons.arrow size={16} color={theme.navy} stroke={2} />}
+                  rightIcon={<Icons.arrow size={16} color={theme.onGold} stroke={2} />}
                 >
                   Demander le bordereau à Axis
                 </Button>
@@ -364,7 +364,7 @@ export function CustomsRequirementsScreen() {
                         {provided ? (
                           <Icons.check size={18} color={theme.good} stroke={2.4} />
                         ) : (
-                          <Icons.doc size={18} color={theme.navy} stroke={1.6} />
+                          <Icons.doc size={18} color={theme.link} stroke={1.6} />
                         )}
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
@@ -407,7 +407,7 @@ export function CustomsRequirementsScreen() {
             size="lg"
             fullWidth
             onPress={exportPdf}
-            rightIcon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}
+            rightIcon={<Icons.doc size={18} color={theme.link} stroke={1.8} />}
           >
             Exporter la checklist (PDF)
           </Button>

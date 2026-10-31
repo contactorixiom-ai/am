@@ -102,7 +102,7 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
         </Text>
       </Surface>
 
-      {staff === null && !failed ? <ActivityIndicator color={theme.navy} /> : null}
+      {staff === null && !failed ? <ActivityIndicator color={theme.link} /> : null}
       {failed ? (
         <Surface padded style={{ gap: 8 }}>
           <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Équipe indisponible pour le moment.</Text>

@@ -371,7 +371,7 @@ export function ParcelSizeScreen({ draft, onChange, service = 'PARCEL', onOpenTa
               backgroundColor: pressed ? theme.bgSoft : 'transparent',
             })}
           >
-            <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+            <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
               {photoLocal ? 'Changer' : 'Ajouter'}
             </Text>
           </Pressable>

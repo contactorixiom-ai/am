@@ -37,7 +37,7 @@ export function NewsScreen() {
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 12 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.navy} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.link} />
         }
       >
         {loading ? (

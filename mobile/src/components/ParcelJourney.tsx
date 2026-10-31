@@ -165,8 +165,8 @@ export function ParcelJourney({ parcel, recipientFirstName, title = 'Le voyage d
               }}
             >
               {parcel.status === 'DELIVERED'
-                ? <Icons.check size={18} color={theme.navy} stroke={2.6} />
-                : <Vehicle size={20} color={theme.navy} stroke={1.9} />}
+                ? <Icons.check size={18} color={theme.onGold} stroke={2.6} />
+                : <Vehicle size={20} color={theme.onGold} stroke={1.9} />}
             </View>
           ) : null}
         </View>

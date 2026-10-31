@@ -23,6 +23,10 @@ export const AXIS_LIGHT = {
   bad:       '#B23A48',
   select:    '#0B2545',
   selectInk: '#F5F1E8',
+  // Liens, icônes et textes d'accent posés sur une surface.
+  link:      '#0B2545',
+  // Texte et icônes sur fond doré (boutons dorés).
+  onGold:    '#06182E',
 };
 
 export const AXIS_DARK = {
@@ -37,16 +41,21 @@ export const AXIS_DARK = {
   faint:     '#6E7891',
   line:      '#1B3D67',
   lineSoft:  '#163358',
-  navy:      '#0B2545',
+  // En sombre, le bleu marine des boutons, cases cochées et sélections
+  // était identique au fond : invisible. Bleu plus clair, texte blanc lisible.
+  navy:      '#2F64A6',
   navyDeep:  '#06182E',
   gold:      '#D4B262',
   goldHi:    '#F2D789',
-  goldDeep:  '#8E6A22',
+  // Plus clair qu'en mode clair : les titres en doré restaient ternes.
+  goldDeep:  '#B8913E',
   good:      '#34D399',
   warn:      '#F59E0B',
   bad:       '#F87171',
   select:    '#D4B262',
   selectInk: '#06182E',
+  link:      '#9DBDE8',
+  onGold:    '#06182E',
 };
 
 // Le type relâche `name` en string union pour accepter light ET dark.

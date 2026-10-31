@@ -60,7 +60,7 @@ export function TariffsScreen() {
 
         {!sheet && !failed ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={theme.navy} />
+            <ActivityIndicator color={theme.link} />
           </View>
         ) : null}
 

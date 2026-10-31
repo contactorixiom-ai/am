@@ -158,7 +158,7 @@ export function AdminDocForm({ docType, initialValues, onSubmit, submitting }: P
         fullWidth
         loading={submitting}
         onPress={submit}
-        leftIcon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}
+        leftIcon={<Icons.doc size={18} color={theme.onGold} stroke={1.8} />}
         style={{ marginTop: 4 }}
       >
         Générer le PDF

@@ -325,7 +325,7 @@ function MenuRow({
           justifyContent: 'center',
         }}
       >
-        <IconComp size={18} color={theme.navy} stroke={1.6} />
+        <IconComp size={18} color={theme.link} stroke={1.6} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium }}>{label}</Text>
@@ -385,7 +385,7 @@ function MenuRowToggle({
           justifyContent: 'center',
         }}
       >
-        <Icons.bolt size={18} color={theme.navy} stroke={1.6} />
+        <Icons.bolt size={18} color={theme.link} stroke={1.6} />
       </View>
       <Text style={{ flex: 1, fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.medium }}>{label}</Text>
       <Switch

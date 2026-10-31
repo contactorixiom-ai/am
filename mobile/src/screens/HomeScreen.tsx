@@ -286,7 +286,7 @@ export function HomeScreen() {
                 })}
               >
                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <row.icon size={18} color={theme.navy} stroke={1.8} />
+                  <row.icon size={18} color={theme.link} stroke={1.8} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{row.label}</Text>

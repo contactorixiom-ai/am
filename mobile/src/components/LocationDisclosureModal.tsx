@@ -89,7 +89,7 @@ export function LocationDisclosureModal({ visible, onAccept, onDecline }: Props)
             </Text>
             <Text
               onPress={() => Linking.openURL(LEGAL_PRIVACY_URL).catch(() => {})}
-              style={{ fontSize: 13, color: theme.navy, fontFamily: TYPO.weights.semibold, textDecorationLine: 'underline' }}
+              style={{ fontSize: 13, color: theme.link, fontFamily: TYPO.weights.semibold, textDecorationLine: 'underline' }}
             >
               Politique de confidentialité
             </Text>

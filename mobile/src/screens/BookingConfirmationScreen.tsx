@@ -161,8 +161,8 @@ export function BookingConfirmationScreen() {
                 alignItems: 'center',
               })}
             >
-              <Icons.doc size={14} color={theme.navy} stroke={1.8} />
-              <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
+              <Icons.doc size={14} color={theme.link} stroke={1.8} />
+              <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
                 Copier
               </Text>
             </Pressable>
@@ -243,7 +243,7 @@ export function BookingConfirmationScreen() {
                       justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ color: theme.surface, fontFamily: TYPO.weights.bold, fontSize: 12 }}>
+                    <Text style={{ color: '#FFFFFF', fontFamily: TYPO.weights.bold, fontSize: 12 }}>
                       {i + 1}
                     </Text>
                   </View>

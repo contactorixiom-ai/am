@@ -318,7 +318,7 @@ export function LiveConvoyPanel({
         {/* Chauffeur + actions rapides */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: theme.line }}>
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.gold, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: theme.navy, fontFamily: TYPO.weights.bold, fontSize: 13 }}>
+            <Text style={{ color: theme.onGold, fontFamily: TYPO.weights.bold, fontSize: 13 }}>
               {(driverName ?? 'KD').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
             </Text>
           </View>

@@ -147,7 +147,7 @@ export function HomePickupAddressScreen() {
                       backgroundColor: active ? theme.bgSoft : 'transparent',
                     }}
                   >
-                    <Icons.calendar size={20} color={active ? theme.navy : theme.muted} stroke={1.8} />
+                    <Icons.calendar size={20} color={active ? theme.link : theme.muted} stroke={1.8} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
                         {s.label}

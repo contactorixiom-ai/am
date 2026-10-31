@@ -155,7 +155,7 @@ export function RootNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: theme.bg },
           headerTitleStyle: { fontFamily: TYPO.weights.semibold, color: theme.ink },
-          headerTintColor: theme.navy,
+          headerTintColor: theme.link,
           headerShadowVisible: false,
           contentStyle: { backgroundColor: theme.bg },
           headerShown: false,

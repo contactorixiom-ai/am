@@ -286,7 +286,7 @@ export function DocumentsScreen() {
           <Surface key={c.id} padded style={{ padding: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.sig size={20} color={theme.navy} stroke={1.7} />
+                <Icons.sig size={20} color={theme.link} stroke={1.7} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Pill tone={c.signed ? 'good' : c.finished ? 'ghost' : 'warn'}>{c.signed ? 'Signé' : c.finished ? 'Mission terminée' : 'À signer'}</Pill>
@@ -300,7 +300,7 @@ export function DocumentsScreen() {
                   <Icons.arrow size={15} color={theme.ink} stroke={2} />
                 </IconBtn>
               ) : (
-                <Button kind="gold" size="sm" onPress={() => openSign(c)} rightIcon={<Icons.sig size={15} color={theme.navy} stroke={2} />}>
+                <Button kind="gold" size="sm" onPress={() => openSign(c)} rightIcon={<Icons.sig size={15} color={theme.onGold} stroke={2} />}>
                   Signer
                 </Button>
               )}
@@ -324,7 +324,7 @@ export function DocumentsScreen() {
           <Surface key={inv.id} padded style={{ padding: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.euro size={22} color={theme.navy} stroke={1.6} />
+                <Icons.euro size={22} color={theme.link} stroke={1.6} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Pill tone={inv.paid ? 'good' : 'warn'}>{inv.paid ? 'Payé' : 'À régler'}</Pill>
@@ -338,7 +338,7 @@ export function DocumentsScreen() {
                   <Icons.arrow size={15} color={theme.ink} stroke={2} />
                 </IconBtn>
               ) : (
-                <Button kind="gold" size="sm" onPress={() => setPaying(inv)} rightIcon={<Icons.card size={15} color={theme.navy} stroke={2} />}>
+                <Button kind="gold" size="sm" onPress={() => setPaying(inv)} rightIcon={<Icons.card size={15} color={theme.onGold} stroke={2} />}>
                   Régler
                 </Button>
               )}
@@ -384,7 +384,7 @@ export function DocumentsScreen() {
               </Text>
             </View>
 
-            <Button kind="gold" size="lg" fullWidth disabled={!hasInk} onPress={confirmSign} rightIcon={<Icons.check size={18} color={theme.navy} stroke={2.4} />}>
+            <Button kind="gold" size="lg" fullWidth disabled={!hasInk} onPress={confirmSign} rightIcon={<Icons.check size={18} color={theme.onGold} stroke={2.4} />}>
               Valider et signer
             </Button>
           </View>

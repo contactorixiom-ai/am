@@ -147,7 +147,7 @@ export function RegisterScreen() {
                     backgroundColor: isPro === o.v ? theme.navy : theme.surface,
                   }}
                 >
-                  <Text style={{ fontSize: 14, color: isPro === o.v ? theme.bg : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.l}</Text>
+                  <Text style={{ fontSize: 14, color: isPro === o.v ? '#FFFFFF' : theme.ink, fontFamily: TYPO.weights.semibold }}>{o.l}</Text>
                 </Pressable>
               ))}
             </View>

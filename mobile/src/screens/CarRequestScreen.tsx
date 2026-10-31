@@ -200,7 +200,7 @@ export function CarRequestScreen() {
               <View style={{ marginLeft: 10, height: 12, justifyContent: 'center' }}>
                 <View style={{ width: 1.5, height: '100%', borderLeftWidth: 1.5, borderLeftColor: theme.line, borderStyle: 'dashed' }} />
               </View>
-              <CityPickerRow icon="◆" iconColor={theme.navy} label="Arrivée" value={to} onChange={setTo} region="EU" />
+              <CityPickerRow icon="◆" iconColor={theme.link} label="Arrivée" value={to} onChange={setTo} region="EU" />
             </View>
           </Surface>
 
@@ -426,7 +426,7 @@ export function CarRequestScreen() {
             fullWidth
             onPress={submit}
             loading={loading}
-            rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
+            rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}
           >
             Calculer le devis
           </Button>

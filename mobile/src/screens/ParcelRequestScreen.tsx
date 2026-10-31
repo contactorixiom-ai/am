@@ -196,7 +196,7 @@ export function ParcelRequestScreen() {
                   </Text>
                 </View>
                 <Pressable onPress={() => reset()}>
-                  <Text style={{ fontSize: 12, color: theme.navy, fontFamily: TYPO.weights.semibold }}>
+                  <Text style={{ fontSize: 12, color: theme.link, fontFamily: TYPO.weights.semibold }}>
                     Recommencer
                   </Text>
                 </Pressable>
@@ -349,7 +349,7 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
       {draft.to && flow !== 'IMPORT' ? (
         <Surface flat style={{ backgroundColor: theme.bgSoft, borderColor: theme.line }}>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-            <Icons.globe size={20} color={theme.navy} stroke={1.8} />
+            <Icons.globe size={20} color={theme.link} stroke={1.8} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.muted, fontFamily: TYPO.weights.semibold, fontSize: 10.5, letterSpacing: 1, textTransform: 'uppercase' }}>
                 Éligibilité
@@ -462,9 +462,9 @@ function StepTrajet({ service, flow }: { service: 'PARCEL' | 'MERCHANDISE'; flow
         onPress={() => nav.navigate('Tariffs')}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 4 }}
       >
-        <Icons.euro size={15} color={theme.navy} stroke={1.9} />
-        <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Voir la grille tarifaire complète</Text>
-        <Icons.chev size={14} color={theme.navy} stroke={2} />
+        <Icons.euro size={15} color={theme.link} stroke={1.9} />
+        <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Voir la grille tarifaire complète</Text>
+        <Icons.chev size={14} color={theme.link} stroke={2} />
       </Pressable>
     </View>
   );

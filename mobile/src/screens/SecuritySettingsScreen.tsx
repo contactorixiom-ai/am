@@ -185,7 +185,7 @@ export function SecuritySettingsScreen() {
             </View>
           ) : (
             <ActionRow
-              icon={<Icons.shield size={18} color={theme.navy} stroke={1.8} />}
+              icon={<Icons.shield size={18} color={theme.link} stroke={1.8} />}
               label="Changer mon mot de passe"
               sub="Tes autres appareils seront déconnectés"
               onPress={() => setPwdOpen(true)}
@@ -220,7 +220,7 @@ export function SecuritySettingsScreen() {
 
         <Section title="Mes données (RGPD)">
           <ActionRow
-            icon={<Icons.doc size={18} color={theme.navy} stroke={1.8} />}
+            icon={<Icons.doc size={18} color={theme.link} stroke={1.8} />}
             label={exporting ? 'Préparation…' : 'Exporter mes données'}
             sub="Fichier immédiat : profil, envois, paiements, documents"
             onPress={exporting ? () => undefined : exportData}

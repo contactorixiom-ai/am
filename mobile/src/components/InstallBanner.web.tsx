@@ -151,7 +151,7 @@ export function InstallBanner() {
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: theme.gold, alignItems: 'center', justifyContent: 'center' }}>
-          <Icons.plus size={20} color={theme.navy} stroke={2.4} />
+          <Icons.plus size={20} color={theme.onGold} stroke={2.4} />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{ color: '#fff', fontSize: 15.5, fontFamily: TYPO.weights.bold }}>

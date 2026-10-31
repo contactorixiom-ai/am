@@ -69,13 +69,13 @@ export function LiveConvoyMap({ from, to, progress, paused, height = 260, fromLa
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
       const fromIcon = L.divIcon({ html: `<div style="background:${theme.navy};color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)">A</div>`, iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
-      const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.navy};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)">B</div>`, iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
+      const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.onGold};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)">B</div>`, iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
 
       L.marker([from.latitude, from.longitude], { icon: fromIcon }).addTo(map).bindPopup(fromLabel ?? 'Départ');
       L.marker([to.latitude, to.longitude], { icon: toIcon }).addTo(map).bindPopup(toLabel ?? 'Arrivée');
 
       // Itinéraire complet (pointillé) + portion parcourue (plein)
-      L.polyline([[from.latitude, from.longitude], [to.latitude, to.longitude]], { color: theme.navy, weight: 3, opacity: 0.35, dashArray: '8, 8' }).addTo(map);
+      L.polyline([[from.latitude, from.longitude], [to.latitude, to.longitude]], { color: theme.link, weight: 3, opacity: 0.35, dashArray: '8, 8' }).addTo(map);
       traveledRef.current = L.polyline([[from.latitude, from.longitude], [from.latitude, from.longitude]], { color: theme.gold, weight: 4 }).addTo(map);
 
       markerRef.current = L.marker([from.latitude, from.longitude], { icon: vehicleIcon(L, !!paused) }).addTo(map);

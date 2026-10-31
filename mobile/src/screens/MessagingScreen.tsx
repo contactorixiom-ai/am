@@ -436,7 +436,7 @@ export function MessagingScreen() {
               opacity: !input.trim() || mode !== 'live' ? 0.6 : 1,
             })}
           >
-            <Icons.arrow size={18} color={theme.navy} stroke={2.4} />
+            <Icons.arrow size={18} color={theme.onGold} stroke={2.4} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

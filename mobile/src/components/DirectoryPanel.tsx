@@ -237,7 +237,7 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         <Button kind="outline" size="sm" loading={exporting} onPress={exportCsv}>Exporter (CSV)</Button>
       </View>
 
-      {rows === null && !failed ? <ActivityIndicator color={theme.navy} style={{ marginVertical: 20 }} /> : null}
+      {rows === null && !failed ? <ActivityIndicator color={theme.link} style={{ marginVertical: 20 }} /> : null}
       {failed ? (
         <Surface padded style={{ gap: 8 }}>
           <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Annuaire indisponible pour le moment.</Text>
@@ -369,7 +369,7 @@ function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onCl
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 18 }}>
-            {!e && !failed ? <ActivityIndicator color={theme.navy} style={{ marginVertical: 30 }} /> : null}
+            {!e && !failed ? <ActivityIndicator color={theme.link} style={{ marginVertical: 30 }} /> : null}
             {failed ? <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold }}>Fiche indisponible. Réessaie dans un instant.</Text> : null}
             {e && type ? (
               <>

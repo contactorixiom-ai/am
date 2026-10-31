@@ -96,7 +96,7 @@ export function CityPicker({ label, value, onChange, region }: Props) {
                 {label}
               </Text>
               <Pressable onPress={() => setOpen(false)}>
-                <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
+                <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>
                   Fermer
                 </Text>
               </Pressable>

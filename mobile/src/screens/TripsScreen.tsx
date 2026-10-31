@@ -124,7 +124,7 @@ export function TripsScreen() {
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.navy} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.link} />}
       >
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>

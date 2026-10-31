@@ -8,7 +8,7 @@ import { Icons } from './Icons';
 /** « J'accepte les CGU et j'ai lu la politique de confidentialité ». */
 export function TermsCheckbox({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   const { theme } = useTheme();
-  const link = { color: theme.navy, textDecorationLine: 'underline' as const };
+  const link = { color: theme.link, textDecorationLine: 'underline' as const };
   return (
     <Pressable
       onPress={() => onChange(!checked)}
@@ -19,12 +19,12 @@ export function TermsCheckbox({ checked, onChange }: { checked: boolean; onChang
       <View
         style={{
           width: 22, height: 22, borderRadius: 6, marginTop: 1,
-          borderWidth: 1.5, borderColor: checked ? theme.navy : theme.line,
+          borderWidth: 1.5, borderColor: checked ? theme.navy : theme.muted,
           backgroundColor: checked ? theme.navy : 'transparent',
           alignItems: 'center', justifyContent: 'center',
         }}
       >
-        {checked ? <Icons.check size={14} color={theme.bg} stroke={2.4} /> : null}
+        {checked ? <Icons.check size={14} color="#FFFFFF" stroke={2.4} /> : null}
       </View>
       <Text style={{ flex: 1, color: theme.inkSoft, fontFamily: TYPO.weights.medium, fontSize: 13, lineHeight: 19 }}>
         J'accepte les{' '}

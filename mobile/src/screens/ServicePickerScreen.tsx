@@ -114,7 +114,7 @@ export function ServicePickerScreen() {
                       </View>
                     )}
                     <View style={{ marginBottom: 4 }}>
-                      <s.IconComp size={30} color={sel ? theme.gold : theme.navy} stroke={1.5} />
+                      <s.IconComp size={30} color={sel ? theme.gold : theme.link} stroke={1.5} />
                     </View>
                     <Text
                       style={{

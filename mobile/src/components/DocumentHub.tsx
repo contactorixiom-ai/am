@@ -177,7 +177,7 @@ function DocRow({
           {entry?.uri ? (
             <Image source={{ uri: entry.uri }} style={{ width: 44, height: 44 }} resizeMode="cover" />
           ) : (
-            <CatIcon size={20} color={theme.navy} stroke={1.6} />
+            <CatIcon size={20} color={theme.link} stroke={1.6} />
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -206,7 +206,7 @@ function DocRow({
               size="sm"
               loading={busy}
               onPress={onAction}
-              rightIcon={busy ? undefined : <ActionIcon size={15} color={ready ? theme.ink : doc.source === 'generated' ? '#FFFFFF' : theme.navy} stroke={1.8} />}
+              rightIcon={busy ? undefined : <ActionIcon size={15} color={ready ? theme.ink : doc.source === 'generated' ? '#FFFFFF' : theme.link} stroke={1.8} />}
             >
               {actionLabel}
             </Button>

@@ -190,7 +190,7 @@ export function AutoDossierCard({ plan, demo, onGenerated }: Props) {
         loading={busy}
         disabled={nothingToGenerate}
         onPress={handleGenerateAll}
-        rightIcon={busy ? undefined : <Icons.bolt size={18} color={theme.navy} stroke={2.2} />}
+        rightIcon={busy ? undefined : <Icons.bolt size={18} color={theme.onGold} stroke={2.2} />}
       >
         {busy
           ? 'Génération en cours…'

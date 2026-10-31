@@ -238,7 +238,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                   gap: 8,
                 })}
               >
-                <Text style={{ color: theme.navy, fontSize: 16, fontFamily: TYPO.weights.bold }}>
+                <Text style={{ color: theme.onGold, fontSize: 16, fontFamily: TYPO.weights.bold }}>
                   Payer {amountEur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </Text>
               </Pressable>
@@ -270,7 +270,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                     justifyContent: 'center',
                   })}
                 >
-                  <Text style={{ color: theme.navy, fontSize: 15, fontFamily: TYPO.weights.bold }}>Ouvrir la page de paiement</Text>
+                  <Text style={{ color: theme.onGold, fontSize: 15, fontFamily: TYPO.weights.bold }}>Ouvrir la page de paiement</Text>
                 </Pressable>
               ) : null}
               {checkoutUrl ? (
@@ -304,7 +304,7 @@ export function PaymentSheet({ visible, amountEur, reference, description, missi
                 <RowKv label="Date" value={new Date().toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} />
               </View>
               <Pressable onPress={finish} style={({ pressed }) => ({ width: '100%', height: 50, borderRadius: RADII.lg, backgroundColor: pressed ? theme.goldDeep : theme.gold, alignItems: 'center', justifyContent: 'center' })}>
-                <Text style={{ color: theme.navy, fontSize: 15, fontFamily: TYPO.weights.bold }}>Terminer</Text>
+                <Text style={{ color: theme.onGold, fontSize: 15, fontFamily: TYPO.weights.bold }}>Terminer</Text>
               </Pressable>
             </View>
           )}

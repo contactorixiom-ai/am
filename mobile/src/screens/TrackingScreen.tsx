@@ -197,7 +197,7 @@ export function TrackingScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => { setRefreshing(true); load(); }}
-            tintColor={theme.navy}
+            tintColor={theme.link}
           />
         }
       >
@@ -324,7 +324,7 @@ export function TrackingScreen() {
                         kind="gold"
                         size="md"
                         fullWidth
-                        leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
+                        leftIcon={<Icons.chat size={17} color={theme.onGold} stroke={1.9} />}
                         onPress={() => { void whatsappSender(parcel); }}
                       >
                         {`Prévenir ${senderOf(parcel)!.name.split(' ')[0]} (expéditeur) sur WhatsApp`}
@@ -334,7 +334,7 @@ export function TrackingScreen() {
                         kind="gold"
                         size="md"
                         fullWidth
-                        leftIcon={<Icons.chat size={17} color={theme.navy} stroke={1.9} />}
+                        leftIcon={<Icons.chat size={17} color={theme.onGold} stroke={1.9} />}
                         onPress={() => { void whatsappRecipient(parcel); }}
                       >
                         {`Prévenir ${parcel.recipientFirstName} sur WhatsApp`}
@@ -589,7 +589,7 @@ function InspectionTile({
           backgroundColor: done ? theme.good : locked ? theme.line : theme.gold,
           alignItems: 'center', justifyContent: 'center',
         }}>
-          {done ? <Icons.check size={14} color="#fff" stroke={2.8} /> : <Icons.sig size={14} color={done || locked ? '#fff' : theme.navy} stroke={1.8} />}
+          {done ? <Icons.check size={14} color="#fff" stroke={2.8} /> : <Icons.sig size={14} color={done || locked ? '#fff' : theme.link} stroke={1.8} />}
         </View>
         <Text style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold }}>
           État des lieux

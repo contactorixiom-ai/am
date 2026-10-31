@@ -58,7 +58,7 @@ export function TariffItemsPicker({ service, mode, counts, onChange, onOpenTarif
             </Button>
           </View>
         ) : (
-          <ActivityIndicator color={theme.navy} />
+          <ActivityIndicator color={theme.link} />
         )}
       </Surface>
     );
@@ -158,8 +158,8 @@ export function TariffItemsPicker({ service, mode, counts, onChange, onOpenTarif
       </View>
 
       <Pressable onPress={onOpenTariffs} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
-        <Text style={{ color: theme.navy, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Voir toute la grille tarifaire</Text>
-        <Icons.chev size={14} color={theme.navy} stroke={2} />
+        <Text style={{ color: theme.link, fontFamily: TYPO.weights.semibold, fontSize: 13 }}>Voir toute la grille tarifaire</Text>
+        <Icons.chev size={14} color={theme.link} stroke={2} />
       </Pressable>
     </Surface>
   );

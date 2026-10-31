@@ -81,7 +81,7 @@ export function ManualPaymentSheet({ target, onClose, onDone }: { target: Encash
                   backgroundColor: method === m.v ? theme.navy : theme.surface,
                 }}
               >
-                <Text style={{ fontSize: 13, color: method === m.v ? theme.bg : theme.ink, fontFamily: TYPO.weights.semibold }}>{m.l}</Text>
+                <Text style={{ fontSize: 13, color: method === m.v ? '#FFFFFF' : theme.ink, fontFamily: TYPO.weights.semibold }}>{m.l}</Text>
               </Pressable>
             ))}
           </View>

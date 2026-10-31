@@ -216,7 +216,7 @@ export function PickupModeScreen() {
                       </Text>
                       <Text
                         style={{
-                          color: active ? theme.navy : theme.muted,
+                          color: active ? theme.link : theme.muted,
                           fontFamily: TYPO.weights.semibold,
                           fontSize: TYPO.sizes.bodySm,
                           marginTop: 6,

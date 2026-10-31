@@ -42,11 +42,11 @@ export function RouteMap({ from, to, height = 240, fromLabel, toLabel }: Props) 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
       const fromIcon = L.divIcon({ html: `<div style="background:${theme.navy};color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">A</div>`, iconSize: [28, 28], iconAnchor: [14, 14], className: '' });
-      const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.navy};border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">B</div>`, iconSize: [28, 28], iconAnchor: [14, 14], className: '' });
+      const toIcon = L.divIcon({ html: `<div style="background:${theme.gold};color:${theme.onGold};border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">B</div>`, iconSize: [28, 28], iconAnchor: [14, 14], className: '' });
 
       L.marker([from.latitude, from.longitude], { icon: fromIcon }).addTo(map).bindPopup(fromLabel ?? 'Départ');
       L.marker([to.latitude, to.longitude], { icon: toIcon }).addTo(map).bindPopup(toLabel ?? 'Arrivée');
-      L.polyline([[from.latitude, from.longitude], [to.latitude, to.longitude]], { color: theme.navy, weight: 3, dashArray: '10, 8' }).addTo(map);
+      L.polyline([[from.latitude, from.longitude], [to.latitude, to.longitude]], { color: theme.link, weight: 3, dashArray: '10, 8' }).addTo(map);
 
       map.fitBounds([
         [from.latitude, from.longitude],

@@ -652,7 +652,7 @@ export function DriverModeScreen() {
                   style={{ flex: 1 }}
                   loading={advancing}
                   disabled={mission.status !== 'IN_PROGRESS'}
-                  leftIcon={<Icons.check size={17} color={theme.navy} stroke={2.2} />}
+                  leftIcon={<Icons.check size={17} color={theme.onGold} stroke={2.2} />}
                   onPress={() => advance('deliver')}
                 >
                   Livré
@@ -728,7 +728,7 @@ export function DriverModeScreen() {
               kind="gold"
               size="md"
               style={{ flex: 1 }}
-              leftIcon={<Icons.check size={17} color={theme.navy} stroke={2} />}
+              leftIcon={<Icons.check size={17} color={theme.onGold} stroke={2} />}
               disabled={mission.status !== 'IN_PROGRESS'}
               onPress={() => openInspection('ARRIVÉE')}
             >
@@ -811,7 +811,7 @@ export function DriverModeScreen() {
             size="lg"
             fullWidth
             style={{ minHeight: 64, borderRadius: RADII.xl }}
-            leftIcon={<Icons.bolt size={20} color={theme.navy} stroke={2} />}
+            leftIcon={<Icons.bolt size={20} color={theme.onGold} stroke={2} />}
             onPress={() => {
               // Le serveur n'accepte les positions que sur une mission démarrée :
               // on le dit avant de lancer le GPS plutôt qu'après 15 s d'échecs.
@@ -984,7 +984,7 @@ function AddressLine({ label, address, city, when }: { label: string; address: s
         {label}
       </Text>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, color: theme.navy, fontFamily: TYPO.weights.semibold, textDecorationLine: 'underline' }}>{full}</Text>
+        <Text style={{ fontSize: 13, color: theme.link, fontFamily: TYPO.weights.semibold, textDecorationLine: 'underline' }}>{full}</Text>
         {when ? <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 1 }}>{when}</Text> : null}
       </View>
     </Pressable>

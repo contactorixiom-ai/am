@@ -120,7 +120,7 @@ export function KycReviewPanel({ onCountChange }: { onCountChange?: (n: number) 
                   {u.email}
                   {u.phone ? '  ·  ' : ''}
                   {u.phone ? (
-                    <Text style={{ color: theme.navy, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(`tel:${u.phone!.replace(/\s/g, '')}`)}>
+                    <Text style={{ color: theme.link, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(`tel:${u.phone!.replace(/\s/g, '')}`)}>
                       {u.phone}
                     </Text>
                   ) : null}

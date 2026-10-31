@@ -89,7 +89,7 @@ const META: Record<BannerTone, (theme: ReturnType<typeof useTheme>['theme']) => 
     Icon: Icons.bell,
     bg: theme.bgSoft,
     border: theme.line,
-    icon: theme.navy,
+    icon: theme.link,
     text: theme.ink,
     actionBg: theme.navy,
     actionPressed: theme.navyDeep,

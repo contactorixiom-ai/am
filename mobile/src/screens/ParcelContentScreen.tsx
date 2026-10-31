@@ -170,7 +170,7 @@ export function ParcelContentScreen({ draft, onChange, flow }: Props) {
               justifyContent: 'center',
             }}
           >
-            {draft.fragile ? <Icons.check size={14} color={theme.surface} stroke={2.4} /> : null}
+            {draft.fragile ? <Icons.check size={14} color="#FFFFFF" stroke={2.4} /> : null}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.body }}>

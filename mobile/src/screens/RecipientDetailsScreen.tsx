@@ -172,7 +172,7 @@ export function RecipientDetailsScreen() {
           </View>
 
           {flow === 'IMPORT' && user ? (
-            <Button kind="outline" size="md" onPress={fillWithMe} leftIcon={<Icons.user size={16} color={theme.navy} stroke={1.9} />}>
+            <Button kind="outline" size="md" onPress={fillWithMe} leftIcon={<Icons.user size={16} color={theme.link} stroke={1.9} />}>
               C'est moi qui reçois
             </Button>
           ) : null}
@@ -251,7 +251,7 @@ export function RecipientDetailsScreen() {
                   marginTop: 2,
                 }}
               >
-                {deliverToRelay ? <Icons.check size={14} color={theme.surface} stroke={2.4} /> : null}
+                {deliverToRelay ? <Icons.check size={14} color="#FFFFFF" stroke={2.4} /> : null}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: TYPO.sizes.bodySm }}>
@@ -346,7 +346,7 @@ export function RecipientDetailsScreen() {
             fullWidth
             onPress={() => void handlePay()}
             loading={loading}
-            rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
+            rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}
           >
             Payer et envoyer
           </Button>

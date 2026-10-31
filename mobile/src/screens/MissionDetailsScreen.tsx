@@ -283,7 +283,7 @@ export function MissionDetailsScreen() {
           ))}
         </SectionCard>
 
-        <Button kind="gold" size="lg" fullWidth onPress={goTracking} rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}>
+        <Button kind="gold" size="lg" fullWidth onPress={goTracking} rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}>
           Voir le suivi en temps réel
         </Button>
       </ScrollView>

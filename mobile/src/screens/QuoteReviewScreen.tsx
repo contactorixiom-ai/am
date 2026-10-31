@@ -546,7 +546,7 @@ export function QuoteReviewScreen() {
           fullWidth
           onPress={handleBook}
           loading={booking}
-          rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}
+          rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}
         >
           {isConvoy ? 'Réserver le convoyage' : 'Réserver maintenant'}
         </Button>
@@ -675,10 +675,10 @@ function DetailRow({
         ) : null}
         {onPress ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <Text style={{ fontSize: 11.5, color: theme.navy, fontFamily: TYPO.weights.semibold }}>
+            <Text style={{ fontSize: 11.5, color: theme.link, fontFamily: TYPO.weights.semibold }}>
               Voir la checklist douanière
             </Text>
-            <Icons.arrow size={12} color={theme.navy} stroke={2} />
+            <Icons.arrow size={12} color={theme.link} stroke={2} />
           </View>
         ) : null}
       </View>

@@ -62,7 +62,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                   elevation: 6,
                 }}
               >
-                <Icons.plus size={26} color={theme.navy} stroke={2.4} />
+                <Icons.plus size={26} color={theme.onGold} stroke={2.4} />
               </View>
               <Text
                 style={{

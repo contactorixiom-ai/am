@@ -690,7 +690,7 @@ export function AdminScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={() => { setRefreshing(true); loadShipments(); }}
-                tintColor={theme.navy}
+                tintColor={theme.link}
               />
             )
             : undefined
@@ -977,7 +977,7 @@ export function AdminScreen() {
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: current ? theme.gold : theme.line, backgroundColor: current ? theme.gold + '18' : theme.surface, opacity: advancing ? 0.6 : 1 }}
                       >
                         <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: current ? theme.gold : done ? theme.good : theme.bgSoft }}>
-                          {done ? <Icons.check size={14} color="#fff" stroke={3} /> : <Text style={{ fontSize: 12, color: current ? theme.navy : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>}
+                          {done ? <Icons.check size={14} color="#fff" stroke={3} /> : <Text style={{ fontSize: 12, color: current ? theme.link : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>}
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 14, color: theme.ink, fontFamily: current ? TYPO.weights.bold : TYPO.weights.semibold }}>{s.label}</Text>
@@ -1615,10 +1615,10 @@ export function AdminScreen() {
         {/* Export des données (à ouvrir dans le classeur Excel de suivi) */}
         <SectionHead title="Exporter les données" style={{ marginTop: 8 }} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.truck size={15} color={theme.navy} stroke={1.8} />} onPress={exportConvoyages}>
+          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.truck size={15} color={theme.link} stroke={1.8} />} onPress={exportConvoyages}>
             Convoyages (CSV)
           </Button>
-          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.box size={15} color={theme.navy} stroke={1.8} />} onPress={exportColis}>
+          <Button kind="outline" size="sm" style={{ flex: 1 }} leftIcon={<Icons.box size={15} color={theme.link} stroke={1.8} />} onPress={exportColis}>
             Colis (CSV)
           </Button>
         </View>
@@ -1661,7 +1661,7 @@ export function AdminScreen() {
                 <Surface key={`drv-${name}`} padded flat style={{ padding: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: i === 0 ? theme.gold : theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 12, color: i === 0 ? theme.navy : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>
+                      <Text style={{ fontSize: 12, color: i === 0 ? theme.link : theme.muted, fontFamily: TYPO.weights.bold }}>{i + 1}</Text>
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{name}</Text>
@@ -2479,7 +2479,7 @@ function DashTile({
           : theme.surface;
   const fg =
     tone === 'navy' ? '#F1ECDC'
-      : tone === 'gold' ? theme.navy
+      : tone === 'gold' ? theme.onGold
         : tone === 'warn' ? theme.warn
           : theme.ink;
   const sub = tone === 'navy' ? 'rgba(241,236,220,0.7)' : tone === 'gold' ? 'rgba(11,37,69,0.7)' : theme.muted;

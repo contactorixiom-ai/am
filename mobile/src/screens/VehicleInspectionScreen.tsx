@@ -691,7 +691,7 @@ export function VehicleInspectionScreen() {
                       kind="gold"
                       size="lg"
                       fullWidth
-                      leftIcon={<Icons.camera size={18} color={theme.navy} stroke={1.9} />}
+                      leftIcon={<Icons.camera size={18} color={theme.onGold} stroke={1.9} />}
                       onPress={async () => {
                         const current = guided;
                         const ok = await captureVehiclePhoto(current.key);
@@ -911,7 +911,7 @@ export function VehicleInspectionScreen() {
           <Button kind="outline" size="lg" onPress={() => setStep((s) => s - 1)}>Retour</Button>
         ) : null}
         {step < STEPS.length - 1 ? (
-          <Button kind="gold" size="lg" style={{ flex: 1 }} disabled={!canNext} onPress={() => setStep((s) => s + 1)} rightIcon={<Icons.arrow size={18} color={theme.navy} stroke={2} />}>
+          <Button kind="gold" size="lg" style={{ flex: 1 }} disabled={!canNext} onPress={() => setStep((s) => s + 1)} rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}>
             Continuer
           </Button>
         ) : (
@@ -922,7 +922,7 @@ export function VehicleInspectionScreen() {
             disabled={!canNext || sending}
             loading={sending}
             onPress={finish}
-            rightIcon={sending ? undefined : <Icons.check size={18} color={theme.navy} stroke={2.4} />}
+            rightIcon={sending ? undefined : <Icons.check size={18} color={theme.onGold} stroke={2.4} />}
           >
             {sending
               ? (uploadProgress ? `Envoi des photos ${uploadProgress.done}/${uploadProgress.total}…` : 'Transmission du PV…')
@@ -948,7 +948,7 @@ export function VehicleInspectionScreen() {
                     <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{DAMAGE_META[c].label}</Text>
                   </Pressable>
                   <Pressable onPress={() => confirmDamage(c, true)} style={{ width: 48, borderRadius: 12, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icons.camera size={18} color={theme.navy} stroke={1.8} />
+                    <Icons.camera size={18} color={theme.link} stroke={1.8} />
                   </Pressable>
                 </View>
               ))}
