@@ -50,7 +50,7 @@ export type RootStackParamList = {
   Admin: { tab?: 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'members' | 'team' } | undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
-  VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; missionId?: string; reference?: string; vehicleLabel?: string; clientName?: string } | undefined;
+  VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; missionId?: string; reference?: string; vehicleLabel?: string; clientName?: string; vehicleCategory?: string } | undefined;
   CustomsRequirements: { countryCode?: string; parcelId?: string; kind?: 'parcel' | 'commercial' | 'vehicle' | 'personalParcel' } | undefined;
   ProfileInfo: undefined;
   Notifications: undefined;

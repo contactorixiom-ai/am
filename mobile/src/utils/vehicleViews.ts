@@ -4,12 +4,13 @@
 // replace exactement au même endroit dans l'application et sur le PDF.
 
 import {
+  VEHICLE_SKETCH_BUS,
   VEHICLE_SKETCH_CAR,
   VEHICLE_SKETCH_MOTO,
   VEHICLE_SKETCH_VAN,
 } from './vehicleSketches';
 
-export type SketchKind = 'car' | 'van' | 'moto';
+export type SketchKind = 'car' | 'van' | 'moto' | 'bus';
 export type SketchView = 'top' | 'front' | 'rear' | 'left' | 'right';
 
 export interface Crop { x: number; y: number; w: number; h: number }
@@ -64,12 +65,27 @@ export const SKETCHES: Record<SketchKind, Sketch> = {
       rear: pad(1091, 59, 1329, 401),
     },
   },
+  // Bus / autocar : profil gauche sans portes (côté conducteur), profil droit
+  // avec portes ; la vue de dessus montre le toit, avant en haut.
+  bus: {
+    uri: VEHICLE_SKETCH_BUS,
+    width: 1491,
+    height: 1055,
+    views: {
+      top: pad(995, 120, 1205, 710, 10),
+      left: pad(378, 156, 960, 372, 10),
+      right: pad(400, 491, 982, 707, 10),
+      front: pad(54, 105, 346, 427, 10),
+      rear: pad(90, 470, 310, 792, 10),
+    },
+  },
 };
 
 /** Planche à utiliser selon la catégorie saisie (« Utilitaire », « Moto »…). */
 export function sketchKindFor(category?: string | null): SketchKind {
   const c = (category ?? '').toLowerCase();
   if (c.includes('moto') || c.includes('scooter')) return 'moto';
+  if (c.includes('bus') || c.includes('autocar') || c.includes('car ') || c === 'car' || c === 'coach') return 'bus';
   if (c.includes('utilit') || c.includes('poids') || c.includes('camion') || c.includes('camping') || c === 'van' || c === 'truck') return 'van';
   return 'car';
 }

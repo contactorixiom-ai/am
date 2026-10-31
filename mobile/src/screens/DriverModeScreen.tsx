@@ -1,3 +1,4 @@
+import { vehicleCategoryLabel } from '../utils/clientDocs';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -548,6 +549,8 @@ export function DriverModeScreen() {
       reference: inspectionReference,
       vehicleLabel: inspectionVehicleLabel,
       clientName: inspectionClientName,
+      // Le type du véhicule présélectionne le croquis (bus, utilitaire, moto…).
+      vehicleCategory: vehicleCategoryLabel(mission?.vehicle.type),
     });
 
   return (

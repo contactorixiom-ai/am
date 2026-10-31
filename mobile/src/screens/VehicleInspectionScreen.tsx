@@ -56,6 +56,7 @@ const VEHICLE_TYPES: { key: string; label: string }[] = [
   { key: 'Utilitaire', label: 'Utilitaire' },
   { key: 'Poids lourd', label: 'Poids lourd' },
   { key: 'Moto', label: 'Moto' },
+  { key: 'Autocar', label: 'Bus / autocar' },
 ];
 
 const STEPS = ['Véhicule', 'Carrosserie', 'Validation', 'Signatures'];
@@ -67,6 +68,22 @@ const CONTROL_QUESTIONS: Record<'DÉPART' | 'ARRIVÉE', { key: string; label: st
     { key: 'clean', label: 'Véhicule propre et présentable', short: 'propreté' },
     { key: 'docs', label: 'Documents de bord présents (carte grise, assurance)', short: 'docs' },
     { key: 'equip', label: 'Équipements présents (roue de secours, gilet, triangle)', short: 'équip.' },
+  ],
+  'ARRIVÉE': [
+    { key: 'cleanInt', label: 'Propre et exempt de dommages intérieurs', short: 'int.' },
+    { key: 'cleanExt', label: 'Propre et exempt de dommages extérieurs', short: 'ext.' },
+    { key: 'place', label: 'Livré au bon endroit et au bon moment', short: 'lieu' },
+  ],
+};
+
+// Bus et autocar (transport de personnes) : documents et équipements de
+// sécurité propres aux véhicules de catégorie M2/M3.
+const BUS_CONTROL_QUESTIONS: typeof CONTROL_QUESTIONS = {
+  'DÉPART': [
+    { key: 'clean', label: 'Véhicule propre, habitacle et soutes vides', short: 'propreté' },
+    { key: 'docs', label: 'Documents de bord présents (carte grise, assurance, contrôle technique)', short: 'docs' },
+    { key: 'equip', label: 'Sécurité : extincteur, marteaux brise-vitre, trousse de secours, issues dégagées', short: 'sécurité' },
+    { key: 'tacho', label: 'Chronotachygraphe en état, carte conducteur insérée', short: 'tachy' },
   ],
   'ARRIVÉE': [
     { key: 'cleanInt', label: 'Propre et exempt de dommages intérieurs', short: 'int.' },
@@ -127,7 +144,14 @@ export function VehicleInspectionScreen() {
   const [sending, setSending] = useState(false);
 
   // Step 1
-  const [vehicleCategory, setVehicleCategory] = useState<string>('Berline');
+  const [vehicleCategory, setVehicleCategory] = useState<string>(() => {
+    // Catégorie du véhicule de la mission ramenée aux choix de l'écran
+    // (un SUV relève du croquis voiture).
+    const p = route.params?.vehicleCategory;
+    if (p && VEHICLE_TYPES.some((t) => t.key === p)) return p;
+    const k = sketchKindFor(p);
+    return k === 'bus' ? 'Autocar' : k === 'moto' ? 'Moto' : k === 'van' ? 'Utilitaire' : 'Berline';
+  });
   const [clientName, setClientName] = useState<string>(route.params?.clientName ?? '');
   const [km, setKm] = useState('');
   const [fuel, setFuel] = useState<number | null>(null);
@@ -178,7 +202,7 @@ export function VehicleInspectionScreen() {
   // Step 3 (Validation client) — réponses Oui/Non aux contrôles + acceptation.
   const [controls, setControls] = useState<Record<string, boolean>>({});
   const [clientAccepted, setClientAccepted] = useState(false);
-  const controlQuestions = CONTROL_QUESTIONS[phase];
+  const controlQuestions = (sketchKindFor(vehicleCategory) === 'bus' ? BUS_CONTROL_QUESTIONS : CONTROL_QUESTIONS)[phase];
 
   // Step 4 (Signatures)
   const [driverSigned, setDriverSigned] = useState(false);

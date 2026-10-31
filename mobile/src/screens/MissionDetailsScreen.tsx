@@ -1,3 +1,4 @@
+import { vehicleCategoryLabel } from '../utils/clientDocs';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
@@ -134,6 +135,7 @@ export function MissionDetailsScreen() {
     missionId: mission.id,
     reference: mission.reference,
     vehicleLabel: view.vehicleLabel ?? vehicleLabel,
+    vehicleCategory: vehicleCategoryLabel(mission.vehicle.type),
   });
   const callDriver = () => {
     if (!view.driverPhone) {

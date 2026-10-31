@@ -111,7 +111,7 @@ export function VehicleDiagram({ kind, view, damages, onAdd, onMarkerPress, heig
     >
       <View pointerEvents="none" style={{ position: 'absolute', top: 10, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between' }}>
         <Text style={{ fontSize: 11, color: '#6B7686', fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-          {kind === 'van' && view === 'top' ? 'Vue de dessus · avant en haut' : VIEW_CAPTION[view]}
+          {(kind === 'van' || kind === 'bus') && view === 'top' ? 'Vue de dessus · avant en haut' : VIEW_CAPTION[view]}
         </Text>
         {damages.length > 0 ? (
           <Text style={{ fontSize: 11, color: '#6B7686', fontWeight: '700' }}>

@@ -7,6 +7,8 @@ import { AXIS_LOGO_PDF } from './axisLogoPdf';
 import { saveBlob } from './saveFile';
 import { COMPANY, companyAddress, companyContactLine, companyLegalLine, companyRegistrationLine, orTodo } from '../config/company';
 import {
+  VEHICLE_SKETCH_BUS,
+  VEHICLE_SKETCH_BUS_RATIO,
   VEHICLE_SKETCH_CAR,
   VEHICLE_SKETCH_CAR_RATIO,
   VEHICLE_SKETCH_MOTO,
@@ -172,6 +174,8 @@ async function drawVerificationBlock(
   reference: string,
   kind: 'invoice' | 'contract',
   proof?: PdfProof,
+  /** Mention propre au véhicule (bus : permis D, contrôle technique…). */
+  note?: string,
 ) {
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -235,6 +239,13 @@ async function drawVerificationBlock(
       doc.setFontSize(6.5);
       setColor(doc, MUTED, 'text');
       doc.text('Exemplaire non signé électroniquement — à signer de la main des parties.', tx, blockY + 8);
+    }
+    if (note) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
+      setColor(doc, MUTED, 'text');
+      const lines = doc.splitTextToSize(note, W - 14 - tx) as string[];
+      doc.text(lines.slice(0, proof ? 2 : 3), tx, blockY + (proof ? 18.6 : 11.8));
     }
   } else {
     doc.setFont('helvetica', 'bold');
@@ -651,8 +662,8 @@ export function signatureFromSvgDataUrl(url?: string | null): PdfSignature | und
 }
 
 const VEHICLE_CATEGORIES = [
-  'Citadine', 'Berline', 'Break', 'Coupé', 'Monospace', 'SUV', '4×4', 'Utilitaire',
-  'Camping-car', 'Poids lourd', 'Moto', 'Élec.', 'Hybride', 'Luxe', 'Collection',
+  'Citadine', 'Berline', 'Break', 'Coupé', 'Monospace', 'SUV', '4×4', 'Utilitaire', 'Camping-car',
+  'Poids lourd', 'Moto', 'Minibus', 'Bus', 'Autocar', 'Élec.', 'Hybride', 'Luxe', 'Collection',
 ];
 
 export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsPDF): Promise<void> {
@@ -730,9 +741,9 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   y += 3;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  const col1 = VEHICLE_CATEGORIES.slice(0, 8);
-  const col2 = VEHICLE_CATEGORIES.slice(8, 15);
-  const colW = (W - 2 * M) / 8;
+  const col1 = VEHICLE_CATEGORIES.slice(0, 9);
+  const col2 = VEHICLE_CATEGORIES.slice(9, 18);
+  const colW = (W - 2 * M) / 9;
   col1.forEach((cat, i) => {
     drawCheckbox(doc, M + i * colW, y - 2.15, 2.5, cat === data.vehicleCategory);
     doc.text(cat, M + i * colW + 4, y);
@@ -826,6 +837,7 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   const cat = (data.vehicleCategory ?? '').toLowerCase();
   const vehicleKind: VehicleKind =
     cat.includes('moto') ? 'moto'
+      : (cat.includes('bus') || cat.includes('autocar')) ? 'bus'
       : cat.includes('poids') ? 'truck'
         : (cat.includes('utilit') || cat.includes('camping')) ? 'van'
           : 'car';
@@ -868,7 +880,13 @@ export async function generateContractPdf(data: ContractPdfData, sharedDoc?: jsP
   doc.text('Document contractuel — fait foi en cas de litige', W / 2, H - 5, { align: 'center' });
   doc.text('Page 1/1', W - M, H - 5, { align: 'right' });
 
-  await drawVerificationBlock(doc, data.reference || 'demo', 'contract', data.proof);
+  const kindNote =
+    vehicleKind === 'bus'
+      ? 'Transport en commun (catégorie M2/M3) convoyé à vide, sans passager, par un conducteur titulaire du permis D en cours de validité (carte de qualification de conducteur le cas échéant). Contrôle technique semestriel, chronotachygraphe et équipements de sécurité (extincteur, brise-vitre, trousse de secours, issues) vérifiés au départ et consignés ci-dessus.'
+      : vehicleKind === 'truck'
+        ? 'Véhicule de plus de 3,5 t convoyé à vide par un conducteur titulaire du permis C en cours de validité et, le cas échéant, de la carte de qualification de conducteur ; chronotachygraphe vérifié au départ.'
+        : undefined;
+  await drawVerificationBlock(doc, data.reference || 'demo', 'contract', data.proof, kindNote);
   if (!sharedDoc) triggerDownload(doc, `Contrat-Axis-${data.reference || 'demo'}.pdf`);
 }
 
@@ -939,7 +957,7 @@ function formatDateLine(date: string, time?: string): string {
 
 // Schéma véhicule vue de dessus, dessiné en vectoriel, avec repères de
 // dommages positionnés en coordonnées normalisées (0..1) de la zone donnée.
-type VehicleKind = 'car' | 'van' | 'truck' | 'moto';
+type VehicleKind = 'car' | 'van' | 'truck' | 'moto' | 'bus';
 
 // Croquis véhicule multi-vues (modèle « état des lieux ») : schéma professionnel
 // (Dessus + Avant + Arrière + Côtés + habitacle) intégré depuis un visuel JPEG.
@@ -972,9 +990,10 @@ function drawVehicleSchematic(doc: jsPDF, x: number, y: number, w: number, h: nu
 
   const isVan = kind === 'van' || kind === 'truck';
   const isMoto = kind === 'moto';
-  const img = isMoto ? VEHICLE_SKETCH_MOTO : isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
-  const ratio = isMoto ? VEHICLE_SKETCH_MOTO_RATIO : isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
-  const sketch = SKETCHES[isMoto ? 'moto' : isVan ? 'van' : 'car'];
+  const isBus = kind === 'bus';
+  const img = isBus ? VEHICLE_SKETCH_BUS : isMoto ? VEHICLE_SKETCH_MOTO : isVan ? VEHICLE_SKETCH_VAN : VEHICLE_SKETCH_CAR;
+  const ratio = isBus ? VEHICLE_SKETCH_BUS_RATIO : isMoto ? VEHICLE_SKETCH_MOTO_RATIO : isVan ? VEHICLE_SKETCH_VAN_RATIO : VEHICLE_SKETCH_CAR_RATIO;
+  const sketch = SKETCHES[isBus ? 'bus' : isMoto ? 'moto' : isVan ? 'van' : 'car'];
 
   // Ajustement « contain » : on préserve les proportions de la planche et on
   // centre le visuel dans le cadre réservé.

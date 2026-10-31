@@ -30,7 +30,7 @@ export interface MissionSummary {
     model: string;
     year: number;
     licensePlate?: string;
-    type?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'OTHER' | null;
+    type?: 'CAR' | 'SUV' | 'VAN' | 'TRUCK' | 'MOTORCYCLE' | 'BUS' | 'OTHER' | null;
   };
   driver?: { id?: string; firstName: string; lastName: string; phone?: string | null } | null;
   client?: { id?: string; firstName: string; lastName: string; phone?: string | null; companyName?: string | null } | null;

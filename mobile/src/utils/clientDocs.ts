@@ -51,13 +51,14 @@ const fmtDate = (iso?: string | null): string =>
 
 // Le type de véhicule du serveur pilote la case cochée et le croquis du
 // contrat. Les libellés doivent correspondre à VEHICLE_CATEGORIES (pdf.ts).
-function vehicleCategoryLabel(type?: string | null): string | undefined {
+export function vehicleCategoryLabel(type?: string | null): string | undefined {
   switch (type) {
     case 'CAR': return 'Berline';
     case 'SUV': return 'SUV';
     case 'VAN': return 'Utilitaire';
     case 'TRUCK': return 'Poids lourd';
     case 'MOTORCYCLE': return 'Moto';
+    case 'BUS': return 'Autocar';
     default: return undefined;
   }
 }

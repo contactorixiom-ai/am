@@ -151,6 +151,8 @@ export class MissionsService {
     if (dto.driverId) {
       const driver = await this.prisma.user.findUnique({ where: { id: dto.driverId } });
       if (!driver || driver.deletedAt) throw new NotFoundException('Convoyeur introuvable');
+      // Même règle qu'à l'affectation : un bus exige le permis D.
+      if (driver.role === UserRole.DRIVER) await this.assertLicenceForVehicle(driver.id, vehicle.id);
     }
 
     const mission = await this.prisma.mission.create({

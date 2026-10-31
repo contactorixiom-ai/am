@@ -60,9 +60,40 @@ const MOTO: Shot[] = [
   { key: 'documents', label: 'Documents de bord', hint: 'Carte grise (ou copie) et attestation d\'assurance, lisibles.', tag: 'DOCUMENT', group: 'Coffre, vitrages et intérieur' },
 ];
 
-/** Voiture et utilitaire : liste de Roger (20). Moto : 14. */
+// Bus et autocar : tour complet, soutes, portes, habitacle et poste de
+// conduite, en plus des contrôles de sécurité propres au transport de
+// personnes (issues de secours, marteaux brise-vitre, extincteur).
+const BUS: Shot[] = [
+  { key: 'front', label: 'Face avant', hint: 'Face au véhicule, à 5 m : pare-brise, afficheur, phares et pare-chocs entiers.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'frontLeft', label: 'Angle avant gauche', hint: 'À l\'angle avant gauche : face avant et flanc gauche visibles ensemble.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'sideLeft', label: 'Flanc gauche', hint: 'Perpendiculaire au côté gauche, véhicule entier (reculer au besoin).', tag: 'LEFT_SIDE', group: 'Extérieur' },
+  { key: 'rearLeft', label: 'Angle arrière gauche', hint: 'À l\'angle arrière gauche : flanc gauche et face arrière ensemble.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rear', label: 'Face arrière', hint: 'Derrière le véhicule, à 5 m : lunette, feux, trappe moteur et plaque.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'rearRight', label: 'Angle arrière droit', hint: 'À l\'angle arrière droit : face arrière et flanc droit ensemble.', tag: 'REAR', group: 'Extérieur' },
+  { key: 'sideRight', label: 'Flanc droit (portes)', hint: 'Perpendiculaire au côté droit : portes et soutes fermées, véhicule entier.', tag: 'RIGHT_SIDE', group: 'Extérieur' },
+  { key: 'frontRight', label: 'Angle avant droit', hint: 'À l\'angle avant droit : face avant et flanc droit ensemble.', tag: 'FRONT', group: 'Extérieur' },
+  { key: 'wheelFR', label: 'Roue avant droite', hint: 'Jante et pneu entiers, écrous visibles.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelFL', label: 'Roue avant gauche', hint: 'Jante et pneu entiers, écrous visibles.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelRR', label: 'Roues arrière droites', hint: 'Jumelage complet : les deux pneus et la jante extérieure.', tag: 'OTHER', group: 'Roues' },
+  { key: 'wheelRL', label: 'Roues arrière gauches', hint: 'Jumelage complet : les deux pneus et la jante extérieure.', tag: 'OTHER', group: 'Roues' },
+  { key: 'trunk', label: 'Soutes à bagages', hint: 'Trappes ouvertes : plancher, parois, contenu éventuel.', tag: 'TRUNK', group: 'Coffre, vitrages et intérieur' },
+  { key: 'windshieldOut', label: 'Pare-brise extérieur', hint: 'De l\'extérieur, tout le pare-brise : impacts et fissures.', tag: 'FRONT', group: 'Coffre, vitrages et intérieur' },
+  { key: 'windshieldIn', label: 'Poste de conduite', hint: 'Depuis le siège conducteur : pare-brise, tableau de bord, commandes.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'rearWindow', label: 'Lunette arrière', hint: 'De l\'extérieur, toute la lunette arrière.', tag: 'REAR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'mirrorLeft', label: 'Rétroviseur gauche', hint: 'De près : bras, coque et miroirs du rétroviseur gauche.', tag: 'LEFT_SIDE', group: 'Coffre, vitrages et intérieur' },
+  { key: 'mirrorRight', label: 'Rétroviseur droit', hint: 'De près : bras, coque et miroirs du rétroviseur droit.', tag: 'RIGHT_SIDE', group: 'Coffre, vitrages et intérieur' },
+  { key: 'doors', label: 'Portes ouvertes', hint: 'Porte avant et porte médiane ouvertes : marches, vantaux, joints.', tag: 'RIGHT_SIDE', group: 'Coffre, vitrages et intérieur' },
+  { key: 'interiorFront', label: 'Habitacle avant', hint: 'Depuis la porte avant : allée, premiers rangs, plafond.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'rearSeat', label: 'Habitacle arrière', hint: 'Depuis le fond : banquette arrière, derniers rangs, allée.', tag: 'INTERIOR', group: 'Coffre, vitrages et intérieur' },
+  { key: 'safety', label: 'Équipements de sécurité', hint: 'Extincteur, marteaux brise-vitre, trousse de secours, trappes de toit.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur' },
+  { key: 'roof', label: 'Toit du véhicule', hint: 'Depuis une marche ou un point haut : climatisation et trappes.', tag: 'OTHER', group: 'Coffre, vitrages et intérieur', optional: 'si possible' },
+  { key: 'documents', label: 'Documents de bord', hint: 'Carte grise, assurance, dernier contrôle technique (tous les 6 mois), lisibles.', tag: 'DOCUMENT', group: 'Coffre, vitrages et intérieur' },
+];
+
+/** Voiture et utilitaire : liste de Roger (20). Moto : 14. Bus : 24. */
 export function shotsFor(kind: SketchKind): Shot[] {
   if (kind === 'moto') return MOTO;
+  if (kind === 'bus') return BUS;
   return ROGER_LIST(kind === 'van');
 }
 
