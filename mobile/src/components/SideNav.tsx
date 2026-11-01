@@ -7,7 +7,7 @@ import type { NavigationContainerRefWithCurrent } from '@react-navigation/native
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
-import { isStaff } from '../utils/roles';
+import { isHR, isStaff } from '../utils/roles';
 import { Avatar } from './Avatar';
 import { Icons } from './Icons';
 
@@ -49,6 +49,7 @@ export function SideNav({ navigationRef }: Props) {
   if (!user) return null;
   const driver = user.role === 'DRIVER';
   const staff = isStaff(user.role);
+  const hr = isHR(user.role);
 
   const items: Item[] = [
     { key: 'Home', label: 'Accueil', icon: 'home', screen: 'AppTabs', tab: 'Home' },
@@ -60,7 +61,7 @@ export function SideNav({ navigationRef }: Props) {
           { key: 'Documents', label: 'Documents', icon: 'doc' as IconKey, screen: 'AppTabs', tab: 'Documents' },
         ]),
     { key: 'Conversations', label: 'Messages', icon: 'chat', screen: 'Conversations' },
-    ...(staff ? [{ key: 'Admin', label: 'Espace admin', icon: 'sliders' as IconKey, screen: 'Admin' }] : []),
+    ...(staff || hr ? [{ key: 'Admin', label: hr ? 'Espace RH' : 'Espace admin', icon: 'sliders' as IconKey, screen: 'Admin' }] : []),
     { key: 'Profile', label: 'Profil', icon: 'user', screen: 'AppTabs', tab: 'Profile' },
   ];
 

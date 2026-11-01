@@ -62,6 +62,24 @@ export async function runReset(confirmation: string, keep: ResetOperation[] = []
   return res;
 }
 
+/**
+ * Supprime les opérations cochées, et seulement elles (utilisable à tout
+ * moment). Il faut taper « EFFACER ».
+ */
+export function deleteOperations(
+  confirmation: string,
+  ops: ResetOperation[],
+): Promise<{ deleted: string[]; invoices: string[]; filesRemoved: number }> {
+  return apiFetch('/admin/reset/operations/delete', {
+    method: 'POST',
+    body: {
+      confirmation,
+      missionIds: ops.filter((o) => o.kind === 'mission').map((o) => o.id),
+      parcelIds: ops.filter((o) => o.kind === 'parcel').map((o) => o.id),
+    },
+  });
+}
+
 // Copies locales de l'activité sur ce téléphone (brouillons, contrats signés,
 // factures, historique et numérotation des documents) : vidées avec la base.
 const LOCAL_KEYS = [

@@ -37,4 +37,29 @@ describe('DataResetService', () => {
     expect(p.user).toBeUndefined();
     expect(res.missions).toBe(2);
   });
+
+  describe('suppression ciblée (à tout moment)', () => {
+    it('exige « EFFACER » et au moins une opération', async () => {
+      const svc = new DataResetService(prismaMock(null) as any, storage as any);
+      await expect(svc.deleteOperations('admin', 'oui', { missionIds: ['m1'] })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(svc.deleteOperations('admin', 'EFFACER', {})).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('reste disponible après la remise à zéro et ne touche qu\'aux opérations cochées', async () => {
+      const p = prismaMock(new Date('2026-10-28'));
+      p.mission.findMany = jest.fn()
+        .mockResolvedValueOnce([{ id: 'm1', reference: 'AXI-1', vehicleId: 'v1', driverId: null }])
+        .mockResolvedValue([]);
+      p.payment.findMany = jest.fn().mockResolvedValue([{ id: 'pay1', invoiceNumber: 'FA-2026-000009', status: 'PAID' }]);
+      const svc = new DataResetService(p as any, storage as any);
+      const res = await svc.deleteOperations('admin', 'effacer', { missionIds: ['m1'] });
+      expect(res.deleted).toEqual(['AXI-1']);
+      expect(res.invoices).toEqual(['FA-2026-000009']);
+      expect(p.mission.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['m1'] } } });
+      // Rien d'autre n'est vidé : ni devis, ni numérotation des factures.
+      expect(p.quote.deleteMany).not.toHaveBeenCalled();
+      expect(p.invoiceSequence.deleteMany).not.toHaveBeenCalled();
+      expect(p.auditLog.create).toHaveBeenCalled();
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import { hidesAmounts } from '../auth/staff';
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { map, Observable } from 'rxjs';
@@ -38,7 +39,7 @@ export class HideAmountsInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') return next.handle();
     const user = context.switchToHttp().getRequest().user as AuthenticatedUser | undefined;
-    if (user?.role !== UserRole.MANAGER) return next.handle();
+    if (!hidesAmounts(user?.role)) return next.handle();
     return next.handle().pipe(map((body) => stripAmounts(body)));
   }
 }

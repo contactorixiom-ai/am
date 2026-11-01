@@ -19,6 +19,8 @@ enum UserRole {
   ADMIN
   /// Responsable d'exploitation : pilote l'activité, sans gérer l'équipe ni la caisse.
   MANAGER
+  /// Ressources humaines : pièces des convoyeurs et documents administratifs, sans montants.
+  HR
 }
 
 enum UserStatus {

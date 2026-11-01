@@ -1,12 +1,13 @@
 // Onglet « Équipe » de l'espace admin (administrateur uniquement).
 //
-// Chaque responsable d'exploitation a son propre compte : Roger le crée ici,
+// Chaque membre de l'équipe (responsable d'exploitation ou RH) a son propre
+// compte : Roger le crée ici,
 // lui envoie un lien d'accès (WhatsApp, SMS) pour qu'il choisisse son mot de
 // passe, et peut lui retirer l'accès à tout moment. Les responsables pilotent
 // l'activité (envois, statuts, convoyeurs, documents, messages) mais ne voient
 // ni cet onglet, ni le chiffre d'affaires, et ne remboursent pas.
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ApiError } from '../api/client';
 import { createManager, listStaff, restoreManager, revokeManager, StaffMember } from '../api/staff';
 import { useTheme } from '../theme/ThemeProvider';
@@ -17,6 +18,7 @@ import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Pill } from './Pill';
+import { DeleteOperationsPanel } from './DeleteOperationsPanel';
 import { ResetPanel } from './ResetPanel';
 import { Surface } from './Surface';
 
@@ -28,12 +30,18 @@ interface Props {
 }
 
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '' };
+type TeamRole = 'MANAGER' | 'HR';
+const TEAM_ROLE_CHOICES: { id: TeamRole; label: string; sub: string }[] = [
+  { id: 'MANAGER', label: 'Responsable d\'exploitation', sub: 'Envois, convoyeurs, documents, messages' },
+  { id: 'HR', label: 'Ressources humaines', sub: 'Pièces des convoyeurs, documents administratifs' },
+];
 
 export function StaffPanel({ onSendAccess, onReset }: Props) {
   const { theme } = useTheme();
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [form, setForm] = useState(EMPTY);
+  const [role, setRole] = useState<TeamRole>('MANAGER');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +67,10 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
         lastName: form.lastName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
+        role,
       });
       setForm(EMPTY);
+      setRole('MANAGER');
       setAdding(false);
       load();
       // Le compte n'a pas de mot de passe : on propose tout de suite le lien.
@@ -95,10 +105,11 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
   return (
     <View style={{ gap: 12 }}>
       <Surface padded style={{ gap: 6 }}>
-        <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.bold }}>Responsables d'exploitation</Text>
+        <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.bold }}>Équipe Axis</Text>
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>
-          Chacun son compte, distinct du tien. Ils suivent et font avancer les envois, valident les convoyeurs, gèrent les documents
-          et répondent aux messages. Ils ne voient ni cet onglet, ni le chiffre d'affaires, et ne peuvent pas rembourser.
+          Chacun son compte, distinct du tien. Les responsables d'exploitation suivent et font avancer les envois, valident les
+          convoyeurs, gèrent les documents et répondent aux messages. La RH reçoit et traite les pièces des convoyeurs et les
+          documents administratifs, sans accès aux envois. Aucun ne voit cet onglet, ni les prix, ni le chiffre d'affaires.
         </Text>
       </Surface>
 
@@ -122,14 +133,14 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
                   {m.firstName} {m.lastName}
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
-                  {m.email}{m.phone ? ` · ${m.phone}` : ''}
+                  {roleLabel(m.role)} · {m.email}{m.phone ? ` · ${m.phone}` : ''}
                 </Text>
               </View>
               <Pill tone={suspended ? 'bad' : pending ? 'warn' : m.role === 'ADMIN' ? 'gold' : 'good'}>
                 {suspended ? 'Accès retiré' : pending ? 'Invitation envoyée' : roleLabel(m.role)}
               </Pill>
             </View>
-            {m.role === 'MANAGER' ? (
+            {m.role !== 'ADMIN' ? (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {!suspended ? (
                   <Button
@@ -152,7 +163,30 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
 
       {adding ? (
         <Surface padded style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.bold }}>Nouveau responsable</Text>
+          <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.bold }}>Nouveau membre de l'équipe</Text>
+          <View style={{ gap: 8 }}>
+            {TEAM_ROLE_CHOICES.map((c) => {
+              const on = role === c.id;
+              return (
+                <Pressable
+                  key={c.id}
+                  onPress={() => setRole(c.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    borderWidth: 1.5,
+                    borderColor: on ? theme.accent : theme.line,
+                    backgroundColor: on ? theme.bgSoft : theme.surface,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{c.label}</Text>
+                  <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>{c.sub}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Field containerStyle={{ flex: 1 }} label="Prénom" value={form.firstName} onChangeText={set('firstName')} autoCapitalize="words" />
             <Field containerStyle={{ flex: 1 }} label="Nom" value={form.lastName} onChangeText={set('lastName')} autoCapitalize="words" />
@@ -178,11 +212,12 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
         </Surface>
       ) : (
         <Button kind="gold" size="lg" fullWidth onPress={() => setAdding(true)}>
-          Ajouter un responsable d'exploitation
+          Ajouter un membre de l'équipe
         </Button>
       )}
 
       <View style={{ height: 12 }} />
+      <DeleteOperationsPanel onDone={onReset} />
       <ResetPanel onDone={onReset} />
     </View>
   );

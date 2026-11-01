@@ -68,7 +68,7 @@ const formatAddress = (a: DirectoryAddress) => {
 const fullName = (u: { firstName: string; lastName: string }) => `${u.firstName} ${u.lastName}`.trim();
 
 function typeOf(u: Pick<DirectoryUser, 'role' | 'accountType'>): { label: string; tone: PillTone } {
-  if (u.role === 'ADMIN' || u.role === 'MANAGER') return { label: roleLabel(u.role), tone: 'gold' };
+  if (u.role === 'ADMIN' || u.role === 'MANAGER' || u.role === 'HR') return { label: roleLabel(u.role), tone: 'gold' };
   if (u.role === 'DRIVER') return { label: 'Convoyeur', tone: 'navy' };
   return u.accountType === 'PROFESSIONAL' ? { label: 'Professionnel', tone: 'navy' } : { label: 'Particulier', tone: 'default' };
 }

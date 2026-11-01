@@ -274,13 +274,17 @@ export class MissionsService {
   async search(query: SearchMissionsDto, user: AuthenticatedUser) {
     const where: Prisma.MissionWhereInput = {};
 
-    if (user.role === UserRole.CLIENT) {
-      where.clientId = user.id;
-    } else if (user.role === UserRole.DRIVER) {
+    if (user.role === UserRole.DRIVER) {
       // Roger affecte les missions : un convoyeur ne voit que les siennes.
       // Il voyait toutes les commandes publiées (nom, téléphone et adresses
       // des clients), et n'importe qui peut créer un compte convoyeur.
       where.driverId = user.id;
+    } else if (!isStaff(user.role)) {
+      // Client, RH ou tout autre rôle : ses propres commandes seulement.
+      // Seuls l'administrateur et les responsables d'exploitation voient
+      // l'ensemble (auparavant, tout rôle autre que client ou convoyeur
+      // voyait toutes les missions).
+      where.clientId = user.id;
     }
 
     if (query.status) where.status = query.status;

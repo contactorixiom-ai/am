@@ -45,7 +45,7 @@ import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StaffPanel } from '../components/StaffPanel';
-import { isAdmin } from '../utils/roles';
+import { isAdmin, isHR } from '../utils/roles';
 
 // Responsables d'exploitation : aucun prix ni montant. Les factures clients
 // et les champs de prix des documents sont réservés à l'administrateur.
@@ -96,6 +96,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'team', label: 'Équipe' },
 ];
 const ADMIN_ONLY_TABS: TabId[] = ['members', 'team'];
+// Ressources humaines : pièces des convoyeurs et documents administratifs,
+// sans l'exploitation (envois, tableau de bord) ni l'équipe.
+const HR_TABS: TabId[] = ['drivers', 'documents', 'generate'];
 
 const ACTIVITY_LABEL: Record<AdminActivity, string> = {
   convoyage: 'Convoyage',
@@ -253,11 +256,19 @@ export function AdminScreen() {
   // Responsable d'exploitation : pilote l'activité, sans l'onglet Équipe ni
   // le chiffre d'affaires.
   const meIsAdmin = isAdmin(me?.role);
+  const meIsHR = isHR(me?.role);
+  const visibleTabs = meIsHR
+    ? TABS.filter((t) => HR_TABS.includes(t.id)).sort((a, b) => HR_TABS.indexOf(a.id) - HR_TABS.indexOf(b.id))
+    : TABS.filter((t) => meIsAdmin || !ADMIN_ONLY_TABS.includes(t.id));
   // Documents d'une liasse visibles pour ce compte (pas de facture pour un responsable).
   const packItems = (pack: DocPack) => pack.items.filter((i) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(i.typeId));
   const [compareMode, setCompareMode] = useState(false);
   const route = useRoute<RouteProp<RootStackParamList, 'Admin'>>();
-  const [tab, setTab] = useState<TabId>(route.params?.tab ?? 'dashboard');
+  const [tab, setTab] = useState<TabId>(() => {
+    const asked = route.params?.tab;
+    if (isHR(me?.role)) return asked && HR_TABS.includes(asked) ? asked : 'drivers';
+    return asked ?? 'dashboard';
+  });
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
   useEffect(() => {
@@ -333,6 +344,12 @@ export function AdminScreen() {
   }, []);
 
   const loadShipments = useCallback(async () => {
+    // La RH ne traite pas les envois : rien à charger.
+    if (isHR(me?.role)) {
+      setShipmentsLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (isAdmin(me?.role)) getPaymentsSummary().then(setPayments).catch(() => setPayments(null));
     // Règlements = chiffres : l'administrateur seulement.
     if (isAdmin(me?.role)) listPayments().then((r) => setPaymentList(r.data)).catch(() => setPaymentList([]));
@@ -647,13 +664,16 @@ export function AdminScreen() {
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Espace admin" subtitle={meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'} />
+      <AppBar
+        title={meIsHR ? 'Espace RH' : 'Espace admin'}
+        subtitle={meIsHR ? 'Pièces des convoyeurs · documents administratifs' : meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'}
+      />
 
       {/* Onglets internes */}
       {/* Onglets sur une ou deux lignes : en défilement horizontal, les
           derniers (Convoyeurs, Équipe) sortaient de l'écran d'un téléphone. */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10, flexShrink: 0 }}>
-        {TABS.filter((t) => meIsAdmin || !ADMIN_ONLY_TABS.includes(t.id)).map((t) => {
+        {visibleTabs.map((t) => {
           const on = tab === t.id;
           return (
             <Pressable

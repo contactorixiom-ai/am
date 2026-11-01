@@ -25,6 +25,26 @@ class ResetDto {
   keepParcelIds?: string[];
 }
 
+class DeleteOperationsDto {
+  @IsString()
+  @MaxLength(20)
+  confirmation!: string;
+
+  /** Convoyages de test à supprimer. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsUUID('all', { each: true })
+  missionIds?: string[];
+
+  /** Colis / envois de test à supprimer. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsUUID('all', { each: true })
+  parcelIds?: string[];
+}
+
 @ApiTags('admin')
 @ApiBearerAuth()
 @AdminOnly()
@@ -48,5 +68,11 @@ export class DataResetController {
   @ApiOperation({ summary: 'Administrateur : effacer l\'activité de test, sauf les opérations gardées (une seule fois)' })
   run(@CurrentUser('id') adminId: string, @Body() dto: ResetDto) {
     return this.reset.reset(adminId, dto.confirmation, { missionIds: dto.keepMissionIds, parcelIds: dto.keepParcelIds });
+  }
+
+  @Post('operations/delete')
+  @ApiOperation({ summary: 'Administrateur : supprimer les opérations cochées (et seulement elles), à tout moment' })
+  deleteOperations(@CurrentUser('id') adminId: string, @Body() dto: DeleteOperationsDto) {
+    return this.reset.deleteOperations(adminId, dto.confirmation, { missionIds: dto.missionIds, parcelIds: dto.parcelIds });
   }
 }

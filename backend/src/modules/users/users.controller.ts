@@ -9,8 +9,8 @@ import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 import { UsersService } from './users.service';
 import { DirectoryQueryDto, DriverQueryDto } from './dto/directory-query.dto';
 import { AdminOnly } from '../../common/decorators/admin-only.decorator';
-import { CreateManagerDto } from './dto/create-manager.dto';
-import { isStaff } from '../../common/auth/staff';
+import { CreateManagerDto, CreateStaffDto } from './dto/create-manager.dto';
+import { handlesPaperwork } from '../../common/auth/staff';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -59,8 +59,8 @@ export class UsersController {
 
   @Post('staff')
   @AdminOnly()
-  @ApiOperation({ summary: 'Administrateur : créer le compte d\'un responsable d\'exploitation' })
-  createManager(@CurrentUser('id') adminId: string, @Body() dto: CreateManagerDto) {
+  @ApiOperation({ summary: 'Administrateur : créer le compte d\'un responsable d\'exploitation ou de la RH' })
+  createManager(@CurrentUser('id') adminId: string, @Body() dto: CreateStaffDto) {
     return this.users.createManager(adminId, dto);
   }
 
@@ -113,14 +113,14 @@ export class UsersController {
   }
 
   @Post('drivers/invite')
-  @Roles(UserRole.ADMIN) // administrateur et responsables d'exploitation
+  @Roles(UserRole.ADMIN, UserRole.HR) // administrateur, responsables d'exploitation et RH
   @ApiOperation({ summary: 'Équipe : inviter un convoyeur (compte créé, lien d\'accès à envoyer)' })
   inviteDriver(@CurrentUser('id') staffId: string, @Body() dto: CreateManagerDto) {
     return this.users.inviteDriver(staffId, dto);
   }
 
   @Get('drivers/invited')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.HR)
   @ApiOperation({ summary: 'Équipe : convoyeurs invités pas encore connectés' })
   invitedDrivers() {
     return this.users.listInvitedDrivers();
@@ -142,7 +142,7 @@ export class UsersController {
   findOne(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser) {
     // E-mail, téléphone et adresse de facturation : pas pour n'importe quel
     // compte connecté.
-    if (!isStaff(user.role) && user.id !== id) {
+    if (!handlesPaperwork(user.role) && user.id !== id) {
       throw new ForbiddenException('Accès réservé.');
     }
     return this.users.findById(id);

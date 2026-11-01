@@ -1,3 +1,4 @@
+import { hidesAmounts } from '../auth/staff';
 import { stripAmounts } from './hide-amounts.interceptor';
 
 describe('stripAmounts', () => {
@@ -12,5 +13,14 @@ describe('stripAmounts', () => {
     expect(out.data[0]).toEqual({ reference: 'AXP-1', declaredValueCents: 30000, createdAt: date, payments: [{ status: 'PAID' }], items: [{ valueCents: 100 }] });
     expect(out.values).toEqual({ clientName: 'X' });
     expect(out.total).toBe(1);
+  });
+});
+
+describe('hidesAmounts', () => {
+  it('masque les montants au responsable d\'exploitation et à la RH, pas à l\'administrateur', () => {
+    expect(hidesAmounts('MANAGER')).toBe(true);
+    expect(hidesAmounts('HR')).toBe(true);
+    expect(hidesAmounts('ADMIN')).toBe(false);
+    expect(hidesAmounts('CLIENT')).toBe(false);
   });
 });

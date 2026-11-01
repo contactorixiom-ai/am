@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { AccountType, Prisma, UserRole, UserStatus } from '@prisma/client';
+import { TEAM_ROLES } from '../../common/auth/staff';
 import { normalizeSiret, normalizeVat } from '../../common/validation/company-ids';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -312,13 +313,14 @@ export class UsersService {
 
   listStaff() {
     return this.prisma.user.findMany({
-      where: { role: { in: [UserRole.ADMIN, UserRole.MANAGER] }, deletedAt: null },
+      where: { role: { in: [UserRole.ADMIN, ...TEAM_ROLES] }, deletedAt: null },
       select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, lastLoginAt: true, createdAt: true },
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
-  async createManager(adminId: string, dto: { firstName: string; lastName: string; email: string; phone?: string }) {
+  async createManager(adminId: string, dto: { firstName: string; lastName: string; email: string; phone?: string; role?: UserRole }) {
+    const role = dto.role === UserRole.HR ? UserRole.HR : UserRole.MANAGER;
     const email = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing && !existing.deletedAt) {
@@ -333,14 +335,14 @@ export class UsersService {
         email,
         phone: dto.phone?.trim() || null,
         passwordHash,
-        role: UserRole.MANAGER,
+        role,
         status: UserStatus.PENDING,
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
       },
       select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
     });
-    await this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_CREATE', entity: 'User', entityId: user.id } });
+    await this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_CREATE', entity: 'User', entityId: user.id, metadata: { role } } });
     return user;
   }
 
@@ -399,7 +401,7 @@ export class UsersService {
   /** Retire l'accès d'un responsable : compte suspendu, sessions coupées. */
   async revokeManager(adminId: string, id: string) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
-    if (!user || user.role !== UserRole.MANAGER) throw new NotFoundException('Responsable introuvable.');
+    if (!user || !TEAM_ROLES.includes(user.role)) throw new NotFoundException('Membre de l\'équipe introuvable.');
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id }, data: { status: UserStatus.SUSPENDED } }),
       this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
@@ -411,7 +413,7 @@ export class UsersService {
   /** Rend l'accès à un responsable suspendu (il garde son mot de passe). */
   async restoreManager(adminId: string, id: string) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
-    if (!user || user.role !== UserRole.MANAGER) throw new NotFoundException('Responsable introuvable.');
+    if (!user || !TEAM_ROLES.includes(user.role)) throw new NotFoundException('Membre de l\'équipe introuvable.');
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id }, data: { status: UserStatus.ACTIVE } }),
       this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_RESTORE', entity: 'User', entityId: id } }),
@@ -427,7 +429,7 @@ export class UsersService {
       individual: { role: UserRole.CLIENT, accountType: AccountType.INDIVIDUAL },
       pro: { role: UserRole.CLIENT, accountType: AccountType.PROFESSIONAL },
       driver: { role: UserRole.DRIVER },
-      staff: { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+      staff: { role: { in: [UserRole.ADMIN, ...TEAM_ROLES] } },
     };
     return {
       deletedAt: null,

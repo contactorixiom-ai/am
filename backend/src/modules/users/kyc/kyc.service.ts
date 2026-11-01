@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KycDocument, KycStatus } from '@prisma/client';
+import { KycDocument, KycStatus, NotificationType, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { ReviewKycDto } from './dto/review-kyc.dto';
@@ -47,7 +47,7 @@ export class KycService {
     });
     if (taken) throw new BadRequestException('Fichier déjà utilisé.');
 
-    return this.prisma.kycDocument.create({
+    const created = await this.prisma.kycDocument.create({
       data: {
         userId,
         type: dto.type,
@@ -59,6 +59,33 @@ export class KycService {
         status: KycStatus.PENDING,
       },
     });
+    await this.notifyReviewers(userId, dto.type).catch(() => { /* le dépôt est enregistré même si l'envoi échoue */ });
+    return created;
+  }
+
+  /**
+   * Une pièce attend d'être vérifiée : l'administrateur et la RH sont
+   * prévenus (auparavant, personne ne l'était et la pièce attendait qu'on
+   * pense à ouvrir l'onglet Convoyeurs).
+   */
+  private async notifyReviewers(userId: string, type: string) {
+    const [owner, reviewers] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } }),
+      this.prisma.user.findMany({
+        where: { role: { in: [UserRole.ADMIN, UserRole.HR] }, deletedAt: null, status: { not: UserStatus.SUSPENDED } },
+        select: { id: true },
+      }),
+    ]);
+    const who = owner ? `${owner.firstName} ${owner.lastName}`.trim() : 'Un convoyeur';
+    const label = KYC_LABELS[type] ?? 'Document';
+    await Promise.all(
+      reviewers.map((r) =>
+        this.notifications.notify(r.id, NotificationType.SYSTEM, `${label} à vérifier`, `${who} vient de déposer : ${label.toLowerCase()}.`, {
+          kind: 'KYC_SUBMITTED',
+          targetUserId: userId,
+        }),
+      ),
+    );
   }
 
   /** Liste les documents d'un utilisateur + statut KYC global agrégé. */

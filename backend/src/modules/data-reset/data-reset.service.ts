@@ -5,6 +5,7 @@ import { StorageService } from '../storage/storage.service';
 
 export const RESET_ACTION = 'DATA_RESET';
 export const RESET_CONFIRMATION = 'EFFACER';
+export const DELETE_OPERATIONS_ACTION = 'OPERATIONS_DELETE';
 
 export interface ResetKeep {
   missionIds?: string[];
@@ -260,9 +261,111 @@ export class DataResetService {
     return { ...after, kept: keptRefs, filesRemoved: removed };
   }
 
-  /** Missions terminées et avis des convoyeurs, d'après les missions gardées. */
-  private async recountDrivers() {
+  /**
+   * Suppression ciblée, utilisable à tout moment : Roger coche les
+   * opérations de test, et seules celles-là disparaissent avec ce qui leur
+   * est rattaché (suivi, états des lieux, photos, messages, avis, paiements,
+   * documents, notifications). Tout le reste est intact, contrairement à la
+   * remise à zéro complète d'avant lancement.
+   *
+   * Les numéros de facture des paiements supprimés ne sont jamais réattribués
+   * (la séquence n'est pas touchée) et sont inscrits au journal.
+   */
+  async deleteOperations(adminId: string, confirmation: string, ids: ResetKeep) {
+    if ((confirmation ?? '').trim().toUpperCase() !== RESET_CONFIRMATION) {
+      throw new BadRequestException(`Tape « ${RESET_CONFIRMATION} » pour confirmer.`);
+    }
     const p = this.prisma;
+    const [missions, parcels] = await Promise.all([
+      p.mission.findMany({ where: { id: { in: ids.missionIds ?? [] } }, select: { id: true, reference: true, vehicleId: true, driverId: true } }),
+      p.parcel.findMany({ where: { id: { in: ids.parcelIds ?? [] } }, select: { id: true, reference: true } }),
+    ]);
+    if (!missions.length && !parcels.length) {
+      throw new BadRequestException('Coche au moins une opération à supprimer.');
+    }
+    const mIds = missions.map((m) => m.id);
+    const pIds = parcels.map((x) => x.id);
+    const refs = [...missions, ...parcels].map((o) => o.reference);
+    const ofOps: { OR: Array<Record<string, { in: string[] }>> } = {
+      OR: [...(mIds.length ? [{ missionId: { in: mIds } }] : []), ...(pIds.length ? [{ parcelId: { in: pIds } }] : [])],
+    };
+
+    // Ce qui sera supprimé avec les opérations, et les fichiers à retirer.
+    const [payments, documents, inspectionPhotos, attachments] = await Promise.all([
+      p.payment.findMany({ where: ofOps, select: { id: true, invoiceNumber: true, status: true } }),
+      p.document.findMany({ where: ofOps, select: { id: true, fileUrl: true, signatureUrl: true } }),
+      p.inspectionPhoto.findMany({ where: { inspection: { missionId: { in: mIds } } }, select: { url: true, thumbnailUrl: true } }),
+      p.message.findMany({ where: { attachmentUrl: { not: null }, conversation: ofOps }, select: { attachmentUrl: true } }),
+    ]);
+    // Véhicules : supprimés seulement s'ils ne servent à aucune autre mission.
+    const vehicleIds = [...new Set(missions.map((m) => m.vehicleId))];
+    const stillUsed = vehicleIds.length
+      ? await p.mission.findMany({ where: { vehicleId: { in: vehicleIds }, id: { notIn: mIds } }, select: { vehicleId: true } })
+      : [];
+    const orphanVehicles = vehicleIds.filter((v) => !stillUsed.some((m) => m.vehicleId === v));
+    const vehiclePhotos = orphanVehicles.length
+      ? await p.vehiclePhoto.findMany({ where: { vehicleId: { in: orphanVehicles } }, select: { url: true } })
+      : [];
+    const files = [
+      ...documents.flatMap((d) => [d.fileUrl, d.signatureUrl]),
+      ...inspectionPhotos.flatMap((i) => [i.url, i.thumbnailUrl]),
+      ...vehiclePhotos.map((v) => v.url),
+      ...attachments.map((m) => m.attachmentUrl),
+    ].filter((u): u is string => !!u);
+    const invoices = payments.map((x) => x.invoiceNumber).filter((n): n is string => !!n);
+
+    // Notifications qui renvoient vers une opération supprimée.
+    const notifWhere: Prisma.NotificationWhereInput = {
+      OR: [
+        ...mIds.map((id) => ({ payload: { path: ['missionId'], equals: id } })),
+        ...pIds.map((id) => ({ payload: { path: ['parcelId'], equals: id } })),
+      ],
+    };
+
+    // Les missions et colis entraînent en cascade : historique, positions,
+    // états des lieux et photos, avis, conversations et messages, articles et
+    // suivi des colis. Paiements, documents et notes de suivi sont détachés
+    // par la base (SET NULL) : on les supprime explicitement avant.
+    await p.$transaction([
+      p.payment.deleteMany({ where: { id: { in: payments.map((x) => x.id) } } }),
+      p.document.deleteMany({ where: { id: { in: documents.map((d) => d.id) } } }),
+      p.notification.deleteMany({ where: notifWhere }),
+      ...(pIds.length ? [p.cargoTrackingNote.deleteMany({ where: { parcelId: { in: pIds } } })] : []),
+      p.mission.deleteMany({ where: { id: { in: mIds } } }),
+      p.parcel.deleteMany({ where: { id: { in: pIds } } }),
+      p.vehicle.deleteMany({ where: { id: { in: orphanVehicles } } }),
+      p.auditLog.create({
+        data: {
+          userId: adminId,
+          action: DELETE_OPERATIONS_ACTION,
+          entity: 'Operation',
+          metadata: { references: refs, invoices, payments: payments.length, documents: documents.length },
+        },
+      }),
+    ]);
+
+    // Compteurs des convoyeurs concernés : recalculés sur ce qui reste.
+    if (missions.some((m) => m.driverId)) await this.recountDrivers(missions.map((m) => m.driverId).filter((d): d is string => !!d));
+
+    let removed = 0;
+    for (const url of files) {
+      if (await this.storage.removeByUrl(url).catch(() => false)) removed += 1;
+    }
+    this.logger.warn(`Suppression d'opérations par ${adminId} : ${refs.join(', ')} · ${removed} fichier(s) supprimé(s).`);
+    return { deleted: refs, invoices, filesRemoved: removed };
+  }
+
+  /** Missions terminées et avis des convoyeurs, d'après les missions gardées. */
+  private async recountDrivers(resetFirst: string[] = []) {
+    const p = this.prisma;
+    // Convoyeurs dont une mission a été supprimée : remis à zéro, puis
+    // recalculés ci-dessous s'il leur reste des missions ou des avis.
+    if (resetFirst.length) {
+      await p.driverProfile.updateMany({
+        where: { userId: { in: resetFirst } },
+        data: { completedMissions: 0, averageRating: 0, ratingCount: 0 },
+      });
+    }
     const [done, reviews] = await Promise.all([
       p.mission.groupBy({ by: ['driverId'], where: { driverId: { not: null }, status: { in: ['DELIVERED', 'COMPLETED'] } }, _count: { _all: true } }),
       p.review.groupBy({ by: ['targetId'], _avg: { rating: true }, _count: { _all: true } }),

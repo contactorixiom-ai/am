@@ -15,7 +15,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { isStaff, roleLabel } from '../utils/roles';
+import { isHR, isStaff, roleLabel } from '../utils/roles';
 
 export function ProfileScreen() {
   const { theme, isDark, setMode } = useTheme();
@@ -188,8 +188,16 @@ export function ProfileScreen() {
           </MenuSection>
 
           {/* Accès réservés : n'apparaissent que pour les rôles concernés. */}
-          {isStaff(user?.role) || user?.role === 'DRIVER' ? (
+          {isStaff(user?.role) || isHR(user?.role) || user?.role === 'DRIVER' ? (
             <MenuSection label="Axis">
+              {isHR(user?.role) ? (
+                <MenuRow
+                  iconKey="sliders"
+                  label="Espace RH"
+                  sub="Pièces des convoyeurs · documents administratifs"
+                  onPress={() => nav.navigate('Admin')}
+                />
+              ) : null}
               {isStaff(user?.role) ? (
                 <MenuRow
                   iconKey="sliders"

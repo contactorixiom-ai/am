@@ -25,7 +25,7 @@ import { Stagger } from '../components/Stagger';
 import { listPayments } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { isAdmin, isStaff } from '../utils/roles';
+import { isAdmin, isHR, isStaff } from '../utils/roles';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -41,6 +41,7 @@ export function HomeScreen() {
   // il garde donc l'interface cliente complète.
   const isDriverOnly = user?.role === 'DRIVER';
   const staff = isStaff(user?.role);
+  const hr = isHR(user?.role);
   useEffect(() => {
     // Inutile d'interroger l'API pour un client : le KYC ne le concerne pas.
     if (!isDriver) return;
@@ -226,8 +227,8 @@ export function HomeScreen() {
           />
         ) : null}
 
-        {/* Accès direct Espace admin — réservé aux opérateurs (rôle ADMIN) */}
-        {isStaff(user?.role) ? (
+        {/* Accès direct Espace admin (équipe Axis) ou Espace RH */}
+        {staff || hr ? (
           <Pressable
             onPress={() => nav.navigate('Admin')}
             style={({ pressed }) => ({
@@ -245,9 +246,9 @@ export function HomeScreen() {
               <Icons.sliders size={22} color={theme.goldDeep} stroke={1.7} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Espace admin</Text>
+              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{hr ? 'Espace RH' : 'Espace admin'}</Text>
               <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
-                Documents officiels · envois à traiter
+                {hr ? 'Pièces des convoyeurs · documents administratifs' : 'Documents officiels · envois à traiter'}
               </Text>
             </View>
             <Icons.chev size={18} color={theme.muted} stroke={2} />
@@ -257,12 +258,20 @@ export function HomeScreen() {
         {/* Équipe Axis (administrateur, responsables d'exploitation) : pas
             de blocs « client » sur l'accueil — les envois des autres s'y
             affichaient comme « Ton colis ». À la place, le pilotage du jour. */}
-        {staff ? (
+        {staff || hr ? (
           <Surface padded style={{ gap: 4 }}>
             <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
-              Pilotage
+              {hr ? 'Ressources humaines' : 'Pilotage'}
             </Text>
-            {[
+            {(hr
+              ? [
+                  // RH : les pièces et documents administratifs, sans l'exploitation.
+                  { label: 'Pièces à vérifier', sub: 'Identité et permis déposés par les convoyeurs', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+                  { label: 'Inviter un convoyeur', sub: 'Créer son compte et lui envoyer son accès', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+                  { label: 'Documents administratifs', sub: 'Contrats, attestations, documents reçus', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'documents' }) },
+                  { label: 'Générer un document', sub: 'Contrat, attestation, document officiel', icon: Icons.sig, go: () => nav.navigate('Admin', { tab: 'generate' }) },
+                ]
+              : [
               { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
               { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
               { label: 'Messages', sub: 'Clients et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
@@ -271,7 +280,7 @@ export function HomeScreen() {
               ...(isAdmin(user?.role)
                 ? [{ label: 'Inscrits', sub: 'Clients, pros, convoyeurs : tous les comptes', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'members' }) }]
                 : []),
-            ].map((row, idx) => (
+            ]).map((row, idx) => (
               <Pressable
                 key={row.label}
                 onPress={row.go}
