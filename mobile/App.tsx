@@ -1,3 +1,5 @@
+// En premier : complète le TextDecoder natif avant le chargement de jsPDF.
+import './src/polyfills/textDecoderLatin1';
 import {
   Manrope_400Regular,
   Manrope_500Medium,
