@@ -1,3 +1,4 @@
+import { isTeamRole } from '../../common/auth/staff';
 import {
   BadRequestException,
   ConflictException,
@@ -60,7 +61,7 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthResult> {
     // Ceinture et bretelles : même si la validation du DTO venait à changer,
     // l'inscription publique ne crée jamais d'administrateur.
-    if (dto.role === UserRole.ADMIN || dto.role === UserRole.MANAGER || dto.role === UserRole.HR) {
+    if (dto.role === UserRole.ADMIN || isTeamRole(dto.role)) {
       throw new BadRequestException('Ce rôle ne peut pas être choisi à l\'inscription.');
     }
     // L'adresse était cherchée telle quelle mais enregistrée en minuscules :
@@ -243,7 +244,7 @@ export class AuthService {
       // d'un autre administrateur par ce biais.
       throw new BadRequestException('Impossible pour un compte administrateur.');
     }
-    if (user.role === UserRole.MANAGER || user.role === UserRole.HR) {
+    if (isTeamRole(user.role)) {
       // Seul l'administrateur donne accès à un compte d'équipe (responsable
       // d'exploitation, RH) : un membre ne peut pas prendre la main sur le
       // compte d'un autre.

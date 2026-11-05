@@ -15,7 +15,7 @@ export interface DirectoryUser {
   id: string;
   email: string;
   phone: string | null;
-  role: 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER' | 'HR';
+  role: 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   accountType: 'INDIVIDUAL' | 'PROFESSIONAL';
   firstName: string;
@@ -78,4 +78,22 @@ export function getDirectoryStats(): Promise<DirectoryStats> {
 
 export function getDirectoryEntry(id: string): Promise<DirectoryEntry> {
   return apiFetch<DirectoryEntry>(`/users/directory/${id}`);
+}
+
+// ─── Pouvoirs de l'administrateur sur les comptes ────────────────────────────
+
+export function suspendAccount(id: string) {
+  return apiFetch<{ id: string; status: string }>(`/users/${id}/suspend`, { method: 'PATCH' });
+}
+
+export function reactivateAccount(id: string) {
+  return apiFetch<{ id: string; status: string }>(`/users/${id}/reactivate`, { method: 'PATCH' });
+}
+
+export function setAccountRole(id: string, role: DirectoryUser['role']) {
+  return apiFetch<{ id: string; role: string }>(`/users/${id}/role`, { method: 'PATCH', body: { role } });
+}
+
+export function deleteAccount(id: string) {
+  return apiFetch<{ id: string }>(`/users/${id}`, { method: 'DELETE' });
 }

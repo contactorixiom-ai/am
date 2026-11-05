@@ -91,10 +91,20 @@ export function RecipientDetailsScreen() {
   const [created, setCreated] = useState<{ id: string; reference: string } | null>(null);
   const doneRef = useRef(false);
 
+  // Règlement à l'agence (carte bancaire au TPE, espèces) : l'envoi est
+  // enregistré sans passer par le paiement en ligne. Roger encaisse ensuite
+  // depuis l'espace admin (Envois → Encaisser), ce qui émet la facture.
+  const agencyRef = useRef(false);
+  const handleAgency = () => {
+    agencyRef.current = true;
+    void handlePay();
+  };
+
   const handlePay = async () => {
     if (!validate()) return;
     if (created) {
-      setShowPayment(true);
+      if (agencyRef.current) finish(true);
+      else setShowPayment(true);
       return;
     }
     const destinationAddress = deliverToRelay
@@ -136,7 +146,8 @@ export function RecipientDetailsScreen() {
         recipientEmail: email.trim() || undefined,
       });
       setCreated({ id: parcel.id, reference: parcel.reference });
-      setShowPayment(true);
+      if (agencyRef.current) finishWith(parcel, true);
+      else setShowPayment(true);
     } catch (e) {
       const msg =
         e instanceof ApiError && e.isNetworkError
@@ -150,11 +161,14 @@ export function RecipientDetailsScreen() {
     }
   };
 
-  const finish = (unpaid: boolean) => {
-    if (!created || doneRef.current) return;
+  const finishWith = (c: { id: string; reference: string }, unpaid: boolean) => {
+    if (doneRef.current) return;
     doneRef.current = true;
     resetDraft();
-    nav.replace('BookingConfirmation', { kind: 'parcel', reference: created.reference, id: created.id, unpaid });
+    nav.replace('BookingConfirmation', { kind: 'parcel', reference: c.reference, id: c.id, unpaid, agency: unpaid && agencyRef.current });
+  };
+  const finish = (unpaid: boolean) => {
+    if (created) finishWith(created, unpaid);
   };
 
   return (
@@ -344,11 +358,21 @@ export function RecipientDetailsScreen() {
             kind="gold"
             size="lg"
             fullWidth
-            onPress={() => void handlePay()}
+            onPress={() => { agencyRef.current = false; void handlePay(); }}
             loading={loading}
             rightIcon={<Icons.arrow size={18} color={theme.onGold} stroke={2} />}
           >
             Payer et envoyer
+          </Button>
+          <Button
+            kind="ghost"
+            size="md"
+            fullWidth
+            onPress={handleAgency}
+            disabled={loading}
+            style={{ marginTop: 6 }}
+          >
+            Déjà réglé ou à régler à l'agence (carte, espèces)
           </Button>
         </View>
       </KeyboardAvoidingView>

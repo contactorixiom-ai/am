@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 
-export type StaffRole = 'ADMIN' | 'MANAGER' | 'HR';
+export type StaffRole = 'ADMIN' | 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
 
 export interface StaffMember {
   id: string;
@@ -19,7 +19,7 @@ export function listStaff(): Promise<StaffMember[]> {
   return apiFetch<StaffMember[]>('/users/staff');
 }
 
-export function createManager(input: { firstName: string; lastName: string; email: string; phone?: string; role?: 'MANAGER' | 'HR' }): Promise<StaffMember> {
+export function createManager(input: { firstName: string; lastName: string; email: string; phone?: string; role?: 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT' }): Promise<StaffMember> {
   return apiFetch<StaffMember>('/users/staff', { method: 'POST', body: input });
 }
 

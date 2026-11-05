@@ -21,6 +21,10 @@ enum UserRole {
   MANAGER
   /// Ressources humaines : pièces des convoyeurs et documents administratifs, sans montants.
   HR
+  /// Secrétariat : relaie les informations à l'équipe et dépose billets et réservations.
+  SECRETARY
+  /// Comptabilité : reçoit les justificatifs de frais des convoyeurs et salariés.
+  ACCOUNTANT
 }
 
 enum UserStatus {
@@ -89,6 +93,8 @@ model User {
   quotes          Quote[]                   @relation("QuoteCustomer")
   payments        Payment[]                 @relation("PaymentClient")
   passwordResets  PasswordResetToken[]
+  staffFiles      StaffFile[]               @relation("StaffFileOwner")
+  staffRequests   StaffRequest[]            @relation("StaffRequestTarget")
 
   @@index([email])
   @@index([phone])
@@ -126,6 +132,10 @@ enum KycDocumentType {
   COMPANY_REGISTRATION
   VAT_CERTIFICATE
   INSURANCE
+  /// Attestation de droits à l'assurance maladie (obligatoire pour un convoyeur).
+  HEALTH_INSURANCE_RIGHTS
+  /// Carte Vitale (obligatoire pour un convoyeur).
+  VITALE_CARD
   OTHER
 }
 
@@ -1172,4 +1182,107 @@ model DocumentSequence {
   seq    Int    @default(0)
 
   @@id([typeId, year])
+}
+
+// ============================================================================
+//  DOSSIER DU PERSONNEL (convoyeurs et salariés)
+// ============================================================================
+
+enum StaffFileKind {
+  /// Billet de train, de bus, d'avion ou réservation d'hébergement déposé par Axis.
+  TRAVEL
+  /// Justificatif de frais envoyé par le salarié (ticket de caisse, péage, carburant…).
+  EXPENSE
+  /// Document administratif envoyé par la RH (contrat, assurance, fiche de paie…).
+  HR_DOCUMENT
+  /// Pièce envoyée par le salarié à la RH, en réponse à une demande ou non.
+  EMPLOYEE_DOCUMENT
+}
+
+enum StaffFileStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  /// Frais remboursés par la comptabilité.
+  REIMBURSED
+}
+
+/// Pièce échangée entre Axis et un convoyeur ou un salarié.
+model StaffFile {
+  id             String          @id @default(uuid()) @db.Uuid
+  /// Le convoyeur ou salarié concerné.
+  userId         String          @db.Uuid
+  user           User            @relation("StaffFileOwner", fields: [userId], references: [id], onDelete: Cascade)
+  kind           StaffFileKind
+  /// TRAIN, BUS, FLIGHT, HOTEL, FUEL, TOLL, PARKING, MEAL, RECEIPT, CONTRACT, INSURANCE, PAYSLIP, OTHER…
+  category       String
+  title          String
+  note           String?
+  amountCents    Int?
+  /// Date de la dépense ou du voyage.
+  spentAt        DateTime?
+  missionId      String?         @db.Uuid
+  missionRef     String?
+  /// Demande de la RH à laquelle la pièce répond.
+  requestId      String?         @db.Uuid
+  status         StaffFileStatus @default(PENDING)
+  reviewNote     String?
+  reviewedAt     DateTime?
+  reviewedById   String?         @db.Uuid
+  fileUrl        String
+  fileName       String
+  mimeType       String
+  fileSize       Int
+  uploadedById   String          @db.Uuid
+  uploadedByName String
+  /// Ouvert par le destinataire.
+  seenAt         DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId, kind])
+  @@index([kind, status])
+}
+
+enum StaffRequestStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+/// Pièce ou information demandée par la RH à un convoyeur ou un salarié.
+model StaffRequest {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @db.Uuid
+  user            User               @relation("StaffRequestTarget", fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  message         String?
+  dueAt           DateTime?
+  status          StaffRequestStatus @default(OPEN)
+  requestedById   String             @db.Uuid
+  requestedByName String
+  doneAt          DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([userId, status])
+}
+
+/// Information relayée par le secrétariat à toute l'équipe ou à certaines personnes.
+model Announcement {
+  id             String   @id @default(uuid()) @db.Uuid
+  authorId       String   @db.Uuid
+  authorName     String
+  title          String
+  body           String
+  /// ALL (convoyeurs et équipe), DRIVERS, TEAM ou PEOPLE (personnes choisies).
+  audience       String
+  recipientIds   String[]
+  recipientCount Int      @default(0)
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentMime String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
 }

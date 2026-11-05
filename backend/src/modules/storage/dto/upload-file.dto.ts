@@ -28,10 +28,10 @@ export class UploadFileDto {
 
   @ApiPropertyOptional({
     description: 'Dossier logique de rangement',
-    enum: ['kyc', 'signatures', 'documents', 'avatars', 'misc'],
+    enum: ['kyc', 'signatures', 'documents', 'avatars', 'misc', 'staff'],
     default: 'misc',
   })
   @IsOptional()
-  @IsIn(['kyc', 'signatures', 'documents', 'avatars', 'misc'])
+  @IsIn(['kyc', 'signatures', 'documents', 'avatars', 'misc', 'staff'])
   folder?: string;
 }

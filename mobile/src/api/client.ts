@@ -147,6 +147,23 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function fetchProtectedImage(url: string): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith('data:')) return url;
+  const blob = await fetchProtectedBlob(url);
+  if (!blob) return null;
+  try {
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Fichier servi derrière authentification (billet, justificatif, PDF…). */
+export async function fetchProtectedBlob(url: string): Promise<Blob | null> {
+  if (!url) return null;
 
   const load = async (token: string | null): Promise<Response | null> => {
     try {
@@ -168,15 +185,8 @@ export async function fetchProtectedImage(url: string): Promise<string | null> {
     res = await load(token);
   }
   if (!res || !res.ok) return null;
-
   try {
-    const blob = await res.blob();
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    return await res.blob();
   } catch {
     return null;
   }

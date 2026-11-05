@@ -11,7 +11,11 @@ import {
   DirectorySegment,
   DirectoryStats,
   DirectoryUser,
+  deleteAccount,
   getDirectoryEntry,
+  reactivateAccount,
+  setAccountRole,
+  suspendAccount,
   getDirectoryStats,
   listDirectory,
 } from '../api/directory';
@@ -19,7 +23,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { SHEET_GUTTER } from '../theme/layout';
 import { downloadCsv } from '../utils/csv';
-import { notify } from '../utils/notify';
+import { confirmAction, notify } from '../utils/notify';
 import { roleLabel } from '../utils/roles';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
@@ -49,6 +53,8 @@ const KYC_LABEL: Record<string, string> = {
   IDENTITY_CARD: 'Pièce d\'identité',
   PASSPORT: 'Passeport',
   DRIVER_LICENSE: 'Permis de conduire',
+  HEALTH_INSURANCE_RIGHTS: 'Attestation de droits (assurance maladie)',
+  VITALE_CARD: 'Carte Vitale',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
   COMPANY_REGISTRATION: 'Kbis',
   VAT_CERTIFICATE: 'Attestation de TVA',
@@ -68,7 +74,7 @@ const formatAddress = (a: DirectoryAddress) => {
 const fullName = (u: { firstName: string; lastName: string }) => `${u.firstName} ${u.lastName}`.trim();
 
 function typeOf(u: Pick<DirectoryUser, 'role' | 'accountType'>): { label: string; tone: PillTone } {
-  if (u.role === 'ADMIN' || u.role === 'MANAGER' || u.role === 'HR') return { label: roleLabel(u.role), tone: 'gold' };
+  if (['ADMIN', 'MANAGER', 'HR', 'SECRETARY', 'ACCOUNTANT'].includes(u.role)) return { label: roleLabel(u.role), tone: 'gold' };
   if (u.role === 'DRIVER') return { label: 'Convoyeur', tone: 'navy' };
   return u.accountType === 'PROFESSIONAL' ? { label: 'Professionnel', tone: 'navy' } : { label: 'Particulier', tone: 'default' };
 }
@@ -310,15 +316,31 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         </Text>
       ) : null}
 
-      <DirectorySheet id={openId} onClose={() => setOpenId(null)} onSendAccess={onSendAccess} />
+      <DirectorySheet
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onSendAccess={onSendAccess}
+        onChanged={() => { void load(segment, query); getDirectoryStats().then(setStats).catch(() => undefined); }}
+      />
     </View>
   );
 }
 
-function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onClose: () => void } & Props) {
+const ROLE_CHOICES: { id: DirectoryUser['role']; label: string }[] = [
+  { id: 'CLIENT', label: 'Client' },
+  { id: 'DRIVER', label: 'Convoyeur' },
+  { id: 'MANAGER', label: 'Responsable' },
+  { id: 'HR', label: 'RH' },
+  { id: 'SECRETARY', label: 'Secrétariat' },
+  { id: 'ACCOUNTANT', label: 'Comptabilité' },
+];
+
+function DirectorySheet({ id, onClose, onSendAccess, onChanged }: { id: string | null; onClose: () => void; onChanged: () => void } & Props) {
   const { theme } = useTheme();
   const [entry, setEntry] = useState<DirectoryEntry | null>(null);
   const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [rev, setRev] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -329,7 +351,51 @@ function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onCl
       .then((e) => { if (!cancelled) setEntry(e); })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, rev]);
+
+  // Pouvoirs de Roger : suspendre, réactiver, changer le rôle, supprimer.
+  const run = async (fn: () => Promise<unknown>, done: string, close = false) => {
+    setBusy(true);
+    try {
+      await fn();
+      notify('C\'est fait', done);
+      onChanged();
+      if (close) onClose();
+      else setRev((r) => r + 1);
+    } catch (err) {
+      notify('Action impossible', err instanceof Error ? err.message : 'Réessaie dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggleSuspend = (u: DirectoryEntry) => {
+    const suspended = u.status === 'SUSPENDED';
+    confirmAction(
+      suspended ? 'Réactiver le compte' : 'Suspendre le compte',
+      suspended
+        ? `${fullName(u)} pourra de nouveau se connecter.`
+        : `${fullName(u)} est déconnecté de tous ses appareils et ne peut plus se connecter. Rien n'est effacé.`,
+      () => run(() => (suspended ? reactivateAccount(u.id) : suspendAccount(u.id)), suspended ? 'Compte réactivé.' : 'Compte suspendu.'),
+      suspended ? 'Réactiver' : 'Suspendre',
+    );
+  };
+  const changeRole = (u: DirectoryEntry, role: DirectoryUser['role']) => {
+    if (role === u.role) return;
+    confirmAction(
+      'Changer le rôle',
+      `${fullName(u)} devient « ${roleLabel(role)} ». Ses accès changent aussitôt et il devra se reconnecter.`,
+      () => run(() => setAccountRole(u.id, role), `Rôle changé : ${roleLabel(role)}.`),
+      'Changer',
+    );
+  };
+  const remove = (u: DirectoryEntry) => {
+    confirmAction(
+      'Supprimer le compte',
+      `Le compte de ${fullName(u)} est supprimé : nom, e-mail, téléphone et pièces d'identité sont effacés, la personne ne peut plus se connecter. Les factures, contrats signés et états des lieux sont conservés (obligation légale). Action définitive.`,
+      () => run(() => deleteAccount(u.id), 'Compte supprimé.', true),
+      'Supprimer',
+    );
+  };
 
   const Row = ({ label, value }: { label: string; value?: string | null }) =>
     value ? (
@@ -406,6 +472,42 @@ function DirectorySheet({ id, onClose, onSendAccess }: { id: string | null; onCl
                     </Button>
                   ) : null}
                 </View>
+
+                {e.role !== 'ADMIN' ? (
+                  <Section title="Gestion du compte">
+                    <Surface padded style={{ gap: 10 }}>
+                      <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Rôle dans l'application</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {ROLE_CHOICES.map((r) => {
+                          const on = e.role === r.id;
+                          return (
+                            <Pressable
+                              key={r.id}
+                              disabled={busy}
+                              onPress={() => changeRole(e, r.id)}
+                              accessibilityRole="radio"
+                              accessibilityState={{ checked: on }}
+                              style={{
+                                paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADII.pill, borderWidth: 1,
+                                borderColor: on ? theme.select : theme.line, backgroundColor: on ? theme.select : theme.surface,
+                              }}
+                            >
+                              <Text style={{ fontSize: 12.5, color: on ? theme.selectInk : theme.ink, fontFamily: TYPO.weights.semibold }}>{r.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                        <Button kind="outline" size="sm" style={{ flexGrow: 1 }} disabled={busy} onPress={() => toggleSuspend(e)}>
+                          {e.status === 'SUSPENDED' ? 'Réactiver le compte' : 'Suspendre le compte'}
+                        </Button>
+                        <Button kind="danger" size="sm" style={{ flexGrow: 1 }} disabled={busy} onPress={() => remove(e)}>
+                          Supprimer le compte
+                        </Button>
+                      </View>
+                    </Surface>
+                  </Section>
+                ) : null}
 
                 <Surface padded style={{ gap: 8 }}>
                   <Row label="E-mail" value={e.email} />

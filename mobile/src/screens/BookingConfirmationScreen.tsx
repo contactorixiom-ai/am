@@ -56,7 +56,7 @@ export function BookingConfirmationScreen() {
   const { theme } = useTheme();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingConfirmation'>>();
-  const { kind, reference, id, unpaid } = route.params;
+  const { kind, reference, id, unpaid, agency } = route.params;
   // Snapshot du dernier draft (capturé au reset) pour personnaliser les
   // instructions selon le mode de récupération choisi.
   const { lastBooking } = useParcelDraft();
@@ -112,7 +112,9 @@ export function BookingConfirmationScreen() {
               ? unpaid
                 ? 'Ta commande est enregistrée. Règle-la depuis l\'onglet Documents : Axis affecte ensuite un convoyeur et te confirme le créneau.'
                 : 'Commande payée. Axis affecte un convoyeur et te confirme le créneau : tu es prévenu dans l\'application.'
-              : unpaid
+              : unpaid && agency
+                ? 'Ton envoi est enregistré, avec le destinataire. Le règlement se fait à l\'agence Axis (carte bancaire, espèces) : dès qu\'il est enregistré, ta facture apparaît dans l\'onglet Documents.'
+                : unpaid
                 ? 'Ton envoi est enregistré. Règle-le depuis l\'onglet Documents pour qu\'Axis le prenne en charge.'
                 : 'Envoi payé. Tu es prévenu dans l\'application à chaque étape.'}
           </Text>

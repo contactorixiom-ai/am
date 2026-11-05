@@ -23,6 +23,8 @@ const KYC_LABELS: Record<string, string> = {
   PASSPORT: 'Passeport',
   DRIVER_LICENSE: 'Permis de conduire',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
+  HEALTH_INSURANCE_RIGHTS: 'Attestation de droits à l\'assurance maladie',
+  VITALE_CARD: 'Carte Vitale',
 };
 
 @Injectable()

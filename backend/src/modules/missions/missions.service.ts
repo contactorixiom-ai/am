@@ -791,18 +791,28 @@ export class MissionsService {
   private async assertVerifiedDriver(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, kycDocuments: { where: { status: 'APPROVED' }, select: { type: true } } },
+      select: { role: true, kycDocuments: { where: { status: { in: ['APPROVED', 'PENDING'] } }, select: { type: true, status: true } } },
     });
     if (!user || user.role !== UserRole.DRIVER) {
       throw new ForbiddenException('Seul un convoyeur peut accepter une mission.');
     }
-    const approved = new Set(user.kycDocuments.map((d) => d.type));
+    const approved = new Set(user.kycDocuments.filter((d) => d.status === 'APPROVED').map((d) => d.type));
+    // Carte Vitale et attestation de droits à l'assurance maladie : envoyées
+    // (la vérification par la RH ne bloque pas le convoyeur).
+    const sent = new Set(user.kycDocuments.map((d) => d.type));
     const hasId = approved.has('IDENTITY_CARD') || approved.has('PASSPORT');
     const hasLicense = approved.has('DRIVER_LICENSE');
     if (!hasId || !hasLicense) {
       throw new ForbiddenException(
         'Identité non vérifiée : une pièce d\'identité et un permis de conduire approuvés par Axis sont nécessaires pour accepter une mission.',
       );
+    }
+    const missing = [
+      !sent.has('HEALTH_INSURANCE_RIGHTS') && 'l\'attestation de droits à l\'assurance maladie',
+      !sent.has('VITALE_CARD') && 'la carte Vitale',
+    ].filter(Boolean);
+    if (missing.length) {
+      throw new ForbiddenException(`Dossier incomplet : envoyez ${missing.join(' et ')} depuis Mes pièces justificatives pour accepter une mission.`);
     }
   }
 

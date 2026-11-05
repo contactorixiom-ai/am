@@ -45,7 +45,10 @@ import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StaffPanel } from '../components/StaffPanel';
-import { isAdmin, isHR } from '../utils/roles';
+import { backOfficeTitle, handlesPaperwork, isAdmin, isHR, isStaff } from '../utils/roles';
+import { PersonnelPanel } from '../components/PersonnelPanel';
+import { StaffInboxPanel } from '../components/StaffInboxPanel';
+import { AnnouncementsPanel } from '../components/AnnouncementsPanel';
 
 // Responsables d'exploitation : aucun prix ni montant. Les factures clients
 // et les champs de prix des documents sont réservés à l'administrateur.
@@ -82,7 +85,7 @@ import { parcelLoadLabel } from '../utils/shipment';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'members' | 'team';
+type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Tableau' },
@@ -90,15 +93,31 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
   { id: 'drivers', label: 'Convoyeurs' },
+  { id: 'personnel', label: 'Personnel' },
+  { id: 'received', label: 'Pièces reçues' },
+  { id: 'expenses', label: 'Frais' },
+  { id: 'announce', label: 'Annonces' },
   // Administrateur seulement : tous les inscrits, et les comptes des
   // responsables d'exploitation.
   { id: 'members', label: 'Inscrits' },
   { id: 'team', label: 'Équipe' },
 ];
 const ADMIN_ONLY_TABS: TabId[] = ['members', 'team'];
-// Ressources humaines : pièces des convoyeurs et documents administratifs,
-// sans l'exploitation (envois, tableau de bord) ni l'équipe.
-const HR_TABS: TabId[] = ['drivers', 'documents', 'generate'];
+// Onglets de chaque rôle, dans l'ordre d'affichage. L'administrateur voit tout.
+const ROLE_TABS: Record<string, TabId[]> = {
+  // Exploitation : sans les comptes, l'équipe, les frais ni les dossiers RH.
+  MANAGER: ['dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel'],
+  // RH : tout l'administratif du personnel, sans l'exploitation.
+  HR: ['personnel', 'drivers', 'received', 'announce', 'documents', 'generate'],
+  // Secrétariat : relayer l'information, déposer billets et réservations.
+  SECRETARY: ['announce', 'personnel'],
+  // Comptabilité : justificatifs de frais.
+  ACCOUNTANT: ['expenses', 'personnel'],
+};
+function tabsFor(role?: string | null): TabId[] {
+  if (role === 'ADMIN') return TABS.map((t) => t.id);
+  return ROLE_TABS[role ?? ''] ?? ROLE_TABS.MANAGER;
+}
 
 const ACTIVITY_LABEL: Record<AdminActivity, string> = {
   convoyage: 'Convoyage',
@@ -257,21 +276,24 @@ export function AdminScreen() {
   // le chiffre d'affaires.
   const meIsAdmin = isAdmin(me?.role);
   const meIsHR = isHR(me?.role);
-  const visibleTabs = meIsHR
-    ? TABS.filter((t) => HR_TABS.includes(t.id)).sort((a, b) => HR_TABS.indexOf(a.id) - HR_TABS.indexOf(b.id))
-    : TABS.filter((t) => meIsAdmin || !ADMIN_ONLY_TABS.includes(t.id));
+  const myTabs = tabsFor(me?.role);
+  const visibleTabs = TABS
+    .filter((t) => myTabs.includes(t.id) && (meIsAdmin || !ADMIN_ONLY_TABS.includes(t.id)))
+    .sort((a, b) => myTabs.indexOf(a.id) - myTabs.indexOf(b.id));
   // Documents d'une liasse visibles pour ce compte (pas de facture pour un responsable).
   const packItems = (pack: DocPack) => pack.items.filter((i) => meIsAdmin || !ADMIN_ONLY_DOC_TYPES.includes(i.typeId));
   const [compareMode, setCompareMode] = useState(false);
   const route = useRoute<RouteProp<RootStackParamList, 'Admin'>>();
   const [tab, setTab] = useState<TabId>(() => {
     const asked = route.params?.tab;
-    if (isHR(me?.role)) return asked && HR_TABS.includes(asked) ? asked : 'drivers';
-    return asked ?? 'dashboard';
+    const mine = tabsFor(me?.role);
+    return asked && mine.includes(asked as TabId) ? (asked as TabId) : mine[0];
   });
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
   useEffect(() => {
+    // Pièces des convoyeurs : administrateur, responsables et RH seulement.
+    if (!handlesPaperwork(me?.role)) return;
     listPendingKyc().then((l) => setKycPending(l.length)).catch(() => undefined);
   }, []);
 
@@ -340,12 +362,12 @@ export function AdminScreen() {
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
 
   useEffect(() => {
-    readAdminHistory().then(setHistory);
+    if (handlesPaperwork(me?.role)) readAdminHistory().then(setHistory);
   }, []);
 
   const loadShipments = useCallback(async () => {
-    // La RH ne traite pas les envois : rien à charger.
-    if (isHR(me?.role)) {
+    // RH, secrétariat, comptabilité : pas d'envois à charger.
+    if (!isStaff(me?.role)) {
       setShipmentsLoading(false);
       setRefreshing(false);
       return;
@@ -665,8 +687,13 @@ export function AdminScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
-        title={meIsHR ? 'Espace RH' : 'Espace admin'}
-        subtitle={meIsHR ? 'Pièces des convoyeurs · documents administratifs' : meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'}
+        title={backOfficeTitle(me?.role)}
+        subtitle={
+          meIsHR ? 'Personnel · pièces · contrats · assurances'
+            : me?.role === 'SECRETARY' ? 'Annonces · billets et réservations'
+              : me?.role === 'ACCOUNTANT' ? 'Justificatifs de frais'
+                : meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'
+        }
       />
 
       {/* Onglets internes */}
@@ -728,6 +755,10 @@ export function AdminScreen() {
             <KycReviewPanel onCountChange={setKycPending} />
           </View>
         ) : null}
+        {tab === 'personnel' ? <PersonnelPanel /> : null}
+        {tab === 'received' ? <StaffInboxPanel mode="EMPLOYEE_DOCUMENT" /> : null}
+        {tab === 'expenses' ? <StaffInboxPanel mode="EXPENSE" /> : null}
+        {tab === 'announce' ? <AnnouncementsPanel /> : null}
         {tab === 'members' && meIsAdmin ? <DirectoryPanel onSendAccess={setAccessTarget} /> : null}
         {tab === 'team' && meIsAdmin ? (
           <StaffPanel

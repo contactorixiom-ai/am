@@ -15,7 +15,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { isHR, isStaff, roleLabel } from '../utils/roles';
+import { backOfficeTitle, hasBackOffice, hasPersonnelSpace, isStaff, roleLabel } from '../utils/roles';
 
 export function ProfileScreen() {
   const { theme, isDark, setMode } = useTheme();
@@ -188,13 +188,21 @@ export function ProfileScreen() {
           </MenuSection>
 
           {/* Accès réservés : n'apparaissent que pour les rôles concernés. */}
-          {isStaff(user?.role) || isHR(user?.role) || user?.role === 'DRIVER' ? (
+          {hasBackOffice(user?.role) || user?.role === 'DRIVER' ? (
             <MenuSection label="Axis">
-              {isHR(user?.role) ? (
+              {hasPersonnelSpace(user?.role) ? (
+                <MenuRow
+                  iconKey="doc"
+                  label="Mon espace"
+                  sub="Billets et réservations · frais · documents RH"
+                  onPress={() => nav.navigate('MySpace')}
+                />
+              ) : null}
+              {hasBackOffice(user?.role) && !isStaff(user?.role) ? (
                 <MenuRow
                   iconKey="sliders"
-                  label="Espace RH"
-                  sub="Pièces des convoyeurs · documents administratifs"
+                  label={backOfficeTitle(user?.role)}
+                  sub={user?.role === 'HR' ? 'Personnel · pièces · contrats · assurances' : user?.role === 'SECRETARY' ? 'Annonces · billets et réservations' : 'Justificatifs de frais'}
                   onPress={() => nav.navigate('Admin')}
                 />
               ) : null}

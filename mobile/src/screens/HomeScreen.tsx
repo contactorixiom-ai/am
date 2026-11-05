@@ -25,7 +25,7 @@ import { Stagger } from '../components/Stagger';
 import { listPayments } from '../api/payments';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { isAdmin, isHR, isStaff } from '../utils/roles';
+import { backOfficeTitle, hasBackOffice, hasPersonnelSpace, isAdmin, isStaff } from '../utils/roles';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -41,7 +41,9 @@ export function HomeScreen() {
   // il garde donc l'interface cliente complète.
   const isDriverOnly = user?.role === 'DRIVER';
   const staff = isStaff(user?.role);
-  const hr = isHR(user?.role);
+  // RH, secrétariat, comptabilité : un espace de travail sans l'exploitation.
+  const hr = hasBackOffice(user?.role) && !staff;
+  const role = user?.role;
   useEffect(() => {
     // Inutile d'interroger l'API pour un client : le KYC ne le concerne pas.
     if (!isDriver) return;
@@ -246,9 +248,40 @@ export function HomeScreen() {
               <Icons.sliders size={22} color={theme.goldDeep} stroke={1.7} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{hr ? 'Espace RH' : 'Espace admin'}</Text>
+              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{backOfficeTitle(role)}</Text>
               <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
-                {hr ? 'Pièces des convoyeurs · documents administratifs' : 'Documents officiels · envois à traiter'}
+                {role === 'HR' ? 'Personnel · pièces · contrats · assurances'
+                  : role === 'SECRETARY' ? 'Annonces à l\'équipe · billets et réservations'
+                    : role === 'ACCOUNTANT' ? 'Justificatifs de frais des convoyeurs et salariés'
+                      : 'Documents officiels · envois à traiter'}
+              </Text>
+            </View>
+            <Icons.chev size={18} color={theme.muted} stroke={2} />
+          </Pressable>
+        ) : null}
+
+        {/* Mon espace : billets, frais, documents RH (convoyeurs et salariés). */}
+        {hasPersonnelSpace(role) ? (
+          <Pressable
+            onPress={() => nav.navigate('MySpace')}
+            style={({ pressed }) => ({
+              borderWidth: 1,
+              borderColor: theme.line,
+              backgroundColor: pressed ? theme.bgSoft : theme.surface,
+              borderRadius: RADII.xxl,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            })}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.doc size={22} color={theme.link} stroke={1.7} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Mon espace</Text>
+              <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
+                Billets et réservations · justificatifs de frais · documents RH
               </Text>
             </View>
             <Icons.chev size={18} color={theme.muted} stroke={2} />
@@ -261,19 +294,37 @@ export function HomeScreen() {
         {staff || hr ? (
           <Surface padded style={{ gap: 4 }}>
             <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
-              {hr ? 'Ressources humaines' : 'Pilotage'}
+              {role === 'HR' ? 'Ressources humaines' : role === 'SECRETARY' ? 'Secrétariat' : role === 'ACCOUNTANT' ? 'Comptabilité' : 'Pilotage'}
             </Text>
-            {(hr
+            {(role === 'HR'
               ? [
-                  // RH : les pièces et documents administratifs, sans l'exploitation.
-                  { label: 'Pièces à vérifier', sub: 'Identité et permis déposés par les convoyeurs', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
-                  { label: 'Inviter un convoyeur', sub: 'Créer son compte et lui envoyer son accès', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
-                  { label: 'Documents administratifs', sub: 'Contrats, attestations, documents reçus', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'documents' }) },
+                  // RH : tout l'administratif du personnel, sans l'exploitation.
+                  { label: 'Personnel', sub: 'Dossiers, contrats, assurances, pièces à demander', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
+                  { label: 'Pièces à vérifier', sub: 'Identité, permis, carte Vitale, attestation de droits', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+                  { label: 'Pièces reçues', sub: 'Documents envoyés par les convoyeurs et salariés', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'received' }) },
+                  { label: 'Annonces', sub: 'Informer toute l\'équipe ou une personne', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) },
                   { label: 'Générer un document', sub: 'Contrat, attestation, document officiel', icon: Icons.sig, go: () => nav.navigate('Admin', { tab: 'generate' }) },
+                ]
+              : role === 'SECRETARY'
+              ? [
+                  { label: 'Annonces', sub: 'Informer toute l\'équipe ou une personne', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) },
+                  { label: 'Billets et réservations', sub: 'Déposer train, bus, hébergement pour un convoyeur', icon: Icons.bus, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
+                ]
+              : role === 'ACCOUNTANT'
+              ? [
+                  { label: 'Justificatifs de frais', sub: 'Tickets, péages, carburant à valider et rembourser', icon: Icons.euro, go: () => nav.navigate('Admin', { tab: 'expenses' }) },
+                  { label: 'Personnel', sub: 'Les frais de chaque convoyeur et salarié', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
                 ]
               : [
               { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
               { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+              { label: 'Billets et réservations', sub: 'Train, bus, hébergement des convoyeurs', icon: Icons.bus, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
+              ...(isAdmin(user?.role)
+                ? [
+                    { label: 'Justificatifs de frais', sub: 'Envoyés par les convoyeurs et salariés', icon: Icons.euro, go: () => nav.navigate('Admin', { tab: 'expenses' }) },
+                    { label: 'Annonces', sub: 'Informer toute l\'équipe ou une personne', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) },
+                  ]
+                : []),
               { label: 'Messages', sub: 'Clients et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
               { label: 'Documents officiels', sub: isAdmin(user?.role) ? 'Douane, factures, contrats' : 'Douane, contrats, étiquettes', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'generate' }) },
               // Administrateur : la base des comptes de l'application.

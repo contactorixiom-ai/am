@@ -9,6 +9,8 @@ export type KycDocumentType =
   | 'COMPANY_REGISTRATION'
   | 'VAT_CERTIFICATE'
   | 'INSURANCE'
+  | 'HEALTH_INSURANCE_RIGHTS'
+  | 'VITALE_CARD'
   | 'OTHER';
 
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -48,7 +50,7 @@ export async function uploadFile(input: {
   fileName: string;
   mimeType: string;
   data: string;
-  folder?: 'kyc' | 'signatures' | 'documents' | 'avatars' | 'misc';
+  folder?: 'kyc' | 'signatures' | 'documents' | 'avatars' | 'misc' | 'staff';
 }): Promise<UploadResult> {
   return apiFetch<UploadResult>('/storage/upload', { method: 'POST', body: input });
 }

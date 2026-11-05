@@ -9,6 +9,8 @@ import { EmptyState } from './EmptyState';
 import { Field } from './Field';
 import { Skeleton } from './Skeleton';
 import { Surface } from './Surface';
+import { Icons } from './Icons';
+import { openStaffFile } from './StaffWidgets';
 
 // Emplacement indiqué par le nom du fichier (voir KycVerificationScreen).
 const SLOT_LABELS: Record<string, string> = {
@@ -18,9 +20,13 @@ const SLOT_LABELS: Record<string, string> = {
   id_back: 'Pièce d\'identité — verso',
   address: 'Justificatif de domicile',
   selfie: 'Photo de contrôle (selfie)',
+  health_rights: 'Attestation de droits — assurance maladie',
+  vitale: 'Carte Vitale',
 };
 const TYPE_LABELS: Record<string, string> = {
   DRIVER_LICENSE: 'Permis de conduire',
+  HEALTH_INSURANCE_RIGHTS: 'Attestation de droits (assurance maladie)',
+  VITALE_CARD: 'Carte Vitale',
   IDENTITY_CARD: 'Pièce d\'identité',
   PASSPORT: 'Passeport',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
@@ -129,9 +135,18 @@ export function KycReviewPanel({ onCountChange }: { onCountChange?: (n: number) 
               {list.map((d) => (
                 <View key={d.id} style={{ gap: 8, borderTopWidth: 1, borderTopColor: theme.line, paddingTop: 10 }}>
                   <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-                    <Pressable onPress={() => setZoom(d)}>
-                      <AuthImage url={d.fileUrl} style={{ width: 96, height: 68, borderRadius: 8 }} label={labelOf(d)} />
-                    </Pressable>
+                    {d.mimeType?.includes('pdf') ? (
+                      // PDF (attestation téléchargée sur ameli.fr…) : téléchargé, pas affiché.
+                      <Pressable onPress={() => void openStaffFile(d)} accessibilityLabel={`Télécharger ${labelOf(d)}`}
+                        style={{ width: 96, height: 68, borderRadius: 8, backgroundColor: theme.bgSoft, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                        <Icons.doc size={22} color={theme.link} stroke={1.7} />
+                        <Text style={{ fontSize: 10, color: theme.link, fontFamily: TYPO.weights.semibold }}>PDF</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => setZoom(d)}>
+                        <AuthImage url={d.fileUrl} style={{ width: 96, height: 68, borderRadius: 8 }} label={labelOf(d)} />
+                      </Pressable>
+                    )}
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{labelOf(d)}</Text>
                       <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>

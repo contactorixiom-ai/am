@@ -32,7 +32,7 @@ export type RootStackParamList = {
   HomePickupAddress: { draft: ParcelDraft };
   QuoteReview: { quote: QuoteResponse };
   RecipientDetails: { quote: QuoteResponse };
-  BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string; unpaid?: boolean };
+  BookingConfirmation: { kind: 'mission' | 'parcel'; reference: string; id: string; unpaid?: boolean; agency?: boolean };
   Tracking: { kind: 'mission' | 'parcel'; id: string; reference: string };
   MissionDetails: { reference?: string } | undefined;
   Messaging:
@@ -47,7 +47,8 @@ export type RootStackParamList = {
     | undefined;
   Conversations: undefined;
   DriverMode: undefined;
-  Admin: { tab?: 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'members' | 'team' } | undefined;
+  Admin: { tab?: 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team' } | undefined;
+  MySpace: undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
   VehicleInspection: { phase?: 'DÉPART' | 'ARRIVÉE'; missionId?: string; reference?: string; vehicleLabel?: string; clientName?: string; vehicleCategory?: string } | undefined;

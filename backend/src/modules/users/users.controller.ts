@@ -9,7 +9,7 @@ import { UpsertDriverProfileDto } from './dto/upsert-driver-profile.dto';
 import { UsersService } from './users.service';
 import { DirectoryQueryDto, DriverQueryDto } from './dto/directory-query.dto';
 import { AdminOnly } from '../../common/decorators/admin-only.decorator';
-import { CreateManagerDto, CreateStaffDto } from './dto/create-manager.dto';
+import { CreateManagerDto, CreateStaffDto, SetRoleDto } from './dto/create-manager.dto';
 import { handlesPaperwork } from '../../common/auth/staff';
 
 @ApiTags('users')
@@ -98,6 +98,34 @@ export class UsersController {
   @ApiOperation({ summary: 'Administrateur : fiche complète d\'un inscrit' })
   directoryEntry(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.users.directoryEntry(id);
+  }
+
+  @Patch(':id/suspend')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : suspendre un compte' })
+  suspend(@CurrentUser('id') adminId: string, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.adminSetStatus(adminId, id, false);
+  }
+
+  @Patch(':id/reactivate')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : réactiver un compte' })
+  reactivate(@CurrentUser('id') adminId: string, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.adminSetStatus(adminId, id, true);
+  }
+
+  @Patch(':id/role')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : changer le rôle d\'un compte' })
+  setRole(@CurrentUser('id') adminId: string, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: SetRoleDto) {
+    return this.users.adminSetRole(adminId, id, dto.role);
+  }
+
+  @Delete(':id')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : supprimer un compte' })
+  remove(@CurrentUser('id') adminId: string, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.adminDelete(adminId, id);
   }
 
   @Get('clients')

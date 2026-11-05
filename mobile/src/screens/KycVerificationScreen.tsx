@@ -10,6 +10,7 @@ import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
 import { notify } from '../utils/notify';
 import { extOfMime, mimeOfDataUrl, uriToDataUrl } from '../utils/imageData';
+import { PickedFile, pickFile as chooseFile } from '../utils/pickFile';
 import { capturePhoto } from '../utils/pickImage';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
@@ -37,8 +38,11 @@ const REQUIRED_DOCS: RequiredDoc[] = [
   { key: 'license_back',  title: 'Permis de conduire — verso', hint: 'Toutes les catégories visibles', required: true, apiType: 'DRIVER_LICENSE' },
   { key: 'id_front',      title: 'Pièce d\'identité — recto', hint: 'CNI ou passeport', required: true, apiType: 'IDENTITY_CARD' },
   { key: 'id_back',       title: 'Pièce d\'identité — verso', hint: 'Sauf si passeport', required: false, apiType: 'IDENTITY_CARD' },
-  // Obligatoires = ce qu'exige le serveur pour confier un véhicule (pièce
-  // d'identité + permis). Les deux suivants aident Axis à vérifier plus vite.
+  // Obligatoires = ce qu'exige le serveur pour confier un véhicule : pièce
+  // d'identité, permis, attestation de droits à l'assurance maladie et carte
+  // Vitale. Les deux derniers aident Axis à vérifier plus vite.
+  { key: 'health_rights', title: 'Attestation de droits — assurance maladie', hint: 'À télécharger sur ameli.fr (Mon compte › Mes attestations)', required: true, apiType: 'HEALTH_INSURANCE_RIGHTS' },
+  { key: 'vitale',        title: 'Carte Vitale', hint: 'Photo nette du recto, numéro lisible', required: true, apiType: 'VITALE_CARD' },
   { key: 'address',       title: 'Justificatif de domicile', hint: 'Moins de 3 mois (facture, quittance)', required: false, apiType: 'PROOF_OF_ADDRESS' },
   { key: 'selfie',        title: 'Photo de contrôle (selfie)', hint: 'Aide Axis à comparer avec ta pièce d\'identité', required: false, apiType: 'OTHER' },
 ];
@@ -67,8 +71,10 @@ export function KycVerificationScreen() {
     try {
       const overview = await fetchKycOverview();
       const approvedTypes = new Set(overview.documents.filter((d) => d.status === 'APPROVED').map((d) => d.type));
+      const sentTypes = new Set(overview.documents.filter((d) => d.status !== 'REJECTED').map((d) => d.type));
       setHabilitated(
-        approvedTypes.has('DRIVER_LICENSE') && (approvedTypes.has('IDENTITY_CARD') || approvedTypes.has('PASSPORT')),
+        approvedTypes.has('DRIVER_LICENSE') && (approvedTypes.has('IDENTITY_CARD') || approvedTypes.has('PASSPORT'))
+          && sentTypes.has('HEALTH_INSURANCE_RIGHTS') && sentTypes.has('VITALE_CARD'),
       );
       // Documents triés du plus récent au plus ancien : le premier trouvé
       // pour un emplacement est celui qui compte. L'emplacement (recto,
@@ -130,20 +136,32 @@ export function KycVerificationScreen() {
     // Appareil photo sur téléphone (galerie si refusé), sélecteur sur le web.
     // Auparavant, l'application installée simulait l'envoi : aucun
     // convoyeur inscrit depuis un téléphone ne pouvait être vérifié.
-    const uri = await capturePhoto();
-    if (!uri) return;
+    // L'attestation de droits se télécharge en PDF sur ameli.fr : on ouvre
+    // le choix de fichier (PDF ou photo) plutôt que l'appareil photo.
+    let picked: PickedFile | null = null;
+    if (doc.key === 'health_rights') {
+      try {
+        picked = await chooseFile('document');
+      } catch (e) {
+        notify('Fichier non retenu', e instanceof Error ? e.message : 'Réessaie.');
+        return;
+      }
+      if (!picked) return;
+    }
+    const uri = picked ? null : await capturePhoto();
+    if (!picked && !uri) return;
     setBusyKey(doc.key);
     try {
-      const dataUrl = await uriToDataUrl(uri);
+      const dataUrl = picked ? picked.dataUrl : await uriToDataUrl(uri!);
       if (!dataUrl) throw new Error('Photo illisible. Réessaie.');
-      const mimeType = mimeOfDataUrl(dataUrl);
+      const mimeType = picked ? picked.mimeType : mimeOfDataUrl(dataUrl);
       await uploadAndSubmitKyc({
         type: doc.apiType,
-        fileName: `${doc.key}.${extOfMime(mimeType)}`,
+        fileName: `${doc.key}.${mimeType.includes('pdf') ? 'pdf' : extOfMime(mimeType)}`,
         mimeType,
         data: dataUrl,
       });
-      setState((prev) => ({ ...prev, [key]: { status: 'uploaded', uri: dataUrl, uploadedAt: todayLabel() } }));
+      setState((prev) => ({ ...prev, [key]: { status: 'uploaded', uri: mimeType.startsWith('image/') ? dataUrl : undefined, uploadedAt: todayLabel() } }));
       notify('Document envoyé', 'Axis Import le vérifie et te prévient dès que c\'est fait.');
       void load();
     } catch (e) {

@@ -44,6 +44,7 @@ const REPLAYABLE = [
   '20261031010000_convoy_bus_flatbed',
   '20261031020000_quote_options_2026',
   '20261101000000_role_hr',
+  '20261105000000_staff_space',
 ];
 
 function migrationNames() {

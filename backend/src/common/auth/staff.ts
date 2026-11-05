@@ -23,9 +23,40 @@ export function handlesPaperwork(role: UserRole | string | undefined | null): bo
 }
 
 /** Comptes d'équipe que l'administrateur crée et dont il gère l'accès. */
-export const TEAM_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.HR];
+export const TEAM_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
 
-/** Rôles qui ne voient aucun montant (prix, paiements, chiffre d'affaires). */
+export function isTeamRole(role: UserRole | string | undefined | null): boolean {
+  return TEAM_ROLES.includes(role as UserRole);
+}
+
+/**
+ * Rôles qui ne voient aucun montant (prix, paiements, chiffre d'affaires).
+ * La comptabilité, elle, voit les montants.
+ */
 export function hidesAmounts(role: UserRole | string | undefined | null): boolean {
-  return role === UserRole.MANAGER || role === UserRole.HR;
+  return role === UserRole.MANAGER || role === UserRole.HR || role === UserRole.SECRETARY;
+}
+
+// ─── Dossier du personnel ───────────────────────────────────────────────────
+
+/** Personnes qui ont un dossier : convoyeurs et salariés de l'équipe. */
+export const PERSONNEL_ROLES: UserRole[] = [UserRole.DRIVER, ...TEAM_ROLES];
+
+/** Déposent billets de train, de bus et réservations d'hébergement. */
+export const TRAVEL_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY];
+
+/** Administration du personnel : contrats, assurances, demandes de pièces. */
+export const HR_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.HR];
+
+/** Reçoivent et traitent les justificatifs de frais. */
+export const EXPENSE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.ACCOUNTANT];
+
+/** Relaient les informations à l'équipe (annonces). */
+export const ANNOUNCE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.SECRETARY, UserRole.HR];
+
+/** Consultent la liste du personnel (pour y déposer une pièce ou écrire). */
+export const PERSONNEL_VIEWERS: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
+
+export function hasRole(list: UserRole[], role: UserRole | string | undefined | null): boolean {
+  return list.includes(role as UserRole);
 }

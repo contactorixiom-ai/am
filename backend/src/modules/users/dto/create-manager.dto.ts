@@ -17,10 +17,19 @@ export class CreateManagerDto {
   phone?: string;
 }
 
-/** Compte d'équipe créé par l'administrateur : responsable d'exploitation ou RH. */
+const TEAM = [UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
+
+/** Compte d'équipe créé par l'administrateur : exploitation, RH, secrétariat ou comptabilité. */
 export class CreateStaffDto extends CreateManagerDto {
-  @ApiPropertyOptional({ enum: [UserRole.MANAGER, UserRole.HR], default: UserRole.MANAGER })
+  @ApiPropertyOptional({ enum: TEAM, default: UserRole.MANAGER })
   @IsOptional()
-  @IsIn([UserRole.MANAGER, UserRole.HR], { message: 'Rôle d\'équipe invalide.' })
+  @IsIn(TEAM, { message: 'Rôle d\'équipe invalide.' })
   role?: UserRole;
+}
+
+/** Changement de rôle par l'administrateur (jamais vers administrateur). */
+export class SetRoleDto {
+  @ApiProperty({ enum: [UserRole.CLIENT, UserRole.DRIVER, ...TEAM] })
+  @IsIn([UserRole.CLIENT, UserRole.DRIVER, ...TEAM], { message: 'Rôle invalide.' })
+  role!: UserRole;
 }

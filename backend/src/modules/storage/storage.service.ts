@@ -40,7 +40,7 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 
 /** Dossiers de rangement autorisés — mêmes valeurs que le DTO d'upload. */
-export const STORAGE_FOLDERS = ['kyc', 'signatures', 'documents', 'avatars', 'misc'] as const;
+export const STORAGE_FOLDERS = ['kyc', 'signatures', 'documents', 'avatars', 'misc', 'staff'] as const;
 export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
 
 /** Nom de fichier tel que nous le générons : UUID + extension. Rien d'autre

@@ -30,10 +30,12 @@ interface Props {
 }
 
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '' };
-type TeamRole = 'MANAGER' | 'HR';
+type TeamRole = 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
 const TEAM_ROLE_CHOICES: { id: TeamRole; label: string; sub: string }[] = [
-  { id: 'MANAGER', label: 'Responsable d\'exploitation', sub: 'Envois, convoyeurs, documents, messages' },
-  { id: 'HR', label: 'Ressources humaines', sub: 'Pièces des convoyeurs, documents administratifs' },
+  { id: 'MANAGER', label: 'Responsable d\'exploitation', sub: 'Envois, missions, convoyeurs, billets, messages' },
+  { id: 'HR', label: 'Ressources humaines', sub: 'Dossiers du personnel, contrats, assurances, pièces' },
+  { id: 'SECRETARY', label: 'Secrétariat', sub: 'Annonces à l\'équipe, billets et réservations' },
+  { id: 'ACCOUNTANT', label: 'Comptabilité', sub: 'Justificatifs de frais des convoyeurs et salariés' },
 ];
 
 export function StaffPanel({ onSendAccess, onReset }: Props) {
@@ -109,7 +111,8 @@ export function StaffPanel({ onSendAccess, onReset }: Props) {
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>
           Chacun son compte, distinct du tien. Les responsables d'exploitation suivent et font avancer les envois, valident les
           convoyeurs, gèrent les documents et répondent aux messages. La RH reçoit et traite les pièces des convoyeurs et les
-          documents administratifs, sans accès aux envois. Aucun ne voit cet onglet, ni les prix, ni le chiffre d'affaires.
+          documents administratifs, sans accès aux envois. Le secrétariat relaie les informations à l'équipe et dépose billets et
+          réservations. La comptabilité reçoit les justificatifs de frais. Aucun ne voit cet onglet ni le chiffre d'affaires.
         </Text>
       </Surface>
 

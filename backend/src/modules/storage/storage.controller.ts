@@ -15,6 +15,7 @@ import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-
 import { PrismaService } from '../../prisma/prisma.service';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { StorageService } from './storage.service';
+import { canReadStaffFile } from '../staff-space/staff-space.service';
 import { handlesPaperwork, isStaff } from '../../common/auth/staff';
 
 @ApiTags('storage')
@@ -68,6 +69,11 @@ export class StorageController {
         select: { id: true },
       });
       if (!owned) throw new ForbiddenException('Ce document ne vous appartient pas.');
+    }
+
+    // Billets, justificatifs de frais, documents RH, pièces jointes d'annonces.
+    if (folder === 'staff' && !(await canReadStaffFile(this.prisma, user, `${folder}/${name}`))) {
+      throw new ForbiddenException('Ce document ne vous est pas destiné.');
     }
 
     res.set({

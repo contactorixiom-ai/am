@@ -13,6 +13,7 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { KycVerificationScreen } from '../screens/KycVerificationScreen';
+import { MySpaceScreen } from '../screens/MySpaceScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
@@ -130,7 +131,12 @@ export function RootNavigator() {
       const go = () => {
         if (!navigationRef.isReady()) return false;
         const type = String(data.type ?? '');
-        if (type.startsWith('KYC_')) navigationRef.navigate('KycVerification');
+        const kind = String(data.kind ?? '');
+        if (kind === 'STAFF_FILE' || kind === 'STAFF_REQUEST' || kind === 'ANNOUNCEMENT') navigationRef.navigate('MySpace');
+        else if (kind === 'STAFF_EXPENSE') navigationRef.navigate('Admin', { tab: 'expenses' });
+        else if (kind === 'STAFF_DOCUMENT') navigationRef.navigate('Admin', { tab: 'received' });
+        else if (kind === 'KYC_SUBMITTED') navigationRef.navigate('Admin', { tab: 'drivers' });
+        else if (type.startsWith('KYC_')) navigationRef.navigate('KycVerification');
         else navigationRef.navigate('Notifications');
         return true;
       };
@@ -197,6 +203,7 @@ export function RootNavigator() {
             <RootStack.Screen name="DriverMode" component={DriverModeScreen} />
             <RootStack.Screen name="Admin" component={AdminScreen} />
             <RootStack.Screen name="KycVerification" component={KycVerificationScreen} />
+            <RootStack.Screen name="MySpace" component={MySpaceScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <RootStack.Screen name="VehicleInspection" component={VehicleInspectionScreen} />
             <RootStack.Screen name="CustomsRequirements" component={CustomsRequirementsScreen} />

@@ -205,6 +205,56 @@ export class UsersService {
     return { deletedAt };
   }
 
+  // ─── Pouvoirs de l'administrateur sur tous les comptes ─────────────────────
+
+  private async assertManageable(adminId: string, id: string) {
+    if (adminId === id) throw new BadRequestException('Impossible sur votre propre compte.');
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true, status: true, deletedAt: true } });
+    if (!user || user.deletedAt) throw new NotFoundException('Compte introuvable.');
+    if (user.role === UserRole.ADMIN) throw new BadRequestException('Un compte administrateur ne peut pas être modifié ici.');
+    return user;
+  }
+
+  /** Suspend (accès coupé, sessions fermées) ou réactive n'importe quel compte. */
+  async adminSetStatus(adminId: string, id: string, active: boolean) {
+    await this.assertManageable(adminId, id);
+    const status = active ? UserStatus.ACTIVE : UserStatus.SUSPENDED;
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { status } }),
+      ...(active ? [] : [this.prisma.refreshToken.deleteMany({ where: { userId: id } })]),
+      this.prisma.auditLog.create({ data: { userId: adminId, action: active ? 'ACCOUNT_RESTORE' : 'ACCOUNT_SUSPEND', entity: 'User', entityId: id } }),
+    ]);
+    return { id, status };
+  }
+
+  /**
+   * Suppression d'un compte par l'administrateur : même suppression que
+   * celle demandée par le titulaire (identifiants effacés, pièces d'identité
+   * supprimées, factures et contrats conservés).
+   */
+  async adminDelete(adminId: string, id: string) {
+    await this.assertManageable(adminId, id);
+    const res = await this.deleteAccount(id);
+    await this.prisma.auditLog
+      .create({ data: { userId: adminId, action: 'ACCOUNT_DELETE_BY_ADMIN', entity: 'User', entityId: id } })
+      .catch(() => undefined);
+    return { id, ...res };
+  }
+
+  /** Change le rôle d'un compte (client, convoyeur ou membre de l'équipe). */
+  async adminSetRole(adminId: string, id: string, role: UserRole) {
+    if (role === UserRole.ADMIN) throw new BadRequestException('Le rôle administrateur ne s\'attribue pas depuis l\'application.');
+    const user = await this.assertManageable(adminId, id);
+    if (user.role === role) return { id, role };
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { role } }),
+      // Nouveau rôle, nouveaux droits : les sessions ouvertes sont fermées.
+      this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+      this.prisma.auditLog.create({ data: { userId: adminId, action: 'ACCOUNT_ROLE', entity: 'User', entityId: id, metadata: { from: user.role, to: role } } }),
+    ]);
+    return { id, role };
+  }
+
   async upsertDriverProfile(userId: string, dto: UpsertDriverProfileDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Utilisateur introuvable.');
@@ -320,7 +370,7 @@ export class UsersService {
   }
 
   async createManager(adminId: string, dto: { firstName: string; lastName: string; email: string; phone?: string; role?: UserRole }) {
-    const role = dto.role === UserRole.HR ? UserRole.HR : UserRole.MANAGER;
+    const role = dto.role && TEAM_ROLES.includes(dto.role) ? dto.role : UserRole.MANAGER;
     const email = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing && !existing.deletedAt) {
