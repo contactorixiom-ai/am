@@ -111,17 +111,22 @@ export function FileRow({
   );
 }
 
-export function Chips<T extends string>({ options, value, onChange }: { options: { key: T; label: string }[]; value: T | null; onChange: (v: T) => void }) {
+type ChipsProps<T extends string> =
+  | { options: { key: T; label: string }[]; multi?: false; value: T | null; onChange: (v: T) => void }
+  | { options: { key: T; label: string }[]; multi: true; values: T[]; onToggle: (v: T) => void };
+
+export function Chips<T extends string>(props: ChipsProps<T>) {
   const { theme } = useTheme();
+  const { options } = props;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
       {options.map((o) => {
-        const on = value === o.key;
+        const on = props.multi ? props.values.includes(o.key) : props.value === o.key;
         return (
           <Pressable
             key={o.key}
-            onPress={() => onChange(o.key)}
-            accessibilityRole="radio"
+            onPress={() => (props.multi ? props.onToggle(o.key) : props.onChange(o.key))}
+            accessibilityRole={props.multi ? 'checkbox' : 'radio'}
             accessibilityState={{ checked: on }}
             style={{
               paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADII.pill, borderWidth: 1,

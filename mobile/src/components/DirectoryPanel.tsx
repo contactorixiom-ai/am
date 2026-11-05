@@ -26,6 +26,7 @@ import { downloadCsv } from '../utils/csv';
 import { confirmAction, notify } from '../utils/notify';
 import { roleLabel } from '../utils/roles';
 import { Avatar } from './Avatar';
+import { formatAccountNo } from '../api/auth';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Grid } from './Grid';
@@ -55,6 +56,10 @@ const KYC_LABEL: Record<string, string> = {
   DRIVER_LICENSE: 'Permis de conduire',
   HEALTH_INSURANCE_RIGHTS: 'Attestation de droits (assurance maladie)',
   VITALE_CARD: 'Carte Vitale',
+  BANK_DETAILS: 'RIB',
+  HOSTING_CERTIFICATE: 'Attestation d\'hébergement',
+  HOST_IDENTITY: 'Pièce d\'identité de l\'hébergeant',
+  SELFIE: 'Photo faciale',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
   COMPANY_REGISTRATION: 'Kbis',
   VAT_CERTIFICATE: 'Attestation de TVA',
@@ -208,7 +213,7 @@ export function DirectoryPanel({ onSendAccess }: Props) {
         label="Rechercher"
         value={query}
         onChangeText={setQuery}
-        placeholder="Nom, e-mail, téléphone, société, SIRET"
+        placeholder="Nom, e-mail, téléphone, société, SIRET, n° AX-…"
         autoCapitalize="none"
         autoCorrect={false}
       />
@@ -271,13 +276,13 @@ export function DirectoryPanel({ onSendAccess }: Props) {
           <Pressable key={u.id} onPress={() => setOpenId(u.id)}>
             <Surface padded style={{ gap: 8, opacity: u.status === 'SUSPENDED' ? 0.7 : 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar name={fullName(u)} size={40} tone={type.tone === 'gold' ? 'gold' : 'navy'} />
+                <Avatar name={fullName(u)} url={u.avatarUrl} size={44} tone={type.tone === 'gold' ? 'gold' : 'navy'} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
                     {u.companyName ? `${u.companyName} · ` : ''}{fullName(u)}
                   </Text>
                   <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
-                    {u.email}{u.phone ? ` · ${u.phone}` : ''}
+                    {u.accountNo ? `${formatAccountNo(u.accountNo)} · ` : ''}{u.email}{u.phone ? ` · ${u.phone}` : ''}
                   </Text>
                 </View>
                 <Icons.chev size={16} color={theme.faint} stroke={1.8} />
@@ -443,14 +448,13 @@ function DirectorySheet({ id, onClose, onSendAccess, onChanged }: { id: string |
             {failed ? <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold }}>Fiche indisponible. Réessaie dans un instant.</Text> : null}
             {e && type ? (
               <>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Avatar name={fullName(e)} size={52} tone={type.tone === 'gold' ? 'gold' : 'navy'} />
-                  <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                    <Text style={{ fontSize: 19, color: theme.ink, fontFamily: TYPO.weights.bold }} numberOfLines={2}>{fullName(e)}</Text>
-                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                      <Pill tone={type.tone}>{type.label}</Pill>
-                      {e.status === 'SUSPENDED' ? <Pill tone="bad">Suspendu</Pill> : null}
-                    </View>
+                <View style={{ alignItems: 'center', gap: 8 }}>
+                  <Avatar name={fullName(e)} url={e.avatarUrl} size={96} tone={type.tone === 'gold' ? 'gold' : 'navy'} />
+                  <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold, textAlign: 'center' }} numberOfLines={2}>{fullName(e)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <Pill tone={type.tone}>{type.label}</Pill>
+                    {e.accountNo ? <Pill tone="ghost">{formatAccountNo(e.accountNo)}</Pill> : null}
+                    {e.status === 'SUSPENDED' ? <Pill tone="bad">Suspendu</Pill> : null}
                   </View>
                 </View>
 

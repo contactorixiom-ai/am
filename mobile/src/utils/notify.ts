@@ -96,3 +96,30 @@ export function askYesNo(title: string, message: string, yes: string, no = 'Plus
     ], { cancelable: true, onDismiss: () => resolve(false) });
   });
 }
+
+/** Photo ou fichier ? Rend null si la personne annule. */
+export function askPhotoOrFile(title: string, message: string): Promise<'camera' | 'document' | null> {
+  return new Promise((resolve) => {
+    if (Platform.OS === 'web') {
+      if (listener) {
+        listener({
+          title,
+          message,
+          buttons: [
+            { label: 'Annuler', kind: 'cancel', onPress: () => resolve(null) },
+            { label: 'Fichier / PDF', kind: 'primary', onPress: () => resolve('document') },
+            { label: 'Prendre une photo', kind: 'primary', onPress: () => resolve('camera') },
+          ],
+        });
+        return;
+      }
+      resolve('document');
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: 'Annuler', style: 'cancel', onPress: () => resolve(null) },
+      { text: 'Fichier / PDF', onPress: () => resolve('document') },
+      { text: 'Prendre une photo', onPress: () => resolve('camera') },
+    ], { cancelable: true, onDismiss: () => resolve(null) });
+  });
+}

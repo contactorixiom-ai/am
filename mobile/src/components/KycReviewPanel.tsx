@@ -19,19 +19,33 @@ const SLOT_LABELS: Record<string, string> = {
   id_front: 'Pièce d\'identité — recto',
   id_back: 'Pièce d\'identité — verso',
   address: 'Justificatif de domicile',
-  selfie: 'Photo de contrôle (selfie)',
+  selfie: 'Photo faciale',
   health_rights: 'Attestation de droits — assurance maladie',
   vitale: 'Carte Vitale',
+  rib: 'RIB',
+  hosting: 'Attestation d\'hébergement',
+  host_id_front: 'Pièce d\'identité de l\'hébergeant — recto',
+  host_id_back: 'Pièce d\'identité de l\'hébergeant — verso',
 };
 const TYPE_LABELS: Record<string, string> = {
   DRIVER_LICENSE: 'Permis de conduire',
   HEALTH_INSURANCE_RIGHTS: 'Attestation de droits (assurance maladie)',
   VITALE_CARD: 'Carte Vitale',
+  BANK_DETAILS: 'RIB',
+  HOSTING_CERTIFICATE: 'Attestation d\'hébergement',
+  HOST_IDENTITY: 'Pièce d\'identité de l\'hébergeant',
+  SELFIE: 'Photo faciale',
   IDENTITY_CARD: 'Pièce d\'identité',
   PASSPORT: 'Passeport',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
   OTHER: 'Autre document',
 };
+
+/** Libellé d'une pièce, avec recto / verso quand le nom du fichier l'indique. */
+export function kycDocLabel(d: { fileName?: string | null; type: string }): string {
+  const slot = d.fileName?.split('.')[0];
+  return (slot && SLOT_LABELS[slot]) || TYPE_LABELS[d.type] || d.type;
+}
 
 function labelOf(d: PendingKycDocument): string {
   const slot = d.fileName?.split('.')[0];

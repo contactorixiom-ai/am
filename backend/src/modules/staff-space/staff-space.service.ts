@@ -1,3 +1,5 @@
+import { accountNoFilter } from '../../common/accounts/account-number';
+import { driverCompliance } from '../../common/auth/driver-kyc';
 import {
   BadRequestException,
   ForbiddenException,
@@ -66,6 +68,8 @@ function visibleKinds(role: UserRole): StaffFileKind[] {
 
 const PERSON_SELECT = {
   id: true,
+  accountNo: true,
+  avatarUrl: true,
   firstName: true,
   lastName: true,
   email: true,
@@ -277,6 +281,7 @@ export class StaffSpaceService {
                 { lastName: { contains: term, mode: 'insensitive' as const } },
                 { email: { contains: term, mode: 'insensitive' as const } },
                 { phone: { contains: term } },
+                ...accountNoFilter(term),
               ],
             }
           : {}),
@@ -560,25 +565,4 @@ export async function canReadStaffFile(prisma: PrismaService, user: Authenticate
   return user.role === UserRole.ADMIN;
 }
 
-/** Pièces obligatoires d'un convoyeur. */
-export const DRIVER_REQUIRED_KYC = [
-  { key: 'ID', label: 'Pièce d\'identité', types: ['IDENTITY_CARD', 'PASSPORT'] },
-  { key: 'LICENSE', label: 'Permis de conduire', types: ['DRIVER_LICENSE'] },
-  { key: 'HEALTH', label: 'Attestation de droits à l\'assurance maladie', types: ['HEALTH_INSURANCE_RIGHTS'] },
-  { key: 'VITALE', label: 'Carte Vitale', types: ['VITALE_CARD'] },
-] as const;
-
-export function driverCompliance(docs: { type: string; status: string }[]) {
-  const items = DRIVER_REQUIRED_KYC.map((r) => {
-    const mine = docs.filter((d) => (r.types as readonly string[]).includes(d.type));
-    const status = mine.some((d) => d.status === 'APPROVED')
-      ? 'APPROVED'
-      : mine.some((d) => d.status === 'PENDING')
-        ? 'PENDING'
-        : mine.some((d) => d.status === 'REJECTED')
-          ? 'REJECTED'
-          : 'MISSING';
-    return { key: r.key, label: r.label, status };
-  });
-  return { complete: items.every((i) => i.status === 'APPROVED'), items };
-}
+export { DRIVER_REQUIRED_KYC, driverCompliance } from '../../common/auth/driver-kyc';

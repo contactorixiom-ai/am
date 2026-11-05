@@ -11,6 +11,10 @@ export type KycDocumentType =
   | 'INSURANCE'
   | 'HEALTH_INSURANCE_RIGHTS'
   | 'VITALE_CARD'
+  | 'BANK_DETAILS'
+  | 'HOSTING_CERTIFICATE'
+  | 'HOST_IDENTITY'
+  | 'SELFIE'
   | 'OTHER';
 
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

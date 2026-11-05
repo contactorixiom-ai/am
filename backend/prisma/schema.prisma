@@ -41,6 +41,8 @@ enum AccountType {
 
 model User {
   id           String      @id @default(uuid()) @db.Uuid
+  /// Numéro de compte unique et lisible (affiché AX-000123).
+  accountNo    Int         @unique @default(autoincrement())
   email        String      @unique
   phone        String?     @unique
   passwordHash String
@@ -136,6 +138,14 @@ enum KycDocumentType {
   HEALTH_INSURANCE_RIGHTS
   /// Carte Vitale (obligatoire pour un convoyeur).
   VITALE_CARD
+  /// RIB (relevé d'identité bancaire) pour le paiement du convoyeur.
+  BANK_DETAILS
+  /// Attestation d'hébergement (convoyeur hébergé chez un tiers).
+  HOSTING_CERTIFICATE
+  /// Pièce d'identité de la personne qui héberge (annexe de l'attestation).
+  HOST_IDENTITY
+  /// Photo faciale du convoyeur.
+  SELFIE
   OTHER
 }
 

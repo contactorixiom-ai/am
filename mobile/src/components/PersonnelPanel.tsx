@@ -7,7 +7,7 @@
 //    reçus), envoi de contrats, assurances, fiches de paie, demandes de pièces ;
 //  - comptabilité : justificatifs de frais de chacun.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   addPersonFile,
   cancelRequest,
@@ -22,10 +22,13 @@ import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { SHEET_GUTTER } from '../theme/layout';
 import { TYPO } from '../theme/tokens';
-import { confirmAction, notify } from '../utils/notify';
+import { askYesNo, confirmAction, notify } from '../utils/notify';
 import { roleLabel } from '../utils/roles';
 import { AuthImage } from './AuthImage';
 import { Avatar } from './Avatar';
+import { kycDocLabel } from './KycReviewPanel';
+import { reviewKycDocument } from '../api/kyc';
+import { formatAccountNo } from '../api/auth';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Icons } from './Icons';
@@ -39,6 +42,10 @@ const KYC_LABEL: Record<string, string> = {
   DRIVER_LICENSE: 'Permis de conduire',
   HEALTH_INSURANCE_RIGHTS: 'Attestation de droits (assurance maladie)',
   VITALE_CARD: 'Carte Vitale',
+  BANK_DETAILS: 'RIB',
+  HOSTING_CERTIFICATE: 'Attestation d\'hébergement',
+  HOST_IDENTITY: 'Pièce d\'identité de l\'hébergeant',
+  SELFIE: 'Photo faciale',
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
   OTHER: 'Autre pièce',
 };
@@ -96,7 +103,7 @@ export function PersonnelPanel() {
         <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.bold }}>Personnel</Text>
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 18 }}>{intro}</Text>
       </Surface>
-      <Field value={q} onChangeText={setQ} placeholder="Rechercher un nom, un e-mail, un téléphone" autoCapitalize="none" />
+      <Field value={q} onChangeText={setQ} placeholder="Rechercher un nom, un e-mail, un téléphone, un n° AX-…" autoCapitalize="none" />
       <Chips<Filter>
         options={[
           { key: 'all', label: 'Tous' },
@@ -119,11 +126,11 @@ export function PersonnelPanel() {
         <Pressable key={p.id} onPress={() => setOpenId(p.id)}>
           <Surface padded style={{ gap: 8, opacity: p.status === 'SUSPENDED' ? 0.6 : 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Avatar name={`${p.firstName} ${p.lastName}`} size={40} tone={p.role === 'DRIVER' ? 'navy' : 'gold'} />
+              <Avatar name={`${p.firstName} ${p.lastName}`} url={p.avatarUrl} size={44} tone={p.role === 'DRIVER' ? 'navy' : 'gold'} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>{p.firstName} {p.lastName}</Text>
                 <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
-                  {roleLabel(p.role)}{p.phone ? ` · ${p.phone}` : ''}
+                  {roleLabel(p.role)}{p.accountNo ? ` · ${formatAccountNo(p.accountNo)}` : ''}{p.phone ? ` · ${p.phone}` : ''}
                 </Text>
               </View>
               <Icons.chev size={16} color={theme.muted} stroke={2} />
@@ -180,6 +187,26 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
   }, [load]);
 
   const refresh = () => { void load(); onChanged(); };
+  // Pièces justificatives : l'administrateur et la RH les valident ici même.
+  const canReviewKyc = role === 'ADMIN' || role === 'HR';
+  const [kycBusy, setKycBusy] = useState<string | null>(null);
+  const reviewKyc = async (docId: string, status: 'APPROVED' | 'REJECTED') => {
+    let note: string | undefined;
+    if (status === 'REJECTED') {
+      const ok = await askYesNo('Refuser la pièce ?', 'Le convoyeur sera prévenu et devra en envoyer une nouvelle (photo floue, document expiré, mauvais document…).', 'Refuser', 'Annuler');
+      if (!ok) return;
+      note = 'Pièce illisible ou non conforme : merci d\'en envoyer une nouvelle.';
+    }
+    setKycBusy(docId);
+    try {
+      await reviewKycDocument(docId, status, note);
+      refresh();
+    } catch (e) {
+      notify('Action impossible', e instanceof Error ? e.message : 'Réessaie.');
+    } finally {
+      setKycBusy(null);
+    }
+  };
 
   const sendRequest = async () => {
     if (!id || reqTitle.trim().length < 2) return notify('Demande incomplète', 'Indique la pièce ou l\'information demandée.');
@@ -233,15 +260,32 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
             {failed ? <Text style={{ color: theme.bad, fontFamily: TYPO.weights.semibold }}>Dossier indisponible. Réessaie dans un instant.</Text> : null}
             {u ? (
               <>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Avatar name={`${u.firstName} ${u.lastName}`} size={52} tone={u.role === 'DRIVER' ? 'navy' : 'gold'} />
-                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                    <Text style={{ fontSize: 19, color: theme.ink, fontFamily: TYPO.weights.bold }} numberOfLines={2}>{u.firstName} {u.lastName}</Text>
-                    <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }} selectable>
-                      {roleLabel(u.role)} · {u.email}{u.phone ? ` · ${u.phone}` : ''}
-                    </Text>
+                {/* Profil de la personne */}
+                <View style={{ alignItems: 'center', gap: 8 }}>
+                  <Pressable onPress={() => (u.avatarUrl ? setZoom(u.avatarUrl) : undefined)} accessibilityLabel="Agrandir la photo">
+                    <Avatar name={`${u.firstName} ${u.lastName}`} url={u.avatarUrl} size={96} tone={u.role === 'DRIVER' ? 'navy' : 'gold'} />
+                  </Pressable>
+                  <Text style={{ fontSize: 20, color: theme.ink, fontFamily: TYPO.weights.bold, textAlign: 'center' }} numberOfLines={2}>{u.firstName} {u.lastName}</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <Pill tone={u.role === 'DRIVER' ? 'navy' : 'gold'}>{roleLabel(u.role)}</Pill>
+                    {u.accountNo ? <Pill tone="ghost">{formatAccountNo(u.accountNo)}</Pill> : null}
+                    {u.status === 'SUSPENDED' ? <Pill tone="bad">Suspendu</Pill> : null}
                   </View>
                 </View>
+                <Surface padded style={{ gap: 8 }}>
+                  <InfoRow label="E-mail" value={u.email} />
+                  <InfoRow label="Téléphone" value={u.phone ?? '—'} />
+                  <InfoRow label="Inscrit le" value={new Date(u.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                  <InfoRow label="Dernière connexion" value={u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Jamais'} />
+                  {u.phone ? (
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                      <Button kind="outline" size="sm" onPress={() => void Linking.openURL(`tel:${u.phone!.replace(/\s/g, '')}`)}>Appeler</Button>
+                      <Button kind="outline" size="sm" onPress={() => void Linking.openURL(`mailto:${u.email}`)}>Écrire un e-mail</Button>
+                    </View>
+                  ) : (
+                    <Button kind="outline" size="sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onPress={() => void Linking.openURL(`mailto:${u.email}`)}>Écrire un e-mail</Button>
+                  )}
+                </Surface>
 
                 <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                   {canTravel ? (
@@ -281,7 +325,7 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
                         </View>
                       ))}
                       <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                        Les pièces se valident dans l'onglet Convoyeurs.
+                        Valide ou refuse chaque pièce ci-dessous : le convoyeur est prévenu.
                       </Text>
                     </Surface>
                   </View>
@@ -300,8 +344,14 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
                           ) : (
                             <AuthImage url={d.fileUrl} style={{ width: 132, height: 92, borderRadius: 10 }} label={KYC_LABEL[d.type]} />
                           )}
-                          <Text style={{ fontSize: 11.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={2}>{KYC_LABEL[d.type] ?? 'Pièce'}</Text>
+                          <Text style={{ fontSize: 11.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={2}>{kycDocLabel(d)}</Text>
                           <Pill tone={KYC_STATUS[d.status]?.tone ?? 'default'}>{KYC_STATUS[d.status]?.label ?? d.status}</Pill>
+                          {canReviewKyc && d.status === 'PENDING' ? (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                              <Button kind="primary" size="sm" disabled={kycBusy === d.id} onPress={() => void reviewKyc(d.id, 'APPROVED')}>Valider</Button>
+                              <Button kind="ghost" size="sm" disabled={kycBusy === d.id} onPress={() => void reviewKyc(d.id, 'REJECTED')}>Refuser</Button>
+                            </View>
+                          ) : null}
                         </Pressable>
                       ))}
                     </View>
@@ -411,6 +461,16 @@ function FileGroup({ title, empty, children }: { title: string; empty: string; c
       <Surface padded style={{ paddingVertical: 4 }}>
         {children.length ? children : <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, paddingVertical: 12 }}>{empty}</Text>}
       </Surface>
+    </View>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', gap: 10 }}>
+      <Text style={{ width: 128, fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{label}</Text>
+      <Text selectable style={{ flex: 1, fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{value}</Text>
     </View>
   );
 }

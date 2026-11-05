@@ -1,3 +1,5 @@
+import { accountNoFilter } from '../../common/accounts/account-number';
+import { driverCompliance } from '../../common/auth/driver-kyc';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
@@ -30,6 +32,7 @@ export class UsersService {
   private get safeSelect(): Prisma.UserSelect {
     return {
       id: true,
+      accountNo: true,
       email: true,
       phone: true,
       role: true,
@@ -112,11 +115,15 @@ export class UsersService {
     });
     if (!current) throw new NotFoundException('Utilisateur introuvable.');
     const trim = (v?: string) => (v === undefined ? undefined : v.trim() || null);
+    // Photo de profil : uniquement un fichier de notre stockage (dossier avatars).
+    if (dto.avatarUrl && !/\/avatars\/[A-Za-z0-9._-]+$/.test(dto.avatarUrl.trim())) {
+      throw new BadRequestException('Photo de profil : envoyez l\'image depuis l\'application.');
+    }
     const data = {
       firstName: dto.firstName?.trim() || undefined,
       lastName: dto.lastName?.trim() || undefined,
       phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
-      avatarUrl: dto.avatarUrl,
+      avatarUrl: dto.avatarUrl === undefined ? undefined : dto.avatarUrl.trim() || null,
       accountType: dto.accountType,
       companyName: trim(dto.companyName),
       companyAddress: trim(dto.companyAddress),
@@ -305,6 +312,7 @@ export class UsersService {
               { email: { contains: term, mode: 'insensitive' as const } },
               { phone: { contains: term, mode: 'insensitive' as const } },
               { companyName: { contains: term, mode: 'insensitive' as const } },
+              ...accountNoFilter(term),
             ],
           }
         : {}),
@@ -341,17 +349,17 @@ export class UsersService {
         select: {
           ...this.safeSelect,
           driverProfile: true,
-          kycDocuments: { where: { status: 'APPROVED' }, select: { type: true } },
+          kycDocuments: { where: { status: { in: ['APPROVED', 'PENDING'] } }, select: { type: true, status: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
     ]);
-    // « Vérifié » = pièce d'identité (ou passeport) ET permis validés.
+    // « Vérifié » = même règle que l'affectation d'une mission : identité et
+    // permis validés, les autres pièces obligatoires envoyées.
     const withStatus = data.map(({ kycDocuments, ...u }) => {
-      const types = new Set((kycDocuments as { type: string }[]).map((d) => d.type));
-      const verified = (types.has('IDENTITY_CARD') || types.has('PASSPORT')) && types.has('DRIVER_LICENSE');
-      return { ...u, verified };
+      const { canWork, blocking } = driverCompliance(kycDocuments as { type: string; status: string }[]);
+      return { ...u, verified: canWork, missingDocuments: blocking };
     });
     return { data: withStatus, total };
   }
@@ -364,7 +372,7 @@ export class UsersService {
   listStaff() {
     return this.prisma.user.findMany({
       where: { role: { in: [UserRole.ADMIN, ...TEAM_ROLES] }, deletedAt: null },
-      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, lastLoginAt: true, createdAt: true },
+      select: { id: true, accountNo: true, avatarUrl: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, lastLoginAt: true, createdAt: true },
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     });
   }
@@ -390,7 +398,7 @@ export class UsersService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
       },
-      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
+      select: { id: true, accountNo: true, avatarUrl: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
     });
     await this.prisma.auditLog.create({ data: { userId: adminId, action: 'STAFF_CREATE', entity: 'User', entityId: user.id, metadata: { role } } });
     return user;
@@ -432,7 +440,7 @@ export class UsersService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
       },
-      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
+      select: { id: true, accountNo: true, avatarUrl: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
     });
     await this.prisma.auditLog.create({ data: { userId: staffId, action: 'DRIVER_INVITE', entity: 'User', entityId: user.id } });
     return user;
@@ -444,7 +452,7 @@ export class UsersService {
       where: { role: UserRole.DRIVER, deletedAt: null, lastLoginAt: null },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      select: { id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
+      select: { id: true, accountNo: true, avatarUrl: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true, createdAt: true, lastLoginAt: true },
     });
   }
 
@@ -492,6 +500,7 @@ export class UsersService {
               { email: { contains: term, mode: 'insensitive' as const } },
               { phone: { contains: term, mode: 'insensitive' as const } },
               { companyName: { contains: term, mode: 'insensitive' as const } },
+              ...accountNoFilter(term),
               { companySiret: { contains: term.replace(/\s/g, '') } },
             ],
           }

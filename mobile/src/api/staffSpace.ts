@@ -80,6 +80,8 @@ export interface Compliance {
 
 export interface PersonRow {
   id: string;
+  accountNo?: number;
+  avatarUrl?: string | null;
   firstName: string;
   lastName: string;
   email: string;

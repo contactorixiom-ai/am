@@ -25,6 +25,10 @@ const KYC_LABELS: Record<string, string> = {
   PROOF_OF_ADDRESS: 'Justificatif de domicile',
   HEALTH_INSURANCE_RIGHTS: 'Attestation de droits à l\'assurance maladie',
   VITALE_CARD: 'Carte Vitale',
+  BANK_DETAILS: 'RIB',
+  HOSTING_CERTIFICATE: 'Attestation d\'hébergement',
+  HOST_IDENTITY: 'Pièce d\'identité de l\'hébergeant',
+  SELFIE: 'Photo faciale',
 };
 
 @Injectable()

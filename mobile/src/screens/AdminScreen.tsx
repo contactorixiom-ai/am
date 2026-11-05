@@ -45,7 +45,7 @@ import { Field } from '../components/Field';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { StaffPanel } from '../components/StaffPanel';
-import { backOfficeTitle, handlesPaperwork, isAdmin, isHR, isStaff } from '../utils/roles';
+import { backOfficeTitle, handlesPaperwork, isAdmin, isHR, isSecretary, isStaff } from '../utils/roles';
 import { PersonnelPanel } from '../components/PersonnelPanel';
 import { StaffInboxPanel } from '../components/StaffInboxPanel';
 import { AnnouncementsPanel } from '../components/AnnouncementsPanel';
@@ -109,8 +109,9 @@ const ROLE_TABS: Record<string, TabId[]> = {
   MANAGER: ['dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel'],
   // RH : tout l'administratif du personnel, sans l'exploitation.
   HR: ['personnel', 'drivers', 'received', 'announce', 'documents', 'generate'],
-  // Secrétariat : relayer l'information, déposer billets et réservations.
-  SECRETARY: ['announce', 'personnel'],
+  // Secrétariat : relayer l'information, déposer billets et réservations,
+  // et remplir avec un client venu à l'agence ses documents d'expédition.
+  SECRETARY: ['generate', 'documents', 'announce', 'personnel'],
   // Comptabilité : justificatifs de frais.
   ACCOUNTANT: ['expenses', 'personnel'],
 };
@@ -362,7 +363,7 @@ export function AdminScreen() {
   const [activityFilter, setActivityFilter] = useState<AdminActivity | 'all'>('all');
 
   useEffect(() => {
-    if (handlesPaperwork(me?.role)) readAdminHistory().then(setHistory);
+    if (handlesPaperwork(me?.role) || isSecretary(me?.role)) readAdminHistory().then(setHistory);
   }, []);
 
   const loadShipments = useCallback(async () => {
@@ -433,10 +434,12 @@ export function AdminScreen() {
       setFormInitial({ ...(prefill ?? {}) });
     }
     // Responsable d'exploitation : aucun prix dans les documents.
-    setSelectedType(meIsAdmin ? type : { ...type, fields: type.fields.filter((f) => !MONEY_FIELDS.includes(f.key)) });
+    // Le secrétariat remplit les documents avec le client à l'agence : il a
+    // besoin des valeurs déclarées (facture commerciale, liste de colisage).
+    setSelectedType(meIsAdmin || isSecretary(me?.role) ? type : { ...type, fields: type.fields.filter((f) => !MONEY_FIELDS.includes(f.key)) });
     setFormActivity(activity ?? null);
     setTab('generate');
-  }, [meIsAdmin]);
+  }, [meIsAdmin, me?.role]);
 
   // ─── Génération depuis le formulaire ──────────────────────────────────────
   const handleGenerate = useCallback(async (values: AdminValues) => {
@@ -690,7 +693,7 @@ export function AdminScreen() {
         title={backOfficeTitle(me?.role)}
         subtitle={
           meIsHR ? 'Personnel · pièces · contrats · assurances'
-            : me?.role === 'SECRETARY' ? 'Annonces · billets et réservations'
+            : me?.role === 'SECRETARY' ? 'Accueil clients · documents · annonces · billets'
               : me?.role === 'ACCOUNTANT' ? 'Justificatifs de frais'
                 : meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'
         }
@@ -1250,7 +1253,7 @@ export function AdminScreen() {
                             </Text>
                             <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
                               {blocked
-                                ? 'Pièces non validées — voir l\'onglet Convoyeurs'
+                                ? `Dossier incomplet : ${(d.missingDocuments ?? []).join(', ').toLowerCase() || 'pièces à valider'}`
                                 : [d.driverProfile?.baseCity, d.phone].filter(Boolean).join(' · ') || 'Convoyeur vérifié'}
                             </Text>
                           </View>

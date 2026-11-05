@@ -31,6 +31,8 @@ export interface AuthResult extends AuthTokens {
     lastName: string;
     role: User['role'];
     status: UserStatus;
+    accountNo: number;
+    avatarUrl: string | null;
   };
 }
 
@@ -369,6 +371,8 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
         status: user.status,
+        accountNo: user.accountNo,
+        avatarUrl: user.avatarUrl,
       },
     };
   }

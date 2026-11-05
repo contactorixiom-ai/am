@@ -45,6 +45,7 @@ import { useSession } from '../state/SessionContext';
 import { onNotificationTap } from '../utils/push';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
+import { screenTitle } from './titles';
 import { AppTabParamList, RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -158,7 +159,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} documentTitle={{ formatter: (_options, route) => screenTitle(route?.name) }}>
       <View style={{ flex: 1, flexDirection: 'row' }}>
       {wide && user ? <SideNav navigationRef={navigationRef} /> : null}
       {/* À droite du menu : contenu limité à une largeur lisible, sans cadre. */}

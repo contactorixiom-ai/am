@@ -3,13 +3,14 @@
 // personnes choisies. Chacun reçoit une notification sur son téléphone et
 // retrouve l'annonce dans « Mon espace ».
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Announcement, listAnnouncements, listPeople, PersonRow, sendAnnouncement } from '../api/staffSpace';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
 import { PickedFile } from '../utils/pickFile';
 import { roleLabel } from '../utils/roles';
+import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Icons } from './Icons';
@@ -98,8 +99,22 @@ export function AnnouncementsPanel() {
           <View style={{ gap: 8 }}>
             <Field value={q} onChangeText={setQ} placeholder="Rechercher une personne" autoCapitalize="none" />
             {people === null ? <ActivityIndicator color={theme.link} /> : null}
-            <View style={{ maxHeight: 260, gap: 2 }}>
-              {shownPeople.slice(0, 40).map((p) => {
+            {/* Liste défilante dans un cadre : elle débordait sur le reste de la page. */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button kind="ghost" size="sm" onPress={() => setPicked((s) => new Set([...s, ...shownPeople.map((p) => p.id)]))} disabled={!shownPeople.length}>
+                Tout cocher{q.trim() ? ' (résultats)' : ''}
+              </Button>
+              {picked.size ? <Button kind="ghost" size="sm" onPress={() => setPicked(new Set())}>Tout décocher</Button> : null}
+            </View>
+            <ScrollView
+              nestedScrollEnabled
+              style={{ maxHeight: 300, borderWidth: 1, borderColor: theme.line, borderRadius: 12, backgroundColor: theme.bgSoft }}
+              contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 4 }}
+            >
+              {people && !shownPeople.length ? (
+                <Text style={{ paddingVertical: 12, fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>Personne ne correspond à cette recherche.</Text>
+              ) : null}
+              {shownPeople.map((p) => {
                 const on = picked.has(p.id);
                 return (
                   <Pressable key={p.id} onPress={() => toggle(p.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
@@ -107,14 +122,15 @@ export function AnnouncementsPanel() {
                     <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: on ? theme.select : theme.line, backgroundColor: on ? theme.select : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                       {on ? <Icons.check size={14} color={theme.selectInk} stroke={2.6} /> : null}
                     </View>
-                    <Text style={{ flex: 1, fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
+                    <Avatar name={`${p.firstName} ${p.lastName}`} url={p.avatarUrl} size={28} tone={p.role === 'DRIVER' ? 'navy' : 'gold'} />
+                    <Text style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
                       {p.firstName} {p.lastName}
                     </Text>
                     <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{roleLabel(p.role)}</Text>
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
             {picked.size ? <Text style={{ fontSize: 12, color: theme.link, fontFamily: TYPO.weights.semibold }}>{picked.size} personne(s) choisie(s)</Text> : null}
           </View>
         ) : null}

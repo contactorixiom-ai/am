@@ -139,7 +139,7 @@ export function SideNav({ navigationRef }: Props) {
 
       <View style={{ flex: 1 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: theme.lineSoft }}>
-        <Avatar name={`${user.firstName} ${user.lastName}`} size={30} tone={staff ? 'gold' : 'navy'} />
+        <Avatar name={`${user.firstName} ${user.lastName}`} url={user.avatarUrl} size={30} tone={staff ? 'gold' : 'navy'} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }} numberOfLines={1}>
             {user.firstName} {user.lastName}

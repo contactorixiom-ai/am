@@ -1,3 +1,4 @@
+import { driverCompliance } from '../../common/auth/driver-kyc';
 import {
   BadRequestException,
   ForbiddenException,
@@ -796,23 +797,15 @@ export class MissionsService {
     if (!user || user.role !== UserRole.DRIVER) {
       throw new ForbiddenException('Seul un convoyeur peut accepter une mission.');
     }
-    const approved = new Set(user.kycDocuments.filter((d) => d.status === 'APPROVED').map((d) => d.type));
-    // Carte Vitale et attestation de droits à l'assurance maladie : envoyées
-    // (la vérification par la RH ne bloque pas le convoyeur).
-    const sent = new Set(user.kycDocuments.map((d) => d.type));
-    const hasId = approved.has('IDENTITY_CARD') || approved.has('PASSPORT');
-    const hasLicense = approved.has('DRIVER_LICENSE');
-    if (!hasId || !hasLicense) {
+    const { blocking } = driverCompliance(user.kycDocuments);
+    const unverified = blocking.filter((l) => l.startsWith('Pièce d\'identité') || l.startsWith('Permis'));
+    if (unverified.length) {
       throw new ForbiddenException(
         'Identité non vérifiée : une pièce d\'identité et un permis de conduire approuvés par Axis sont nécessaires pour accepter une mission.',
       );
     }
-    const missing = [
-      !sent.has('HEALTH_INSURANCE_RIGHTS') && 'l\'attestation de droits à l\'assurance maladie',
-      !sent.has('VITALE_CARD') && 'la carte Vitale',
-    ].filter(Boolean);
-    if (missing.length) {
-      throw new ForbiddenException(`Dossier incomplet : envoyez ${missing.join(' et ')} depuis Mes pièces justificatives pour accepter une mission.`);
+    if (blocking.length) {
+      throw new ForbiddenException(`Dossier incomplet : envoyez depuis Mes pièces justificatives ${blocking.join(', ').toLowerCase()} pour accepter une mission.`);
     }
   }
 

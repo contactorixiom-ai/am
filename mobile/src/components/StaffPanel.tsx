@@ -34,7 +34,7 @@ type TeamRole = 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
 const TEAM_ROLE_CHOICES: { id: TeamRole; label: string; sub: string }[] = [
   { id: 'MANAGER', label: 'Responsable d\'exploitation', sub: 'Envois, missions, convoyeurs, billets, messages' },
   { id: 'HR', label: 'Ressources humaines', sub: 'Dossiers du personnel, contrats, assurances, pièces' },
-  { id: 'SECRETARY', label: 'Secrétariat', sub: 'Annonces à l\'équipe, billets et réservations' },
+  { id: 'SECRETARY', label: 'Secrétariat', sub: 'Accueil des clients, documents, annonces, billets' },
   { id: 'ACCOUNTANT', label: 'Comptabilité', sub: 'Justificatifs de frais des convoyeurs et salariés' },
 ];
 

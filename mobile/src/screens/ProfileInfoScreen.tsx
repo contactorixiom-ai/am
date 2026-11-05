@@ -1,8 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
-import { updateProfile } from '../api/auth';
+import { formatAccountNo, updateProfile } from '../api/auth';
 import { AppBar } from '../components/AppBar';
+import { ProfilePhoto } from '../components/ProfilePhoto';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
 import { AddressField } from '../components/AddressField';
@@ -92,6 +93,15 @@ export function ProfileInfoScreen() {
       <AppBar title="Mes informations" subtitle="Reprises sur tes contrats et factures" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 14 }}>
+          <View style={{ alignItems: 'center', gap: 6, paddingVertical: 6 }}>
+            <ProfilePhoto size={84} tone="gold" />
+            <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>Touche la photo pour la changer</Text>
+            {user?.accountNo ? (
+              <Text selectable style={{ fontSize: 13, color: theme.ink, fontFamily: TYPO.weights.semibold, letterSpacing: 0.4 }}>
+                N° de compte {formatAccountNo(user.accountNo)}
+              </Text>
+            ) : null}
+          </View>
           <Surface padded style={{ gap: 10 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Field containerStyle={{ flex: 1 }} label="Prénom" value={firstName} onChangeText={setFirstName} autoCapitalize="words" />

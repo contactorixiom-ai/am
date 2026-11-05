@@ -34,3 +34,21 @@ export async function capturePhoto(): Promise<string | null> {
     return null;
   }
 }
+
+/** Photo de profil : appareil photo ou galerie, recadrée au carré. */
+export async function pickSquarePhoto(source: 'camera' | 'library'): Promise<string | null> {
+  try {
+    const opts = { quality: 0.5, mediaTypes: IMAGES, allowsEditing: Platform.OS !== 'web', aspect: [1, 1] as [number, number] };
+    if (source === 'camera' && Platform.OS !== 'web') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (perm.granted) {
+        const res = await ImagePicker.launchCameraAsync(opts);
+        return !res.canceled && res.assets?.length ? res.assets[0].uri : null;
+      }
+    }
+    const res = await ImagePicker.launchImageLibraryAsync(opts);
+    return !res.canceled && res.assets?.length ? res.assets[0].uri : null;
+  } catch {
+    return null;
+  }
+}

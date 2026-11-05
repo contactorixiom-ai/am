@@ -18,6 +18,8 @@ export interface DirectoryUser {
   role: 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   accountType: 'INDIVIDUAL' | 'PROFESSIONAL';
+  accountNo?: number;
+  avatarUrl?: string | null;
   firstName: string;
   lastName: string;
   companyName: string | null;

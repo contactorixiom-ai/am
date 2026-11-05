@@ -17,6 +17,10 @@ export interface SessionUser {
   companyVatId?: string | null;
   companyAddress?: string | null;
   billingAddress?: string | null;
+  /** Numéro de compte unique (AX-000123 à l'affichage). */
+  accountNo?: number;
+  avatarUrl?: string | null;
+  driverProfile?: { licenseNumber: string; licenseExpiresAt: string; licenseCategories: string[] } | null;
 }
 
 export interface AuthResult {
@@ -108,7 +112,7 @@ export async function exportMyData(): Promise<unknown> {
 }
 
 export type ProfileUpdate = Partial<Pick<SessionUser,
-  'firstName' | 'lastName' | 'phone' | 'accountType' | 'companyName' | 'companySiret' | 'companyVatId' | 'companyAddress' | 'billingAddress'
+  'firstName' | 'lastName' | 'phone' | 'accountType' | 'companyName' | 'companySiret' | 'companyVatId' | 'companyAddress' | 'billingAddress' | 'avatarUrl'
 >>;
 
 /** Met à jour son profil (identité, facturation, société). */
@@ -123,6 +127,16 @@ export async function logout(): Promise<void> {
 
 export async function fetchMe(): Promise<SessionUser> {
   return apiFetch<SessionUser>('/users/me');
+}
+
+/** Convoyeur : numéro, validité et catégories de son permis. */
+export function upsertLicence(input: { licenseNumber: string; licenseExpiresAt: string; licenseCategories: string[] }) {
+  return apiFetch('/users/me/driver-profile', { method: 'PUT', body: input });
+}
+
+/** Numéro de compte lisible : AX-000123. */
+export function formatAccountNo(n?: number | null): string {
+  return typeof n === 'number' ? `AX-${String(n).padStart(6, '0')}` : '';
 }
 
 /**

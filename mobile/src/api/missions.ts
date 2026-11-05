@@ -135,6 +135,8 @@ export interface DriverOption {
   driverProfile?: { baseCity?: string | null; rating?: number | null } | null;
   /** Pièce d'identité et permis validés : seul un convoyeur vérifié peut être affecté. */
   verified?: boolean;
+  /** Pièces qui manquent pour lui confier une mission. */
+  missingDocuments?: string[];
 }
 
 export interface ClientOption {

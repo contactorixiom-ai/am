@@ -151,7 +151,7 @@ export function HomeScreen() {
             laissait croire à des paramètres, alors que l'onglet Profil est
             déjà dans la barre du bas. */}
         <Pressable onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Profile' } as never)}>
-          <Avatar name={user ? `${user.firstName} ${user.lastName}` : 'Axis'} size={42} tone="navy" />
+          <Avatar name={user ? `${user.firstName} ${user.lastName}` : 'Axis'} url={user?.avatarUrl} size={42} tone="navy" />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium }}>
@@ -251,7 +251,7 @@ export function HomeScreen() {
               <Text style={{ fontSize: 15, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{backOfficeTitle(role)}</Text>
               <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium, marginTop: 2 }}>
                 {role === 'HR' ? 'Personnel · pièces · contrats · assurances'
-                  : role === 'SECRETARY' ? 'Annonces à l\'équipe · billets et réservations'
+                  : role === 'SECRETARY' ? 'Accueil clients · documents · annonces · billets'
                     : role === 'ACCOUNTANT' ? 'Justificatifs de frais des convoyeurs et salariés'
                       : 'Documents officiels · envois à traiter'}
               </Text>

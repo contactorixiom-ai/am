@@ -8,7 +8,7 @@ import { SaveAdminDocumentDto } from './save-admin-document.dto';
 
 @ApiTags('admin-documents')
 @ApiBearerAuth()
-@Roles(UserRole.ADMIN, UserRole.HR) // administrateur, responsables d'exploitation et RH
+@Roles(UserRole.ADMIN, UserRole.HR, UserRole.SECRETARY) // administrateur, responsables, RH et secrétariat (accueil des clients)
 @Controller('admin-documents')
 export class AdminDocumentsController {
   constructor(private readonly docs: AdminDocumentsService) {}

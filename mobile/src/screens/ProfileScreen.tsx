@@ -8,7 +8,8 @@ import { openSupportConversation } from '../api/messaging';
 import { LEGAL_PRIVACY_URL } from '../config/company';
 import { confirmAction, notify } from '../utils/notify';
 import Svg, { Circle } from 'react-native-svg';
-import { Avatar } from '../components/Avatar';
+import { ProfilePhoto } from '../components/ProfilePhoto';
+import { formatAccountNo } from '../api/auth';
 import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { RootStackParamList } from '../navigation/types';
@@ -70,7 +71,7 @@ export function ProfileScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Avatar name={fullName} size={52} tone="gold" />
+            <ProfilePhoto size={56} tone="gold" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={{ fontSize: 16, color: '#F5F1E8', fontFamily: TYPO.weights.semibold, letterSpacing: -0.2 }}>
@@ -85,6 +86,11 @@ export function ProfileScreen() {
               <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.62)', marginTop: 2, fontFamily: TYPO.weights.medium }}>
                 {user?.email ?? ''}
               </Text>
+              {user?.accountNo ? (
+                <Text selectable style={{ fontSize: 11.5, color: theme.goldHi, marginTop: 3, fontFamily: TYPO.weights.semibold, letterSpacing: 0.4 }}>
+                  N° de compte {formatAccountNo(user.accountNo)}
+                </Text>
+              ) : null}
             </View>
           </View>
 
