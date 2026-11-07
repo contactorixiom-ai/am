@@ -18,6 +18,7 @@ import { Icons } from '../components/Icons';
 import { Pill } from '../components/Pill';
 import { Surface } from '../components/Surface';
 import { RootStackParamList } from '../navigation/types';
+import { notificationTarget } from '../navigation/notificationTarget';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 
@@ -74,12 +75,7 @@ function relativeTime(iso: string): string {
 // La notification porte l'identifiant de l'envoi concerné : on ouvre le bon
 // écran plutôt que de renvoyer l'utilisateur à l'accueil.
 function actionFor(n: ServerNotification): AppNotif['action'] {
-  const p = (n.payload ?? {}) as { missionId?: string; parcelId?: string; reference?: string };
-  if (p.missionId && p.reference) return { screen: 'MissionDetails', params: { reference: p.reference } };
-  if (p.parcelId && p.reference) {
-    return { screen: 'Tracking', params: { kind: 'parcel', id: p.parcelId, reference: p.reference } };
-  }
-  return undefined;
+  return notificationTarget(n.type, n.payload);
 }
 
 function toAppNotif(n: ServerNotification): AppNotif {
@@ -230,7 +226,7 @@ function NotifCard({ notif, onPress }: { notif: AppNotif; onPress: () => void })
               {notif.time}
             </Text>
           </View>
-          <Icons.chev size={16} color={theme.muted} stroke={1.8} />
+          {notif.action ? <Icons.chev size={16} color={theme.muted} stroke={1.8} /> : null}
         </View>
       </Surface>
     </Pressable>

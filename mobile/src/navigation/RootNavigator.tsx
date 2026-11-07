@@ -46,6 +46,7 @@ import { onNotificationTap } from '../utils/push';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { screenTitle } from './titles';
+import { notificationTarget } from './notificationTarget';
 import { AppTabParamList, RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -131,13 +132,9 @@ export function RootNavigator() {
     return onNotificationTap((data) => {
       const go = () => {
         if (!navigationRef.isReady()) return false;
-        const type = String(data.type ?? '');
-        const kind = String(data.kind ?? '');
-        if (kind === 'STAFF_FILE' || kind === 'STAFF_REQUEST' || kind === 'ANNOUNCEMENT') navigationRef.navigate('MySpace');
-        else if (kind === 'STAFF_EXPENSE') navigationRef.navigate('Admin', { tab: 'expenses' });
-        else if (kind === 'STAFF_DOCUMENT') navigationRef.navigate('Admin', { tab: 'received' });
-        else if (kind === 'KYC_SUBMITTED') navigationRef.navigate('Admin', { tab: 'drivers' });
-        else if (type.startsWith('KYC_')) navigationRef.navigate('KycVerification');
+        const target = notificationTarget(String(data.type ?? ''), data as Record<string, unknown>);
+        // @ts-expect-error — navigation dynamique sur des routes typées
+        if (target) navigationRef.navigate(target.screen, target.params);
         else navigationRef.navigate('Notifications');
         return true;
       };
