@@ -3,6 +3,14 @@ import { computeQuote } from './pricing';
 const base = { options: [] };
 
 describe('computeQuote — grille import-export', () => {
+  it('effets personnels par avion : 65 € de douane par colis', () => {
+    const one = computeQuote({ ...base, service: 'PARCEL', transportMode: 'AIR', weightKg: 10 });
+    expect(one.lines.find((l) => l.code === 'CUSTOMS_FEE')?.totalCents).toBe(6500);
+    const three = computeQuote({ ...base, service: 'PARCEL', transportMode: 'AIR', weightKg: 10, units: 3 });
+    expect(three.lines.find((l) => l.code === 'CUSTOMS_FEE')).toMatchObject({ quantity: 3, totalCents: 19500 });
+    expect(three.totalCents - one.totalCents).toBe(2 * 6500);
+  });
+
   it('effets personnels en maritime : prix à la pièce + 65 € de douane par colis, TTC', () => {
     const q = computeQuote({
       ...base,
@@ -57,11 +65,12 @@ describe('computeQuote — grille import-export', () => {
 
   it('aérien : 8,50 €/kg avec un minimum de perception de 95 €', () => {
     const small = computeQuote({ ...base, service: 'PARCEL', transportMode: 'AIR', weightKg: 2 });
-    expect(small.totalCents).toBe(9500);
-    expect(small.lines.map((l) => l.code)).toEqual(['AIR_KG', 'MINIMUM']);
+    // Transport : minimum 95 € ; douane 65 € par colis en plus.
+    expect(small.totalCents).toBe(9500 + 6500);
+    expect(small.lines.map((l) => l.code)).toEqual(['AIR_KG', 'CUSTOMS_FEE', 'MINIMUM']);
     const big = computeQuote({ ...base, service: 'PARCEL', transportMode: 'AIR', weightKg: 20 });
-    expect(big.totalCents).toBe(17000);
-    expect(big.lines.map((l) => l.code)).toEqual(['AIR_KG']);
+    expect(big.totalCents).toBe(17000 + 6500);
+    expect(big.lines.map((l) => l.code)).toEqual(['AIR_KG', 'CUSTOMS_FEE']);
   });
 
   it('aérien sans poids : refusé', () => {

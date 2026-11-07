@@ -5,6 +5,8 @@ export interface ParcelDraft {
   to: City;
   /** Requis en aérien ; facultatif en maritime (Axis pèse au dépôt). */
   weightKg?: number;
+  /** Aérien : nombre de colis (65 € de douane par colis). */
+  units?: number;
   category: string;
   transportMode: 'AIR' | 'SEA';
   /** PARCEL (colis < 30 kg) ou MERCHANDISE (palettes, volumineux). */

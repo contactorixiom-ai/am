@@ -80,8 +80,8 @@ export function ParcelRequestScreen() {
       return { ...route, transportMode: flow === 'IMPORT' ? draft.transportMode : 'SEA', items: seaItems, weightKg: draft.weightKg };
     }
     if (!draft.weightKg || draft.weightKg <= 0) return null;
-    return { ...route, transportMode: draft.transportMode ?? 'AIR', weightKg: draft.weightKg };
-  }, [service, flow, draft.from, draft.to, draft.weightKg, draft.transportMode, draft.pickupMode, usesItems, seaItems]);
+    return { ...route, transportMode: draft.transportMode ?? 'AIR', weightKg: draft.weightKg, units: service === 'PARCEL' ? draft.units ?? 1 : undefined };
+  }, [service, flow, draft.from, draft.to, draft.weightKg, draft.units, draft.transportMode, draft.pickupMode, usesItems, seaItems]);
 
   const handleSaveLater = async () => {
     await saveForLater();
@@ -165,6 +165,7 @@ export function ParcelRequestScreen() {
           from: { ...fromCity },
           to: { ...toCity },
           weightKg: draft.weightKg,
+          units: !usesItems && service === 'PARCEL' ? draft.units ?? 1 : undefined,
           category: draft.customsCategory ?? 'PERSONAL_EFFECTS',
           transportMode: flow === 'VEHICLE' ? 'SEA' : draft.transportMode ?? 'AIR',
           service,

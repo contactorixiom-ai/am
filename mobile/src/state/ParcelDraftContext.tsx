@@ -45,6 +45,8 @@ export interface ParcelDraftState {
   // ─── Étape 2 — Quel colis ───────────────────────────────────
   kind?: ParcelKind;
   weightKg?: number;
+  /** Aérien : nombre de colis (65 € de douane par colis). */
+  units?: number;
   /** Maritime : articles de la grille (code → nombre de pièces ou m³). */
   items?: Record<string, number>;
   dimensions?: ParcelDimensions;

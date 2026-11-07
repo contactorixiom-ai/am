@@ -127,6 +127,7 @@ export async function buildQuoteFromDraft(
     toLatitude: draft.to.latitude,
     toLongitude: draft.to.longitude,
     weightKg: draft.weightKg && draft.weightKg > 0 ? draft.weightKg : undefined,
+    units: draft.transportMode !== 'SEA' && !draft.flow ? draft.units : undefined,
     items: draft.transportMode === 'SEA' || draft.flow ? draft.items : undefined,
     flow: draft.flow,
   });

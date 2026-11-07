@@ -328,6 +328,23 @@ export function ParcelSizeScreen({ draft, onChange, service = 'PARCEL', onOpenTa
         </View>
       </Surface>
 
+      {/* Nombre de colis : 65 € de douane par colis (effets personnels). */}
+      {service === 'PARCEL' ? (
+        <Surface>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ color: theme.ink, fontFamily: TYPO.weights.semibold, fontSize: 14 }}>Nombre de colis</Text>
+              <Text style={{ color: theme.muted, fontFamily: TYPO.weights.medium, fontSize: 12, marginTop: 2 }}>
+                + 65 € TTC de frais de douane par colis{(draft.units ?? 1) > 1 ? ` · ${draft.units} colis = ${(draft.units ?? 1) * 65} €` : ''}
+              </Text>
+            </View>
+            <StepButton label="−" a11y="Un colis de moins" disabled={(draft.units ?? 1) <= 1} onPress={() => onChange({ units: Math.max(1, (draft.units ?? 1) - 1) })} />
+            <Text style={{ minWidth: 22, textAlign: 'center', color: theme.ink, fontSize: 16, fontFamily: TYPO.weights.bold }}>{draft.units ?? 1}</Text>
+            <StepButton label="+" a11y="Un colis de plus" disabled={(draft.units ?? 1) >= 50} onPress={() => onChange({ units: Math.min(50, (draft.units ?? 1) + 1) })} />
+          </View>
+        </Surface>
+      ) : null}
+
       {/* Photo optionnelle */}
       <Surface>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
@@ -399,4 +416,18 @@ function PhotoPreview({ uri }: { uri: string }) {
   }
   // Fallback (natif) : on n'affiche rien — ce code n'est appelé que côté web.
   return null;
+}
+
+function StepButton({ label, a11y, disabled, onPress }: { label: string; a11y: string; disabled?: boolean; onPress: () => void }) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      accessibilityLabel={a11y}
+      disabled={disabled}
+      onPress={onPress}
+      style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: theme.line, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }}
+    >
+      <Text style={{ color: theme.ink, fontSize: 18, fontFamily: TYPO.weights.bold }}>{label}</Text>
+    </Pressable>
+  );
 }

@@ -536,6 +536,18 @@ function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
       unitCents: AIR_PER_KG_CENTS,
       totalCents: Math.round(quantity * AIR_PER_KG_CENTS),
     });
+    if (service === 'PARCEL') {
+      // Effets personnels par avion : 65 € de douane par colis aussi.
+      const parcels = Math.max(1, Math.round(input.units ?? 1));
+      lines.push({
+        code: 'CUSTOMS_FEE',
+        label: `Frais de douane (${eur(CUSTOMS_FEE_CENTS)} par colis)`,
+        quantity: parcels,
+        unit: 'piece',
+        unitCents: CUSTOMS_FEE_CENTS,
+        totalCents: parcels * CUSTOMS_FEE_CENTS,
+      });
+    }
   } else {
     transportMode = 'SEA';
     if (!input.items || input.items.length === 0) {
@@ -568,7 +580,8 @@ function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
 
   // Minimum de perception sur le transport (courrier, petit colis, premier
   // m³ ou fraction).
-  const freight = lines.reduce((s, l) => s + l.totalCents, 0);
+  // La douane ne compte pas dans le minimum : il porte sur le transport seul.
+  const freight = lines.reduce((s, l) => s + (l.code === 'CUSTOMS_FEE' ? 0 : l.totalCents), 0);
   if (applyMinimum && freight < MINIMUM_CHARGE_CENTS) {
     lines.push({
       code: 'MINIMUM',
