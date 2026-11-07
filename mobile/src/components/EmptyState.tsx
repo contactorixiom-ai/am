@@ -81,10 +81,11 @@ export function EmptyState({ iconKey = 'box', title, subtitle, cta, variant = 's
             paddingVertical: 10,
             paddingHorizontal: 18,
             borderRadius: RADII.md,
-            backgroundColor: pressed ? theme.navyDeep : theme.accent,
+            // Sombre : bouton doré, lisible et cohérent avec la marque.
+            backgroundColor: theme.name === 'dark' ? (pressed ? theme.goldDeep : theme.gold) : pressed ? theme.navyDeep : theme.accent,
           })}
         >
-          <Text style={{ color: '#F5F1E8', fontSize: 13, fontFamily: TYPO.weights.semibold }}>
+          <Text style={{ color: theme.name === 'dark' ? theme.onGold : '#F5F1E8', fontSize: 13, fontFamily: TYPO.weights.semibold }}>
             {cta.label}
           </Text>
         </Pressable>

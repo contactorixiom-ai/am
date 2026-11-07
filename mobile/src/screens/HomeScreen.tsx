@@ -13,6 +13,7 @@ import { countContractsToSign } from '../utils/clientDocs';
 import { missionView, parcelView, ShipmentView, sortForClient } from '../utils/shipment';
 import { Avatar } from '../components/Avatar';
 import { CountBadge } from '../components/CountBadge';
+import { HeroCarousel } from '../components/HeroCarousel';
 import { refreshBadges, useBadges } from '../state/badges';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
@@ -537,8 +538,8 @@ export function HomeScreen() {
               style={({ pressed }) => ({
                 flex: 1.4,
                 borderWidth: 1,
-                borderColor: theme.navy,
-                backgroundColor: pressed ? theme.navyDeep : theme.accent,
+                borderColor: theme.name === 'dark' ? theme.gold + '59' : theme.navy,
+                backgroundColor: pressed ? theme.navyDeep : theme.navy,
                 padding: 16,
                 borderRadius: RADII.xxl,
                 overflow: 'hidden',
@@ -604,76 +605,42 @@ export function HomeScreen() {
             </Pressable>
           </View>
         ) : (
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable
-            onPress={() => nav.navigate('ServicePicker')}
-            style={({ pressed }) => ({
-              flex: 1.4,
-              borderWidth: 1,
-              borderColor: theme.navy,
-              backgroundColor: pressed ? theme.navyDeep : theme.accent,
-              padding: 16,
-              borderRadius: RADII.xxl,
-              overflow: 'hidden',
-              position: 'relative',
-            })}
-          >
-            <View style={{ position: 'absolute', right: -20, top: -20, opacity: 0.12 }}>
-              <Icons.bolt size={90} color={theme.gold} stroke={1.5} />
-            </View>
-            <Text
-              style={{
-                fontSize: 11.5,
-                color: theme.gold,
-                letterSpacing: 0.9,
-                textTransform: 'uppercase',
-                fontFamily: TYPO.weights.semibold,
-              }}
-            >
-              Nouvelle demande
-            </Text>
-            <Text
-              style={{
-                fontFamily: TYPO.weights.bold,
-                fontSize: 24,
-                lineHeight: 24 * 1.05,
-                marginTop: 6,
-                color: '#F5F1E8',
-                letterSpacing: -0.2,
-              }}
-            >
-              Convoyer ou expédier
-            </Text>
-            <Text style={{ fontSize: 12, color: 'rgba(245,241,232,0.65)', marginTop: 10, fontFamily: TYPO.weights.medium }}>
-              8 services · prix affiché tout de suite
-            </Text>
-          </Pressable>
+        <View style={{ gap: 10, marginTop: 8 }}>
+          {/* Bouton principal dynamique : un service par carte, qui défile. */}
+          <HeroCarousel
+            slides={[
+              { key: 'all', eyebrow: 'Nouvelle demande', title: 'Convoyer ou expédier', sub: '8 services · prix affiché tout de suite', icon: 'bolt', cta: 'Choisir un service', onPress: () => nav.navigate('ServicePicker') },
+              { key: 'colis', eyebrow: 'Europe → Afrique', title: 'Colis, fûts et valises', sub: 'Par bateau ou par avion, suivi jusqu\'à l\'arrivée', icon: 'box', cta: 'Envoyer un colis', onPress: () => nav.navigate('ParcelRequest', { service: 'PARCEL' }) },
+              { key: 'car', eyebrow: 'Convoyage', title: 'Faire convoyer un véhicule', sub: 'Voiture, moto, bus, plateau · suivi GPS', icon: 'car', cta: 'Demander un convoyage', onPress: () => nav.navigate('CarRequest', { service: 'CONVOY_CAR' }) },
+              { key: 'roro', eyebrow: 'Par bateau', title: 'Voiture vers l\'Afrique', sub: 'Embarquement au port du Havre', icon: 'ship', cta: 'Expédier ma voiture', onPress: () => nav.navigate('ParcelRequest', { service: 'MERCHANDISE', flow: 'VEHICLE' }) },
+              { key: 'import', eyebrow: 'Afrique → France', title: 'Importer en France', sub: 'Épicerie, artisanat, échantillons', icon: 'globe', cta: 'Faire venir', onPress: () => nav.navigate('ParcelRequest', { service: 'PARCEL', flow: 'IMPORT' }) },
+            ]}
+          />
           <Pressable
             onPress={() => nav.getParent()?.navigate('AppTabs', { screen: 'Documents' } as never)}
             style={({ pressed }) => ({
-              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
               borderWidth: 1,
               borderColor: theme.line,
               backgroundColor: pressed ? theme.bgSoft : theme.surface,
-              padding: 16,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
               borderRadius: RADII.xxl,
             })}
           >
-            <Icons.doc size={24} color={theme.gold} stroke={1.6} />
-            <Text
-              style={{
-                fontSize: 14,
-                color: theme.ink,
-                marginTop: 10,
-                lineHeight: 16,
-                fontFamily: TYPO.weights.semibold,
-              }}
-            >
-              Documents{'\n'}& factures
-            </Text>
-            <Text style={{ fontSize: 11.5, color: theme.muted, marginTop: 6, fontFamily: TYPO.weights.medium }}>
-              {[toSign > 0 ? `${toSign} à signer` : null, toPay > 0 ? `${toPay} à régler` : null].filter(Boolean).join(' · ') || 'Tout est à jour'}
-            </Text>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: theme.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.doc size={20} color={theme.gold} stroke={1.7} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 14.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Documents et factures</Text>
+              <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: TYPO.weights.medium }} numberOfLines={1}>
+                {[toSign > 0 ? `${toSign} à signer` : null, toPay > 0 ? `${toPay} à régler` : null].filter(Boolean).join(' · ') || 'Tout est à jour'}
+              </Text>
+            </View>
+            <CountBadge count={toSign + toPay} />
+            <Icons.chev size={16} color={theme.muted} stroke={2} />
           </Pressable>
         </View>
         )}

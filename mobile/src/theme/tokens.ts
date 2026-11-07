@@ -35,15 +35,16 @@ export const AXIS_LIGHT = {
 export const AXIS_DARK = {
   name: 'dark' as const,
   bg:        '#06182E',
-  bgSoft:    '#0A2241',
-  surface:   '#0F2B4D',
-  surface2:  '#13345C',
+  // Bleus nuit profonds et peu saturés : le bleu vif d'avant faisait tache.
+  bgSoft:    '#0A1F3A',
+  surface:   '#0D2543',
+  surface2:  '#112C4E',
   ink:       '#F1ECDC',
   inkSoft:   '#C7CFDE',
   muted:     '#9CA3B3',
   faint:     '#6E7891',
-  line:      '#1B3D67',
-  lineSoft:  '#163358',
+  line:      '#1C385B',
+  lineSoft:  '#16304F',
   navy:      '#0B2545',
   navyDeep:  '#06182E',
   gold:      '#D4B262',
@@ -55,9 +56,10 @@ export const AXIS_DARK = {
   bad:       '#F87171',
   select:    '#D4B262',
   selectInk: '#06182E',
-  link:      '#9DBDE8',
+  link:      '#C4D0E4',
   onGold:    '#06182E',
-  accent:    '#2F64A6',
+  // Boutons et éléments pleins : bleu marine soutenu (plus de bleu clair).
+  accent:    '#1A3A63',
 };
 
 // Le type relâche `name` en string union pour accepter light ET dark.
