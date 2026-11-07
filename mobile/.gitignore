@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+build/
+web-build/
+*.log
+.DS_Store
+.env
+.env.local
+ios/
+android/
+expo-env.d.ts
+
+# Firebase (notifications Android) : jamais dans le dépôt public. En build,
+# le fichier vient de la variable EAS GOOGLE_SERVICES_JSON (voir app.config.js).
+google-services.json
+*-firebase-adminsdk-*.json
