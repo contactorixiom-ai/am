@@ -5,7 +5,7 @@ import { apiFetch } from './client';
 // Message.body (PAS "content"), type enum MessageType, dates ISO en string.
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'LOCATION' | 'SYSTEM';
-export type ConversationType = 'DIRECT' | 'MISSION' | 'PARCEL' | 'SUPPORT';
+export type ConversationType = 'DIRECT' | 'MISSION' | 'PARCEL' | 'SUPPORT' | 'GROUP';
 
 export interface ApiMessage {
   id: string;
@@ -56,6 +56,27 @@ export interface ConversationSummary {
   mission?: { id: string; reference: string; status: string } | null;
   /** GET /conversations renvoie le dernier message (take 1, desc). */
   messages?: ApiMessage[];
+  /** Nom d'un groupe interne. */
+  title?: string | null;
+  createdById?: string | null;
+  /** Messages non lus (liste des conversations). */
+  unreadCount?: number;
+}
+
+export interface InternalContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  role: string;
+  phone: string | null;
+  accountNo?: number;
+}
+
+export interface Badges {
+  notifications: number;
+  messages: number;
+  conversations: number;
 }
 
 export interface PaginatedMeta {
@@ -93,6 +114,41 @@ export async function openSupportConversation(): Promise<{ id: string }> {
   return apiFetch<{ id: string }>('/conversations/support', { method: 'POST' });
 }
 
+/** Pastilles : notifications et messages non lus. */
+export function getBadges(): Promise<Badges> {
+  return apiFetch<Badges>('/conversations/badges');
+}
+
+/** Messagerie interne : équipe, convoyeurs et administrateur. */
+export function listInternalContacts(): Promise<InternalContact[]> {
+  return apiFetch<InternalContact[]>('/conversations/contacts');
+}
+
+/** Ouvre (ou retrouve) un fil direct avec une personne. */
+export function openDirectConversation(userId: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>('/conversations/direct', { method: 'POST', body: { userId } });
+}
+
+/** Administrateur : créer un groupe. */
+export function createGroup(title: string, memberIds: string[]): Promise<{ id: string; title: string }> {
+  return apiFetch('/conversations/groups', { method: 'POST', body: { title, memberIds } });
+}
+
+/** Administrateur : renommer, ajouter ou retirer des membres. */
+export function updateGroup(id: string, input: { title?: string; addIds?: string[]; removeIds?: string[] }): Promise<ConversationSummary> {
+  return apiFetch(`/conversations/groups/${id}`, { method: 'PATCH', body: input });
+}
+
+/** Administrateur : supprimer un groupe. */
+export function deleteGroup(id: string): Promise<void> {
+  return apiFetch(`/conversations/groups/${id}`, { method: 'DELETE' });
+}
+
+/** Quitter un groupe. */
+export function leaveGroup(id: string): Promise<void> {
+  return apiFetch(`/conversations/groups/${id}/leave`, { method: 'POST', body: {} });
+}
+
 export async function getConversation(id: string): Promise<ConversationSummary> {
   return apiFetch<ConversationSummary>(`/conversations/${id}`);
 }
@@ -125,6 +181,7 @@ export async function markRead(conversationId: string): Promise<void> {
 export function conversationTitle(conv: ConversationSummary, myUserId?: string): string {
   // Fil support : « Support Axis » pour le client ; pour Roger, le nom du
   // client (pas la liste des administrateurs).
+  if (conv.type === 'GROUP') return conv.title || 'Groupe';
   if (conv.type === 'SUPPORT') {
     const me = conv.participants?.find((p) => p.userId === myUserId);
     if (!isStaff((me?.user as { role?: string } | undefined)?.role)) return 'Support Axis';
@@ -171,6 +228,8 @@ export function conversationSubtitle(conv: ConversationSummary): string | undefi
   if (conv.mission?.reference) return `Convoyage · ${conv.mission.reference}`;
   if (conv.type === 'PARCEL') return 'Envoi de colis';
   if (conv.type === 'SUPPORT') return 'Support client';
+  if (conv.type === 'GROUP') return `Groupe · ${conv.participants?.length ?? 0} membres`;
+  if (conv.type === 'DIRECT') return 'Messagerie interne';
   return undefined;
 }
 
@@ -190,6 +249,7 @@ export function messagePreview(m: ApiMessage): string {
  * à mon lastReadAt (le backend n'expose pas de compteur — indicateur binaire).
  */
 export function isConversationUnread(conv: ConversationSummary, myUserId?: string): boolean {
+  if (typeof conv.unreadCount === 'number') return conv.unreadCount > 0;
   const last = conv.messages?.[0];
   if (!last || !myUserId || last.senderId === myUserId) return false;
   const me = conv.participants?.find((p) => p.userId === myUserId);

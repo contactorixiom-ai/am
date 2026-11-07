@@ -9,11 +9,13 @@ import { useTheme } from '../theme/ThemeProvider';
 import { RADII, TYPO } from '../theme/tokens';
 import { backOfficeTitle, hasBackOffice, hasPersonnelSpace, isStaff } from '../utils/roles';
 import { Avatar } from './Avatar';
+import { CountBadge } from './CountBadge';
+import { useBadges } from '../state/badges';
 import { Icons } from './Icons';
 
 export const SIDE_NAV_WIDTH = 232;
 
-type IconKey = 'home' | 'pin' | 'plus' | 'doc' | 'user' | 'truck' | 'sliders' | 'chat';
+type IconKey = 'home' | 'pin' | 'plus' | 'doc' | 'user' | 'truck' | 'sliders' | 'chat' | 'bell';
 
 interface Item {
   key: string;
@@ -40,6 +42,7 @@ export function SideNav({ navigationRef }: Props) {
   const { theme } = useTheme();
   const { user } = useSession();
   const [active, setActive] = useState(() => currentKey(navigationRef));
+  const badges = useBadges(!!user);
 
   useEffect(() => {
     const unsub = navigationRef.addListener('state', () => setActive(currentKey(navigationRef)));
@@ -60,6 +63,7 @@ export function SideNav({ navigationRef }: Props) {
           { key: 'ServicePicker', label: 'Nouvelle demande', icon: 'plus' as IconKey, screen: 'ServicePicker', accent: true },
           { key: 'Documents', label: 'Documents', icon: 'doc' as IconKey, screen: 'AppTabs', tab: 'Documents' },
         ]),
+    { key: 'Notifications', label: 'Notifications', icon: 'bell', screen: 'Notifications' },
     { key: 'Conversations', label: 'Messages', icon: 'chat', screen: 'Conversations' },
     ...(hasPersonnelSpace(user.role) ? [{ key: 'MySpace', label: 'Mon espace', icon: 'doc' as IconKey, screen: 'MySpace' }] : []),
     ...(office ? [{ key: 'Admin', label: backOfficeTitle(user.role), icon: 'sliders' as IconKey, screen: 'Admin' }] : []),
@@ -130,9 +134,10 @@ export function SideNav({ navigationRef }: Props) {
             })}
           >
             <Icon size={18} color={on ? theme.link : theme.muted} stroke={on ? 2 : 1.6} />
-            <Text style={{ fontSize: 13.5, color: on ? theme.ink : theme.inkSoft, fontFamily: on ? TYPO.weights.semibold : TYPO.weights.medium }}>
+            <Text style={{ flex: 1, fontSize: 13.5, color: on ? theme.ink : theme.inkSoft, fontFamily: on ? TYPO.weights.semibold : TYPO.weights.medium }}>
               {it.label}
             </Text>
+            <CountBadge count={it.key === 'Conversations' ? badges.messages : it.key === 'Notifications' ? badges.notifications : 0} />
           </Pressable>
         );
       })}

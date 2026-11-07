@@ -143,7 +143,7 @@ export function TariffItemsPicker({ service, mode, counts, onChange, onOpenTarif
           </Text>
         ) : service === 'PARCEL' ? (
           <Text style={{ color: theme.goldDeep, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>
-            + {eurShort(sheet.customsFeeCents)} TTC de frais de douane par envoi
+            + {eurShort(sheet.customsFeeCents)} TTC de frais de douane par colis{(() => { const n = items.reduce((t, it) => t + (it.unit === 'piece' ? counts[it.code] ?? 0 : 0), 0); return n > 0 ? ` · ${n} colis = ${eurShort(n * sheet.customsFeeCents)}` : ''; })()}
           </Text>
         ) : (
           <Text style={{ color: theme.goldDeep, fontFamily: TYPO.weights.semibold, fontSize: 12.5 }}>

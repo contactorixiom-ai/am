@@ -12,6 +12,8 @@ import { Skeleton } from '../components/Skeleton';
 import { countContractsToSign } from '../utils/clientDocs';
 import { missionView, parcelView, ShipmentView, sortForClient } from '../utils/shipment';
 import { Avatar } from '../components/Avatar';
+import { CountBadge } from '../components/CountBadge';
+import { refreshBadges, useBadges } from '../state/badges';
 import { Banner } from '../components/Banner';
 import { Button } from '../components/Button';
 import { Icons } from '../components/Icons';
@@ -61,7 +63,8 @@ export function HomeScreen() {
   // Commandes chiffrées pas encore réglées (la tuile disait « Tout est à
   // jour » alors qu'une facture attendait son règlement).
   const [toPay, setToPay] = useState(0);
-  const [unread, setUnread] = useState(0);
+  const [, setUnread] = useState(0);
+  const badges = useBadges();
   const [latestNews, setLatestNews] = useState<NewsArticle | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -107,6 +110,7 @@ export function HomeScreen() {
         const [notifs, news] = await Promise.allSettled([listNotifications(), listNews()]);
         if (cancelled) return;
         setUnread(notifs.status === 'fulfilled' ? notifs.value.filter((x) => !x.readAt).length : 0);
+        void refreshBadges();
         setLatestNews(news.status === 'fulfilled' ? news.value.data[0] ?? null : null);
       })();
       return () => { cancelled = true; };
@@ -178,21 +182,7 @@ export function HomeScreen() {
           })}
         >
           <Icons.bell size={20} color={theme.ink} stroke={1.6} />
-          {unread > 0 ? (
-            <View
-              style={{
-                position: 'absolute',
-                top: 9,
-                right: 11,
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: theme.gold,
-                borderWidth: 2,
-                borderColor: theme.surface,
-              }}
-            />
-          ) : null}
+          <CountBadge count={badges.notifications} border={theme.surface} style={{ position: 'absolute', top: -6, right: -6 }} />
         </Pressable>
       </View>
 
@@ -253,6 +243,7 @@ export function HomeScreen() {
                 {role === 'HR' ? 'Personnel · pièces · contrats · assurances'
                   : role === 'SECRETARY' ? 'Accueil clients · documents · annonces · billets'
                     : role === 'ACCOUNTANT' ? 'Justificatifs de frais des convoyeurs et salariés'
+                    : role === 'WEB_DESIGNER' || role === 'SPONSORSHIP' ? 'Annonces à l\'équipe · messagerie interne'
                       : 'Documents officiels · envois à traiter'}
               </Text>
             </View>
@@ -294,7 +285,7 @@ export function HomeScreen() {
         {staff || hr ? (
           <Surface padded style={{ gap: 4 }}>
             <Text style={{ fontSize: 11.5, color: theme.muted, letterSpacing: 0.9, textTransform: 'uppercase', fontFamily: TYPO.weights.semibold, marginBottom: 6 }}>
-              {role === 'HR' ? 'Ressources humaines' : role === 'SECRETARY' ? 'Secrétariat' : role === 'ACCOUNTANT' ? 'Comptabilité' : 'Pilotage'}
+              {role === 'HR' ? 'Ressources humaines' : role === 'SECRETARY' ? 'Secrétariat' : role === 'ACCOUNTANT' ? 'Comptabilité' : role === 'WEB_DESIGNER' ? 'Communication' : role === 'SPONSORSHIP' ? 'Sponsoring' : 'Pilotage'}
             </Text>
             {(role === 'HR'
               ? [
@@ -315,9 +306,17 @@ export function HomeScreen() {
                   { label: 'Justificatifs de frais', sub: 'Tickets, péages, carburant à valider et rembourser', icon: Icons.euro, go: () => nav.navigate('Admin', { tab: 'expenses' }) },
                   { label: 'Personnel', sub: 'Les frais de chaque convoyeur et salarié', icon: Icons.user, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
                 ]
+              : role === 'WEB_DESIGNER' || role === 'SPONSORSHIP'
+              ? [
+                  { label: 'Annonces', sub: 'Informer toute l\'équipe ou une personne', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) },
+                  { label: 'Messages', sub: 'Équipe, groupes et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
+                ]
               : [
               { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
               { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
+              ...(!isAdmin(user?.role)
+                ? [{ label: 'Annonces aux convoyeurs', sub: 'Prévenir les convoyeurs de leurs missions', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) }]
+                : []),
               { label: 'Billets et réservations', sub: 'Train, bus, hébergement des convoyeurs', icon: Icons.bus, go: () => nav.navigate('Admin', { tab: 'personnel' }) },
               ...(isAdmin(user?.role)
                 ? [
@@ -325,7 +324,7 @@ export function HomeScreen() {
                     { label: 'Annonces', sub: 'Informer toute l\'équipe ou une personne', icon: Icons.bell, go: () => nav.navigate('Admin', { tab: 'announce' }) },
                   ]
                 : []),
-              { label: 'Messages', sub: 'Clients et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
+              { label: 'Messages', sub: isAdmin(user?.role) ? 'Clients, équipe, groupes, convoyeurs' : 'Clients, équipe, groupes', icon: Icons.chat, go: () => nav.navigate('Conversations') },
               { label: 'Documents officiels', sub: isAdmin(user?.role) ? 'Douane, factures, contrats' : 'Douane, contrats, étiquettes', icon: Icons.doc, go: () => nav.navigate('Admin', { tab: 'generate' }) },
               // Administrateur : la base des comptes de l'application.
               ...(isAdmin(user?.role)

@@ -23,7 +23,9 @@ export function handlesPaperwork(role: UserRole | string | undefined | null): bo
 }
 
 /** Comptes d'équipe que l'administrateur crée et dont il gère l'accès. */
-export const TEAM_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
+export const TEAM_ROLES: UserRole[] = [
+  UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT, UserRole.WEB_DESIGNER, UserRole.SPONSORSHIP,
+];
 
 export function isTeamRole(role: UserRole | string | undefined | null): boolean {
   return TEAM_ROLES.includes(role as UserRole);
@@ -34,7 +36,8 @@ export function isTeamRole(role: UserRole | string | undefined | null): boolean 
  * La comptabilité, elle, voit les montants.
  */
 export function hidesAmounts(role: UserRole | string | undefined | null): boolean {
-  return role === UserRole.MANAGER || role === UserRole.HR || role === UserRole.SECRETARY;
+  return role === UserRole.MANAGER || role === UserRole.HR || role === UserRole.SECRETARY
+    || role === UserRole.WEB_DESIGNER || role === UserRole.SPONSORSHIP;
 }
 
 // ─── Dossier du personnel ───────────────────────────────────────────────────
@@ -51,8 +54,14 @@ export const HR_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.HR];
 /** Reçoivent et traitent les justificatifs de frais. */
 export const EXPENSE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.ACCOUNTANT];
 
-/** Relaient les informations à l'équipe (annonces). */
-export const ANNOUNCE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.SECRETARY, UserRole.HR];
+/**
+ * Relaient les informations à l'équipe (annonces). Les responsables
+ * d'exploitation s'en servent aussi pour prévenir les convoyeurs de leurs
+ * missions ; la communication et le sponsoring pour l'information interne.
+ */
+export const ANNOUNCE_ROLES: UserRole[] = [
+  UserRole.ADMIN, UserRole.MANAGER, UserRole.SECRETARY, UserRole.HR, UserRole.WEB_DESIGNER, UserRole.SPONSORSHIP,
+];
 
 /** Consultent la liste du personnel (pour y déposer une pièce ou écrire). */
 export const PERSONNEL_VIEWERS: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
@@ -60,3 +69,6 @@ export const PERSONNEL_VIEWERS: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER, 
 export function hasRole(list: UserRole[], role: UserRole | string | undefined | null): boolean {
   return list.includes(role as UserRole);
 }
+
+/** Tous les comptes internes : administrateur, équipe et convoyeurs (messagerie interne). */
+export const INTERNAL_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.DRIVER, ...TEAM_ROLES];

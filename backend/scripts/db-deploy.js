@@ -47,6 +47,7 @@ const REPLAYABLE = [
   '20261105000000_staff_space',
   '20261106000000_account_no_kyc',
   '20261106010000_kyc_selfie',
+  '20261107000000_team_roles_groups',
 ];
 
 function migrationNames() {

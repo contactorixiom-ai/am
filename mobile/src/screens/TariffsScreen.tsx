@@ -133,7 +133,7 @@ function SectionCard({ section, sheet }: { section: TariffSection; sheet: Tariff
         <TariffRow key={item.code} item={item} last={i === items.length - 1} />
       ))}
       {section.id === 'EFFECTS' ? (
-        <NoteBox lines={[`+ ${eurShort(sheet.customsFeeCents)} TTC de frais de douane à ajouter aux effets personnels`, sheet.notes.extraVolume]} />
+        <NoteBox lines={[`+ ${eurShort(sheet.customsFeeCents)} TTC de frais de douane par colis (chaque fût, carton, valise ou appareil)`, sheet.notes.extraVolume]} />
       ) : null}
       {section.id === 'GENERAL' ? <NoteBox lines={[sheet.notes.minimum]} /> : null}
     </Surface>

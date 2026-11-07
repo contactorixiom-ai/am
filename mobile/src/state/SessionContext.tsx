@@ -1,3 +1,4 @@
+import { resetBadges } from './badges';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { fetchMe, login as apiLogin, logout as apiLogout, register as apiRegister, resetPassword as apiResetPassword, SessionUser } from '../api/auth';
 import { hasSession } from '../api/client';
@@ -69,6 +70,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // Avant de fermer la session : la route exige d'être connecté.
       await unregisterPush();
       await apiLogout();
+      resetBadges();
       setUser(null);
     },
     refresh: async () => {

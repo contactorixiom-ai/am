@@ -79,7 +79,7 @@ const formatAddress = (a: DirectoryAddress) => {
 const fullName = (u: { firstName: string; lastName: string }) => `${u.firstName} ${u.lastName}`.trim();
 
 function typeOf(u: Pick<DirectoryUser, 'role' | 'accountType'>): { label: string; tone: PillTone } {
-  if (['ADMIN', 'MANAGER', 'HR', 'SECRETARY', 'ACCOUNTANT'].includes(u.role)) return { label: roleLabel(u.role), tone: 'gold' };
+  if (['ADMIN', 'MANAGER', 'HR', 'SECRETARY', 'ACCOUNTANT', 'WEB_DESIGNER', 'SPONSORSHIP'].includes(u.role)) return { label: roleLabel(u.role), tone: 'gold' };
   if (u.role === 'DRIVER') return { label: 'Convoyeur', tone: 'navy' };
   return u.accountType === 'PROFESSIONAL' ? { label: 'Professionnel', tone: 'navy' } : { label: 'Particulier', tone: 'default' };
 }
@@ -338,6 +338,8 @@ const ROLE_CHOICES: { id: DirectoryUser['role']; label: string }[] = [
   { id: 'HR', label: 'RH' },
   { id: 'SECRETARY', label: 'Secrétariat' },
   { id: 'ACCOUNTANT', label: 'Comptabilité' },
+  { id: 'WEB_DESIGNER', label: 'Communication' },
+  { id: 'SPONSORSHIP', label: 'Sponsoring' },
 ];
 
 function DirectorySheet({ id, onClose, onSendAccess, onChanged }: { id: string | null; onClose: () => void; onChanged: () => void } & Props) {

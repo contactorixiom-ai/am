@@ -1,9 +1,11 @@
+import { refreshBadges } from '../state/badges';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import {
   ApiMessage,
+  ConversationSummary,
   conversationPhone,
   conversationSubtitle,
   conversationTitle,
@@ -15,6 +17,8 @@ import {
   sendMessage,
 } from '../api/messaging';
 import { AppBar } from '../components/AppBar';
+import { GroupSheet } from '../components/TeamChatSheets';
+import { isAdmin } from '../utils/roles';
 import { COMPANY } from '../config/company';
 import { Avatar } from '../components/Avatar';
 import { Icons } from '../components/Icons';
@@ -35,6 +39,8 @@ interface Msg {
   status?: 'pending' | 'sent' | 'failed';
   /** Live : horodatage ISO pour les séparateurs de jour. */
   createdAt?: string;
+  /** Groupe : nom de l'auteur (messages des autres). */
+  sender?: string;
 }
 
 // Réponses rapides selon qui écrit : le convoyeur annonce, le client
@@ -102,6 +108,8 @@ export function MessagingScreen() {
   const [subtitle, setSubtitle] = useState(params.subtitle ?? '');
   const [phone, setPhone] = useState<string | null>(null);
   const [convType, setConvType] = useState<string | null>(null);
+  const [conv, setConv] = useState<ConversationSummary | null>(null);
+  const [groupOpen, setGroupOpen] = useState(false);
 
   // Live : messages confirmés serveur (ordre chronologique) + envois en cours.
   const [serverMessages, setServerMessages] = useState<ApiMessage[]>([]);
@@ -144,7 +152,7 @@ export function MessagingScreen() {
         : [];
       knownIdsRef.current = new Set(asc.map((m) => m.id));
       if (inboundNew.length > 0) {
-        markRead(convId).catch(() => {});
+        markRead(convId).catch(() => {}).finally(() => void refreshBadges());
         scrollToEnd(true);
       }
     } catch {
@@ -208,9 +216,10 @@ export function MessagingScreen() {
         setSubtitle(params.subtitle ?? conversationSubtitle(conv) ?? 'Conversation');
         setPhone(conversationPhone(conv, myId, COMPANY.phone));
         setConvType(conv.type);
+        setConv(conv);
         setMode('live');
         // Marquer lu à l'ouverture (fire-and-forget).
-        markRead(conversationId).catch(() => {});
+        markRead(conversationId).catch(() => {}).finally(() => void refreshBadges());
         scrollToEnd(false);
       } catch {
         if (cancelled || !mountedRef.current) return;
@@ -275,7 +284,11 @@ export function MessagingScreen() {
   // ─── Liste affichée ──────────────────────────────────────────────────────
   const displayMessages: Msg[] = useMemo(() => {
     if (mode !== 'live') return [];
+    // Plus de deux personnes : on affiche le nom de l'auteur sur ses messages.
+    const names = new Map((conv?.participants ?? []).map((p) => [p.userId, `${p.user?.firstName ?? ''} ${p.user?.lastName ?? ''}`.trim()]));
+    const many = (conv?.participants?.length ?? 0) > 2;
     const confirmed: Msg[] = serverMessages.map((m) => ({
+      sender: many && m.senderId !== myId ? names.get(m.senderId) || 'Ancien membre' : undefined,
       id: m.id,
       who: m.type === 'SYSTEM' ? 'system' : m.senderId === myId ? 'me' : 'driver',
       text: messagePreview(m),
@@ -292,7 +305,7 @@ export function MessagingScreen() {
       createdAt: p.at,
     }));
     return [...confirmed, ...optimistic];
-  }, [mode, serverMessages, pendingMsgs, myId]);
+  }, [mode, serverMessages, pendingMsgs, myId, conv]);
 
   // Lignes du fil, avec séparateurs de jour.
   const rows = useMemo(() => {
@@ -328,10 +341,23 @@ export function MessagingScreen() {
             >
               <Icons.arrowL size={18} color={theme.ink} stroke={1.6} />
             </Pressable>
-            <Avatar name={title} size={36} tone="gold" />
+            {convType === 'GROUP' ? null : <Avatar name={title} size={36} tone="gold" />}
           </View>
         }
-        trailing={phone ? (
+        trailing={convType === 'GROUP' ? (
+          <Pressable
+            onPress={() => setGroupOpen(true)}
+            accessibilityLabel={isAdmin(user?.role) ? 'Gérer le groupe' : 'Membres du groupe'}
+            style={({ pressed }) => ({
+              height: 36, paddingHorizontal: 10, borderRadius: 10, flexDirection: 'row', gap: 6,
+              backgroundColor: pressed ? theme.line : theme.bgSoft,
+              alignItems: 'center', justifyContent: 'center',
+            })}
+          >
+            <Icons.user size={16} color={theme.ink} stroke={1.8} />
+            <Text style={{ fontSize: 12.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{isAdmin(user?.role) ? 'Gérer' : 'Membres'}</Text>
+          </Pressable>
+        ) : phone ? (
           <Pressable
             onPress={() => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => undefined)}
             accessibilityLabel={`Appeler ${title}`}
@@ -346,6 +372,20 @@ export function MessagingScreen() {
         ) : undefined}
       />
 
+      {convType === 'GROUP' ? (
+        <GroupSheet
+          visible={groupOpen}
+          onClose={() => setGroupOpen(false)}
+          conv={conv}
+          isAdmin={isAdmin(user?.role)}
+          myId={myId}
+          onSaved={(id, t) => {
+            setTitle(t);
+            getConversation(id).then((c) => { setConv(c); setSubtitle(conversationSubtitle(c) ?? ''); }).catch(() => undefined);
+          }}
+          onGone={() => (nav.canGoBack() ? nav.goBack() : nav.navigate('Conversations' as never))}
+        />
+      ) : null}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
           ref={scrollRef}
@@ -484,6 +524,9 @@ function MessageBubble({ msg, onRetry }: { msg: Msg; onRetry?: () => void }) {
           borderBottomLeftRadius: mine ? 14 : 4,
         }}
       >
+        {msg.sender ? (
+          <Text style={{ fontSize: 11.5, color: theme.goldDeep, fontFamily: TYPO.weights.bold, marginBottom: 2 }}>{msg.sender}</Text>
+        ) : null}
         <Text style={{ fontSize: 14, color: mine && !failed ? '#F5F1E8' : failed ? theme.bad : theme.ink, lineHeight: 19, fontFamily: TYPO.weights.regular }}>
           {msg.text}
         </Text>

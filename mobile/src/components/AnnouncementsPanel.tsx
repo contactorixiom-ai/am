@@ -4,7 +4,8 @@
 // retrouve l'annonce dans « Mon espace ».
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Announcement, listAnnouncements, listPeople, PersonRow, sendAnnouncement } from '../api/staffSpace';
+import { Announcement, listAnnouncements, sendAnnouncement } from '../api/staffSpace';
+import { InternalContact, listInternalContacts } from '../api/messaging';
 import { useTheme } from '../theme/ThemeProvider';
 import { TYPO } from '../theme/tokens';
 import { notify } from '../utils/notify';
@@ -38,7 +39,7 @@ export function AnnouncementsPanel() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [attachment, setAttachment] = useState<PickedFile | null>(null);
-  const [people, setPeople] = useState<PersonRow[] | null>(null);
+  const [people, setPeople] = useState<InternalContact[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
   const [sending, setSending] = useState(false);
@@ -49,12 +50,12 @@ export function AnnouncementsPanel() {
   }, []);
   useEffect(loadHistory, [loadHistory]);
   useEffect(() => {
-    if (audience === 'PEOPLE' && people === null) listPeople().then(setPeople).catch(() => setPeople([]));
+    if (audience === 'PEOPLE' && people === null) listInternalContacts().then(setPeople).catch(() => setPeople([]));
   }, [audience, people]);
 
   const shownPeople = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return (people ?? []).filter((p) => !term || `${p.firstName} ${p.lastName} ${p.email}`.toLowerCase().includes(term));
+    return (people ?? []).filter((p) => !term || `${p.firstName} ${p.lastName} ${roleLabel(p.role)}`.toLowerCase().includes(term));
   }, [people, q]);
 
   const toggle = (id: string) => setPicked((s) => {

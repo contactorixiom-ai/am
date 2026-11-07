@@ -15,6 +15,11 @@ import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { Surface } from '../components/Surface';
+import { Button } from '../components/Button';
+import { CountBadge } from '../components/CountBadge';
+import { Icons } from '../components/Icons';
+import { GroupSheet, NewMessageSheet } from '../components/TeamChatSheets';
+import { isAdmin, isInternal } from '../utils/roles';
 import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
@@ -49,6 +54,11 @@ export function ConversationsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const loadingRef = useRef(false);
+  const [newMsg, setNewMsg] = useState(false);
+  const [newGroup, setNewGroup] = useState(false);
+  const internal = isInternal(user?.role);
+  const admin = isAdmin(user?.role);
+  const openById = (id: string, title: string) => nav.navigate('Messaging', { conversationId: id, driverName: title } as RootStackParamList['Messaging']);
 
   const load = useCallback(async () => {
     if (loadingRef.current) return;
@@ -101,14 +111,30 @@ export function ConversationsScreen() {
             ? undefined
             : unreadTotal > 0
               ? `${unreadTotal} conversation${unreadTotal > 1 ? 's' : ''} non lue${unreadTotal > 1 ? 's' : ''}`
-              : 'Chauffeurs et support'
+              : internal ? 'Équipe, groupes, clients et convoyeurs' : 'Chauffeurs et support'
         }
       />
+      <NewMessageSheet visible={newMsg} onClose={() => setNewMsg(false)} onOpened={openById} />
+      <GroupSheet visible={newGroup} onClose={() => setNewGroup(false)} isAdmin={admin} myId={user?.id} onSaved={openById} />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24, gap: 8 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.gold} />}
       >
+        {/* Messagerie interne : écrire à l'équipe ; Roger crée les groupes. */}
+        {internal ? (
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <Button kind="outline" size="md" style={{ flexGrow: 1 }} leftIcon={<Icons.chat size={16} color={theme.ink} stroke={1.8} />} onPress={() => setNewMsg(true)}>
+              Nouveau message
+            </Button>
+            {admin ? (
+              <Button kind="gold" size="md" style={{ flexGrow: 1 }} leftIcon={<Icons.plus size={16} color={theme.onGold} stroke={2.2} />} onPress={() => setNewGroup(true)}>
+                Nouveau groupe
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+
         {convs === null && !error ? (
           // Premier chargement
           <View style={{ gap: 8 }}>
@@ -191,7 +217,13 @@ function ConversationRow({
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Avatar name={title} size={44} tone={unread ? 'gold' : 'navy'} />
+          {conv.type === 'GROUP' ? (
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: theme.gold + '2E', alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.user size={20} color={theme.goldDeep} stroke={1.8} />
+            </View>
+          ) : (
+            <Avatar name={title} url={otherAvatar(conv, myUserId)} size={44} tone={unread ? 'gold' : 'navy'} />
+          )}
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text
@@ -227,13 +259,17 @@ function ConversationRow({
               >
                 {preview}
               </Text>
-              {unread ? (
-                <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: theme.gold }} />
-              ) : null}
+              {unread ? <CountBadge count={conv.unreadCount ?? 1} /> : null}
             </View>
           </View>
         </View>
       </Surface>
     </Pressable>
   );
+}
+
+/** Photo de l'interlocuteur d'un fil à deux. */
+function otherAvatar(conv: ConversationSummary, myUserId?: string): string | null {
+  const others = conv.participants?.filter((p) => p.userId !== myUserId) ?? [];
+  return others.length === 1 ? others[0].user?.avatarUrl ?? null : null;
 }

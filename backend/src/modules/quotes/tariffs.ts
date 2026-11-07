@@ -106,7 +106,7 @@ export const TARIFF_ITEMS: TariffItem[] = [
   { code: 'EXPORT_SAMPLES_AIR', section: 'EXPORT', label: 'Échantillons pro aérien', detail: 'certificats inclus', unit: 'forfait', minCents: 12000, note: 'Forfait jusqu\'à 5 kg. Idéal pour les coopératives qui envoient cacao ou café à tester.', orderable: IMPORT_AIR },
 ];
 
-/** Frais de douane forfaitaires, ajoutés aux effets personnels (TTC). */
+/** Frais de douane par colis, ajoutés aux effets personnels (TTC). */
 export const CUSTOMS_FEE_CENTS = 6500;
 /** Minimum de perception : courrier, petit colis, premier m³ ou fraction (TTC). */
 export const MINIMUM_CHARGE_CENTS = 9500;
@@ -115,7 +115,7 @@ export const AIR_PER_KG_CENTS = 850;
 
 /** Mentions de la grille reprises telles quelles dans l'app. */
 export const TARIFF_NOTES = {
-  customs: '+65 € TTC de frais de douane à ajouter aux effets personnels.',
+  customs: '+65 € TTC de frais de douane par colis (chaque fût, carton, valise ou appareil).',
   extraVolume: '+30 % à 40 % pour tout volume additionnel.',
   minimum: 'Minimum de perception : 95 € (courrier, petit colis pro ou perso ; couvre le premier m³ ou fraction).',
   ranges: 'Les prix en fourchette dépendent de la taille et de la destination : le prix de départ est réglé à la commande, Axis confirme au dépôt.',

@@ -1,3 +1,5 @@
+import { CountBadge } from '../components/CountBadge';
+import { useBadges } from '../state/badges';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Constants from 'expo-constants';
@@ -16,11 +18,12 @@ import { RootStackParamList } from '../navigation/types';
 import { useSession } from '../state/SessionContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { RADII, SAFE_AREA_TOP, TYPO } from '../theme/tokens';
-import { backOfficeTitle, hasBackOffice, hasPersonnelSpace, isStaff, roleLabel } from '../utils/roles';
+import { backOfficeTitle, hasBackOffice, hasPersonnelSpace, isInternal, isStaff, roleLabel } from '../utils/roles';
 
 export function ProfileScreen() {
   const { theme, isDark, setMode } = useTheme();
   const { user, logout } = useSession();
+  const badges = useBadges();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [kycStatus, setKycStatus] = useState<'verified' | 'pending' | 'incomplete'>('incomplete');
 
@@ -164,10 +167,20 @@ export function ProfileScreen() {
           </MenuSection>
 
           <MenuSection label="Aide">
+            {!isStaff(user?.role) ? (
+              <MenuRow
+                iconKey="chat"
+                label="Mes messages"
+                sub={isInternal(user?.role) ? 'Équipe Axis, groupes, missions' : 'Mes conversations avec Axis et les convoyeurs'}
+                count={badges.messages}
+                onPress={() => nav.navigate('Conversations')}
+              />
+            ) : null}
             <MenuRow
               iconKey="chat"
               label={isStaff(user?.role) ? 'Messages' : 'Contacter Axis'}
-              sub={isStaff(user?.role) ? 'Conversations avec les clients et convoyeurs' : 'Écrire à l\'équipe Axis Import'}
+              sub={isStaff(user?.role) ? 'Clients, équipe, groupes, convoyeurs' : 'Écrire à l\'équipe Axis Import'}
+              count={isStaff(user?.role) ? badges.messages : 0}
               onPress={async () => {
                 if (isStaff(user?.role)) return nav.navigate('Conversations');
                 try {
@@ -313,6 +326,7 @@ function MenuRow({
   sub,
   trailing,
   badge,
+  count,
   onPress,
 }: {
   iconKey: keyof typeof Icons;
@@ -320,6 +334,8 @@ function MenuRow({
   sub?: string;
   trailing?: string;
   badge?: string;
+  /** Pastille rouge chiffrée (messages non lus). */
+  count?: number;
   onPress?: () => void;
 }) {
   const { theme } = useTheme();
@@ -372,6 +388,7 @@ function MenuRow({
       {trailing ? (
         <Text style={{ fontSize: 12.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>{trailing}</Text>
       ) : null}
+      <CountBadge count={count ?? 0} />
       <Icons.chev size={16} color={theme.faint} stroke={1.6} />
     </Pressable>
   );

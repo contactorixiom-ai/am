@@ -15,7 +15,7 @@ export interface DirectoryUser {
   id: string;
   email: string;
   phone: string | null;
-  role: 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
+  role: 'CLIENT' | 'DRIVER' | 'ADMIN' | 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT' | 'WEB_DESIGNER' | 'SPONSORSHIP';
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   accountType: 'INDIVIDUAL' | 'PROFESSIONAL';
   accountNo?: number;

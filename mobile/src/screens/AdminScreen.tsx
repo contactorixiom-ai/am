@@ -1,3 +1,5 @@
+import { CountBadge } from '../components/CountBadge';
+import { listExpenses, listReceivedDocuments } from '../api/staffSpace';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/types';
 // Espace admin — poste de travail de Roger, l'opérateur de la plateforme.
@@ -106,7 +108,7 @@ const ADMIN_ONLY_TABS: TabId[] = ['members', 'team'];
 // Onglets de chaque rôle, dans l'ordre d'affichage. L'administrateur voit tout.
 const ROLE_TABS: Record<string, TabId[]> = {
   // Exploitation : sans les comptes, l'équipe, les frais ni les dossiers RH.
-  MANAGER: ['dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel'],
+  MANAGER: ['dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel', 'announce'],
   // RH : tout l'administratif du personnel, sans l'exploitation.
   HR: ['personnel', 'drivers', 'received', 'announce', 'documents', 'generate'],
   // Secrétariat : relayer l'information, déposer billets et réservations,
@@ -114,6 +116,9 @@ const ROLE_TABS: Record<string, TabId[]> = {
   SECRETARY: ['generate', 'documents', 'announce', 'personnel'],
   // Comptabilité : justificatifs de frais.
   ACCOUNTANT: ['expenses', 'personnel'],
+  // Communication digitale et sponsoring : information interne.
+  WEB_DESIGNER: ['announce'],
+  SPONSORSHIP: ['announce'],
 };
 function tabsFor(role?: string | null): TabId[] {
   if (role === 'ADMIN') return TABS.map((t) => t.id);
@@ -292,6 +297,17 @@ export function AdminScreen() {
   });
   // Pièces de convoyeurs à vérifier (pastille sur l'onglet et le tableau).
   const [kycPending, setKycPending] = useState(0);
+  // Pastilles rouges des onglets : pièces reçues et frais à traiter.
+  const [pendingReceived, setPendingReceived] = useState(0);
+  const [pendingExpenses, setPendingExpenses] = useState(0);
+  useEffect(() => {
+    if (me?.role === 'ADMIN' || me?.role === 'HR') {
+      listReceivedDocuments().then((l) => setPendingReceived(l.filter((f) => f.status === 'PENDING').length)).catch(() => undefined);
+    }
+    if (me?.role === 'ADMIN' || me?.role === 'ACCOUNTANT') {
+      listExpenses().then((l) => setPendingExpenses(l.filter((f) => f.status === 'PENDING').length)).catch(() => undefined);
+    }
+  }, [me?.role, tab]);
   useEffect(() => {
     // Pièces des convoyeurs : administrateur, responsables et RH seulement.
     if (!handlesPaperwork(me?.role)) return;
@@ -695,6 +711,8 @@ export function AdminScreen() {
           meIsHR ? 'Personnel · pièces · contrats · assurances'
             : me?.role === 'SECRETARY' ? 'Accueil clients · documents · annonces · billets'
               : me?.role === 'ACCOUNTANT' ? 'Justificatifs de frais'
+              : me?.role === 'WEB_DESIGNER' ? 'Communication digitale · annonces'
+              : me?.role === 'SPONSORSHIP' ? 'Sponsoring · annonces'
                 : meIsAdmin ? 'Pilotage Axis Import' : 'Pilotage Axis Import · responsable'
         }
       />
@@ -715,6 +733,8 @@ export function AdminScreen() {
                 borderRadius: RADII.pill,
                 borderWidth: 1,
                 alignItems: 'center',
+                flexDirection: 'row',
+                gap: 6,
                 borderColor: on ? theme.select : theme.line,
                 backgroundColor: on ? theme.select : theme.surface,
               }}
@@ -726,8 +746,9 @@ export function AdminScreen() {
                   fontFamily: TYPO.weights.semibold,
                 }}
               >
-                {t.id === 'drivers' && kycPending > 0 ? `${t.label} · ${kycPending}` : t.label}
+                {t.label}
               </Text>
+              <CountBadge count={t.id === 'drivers' ? kycPending : t.id === 'received' ? pendingReceived : t.id === 'expenses' ? pendingExpenses : 0} />
             </Pressable>
           );
         })}

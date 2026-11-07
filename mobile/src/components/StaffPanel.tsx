@@ -30,12 +30,14 @@ interface Props {
 }
 
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '' };
-type TeamRole = 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT';
+type TeamRole = 'MANAGER' | 'HR' | 'SECRETARY' | 'ACCOUNTANT' | 'WEB_DESIGNER' | 'SPONSORSHIP';
 const TEAM_ROLE_CHOICES: { id: TeamRole; label: string; sub: string }[] = [
   { id: 'MANAGER', label: 'Responsable d\'exploitation', sub: 'Envois, missions, convoyeurs, billets, messages' },
   { id: 'HR', label: 'Ressources humaines', sub: 'Dossiers du personnel, contrats, assurances, pièces' },
   { id: 'SECRETARY', label: 'Secrétariat', sub: 'Accueil des clients, documents, annonces, billets' },
   { id: 'ACCOUNTANT', label: 'Comptabilité', sub: 'Justificatifs de frais des convoyeurs et salariés' },
+  { id: 'WEB_DESIGNER', label: 'Web designer / Communication digitale', sub: 'Site, réseaux sociaux, annonces à l\'équipe, messagerie' },
+  { id: 'SPONSORSHIP', label: 'Responsable sponsoring', sub: 'Partenaires et sponsors, annonces à l\'équipe, messagerie' },
 ];
 
 export function StaffPanel({ onSendAccess, onReset }: Props) {

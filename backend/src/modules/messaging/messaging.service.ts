@@ -1,10 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { CallStatus, CallType, NotificationType, UserRole } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { CallStatus, CallType, ConversationType, NotificationType, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
-import { isStaff, STAFF_ROLES } from '../../common/auth/staff';
+import { hasRole, INTERNAL_ROLES, isStaff, STAFF_ROLES } from '../../common/auth/staff';
+import { CreateGroupDto, UpdateGroupDto } from './dto/group.dto';
+
+const USER_CARD = { id: true, firstName: true, lastName: true, avatarUrl: true, role: true, phone: true } as const;
 
 @Injectable()
 export class MessagingService {
@@ -25,11 +28,186 @@ export class MessagingService {
           mission: { select: { id: true, reference: true, status: true } },
           messages: { take: 1, orderBy: { createdAt: 'desc' } },
         },
-        orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       }),
       this.prisma.conversation.count({ where }),
     ]);
-    return { data, total };
+    // Nombre de messages non lus par conversation (pastille chiffrée).
+    const withUnread = await Promise.all(
+      data.map(async (c) => {
+        const me = c.participants.find((p) => p.userId === userId);
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            conversationId: c.id,
+            senderId: { not: userId },
+            deletedAt: null,
+            ...(me?.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}),
+          },
+        });
+        return { ...c, unreadCount };
+      }),
+    );
+    return { data: withUnread, total };
+  }
+
+  /** Compteurs des pastilles rouges : notifications et messages non lus. */
+  async badges(userId: string) {
+    const parts = await this.prisma.conversationParticipant.findMany({
+      where: { userId },
+      select: { conversationId: true, lastReadAt: true },
+    });
+    const counts = await Promise.all(
+      parts.map((p) =>
+        this.prisma.message.count({
+          where: {
+            conversationId: p.conversationId,
+            senderId: { not: userId },
+            deletedAt: null,
+            ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
+          },
+        }),
+      ),
+    );
+    const notifications = await this.prisma.notification.count({ where: { userId, readAt: null } });
+    return {
+      notifications,
+      messages: counts.reduce((a, b) => a + b, 0),
+      conversations: counts.filter((n) => n > 0).length,
+    };
+  }
+
+  // ─── Messagerie interne ──────────────────────────────────────────────────
+
+  /** Personnes de l'équipe et convoyeurs à qui écrire (annuaire interne). */
+  async contacts(user: AuthenticatedUser) {
+    if (!hasRole(INTERNAL_ROLES, user.role)) throw new ForbiddenException('Messagerie interne réservée à l\'équipe Axis.');
+    return this.prisma.user.findMany({
+      where: {
+        id: { not: user.id },
+        role: { in: INTERNAL_ROLES },
+        deletedAt: null,
+        status: { notIn: [UserStatus.DELETED, UserStatus.SUSPENDED] },
+      },
+      orderBy: [{ role: 'asc' }, { lastName: 'asc' }],
+      take: 500,
+      select: { ...USER_CARD, accountNo: true },
+    });
+  }
+
+  /**
+   * Fil direct entre deux personnes. Entre comptes internes ; l'administrateur
+   * (et le responsable d'exploitation) peut aussi écrire à un client.
+   */
+  async openDirect(user: AuthenticatedUser, otherId: string) {
+    if (otherId === user.id) throw new BadRequestException('Choisissez une autre personne.');
+    const other = await this.prisma.user.findFirst({ where: { id: otherId, deletedAt: null }, select: { id: true, role: true } });
+    if (!other) throw new NotFoundException('Personne introuvable.');
+    const meInternal = hasRole(INTERNAL_ROLES, user.role);
+    const otherInternal = hasRole(INTERNAL_ROLES, other.role);
+    if (!meInternal || (!otherInternal && !isStaff(user.role))) {
+      throw new ForbiddenException('Messagerie interne réservée à l\'équipe Axis.');
+    }
+    const existing = await this.prisma.conversation.findFirst({
+      where: {
+        type: ConversationType.DIRECT,
+        AND: [{ participants: { some: { userId: user.id } } }, { participants: { some: { userId: otherId } } }],
+        participants: { every: { userId: { in: [user.id, otherId] } } },
+      },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    return this.prisma.conversation.create({
+      data: {
+        type: ConversationType.DIRECT,
+        createdById: user.id,
+        participants: { create: [{ userId: user.id }, { userId: otherId }] },
+      },
+      select: { id: true },
+    });
+  }
+
+  private async internalIds(ids: string[]) {
+    const found = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(ids)] }, role: { in: INTERNAL_ROLES }, deletedAt: null },
+      select: { id: true },
+    });
+    return found.map((u) => u.id);
+  }
+
+  /** Administrateur : crée un groupe avec les personnes de son choix. */
+  async createGroup(admin: AuthenticatedUser, dto: CreateGroupDto) {
+    const members = (await this.internalIds(dto.memberIds)).filter((id) => id !== admin.id);
+    if (!members.length) throw new BadRequestException('Ajoutez au moins une personne au groupe.');
+    const conv = await this.prisma.conversation.create({
+      data: {
+        type: ConversationType.GROUP,
+        title: dto.title.trim(),
+        createdById: admin.id,
+        lastMessageAt: new Date(),
+        participants: { create: [admin.id, ...members].map((userId) => ({ userId })) },
+      },
+      select: { id: true, title: true },
+    });
+    const name = await this.prisma.user.findUnique({ where: { id: admin.id }, select: { firstName: true, lastName: true } });
+    await this.prisma.message.create({
+      data: { conversationId: conv.id, senderId: admin.id, type: 'SYSTEM', body: `${name?.firstName ?? ''} ${name?.lastName ?? ''}`.trim() + ` a créé le groupe « ${conv.title} ».` },
+    });
+    await Promise.all(
+      members.map((m) =>
+        this.notifications
+          .notify(m, NotificationType.NEW_MESSAGE, `Nouveau groupe : ${conv.title}`, 'Vous avez été ajouté(e) à un groupe de discussion.', { conversationId: conv.id } as never)
+          .catch(() => undefined),
+      ),
+    );
+    return conv;
+  }
+
+  private async requireGroup(id: string) {
+    const conv = await this.prisma.conversation.findUnique({ where: { id }, select: { id: true, type: true, createdById: true } });
+    if (!conv || conv.type !== ConversationType.GROUP) throw new NotFoundException('Groupe introuvable.');
+    return conv;
+  }
+
+  /** Administrateur : renomme, ajoute ou retire des membres. */
+  async updateGroup(admin: AuthenticatedUser, id: string, dto: UpdateGroupDto) {
+    await this.requireGroup(id);
+    if (dto.title?.trim()) await this.prisma.conversation.update({ where: { id }, data: { title: dto.title.trim() } });
+    if (dto.addIds?.length) {
+      for (const userId of await this.internalIds(dto.addIds)) {
+        await this.prisma.conversationParticipant.upsert({
+          where: { conversationId_userId: { conversationId: id, userId } },
+          create: { conversationId: id, userId },
+          update: {},
+        });
+      }
+    }
+    if (dto.removeIds?.length) {
+      await this.prisma.conversationParticipant.deleteMany({
+        where: { conversationId: id, userId: { in: dto.removeIds.filter((u) => u !== admin.id) } },
+      });
+    }
+    // L'administrateur garde la main sur ses groupes.
+    await this.prisma.conversationParticipant.upsert({
+      where: { conversationId_userId: { conversationId: id, userId: admin.id } },
+      create: { conversationId: id, userId: admin.id },
+      update: {},
+    });
+    return this.getConversation(id, admin);
+  }
+
+  /** Administrateur : supprime un groupe et ses messages. */
+  async deleteGroup(id: string) {
+    await this.requireGroup(id);
+    await this.prisma.conversation.delete({ where: { id } });
+    return { id, deleted: true };
+  }
+
+  /** Quitter un groupe (membre). */
+  async leaveGroup(user: AuthenticatedUser, id: string) {
+    await this.requireGroup(id);
+    await this.requireMember(id, user.id);
+    await this.prisma.conversationParticipant.delete({ where: { conversationId_userId: { conversationId: id, userId: user.id } } });
+    return { id, left: true };
   }
 
   /**
@@ -130,6 +308,8 @@ export class MessagingService {
         this.prisma.conversation.findUnique({
           where: { id: conversationId },
           select: {
+            type: true,
+            title: true,
             mission: { select: { reference: true } },
             participants: {
               where: { userId: { not: senderId }, isMuted: false },
@@ -145,7 +325,7 @@ export class MessagingService {
       if (!conv) return;
 
       const from = sender ? `${sender.firstName} ${sender.lastName}`.trim() : 'Axis Import';
-      const suffix = conv.mission?.reference ? ` · ${conv.mission.reference}` : '';
+      const suffix = conv.title ? ` · ${conv.title}` : conv.mission?.reference ? ` · ${conv.mission.reference}` : '';
       const preview = body.length > 120 ? `${body.slice(0, 117)}…` : body;
 
       await Promise.all(

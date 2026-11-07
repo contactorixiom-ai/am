@@ -1,3 +1,5 @@
+import { BADGE_RED } from '../components/CountBadge';
+import { refreshBadges } from '../state/badges';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useState } from 'react';
@@ -114,13 +116,13 @@ export function NotificationsScreen() {
   // Marquage optimiste : l'écran réagit tout de suite, le serveur suit.
   const markAllRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    markAllNotificationsRead().catch(() => {});
+    markAllNotificationsRead().catch(() => {}).finally(() => void refreshBadges());
   };
 
   const open = (n: AppNotif) => {
     if (!n.read) {
       setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
-      markNotificationRead(n.id).catch(() => {});
+      markNotificationRead(n.id).catch(() => {}).finally(() => void refreshBadges());
     }
     if (n.action) {
       // @ts-expect-error — navigation dynamique sur des routes typées
@@ -215,7 +217,11 @@ function NotifCard({ notif, onPress }: { notif: AppNotif; onPress: () => void })
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text style={{ fontSize: 13.5, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{notif.title}</Text>
-              {!notif.read ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.gold }} /> : null}
+              {!notif.read ? (
+                <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 9, backgroundColor: BADGE_RED }}>
+                  <Text style={{ fontSize: 10, color: '#FFFFFF', fontFamily: TYPO.weights.bold, letterSpacing: 0.3 }}>NOUVEAU</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={{ fontSize: 12, color: theme.inkSoft, fontFamily: TYPO.weights.medium, marginTop: 3, lineHeight: 16.5 }} numberOfLines={3}>
               {notif.body}

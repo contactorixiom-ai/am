@@ -217,7 +217,7 @@ export function RootNavigator() {
           <>
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
-            <RootStack.Screen name="Tariffs" component={TariffsScreen} />
+            {/* Grille tarifaire : réservée aux comptes connectés (plus de lien public). */}
             <RootStack.Screen name="Register" component={RegisterScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             {!resetToken ? <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} /> : null}

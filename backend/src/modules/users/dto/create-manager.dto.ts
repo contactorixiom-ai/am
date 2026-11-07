@@ -17,7 +17,7 @@ export class CreateManagerDto {
   phone?: string;
 }
 
-const TEAM = [UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT];
+const TEAM = [UserRole.MANAGER, UserRole.HR, UserRole.SECRETARY, UserRole.ACCOUNTANT, UserRole.WEB_DESIGNER, UserRole.SPONSORSHIP];
 
 /** Compte d'équipe créé par l'administrateur : exploitation, RH, secrétariat ou comptabilité. */
 export class CreateStaffDto extends CreateManagerDto {

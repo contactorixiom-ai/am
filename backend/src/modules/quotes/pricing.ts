@@ -546,15 +546,17 @@ function computeShipmentQuote(input: QuoteComputationInput): ComputedQuote {
     const tariffLines = priceTariffLines(service, input.items);
     lines.push(...tariffLines);
     if (service === 'PARCEL') {
-      // Effets personnels : prix à la pièce, frais de douane en sus.
+      // Effets personnels : prix à la pièce, et 65 € de douane PAR COLIS
+      // (chaque fût, carton, valise, appareil compte pour un colis).
       applyMinimum = false;
+      const parcels = Math.max(1, tariffLines.reduce((n, l) => n + (l.unit === 'piece' ? l.quantity : 0), 0));
       lines.push({
         code: 'CUSTOMS_FEE',
-        label: 'Frais de douane (forfait)',
-        quantity: 1,
-        unit: 'fee',
+        label: `Frais de douane (${eur(CUSTOMS_FEE_CENTS)} par colis)`,
+        quantity: parcels,
+        unit: 'piece',
         unitCents: CUSTOMS_FEE_CENTS,
-        totalCents: CUSTOMS_FEE_CENTS,
+        totalCents: parcels * CUSTOMS_FEE_CENTS,
       });
     } else {
       // Palette standard 120 × 100 × 150 cm = 1,8 m³.

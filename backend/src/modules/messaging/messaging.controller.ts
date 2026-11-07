@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CallStatus, CallType } from '@prisma/client';
 import { IsEnum } from 'class-validator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { CreateGroupDto, OpenDirectDto, UpdateGroupDto } from './dto/group.dto';
+import { AdminOnly } from '../../common/decorators/admin-only.decorator';
 import { MessagingGateway } from './messaging.gateway';
 import { MessagingService } from './messaging.service';
 
@@ -37,6 +39,50 @@ export class MessagingController {
   @ApiOperation({ summary: 'Ouvrir (ou retrouver) son fil avec l\'équipe Axis' })
   support(@CurrentUser() user: AuthenticatedUser) {
     return this.messaging.openSupport(user);
+  }
+
+  @Get('conversations/badges')
+  @ApiOperation({ summary: 'Pastilles : notifications et messages non lus' })
+  badges(@CurrentUser('id') userId: string) {
+    return this.messaging.badges(userId);
+  }
+
+  @Get('conversations/contacts')
+  @ApiOperation({ summary: 'Messagerie interne : équipe et convoyeurs' })
+  contacts(@CurrentUser() user: AuthenticatedUser) {
+    return this.messaging.contacts(user);
+  }
+
+  @Post('conversations/direct')
+  @ApiOperation({ summary: 'Messagerie interne : ouvrir un fil avec une personne' })
+  direct(@CurrentUser() user: AuthenticatedUser, @Body() dto: OpenDirectDto) {
+    return this.messaging.openDirect(user, dto.userId);
+  }
+
+  @Post('conversations/groups')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : créer un groupe de discussion' })
+  createGroup(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateGroupDto) {
+    return this.messaging.createGroup(user, dto);
+  }
+
+  @Patch('conversations/groups/:id')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : renommer un groupe, ajouter ou retirer des membres' })
+  updateGroup(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateGroupDto) {
+    return this.messaging.updateGroup(user, id, dto);
+  }
+
+  @Delete('conversations/groups/:id')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Administrateur : supprimer un groupe' })
+  deleteGroup(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.messaging.deleteGroup(id);
+  }
+
+  @Post('conversations/groups/:id/leave')
+  leaveGroup(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.messaging.leaveGroup(user, id);
   }
 
   @Get('conversations/:id')

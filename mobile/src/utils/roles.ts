@@ -28,11 +28,21 @@ export function isAccountant(role?: string | null): boolean {
 }
 
 /** Membres de l'équipe créés par l'administrateur. */
-export const TEAM_ROLES = ['MANAGER', 'HR', 'SECRETARY', 'ACCOUNTANT'] as const;
+export const TEAM_ROLES = ['MANAGER', 'HR', 'SECRETARY', 'ACCOUNTANT', 'WEB_DESIGNER', 'SPONSORSHIP'] as const;
+
+/** Web designer / communication digitale, responsable sponsoring. */
+export function isCommsRole(role?: string | null): boolean {
+  return role === 'WEB_DESIGNER' || role === 'SPONSORSHIP';
+}
+
+/** Comptes internes : administrateur, équipe, convoyeurs (messagerie interne). */
+export function isInternal(role?: string | null): boolean {
+  return role === 'ADMIN' || role === 'DRIVER' || (TEAM_ROLES as readonly string[]).includes(role ?? '');
+}
 
 /** Accès à l'espace de travail interne (admin, responsable, RH, secrétariat, comptabilité). */
 export function hasBackOffice(role?: string | null): boolean {
-  return isStaff(role) || isHR(role) || isSecretary(role) || isAccountant(role);
+  return isStaff(role) || isHR(role) || isSecretary(role) || isAccountant(role) || isCommsRole(role);
 }
 
 /** Convoyeurs et salariés : ont « Mon espace » (billets, frais, documents RH). */
@@ -46,6 +56,8 @@ export function backOfficeTitle(role?: string | null): string {
     case 'HR': return 'Espace RH';
     case 'SECRETARY': return 'Espace secrétariat';
     case 'ACCOUNTANT': return 'Espace comptabilité';
+    case 'WEB_DESIGNER': return 'Espace communication';
+    case 'SPONSORSHIP': return 'Espace sponsoring';
     default: return 'Espace admin';
   }
 }
@@ -57,6 +69,8 @@ export function roleLabel(role?: string | null): string {
     case 'HR': return 'Ressources humaines';
     case 'SECRETARY': return 'Secrétariat';
     case 'ACCOUNTANT': return 'Comptabilité';
+    case 'WEB_DESIGNER': return 'Web designer · communication digitale';
+    case 'SPONSORSHIP': return 'Responsable sponsoring';
     case 'DRIVER': return 'Convoyeur';
     default: return 'Client';
   }

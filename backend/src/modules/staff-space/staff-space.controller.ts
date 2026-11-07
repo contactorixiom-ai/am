@@ -4,7 +4,7 @@ import { StaffFileKind, UserRole } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StaffSpaceService } from './staff-space.service';
-import { ANNOUNCE_ROLES, EXPENSE_ROLES, hasRole, HR_ROLES, PERSONNEL_VIEWERS, TRAVEL_ROLES } from '../../common/auth/staff';
+import { ANNOUNCE_ROLES, EXPENSE_ROLES, hasRole, HR_ROLES, PERSONNEL_VIEWERS, TEAM_ROLES, TRAVEL_ROLES } from '../../common/auth/staff';
 import {
   AnnouncementDto,
   MyStaffFileDto,
@@ -13,13 +13,14 @@ import {
   StaffRequestDto,
 } from './staff-space.dto';
 
-const { ADMIN, MANAGER, HR, SECRETARY, ACCOUNTANT, DRIVER } = UserRole;
+const { ADMIN, DRIVER } = UserRole;
 
 /** Le garde admet le responsable avec l'administrateur : on resserre ici. */
 function only(list: UserRole[], user: AuthenticatedUser, message: string) {
   if (!hasRole(list, user.role)) throw new ForbiddenException(message);
 }
-const TEAM = [ADMIN, HR, SECRETARY, ACCOUNTANT];
+const TEAM = [ADMIN, ...TEAM_ROLES];
+const PERSONNEL = [DRIVER, ...TEAM_ROLES];
 
 /**
  * Mon espace (convoyeurs et salariés) et dossiers du personnel (équipe Axis).
@@ -34,14 +35,14 @@ export class StaffSpaceController {
   // ─── Mon espace ────────────────────────────────────────────────────────────
 
   @Get('me')
-  @Roles(DRIVER, MANAGER, HR, SECRETARY, ACCOUNTANT)
+  @Roles(...PERSONNEL)
   @ApiOperation({ summary: 'Mes billets, frais, documents, demandes et annonces' })
   me(@CurrentUser('id') userId: string) {
     return this.space.mySpace(userId);
   }
 
   @Post('me/files')
-  @Roles(DRIVER, MANAGER, HR, SECRETARY, ACCOUNTANT)
+  @Roles(...PERSONNEL)
   @ApiOperation({ summary: 'Envoyer un justificatif de frais ou un document à la RH' })
   submit(@CurrentUser() user: AuthenticatedUser, @Body() dto: MyStaffFileDto) {
     return this.space.submitMine(user, dto);
@@ -70,6 +71,7 @@ export class StaffSpaceController {
   @Get('people/:id')
   @Roles(...TEAM)
   person(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    only(PERSONNEL_VIEWERS, user, 'Accès réservé à l\'équipe Axis.');
     return this.space.person(user, id);
   }
 
@@ -77,6 +79,7 @@ export class StaffSpaceController {
   @Roles(...TEAM)
   @ApiOperation({ summary: 'Déposer un billet, une réservation ou un document RH' })
   addFile(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: PersonStaffFileDto) {
+    only(PERSONNEL_VIEWERS, user, 'Accès réservé à l\'équipe Axis.');
     return this.space.addForPerson(user, id, dto);
   }
 
@@ -142,14 +145,14 @@ export class StaffSpaceController {
   @Roles(...TEAM)
   @ApiOperation({ summary: 'Secrétariat : relayer une information à l\'équipe ou à des personnes' })
   announce(@CurrentUser() user: AuthenticatedUser, @Body() dto: AnnouncementDto) {
-    only(ANNOUNCE_ROLES, user, 'Réservé au secrétariat, à la RH et à l\'administrateur.');
+    only(ANNOUNCE_ROLES, user, 'Réservé à l\'équipe Axis (annonces).');
     return this.space.announce(user, dto);
   }
 
   @Get('announcements')
   @Roles(...TEAM)
   announcements(@CurrentUser() user: AuthenticatedUser) {
-    only(ANNOUNCE_ROLES, user, 'Réservé au secrétariat, à la RH et à l\'administrateur.');
+    only(ANNOUNCE_ROLES, user, 'Réservé à l\'équipe Axis (annonces).');
     return this.space.listAnnouncements();
   }
 }

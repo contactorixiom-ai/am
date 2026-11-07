@@ -5,6 +5,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useLayout } from '../theme/layout';
 import { SAFE_AREA_BOTTOM, TYPO } from '../theme/tokens';
 import { Icons } from './Icons';
+import { CountBadge } from './CountBadge';
+import { useBadges } from '../state/badges';
 
 type IconKey = 'home' | 'pin' | 'plus' | 'doc' | 'user' | 'truck';
 
@@ -21,6 +23,7 @@ const TAB_CONFIG: Record<string, { label: string; icon: IconKey; isCenter?: bool
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
   const { wide } = useLayout();
+  const badges = useBadges(!wide);
   // Grand écran : le menu latéral remplace la barre du bas.
   if (wide) return null;
 
@@ -101,7 +104,16 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             }}
             style={{ alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 6 }}
           >
-            <IconComp size={22} color={color} stroke={isFocused ? 1.9 : 1.5} />
+            <View>
+              <IconComp size={22} color={color} stroke={isFocused ? 1.9 : 1.5} />
+              {/* Profil : messages non lus ; Accueil : notifications. */}
+              <CountBadge
+                count={route.name === 'Profile' ? badges.messages : route.name === 'Home' ? badges.notifications : 0}
+                size={17}
+                border={theme.surface}
+                style={{ position: 'absolute', top: -7, right: -12 }}
+              />
+            </View>
             <Text
               style={{
                 fontSize: 10.5,

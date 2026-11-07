@@ -706,7 +706,7 @@ function gridLineLabel(l: QuoteLine): string {
 }
 
 function gridLineSub(l: QuoteLine, pickupMode: string): string {
-  if (l.code === 'CUSTOMS_FEE') return 'Forfait par envoi, effets personnels';
+  if (l.code === 'CUSTOMS_FEE') return `Douane : ${fmtEur(l.unitCents)} par colis (fût, carton, valise…)`;
   if (l.code === 'MINIMUM') return 'Complément jusqu\'au minimum de perception';
   if (l.code === 'PICKUP') return pickupSub(pickupMode);
   if (l.code === 'CONVOY_TO_PORT') return `Convoyeur Axis · ${fmtEur(l.unitCents)} par véhicule`;

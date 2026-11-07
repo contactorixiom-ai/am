@@ -25,6 +25,10 @@ enum UserRole {
   SECRETARY
   /// Comptabilité : reçoit les justificatifs de frais des convoyeurs et salariés.
   ACCOUNTANT
+  /// Web designer / communication digitale.
+  WEB_DESIGNER
+  /// Responsable sponsoring.
+  SPONSORSHIP
 }
 
 enum UserStatus {
@@ -527,6 +531,8 @@ enum ConversationType {
   MISSION
   PARCEL
   SUPPORT
+  /// Groupe interne créé par l'administrateur (responsables, équipe, convoyeurs).
+  GROUP
 }
 
 model Conversation {
@@ -536,6 +542,10 @@ model Conversation {
   mission   Mission?         @relation(fields: [missionId], references: [id], onDelete: Cascade)
   parcelId  String?          @unique @db.Uuid
   parcel    Parcel?          @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  /// Nom d'un groupe interne.
+  title       String?
+  createdById String?  @db.Uuid
 
   lastMessageAt DateTime?
   createdAt     DateTime  @default(now())

@@ -3,14 +3,15 @@ import { computeQuote } from './pricing';
 const base = { options: [] };
 
 describe('computeQuote — grille import-export', () => {
-  it('effets personnels en maritime : prix à la pièce + 65 € de douane, TTC', () => {
+  it('effets personnels en maritime : prix à la pièce + 65 € de douane par colis, TTC', () => {
     const q = computeQuote({
       ...base,
       service: 'PARCEL',
       transportMode: 'SEA',
       items: [{ code: 'DRUM_200', quantity: 2 }, { code: 'CARTON', quantity: 3 }],
     });
-    expect(q.totalCents).toBe(2 * 13000 + 3 * 4000 + 6500);
+    expect(q.totalCents).toBe(2 * 13000 + 3 * 4000 + 5 * 6500);
+    expect(q.lines.find((l) => l.code === 'CUSTOMS_FEE')?.quantity).toBe(5);
     expect(q.subtotalCents + q.taxCents).toBe(q.totalCents);
     expect(q.lines.map((l) => l.code)).toEqual(['DRUM_200', 'CARTON', 'CUSTOMS_FEE']);
     // Fourchette (carton 40 à 70 €) : prix de départ, ajusté au dépôt.
