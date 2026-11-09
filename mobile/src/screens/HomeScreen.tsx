@@ -313,6 +313,7 @@ export function HomeScreen() {
                   { label: 'Messages', sub: 'Équipe, groupes et convoyeurs', icon: Icons.chat, go: () => nav.navigate('Conversations') },
                 ]
               : [
+              { label: 'Planning', sub: 'Missions de la semaine, affectation des convoyeurs', icon: Icons.calendar, go: () => nav.navigate('Admin', { tab: 'planning' }) },
               { label: 'Envois et commandes', sub: shipments === null ? 'Chargement…' : `${shipments.length} en cours`, icon: Icons.truck, go: () => nav.navigate('Admin', { tab: 'shipments' }) },
               { label: 'Convoyeurs', sub: 'Pièces à valider, missions à affecter', icon: Icons.shield, go: () => nav.navigate('Admin', { tab: 'drivers' }) },
               ...(!isAdmin(user?.role)

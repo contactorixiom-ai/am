@@ -1,4 +1,5 @@
 import { CountBadge } from '../components/CountBadge';
+import { PlanningPanel } from '../components/PlanningPanel';
 import { listExpenses, listReceivedDocuments } from '../api/staffSpace';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/types';
@@ -87,10 +88,11 @@ import { parcelLoadLabel } from '../utils/shipment';
 
 // ─── Onglets internes ────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team';
+type TabId = 'dashboard' | 'planning' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Tableau' },
+  { id: 'planning', label: 'Planning' },
   { id: 'generate', label: 'Générer' },
   { id: 'shipments', label: 'Envois' },
   { id: 'documents', label: 'Documents' },
@@ -108,7 +110,7 @@ const ADMIN_ONLY_TABS: TabId[] = ['members', 'team'];
 // Onglets de chaque rôle, dans l'ordre d'affichage. L'administrateur voit tout.
 const ROLE_TABS: Record<string, TabId[]> = {
   // Exploitation : sans les comptes, l'équipe, les frais ni les dossiers RH.
-  MANAGER: ['dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel', 'announce'],
+  MANAGER: ['planning', 'dashboard', 'generate', 'shipments', 'documents', 'drivers', 'personnel', 'announce'],
   // RH : tout l'administratif du personnel, sans l'exploitation.
   HR: ['personnel', 'drivers', 'received', 'announce', 'documents', 'generate'],
   // Secrétariat : relayer l'information, déposer billets et réservations,
@@ -770,6 +772,7 @@ export function AdminScreen() {
         }
       >
         {tab === 'dashboard' && renderDashboardTab()}
+        {tab === 'planning' && <PlanningPanel onNewMission={() => openOrder()} refreshToken={missions.length} />}
         {tab === 'generate' && renderGenerateTab()}
         {tab === 'shipments' && renderShipmentsTab()}
         {tab === 'documents' && renderDocumentsTab()}

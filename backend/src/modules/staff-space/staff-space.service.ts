@@ -1,5 +1,5 @@
 import { accountNoFilter } from '../../common/accounts/account-number';
-import { driverCompliance } from '../../common/auth/driver-kyc';
+import { personnelCompliance } from '../../common/auth/driver-kyc';
 import {
   BadRequestException,
   ForbiddenException,
@@ -319,7 +319,7 @@ export class StaffSpaceService {
         pendingExpenses: count((f) => f.kind === StaffFileKind.EXPENSE && f.status === StaffFileStatus.PENDING),
         newDocuments: count((f) => f.kind === StaffFileKind.EMPLOYEE_DOCUMENT && f.status === StaffFileStatus.PENDING),
         openRequests: requests.find((r) => r.userId === u.id)?._count._all ?? 0,
-        compliance: paperwork && u.role === UserRole.DRIVER ? driverCompliance(kycDocuments) : null,
+        compliance: paperwork && u.role !== UserRole.ADMIN ? personnelCompliance(u.role, kycDocuments) : null,
       };
     });
   }
@@ -350,7 +350,7 @@ export class StaffSpaceService {
       requests,
       kyc,
       missions,
-      compliance: handlesPaperwork(viewer.role) && user.role === UserRole.DRIVER ? driverCompliance(kyc) : null,
+      compliance: handlesPaperwork(viewer.role) && user.role !== UserRole.ADMIN ? personnelCompliance(user.role, kyc) : null,
     };
   }
 

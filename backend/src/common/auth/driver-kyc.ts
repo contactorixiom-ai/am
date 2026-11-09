@@ -16,6 +16,13 @@ export const DRIVER_REQUIRED_KYC = [
   { key: 'SELFIE', label: 'Photo faciale', types: ['SELFIE'], verified: false },
 ] as const;
 
+/**
+ * Salariés de l'équipe interne : les mêmes pièces que les convoyeurs, sans
+ * le permis de conduire (identité, domicile, RIB, hébergement si besoin,
+ * carte Vitale, attestation de droits, photo faciale).
+ */
+export const TEAM_REQUIRED_KYC = DRIVER_REQUIRED_KYC.filter((r) => r.key !== 'LICENSE');
+
 /** Convoyeur hébergé : attestation d'hébergement + pièce d'identité de l'hébergeant. */
 export const HOSTING_KYC = [
   { key: 'HOSTING', label: 'Attestation d\'hébergement', types: ['HOSTING_CERTIFICATE'] },
@@ -34,8 +41,8 @@ function statusOf(docs: Doc[], types: readonly string[]): ItemStatus {
 }
 
 /** État du dossier : chaque pièce, et ce qui manque pour accepter une mission. */
-export function driverCompliance(docs: Doc[]) {
-  const items: { key: string; label: string; status: ItemStatus }[] = DRIVER_REQUIRED_KYC.map((r) => ({
+export function driverCompliance(docs: Doc[], required: readonly (typeof DRIVER_REQUIRED_KYC)[number][] = DRIVER_REQUIRED_KYC) {
+  const items: { key: string; label: string; status: ItemStatus }[] = required.map((r) => ({
     key: r.key,
     label: r.label,
     status: statusOf(docs, r.types),
@@ -52,4 +59,9 @@ export function driverCompliance(docs: Doc[]) {
     if (!ok) blocking.push(it.label);
   }
   return { complete: items.every((i) => i.status === 'APPROVED'), canWork: blocking.length === 0, blocking, items };
+}
+
+/** Dossier d'une personne : convoyeur (avec permis) ou salarié de l'équipe. */
+export function personnelCompliance(role: string, docs: Doc[]) {
+  return driverCompliance(docs, role === 'DRIVER' ? DRIVER_REQUIRED_KYC : TEAM_REQUIRED_KYC);
 }

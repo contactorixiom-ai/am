@@ -30,7 +30,7 @@ export function ProfileScreen() {
   // Statut d'identité d'après le serveur (il était lu sur le téléphone et
   // restait « incomplet » une fois les pièces validées par Axis).
   useEffect(() => {
-    if (user?.role !== 'DRIVER') return;
+    if (!hasPersonnelSpace(user?.role)) return;
     const refresh = () => {
       fetchKycOverview()
         .then((o) => setKycStatus(o.status === 'APPROVED' ? 'verified' : o.status === 'PENDING' ? 'pending' : 'incomplete'))
@@ -44,6 +44,8 @@ export function ProfileScreen() {
   // Le KYC exige un permis de conduire : il ne concerne que les convoyeurs.
   // Ni un client, ni Roger (qui valide les pièces des autres) n'en fournit.
   const isDriver = user?.role === 'DRIVER';
+  // Convoyeurs et salariés de l'équipe : dossier de pièces justificatives.
+  const hasDossier = hasPersonnelSpace(user?.role);
 
   const handleLogout = () => {
     confirmAction('Déconnexion', 'Tu es sûr ?', () => logout(), 'Se déconnecter');
@@ -97,8 +99,8 @@ export function ProfileScreen() {
             </View>
           </View>
 
-          {/* Vérification d'identité — convoyeurs uniquement */}
-          {isDriver ? (
+          {/* Pièces justificatives — convoyeurs et salariés de l'équipe */}
+          {hasDossier ? (
           <Pressable
             onPress={() => nav.navigate('KycVerification')}
             style={({ pressed }) => ({
@@ -119,14 +121,14 @@ export function ProfileScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12.5, color: '#F5F1E8', fontFamily: TYPO.weights.semibold }}>
-                {kycStatus === 'verified' ? 'Identité vérifiée' : kycStatus === 'pending' ? 'Vérification en cours' : 'Vérifier mon identité'}
+                {kycStatus === 'verified' ? 'Identité vérifiée' : kycStatus === 'pending' ? 'Vérification en cours' : isDriver ? 'Vérifier mon identité' : 'Envoyer mes pièces justificatives'}
               </Text>
               <Text style={{ fontSize: 11, color: 'rgba(245,241,232,0.6)', marginTop: 1, fontFamily: TYPO.weights.medium }}>
                 {kycStatus === 'verified'
-                  ? 'Permis et pièce d\'identité validés'
+                  ? (isDriver ? 'Permis et pièce d\'identité validés' : 'Pièce d\'identité validée')
                   : kycStatus === 'pending'
                   ? 'Notre équipe contrôle tes documents'
-                  : 'Permis + ID requis · 2 min'}
+                  : isDriver ? '8 pièces à fournir · 5 min' : '7 pièces à fournir · 5 min'}
               </Text>
             </View>
             <Icons.chev size={16} color="rgba(245,241,232,0.7)" stroke={2} />

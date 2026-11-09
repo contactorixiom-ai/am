@@ -316,7 +316,7 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
 
                 {data?.compliance ? (
                   <View style={{ gap: 8 }}>
-                    <SectionTitle title="Pièces obligatoires du convoyeur" />
+                    <SectionTitle title={u?.role === 'DRIVER' ? 'Pièces obligatoires du convoyeur' : 'Pièces obligatoires du salarié'} />
                     <Surface padded style={{ gap: 8 }}>
                       {data.compliance.items.map((i) => (
                         <View key={i.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -325,7 +325,7 @@ function PersonSheet({ id, onClose, onChanged }: { id: string | null; onClose: (
                         </View>
                       ))}
                       <Text style={{ fontSize: 11.5, color: theme.muted, fontFamily: TYPO.weights.medium }}>
-                        Valide ou refuse chaque pièce ci-dessous : le convoyeur est prévenu.
+                        Valide ou refuse chaque pièce ci-dessous : la personne est prévenue.
                       </Text>
                     </Surface>
                   </View>

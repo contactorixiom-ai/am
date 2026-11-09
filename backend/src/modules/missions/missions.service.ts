@@ -289,6 +289,13 @@ export class MissionsService {
     }
 
     if (query.status) where.status = query.status;
+    // Planning : missions dont la prise en charge tombe dans la période.
+    if (query.from || query.to) {
+      where.pickupAt = {
+        ...(query.from ? { gte: new Date(query.from) } : {}),
+        ...(query.to ? { lt: new Date(query.to) } : {}),
+      };
+    }
     if (query.pickupCity) where.pickupCity = { equals: query.pickupCity, mode: 'insensitive' };
     if (query.deliveryCity) where.deliveryCity = { equals: query.deliveryCity, mode: 'insensitive' };
     if (query.country) {

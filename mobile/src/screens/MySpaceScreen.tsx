@@ -91,11 +91,9 @@ export function MySpaceScreen() {
           <Button kind="outline" size="md" style={{ flexGrow: 1 }} leftIcon={<Icons.doc size={16} color={theme.ink} stroke={1.8} />} onPress={() => setSheet({ mode: 'document' })}>
             Envoyer un document à la RH
           </Button>
-          {isDriver ? (
-            <Button kind="outline" size="md" style={{ flexGrow: 1 }} leftIcon={<Icons.shield size={16} color={theme.ink} stroke={1.8} />} onPress={() => nav.navigate('KycVerification')}>
-              Mes pièces justificatives
-            </Button>
-          ) : null}
+          <Button kind="outline" size="md" style={{ flexGrow: 1 }} leftIcon={<Icons.shield size={16} color={theme.ink} stroke={1.8} />} onPress={() => nav.navigate('KycVerification')}>
+            Mes pièces justificatives
+          </Button>
         </View>
 
         {/* Pièces demandées par la RH */}

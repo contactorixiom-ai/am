@@ -13,6 +13,7 @@ import { extOfMime, mimeOfDataUrl, uriToDataUrl } from '../utils/imageData';
 import { PickedFile, pickFile as chooseFile } from '../utils/pickFile';
 import { capturePhoto } from '../utils/pickImage';
 import { useTheme } from '../theme/ThemeProvider';
+import { useSession } from '../state/SessionContext';
 import { RADII, TYPO } from '../theme/tokens';
 import { ApiError } from '../api/client';
 import { fetchMe, upsertLicence } from '../api/auth';
@@ -38,24 +39,28 @@ interface RequiredDoc {
   file?: boolean;
   /** Section « Si tu es hébergé » : obligatoire seulement en cas d'hébergement. */
   hosting?: boolean;
+  /** Rubrique du dossier (sert à la numérotation 1, 2, 3…). */
+  group: string;
 }
+
+const GROUPS = ['id', 'address', 'license', 'rib', 'hosting', 'vitale', 'health', 'selfie'];
 
 // Les 8 pièces demandées par Axis Import, dans l'ordre du dossier. Le serveur
 // applique la même règle pour accepter une mission (identité et permis
 // validés, le reste envoyé).
 const REQUIRED_DOCS: RequiredDoc[] = [
-  { key: 'id_front',      title: '1. Pièce d\'identité — recto', hint: 'Carte d\'identité, titre de séjour ou passeport (page photo)', required: true, apiType: 'IDENTITY_CARD' },
-  { key: 'id_back',       title: '1. Pièce d\'identité — verso', hint: 'Pour un passeport, photographie la page de signature', required: true, apiType: 'IDENTITY_CARD' },
-  { key: 'address',       title: '2. Justificatif de domicile', hint: 'Moins de 3 mois : facture, quittance, avis d\'imposition', required: true, apiType: 'PROOF_OF_ADDRESS', file: true },
-  { key: 'license_front', title: '3. Permis de conduire — recto', hint: 'Photo nette, sans reflet', required: true, apiType: 'DRIVER_LICENSE' },
-  { key: 'license_back',  title: '3. Permis de conduire — verso', hint: 'Toutes les catégories (A, B, C, D) visibles', required: true, apiType: 'DRIVER_LICENSE' },
-  { key: 'rib',           title: '4. RIB', hint: 'Relevé d\'identité bancaire à ton nom (PDF ou photo)', required: true, apiType: 'BANK_DETAILS', file: true },
-  { key: 'hosting',       title: '5. Attestation d\'hébergement', hint: 'Signée par la personne qui t\'héberge (PDF ou photo)', required: false, apiType: 'HOSTING_CERTIFICATE', file: true, hosting: true },
-  { key: 'host_id_front', title: '5. Pièce d\'identité de l\'hébergeant — recto', hint: 'Annexe obligatoire de l\'attestation d\'hébergement', required: false, apiType: 'HOST_IDENTITY', hosting: true },
-  { key: 'host_id_back',  title: '5. Pièce d\'identité de l\'hébergeant — verso', hint: 'Annexe obligatoire de l\'attestation d\'hébergement', required: false, apiType: 'HOST_IDENTITY', hosting: true },
-  { key: 'vitale',        title: '6. Carte Vitale', hint: 'Photo nette du recto, numéro lisible', required: true, apiType: 'VITALE_CARD' },
-  { key: 'health_rights', title: '7. Attestation de droits — assurance maladie', hint: 'À télécharger sur ameli.fr (Mon compte › Mes attestations)', required: true, apiType: 'HEALTH_INSURANCE_RIGHTS', file: true },
-  { key: 'selfie',        title: '8. Photo faciale', hint: 'De face, visage dégagé, sans lunettes de soleil', required: true, apiType: 'SELFIE' },
+  { key: 'id_front',      group: 'id', title: 'Pièce d\'identité — recto', hint: 'Carte d\'identité, titre de séjour ou passeport (page photo)', required: true, apiType: 'IDENTITY_CARD' },
+  { key: 'id_back',       group: 'id', title: 'Pièce d\'identité — verso', hint: 'Pour un passeport, photographie la page de signature', required: true, apiType: 'IDENTITY_CARD' },
+  { key: 'address',       group: 'address', title: 'Justificatif de domicile', hint: 'Moins de 3 mois : facture, quittance, avis d\'imposition', required: true, apiType: 'PROOF_OF_ADDRESS', file: true },
+  { key: 'license_front', group: 'license', title: 'Permis de conduire — recto', hint: 'Photo nette, sans reflet', required: true, apiType: 'DRIVER_LICENSE' },
+  { key: 'license_back',  group: 'license', title: 'Permis de conduire — verso', hint: 'Toutes les catégories (A, B, C, D) visibles', required: true, apiType: 'DRIVER_LICENSE' },
+  { key: 'rib',           group: 'rib', title: 'RIB', hint: 'Relevé d\'identité bancaire à ton nom (PDF ou photo)', required: true, apiType: 'BANK_DETAILS', file: true },
+  { key: 'hosting',       group: 'hosting', title: 'Attestation d\'hébergement', hint: 'Signée par la personne qui t\'héberge (PDF ou photo)', required: false, apiType: 'HOSTING_CERTIFICATE', file: true, hosting: true },
+  { key: 'host_id_front', group: 'hosting', title: 'Pièce d\'identité de l\'hébergeant — recto', hint: 'Annexe obligatoire de l\'attestation d\'hébergement', required: false, apiType: 'HOST_IDENTITY', hosting: true },
+  { key: 'host_id_back',  group: 'hosting', title: 'Pièce d\'identité de l\'hébergeant — verso', hint: 'Annexe obligatoire de l\'attestation d\'hébergement', required: false, apiType: 'HOST_IDENTITY', hosting: true },
+  { key: 'vitale',        group: 'vitale', title: 'Carte Vitale', hint: 'Photo nette du recto, numéro lisible', required: true, apiType: 'VITALE_CARD' },
+  { key: 'health_rights', group: 'health', title: 'Attestation de droits — assurance maladie', hint: 'À télécharger sur ameli.fr (Mon compte › Mes attestations)', required: true, apiType: 'HEALTH_INSURANCE_RIGHTS', file: true },
+  { key: 'selfie',        group: 'selfie', title: 'Photo faciale', hint: 'De face, visage dégagé, sans lunettes de soleil', required: true, apiType: 'SELFIE' },
 ];
 
 const LICENSE_CATEGORIES = ['A', 'B', 'BE', 'C', 'CE', 'D', 'DE'];
@@ -70,6 +75,12 @@ type State = Record<string, { status: DocStatus; uri?: string; uploadedAt?: stri
 
 export function KycVerificationScreen() {
   const { theme } = useTheme();
+  const { user } = useSession();
+  // Salariés de l'équipe interne : mêmes pièces, sans le permis de conduire.
+  const isDriver = user?.role === 'DRIVER';
+  const docsForRole = REQUIRED_DOCS.filter((d) => isDriver || d.group !== 'license');
+  const groups = GROUPS.filter((g) => isDriver || g !== 'license');
+  const numbered = (d: RequiredDoc) => `${groups.indexOf(d.group) + 1}. ${d.title}`;
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [state, setState] = useState<State>({});
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -82,7 +93,7 @@ export function KycVerificationScreen() {
   const [licence, setLicence] = useState<{ loaded: boolean; number: string; expires: string; categories: string[] }>({ loaded: false, number: '', expires: '', categories: [] });
   const [savingLicence, setSavingLicence] = useState(false);
   const isRequired = (d: RequiredDoc) => d.required || (hosted && !!d.hosting);
-  const shownDocs = REQUIRED_DOCS.filter((d) => !d.hosting || hosted);
+  const shownDocs = docsForRole.filter((d) => !d.hosting || hosted);
 
   // Statut réel, tel que le serveur le connaît. Plus de « mode démo » local :
   // l'écran affichait « envoyé » pour des documents restés sur le téléphone.
@@ -97,11 +108,11 @@ export function KycVerificationScreen() {
       if (isHosted) setHosted(true);
       const sentOthers: KycDocumentType[] = ['PROOF_OF_ADDRESS', 'BANK_DETAILS', 'VITALE_CARD', 'HEALTH_INSURANCE_RIGHTS', 'SELFIE'];
       setHabilitated(
-        approvedTypes.has('DRIVER_LICENSE') && (approvedTypes.has('IDENTITY_CARD') || approvedTypes.has('PASSPORT'))
+        (!isDriver || approvedTypes.has('DRIVER_LICENSE')) && (approvedTypes.has('IDENTITY_CARD') || approvedTypes.has('PASSPORT'))
           && sentOthers.every((t) => sentTypes.has(t))
           && (!isHosted || (sentTypes.has('HOSTING_CERTIFICATE') && sentTypes.has('HOST_IDENTITY'))),
       );
-      const lp = await fetchMe().then((u) => u.driverProfile).catch(() => null);
+      const lp = isDriver ? await fetchMe().then((u) => u.driverProfile).catch(() => null) : null;
       if (lp) {
         setLicence((cur) => cur.loaded ? cur : {
           loaded: true,
@@ -148,17 +159,17 @@ export function KycVerificationScreen() {
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Statut indisponible.');
     }
-  }, []);
+  }, [isDriver]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const totalRequired = REQUIRED_DOCS.filter(isRequired).length;
-  const uploadedRequired = REQUIRED_DOCS.filter((d) => isRequired(d) && (state[d.key]?.status === 'uploaded' || state[d.key]?.status === 'verified')).length;
+  const totalRequired = docsForRole.filter(isRequired).length;
+  const uploadedRequired = docsForRole.filter((d) => isRequired(d) && (state[d.key]?.status === 'uploaded' || state[d.key]?.status === 'verified')).length;
   const progress = Math.round((uploadedRequired / totalRequired) * 100);
 
-  const allVerified = habilitated || REQUIRED_DOCS.every((d) => !isRequired(d) || state[d.key]?.status === 'verified');
+  const allVerified = habilitated || docsForRole.every((d) => !isRequired(d) || state[d.key]?.status === 'verified');
   const allUploaded = uploadedRequired === totalRequired;
 
   const todayLabel = () =>
@@ -176,7 +187,7 @@ export function KycVerificationScreen() {
     // propose alors photo ou fichier.
     let picked: PickedFile | null = null;
     if (doc.file) {
-      const source = await askPhotoOrFile(doc.title.replace(/^\d+\.\s*/, ''), 'Prends une photo du document, ou choisis un fichier (PDF ou image) sur ton téléphone ou ton ordinateur.');
+      const source = await askPhotoOrFile(doc.title, 'Prends une photo du document, ou choisis un fichier (PDF ou image) sur ton téléphone ou ton ordinateur.');
       if (!source) return;
       if (source === 'document') {
         try {
@@ -237,7 +248,7 @@ export function KycVerificationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppBar title="Vérification d'identité" subtitle="KYC chauffeur · conforme RGPD" />
+      <AppBar title={isDriver ? 'Vérification d\'identité' : 'Mes pièces justificatives'} subtitle={isDriver ? 'Dossier convoyeur · conforme RGPD' : 'Dossier salarié · conforme RGPD'} />
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 16 }}>
         {/* Hero statut global */}
@@ -253,7 +264,7 @@ export function KycVerificationScreen() {
                 {allVerified ? 'Profil vérifié' : allUploaded ? 'Vérification en cours' : 'À compléter'}
               </Text>
               <Text style={{ fontSize: 18, color: '#F5F1E8', fontFamily: TYPO.weights.bold, marginTop: 2, letterSpacing: -0.2 }}>
-                {allVerified ? 'Tu es habilité à conduire' : `${uploadedRequired}/${totalRequired} documents obligatoires fournis`}
+                {allVerified ? (isDriver ? 'Tu es habilité à conduire' : 'Ton dossier est complet') : `${uploadedRequired}/${totalRequired} documents obligatoires fournis`}
               </Text>
             </View>
           </View>
@@ -283,7 +294,7 @@ export function KycVerificationScreen() {
               <React.Fragment key={doc.key}>
               <DocCard
                 key={doc.key}
-                title={doc.title}
+                title={numbered(doc)}
                 hint={doc.hint}
                 required={isRequired(doc)}
                 status={s}
@@ -295,7 +306,7 @@ export function KycVerificationScreen() {
               />
               {doc.key === 'rib' ? (
                 <Surface padded style={{ padding: 14, gap: 8 }}>
-                  <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>5. Es-tu hébergé(e) chez quelqu'un ?</Text>
+                  <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>{groups.indexOf('hosting') + 1}. Es-tu hébergé(e) chez quelqu'un ?</Text>
                   <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>
                     Si oui, ajoute l'attestation d'hébergement et, en annexe, la pièce d'identité de la personne qui t'héberge.
                   </Text>
@@ -306,7 +317,7 @@ export function KycVerificationScreen() {
                   />
                 </Surface>
               ) : null}
-              {doc.key === 'license_back' ? (
+              {isDriver && doc.key === 'license_back' ? (
                 <Surface padded style={{ padding: 14, gap: 10 }}>
                   <Text style={{ fontSize: 14, color: theme.ink, fontFamily: TYPO.weights.semibold }}>Ton permis</Text>
                   <Text style={{ fontSize: 12, color: theme.muted, fontFamily: TYPO.weights.medium, lineHeight: 17 }}>

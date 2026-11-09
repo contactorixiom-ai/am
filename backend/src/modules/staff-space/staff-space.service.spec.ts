@@ -1,4 +1,5 @@
 import { driverCompliance } from './staff-space.service';
+import { personnelCompliance } from '../../common/auth/driver-kyc';
 
 const ALL = ['IDENTITY_CARD', 'PROOF_OF_ADDRESS', 'DRIVER_LICENSE', 'BANK_DETAILS', 'VITALE_CARD', 'HEALTH_INSURANCE_RIGHTS', 'SELFIE'];
 
@@ -40,5 +41,17 @@ describe('driverCompliance', () => {
       { type: 'VITALE_CARD', status: 'APPROVED' },
     ]);
     expect(r.items.find((i) => i.key === 'VITALE')?.status).toBe('APPROVED');
+  });
+});
+
+describe('personnelCompliance', () => {
+  it('salarié de l\'équipe : les sept pièces, sans permis', () => {
+    const r = personnelCompliance('SECRETARY', []);
+    expect(r.items.map((i) => i.key)).toEqual(['ID', 'ADDRESS', 'RIB', 'VITALE', 'HEALTH', 'SELFIE']);
+    const full = personnelCompliance('HR', ['IDENTITY_CARD', 'PROOF_OF_ADDRESS', 'BANK_DETAILS', 'VITALE_CARD', 'HEALTH_INSURANCE_RIGHTS', 'SELFIE'].map((type) => ({ type, status: 'APPROVED' })));
+    expect(full.complete).toBe(true);
+  });
+  it('convoyeur : le permis en plus', () => {
+    expect(personnelCompliance('DRIVER', []).items.map((i) => i.key)).toContain('LICENSE');
   });
 });

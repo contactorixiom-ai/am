@@ -85,7 +85,15 @@ export async function createMission(input: CreateMissionInput): Promise<MissionS
 }
 
 export async function listMissions(): Promise<{ data: MissionSummary[]; meta: { total: number } }> {
-  return apiFetch('/missions');
+  return apiFetch('/missions?pageSize=100');
+}
+
+/** Planning : missions dont la prise en charge tombe dans la période. */
+export async function listMissionsBetween(from: Date, to: Date): Promise<MissionSummary[]> {
+  const res = await apiFetch<{ data: MissionSummary[] }>(
+    `/missions?pageSize=100&from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+  );
+  return res?.data ?? [];
 }
 
 // ─── Convoyeur : faire avancer sa mission ─────────────────────────────────

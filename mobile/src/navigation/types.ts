@@ -49,7 +49,7 @@ export type RootStackParamList = {
     | undefined;
   Conversations: undefined;
   DriverMode: undefined;
-  Admin: { tab?: 'dashboard' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team' } | undefined;
+  Admin: { tab?: 'dashboard' | 'planning' | 'generate' | 'shipments' | 'documents' | 'drivers' | 'personnel' | 'received' | 'expenses' | 'announce' | 'members' | 'team' } | undefined;
   MySpace: undefined;
   KycVerification: undefined;
   SecuritySettings: undefined;
