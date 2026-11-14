@@ -12,6 +12,7 @@ import { CarRequestScreen } from '../screens/CarRequestScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { HomePickupAddressScreen } from '../screens/HomePickupAddressScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { ClientHomeScreen } from '../screens/ClientHomeScreen';
 import { KycVerificationScreen } from '../screens/KycVerificationScreen';
 import { MySpaceScreen } from '../screens/MySpaceScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
@@ -53,11 +54,6 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const Tabs = createBottomTabNavigator<AppTabParamList>();
 
-// Placeholder écran pour la position centrale (jamais affiché, juste pour
-// que le custom tab bar puisse afficher le bouton "Demander" en or au milieu)
-function NewCenterPlaceholder() {
-  return null;
-}
 
 // Les onglets dépendent du rôle. Un convoyeur n'est pas un client : il ne
 // commande pas de transport, et l'onglet Documents lui présentait les
@@ -72,17 +68,21 @@ function AppTabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Trips" component={TripsScreen} />
+      {/* Barre du bas : Mes envois · Commander · Documents · Messages · Compte
+          (convoyeur : Accueil · Missions · Messages · Compte). « Suivi » reste
+          joignable depuis l'accueil et le menu PC, sans onglet. */}
+      <Tabs.Screen name="Home" component={user?.role === 'CLIENT' ? ClientHomeScreen : HomeScreen} />
       {isDriverOnly ? (
         <Tabs.Screen name="Missions" component={DriverModeScreen} />
       ) : (
         <>
-          <Tabs.Screen name="NewCenter" component={NewCenterPlaceholder} />
+          <Tabs.Screen name="Commander" component={ServicePickerScreen} />
           <Tabs.Screen name="Documents" component={DocumentsScreen} />
         </>
       )}
+      <Tabs.Screen name="Messages" component={ConversationsScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
+      <Tabs.Screen name="Trips" component={TripsScreen} />
     </Tabs.Navigator>
   );
 }
@@ -212,8 +212,10 @@ export function RootNavigator() {
           </>
         ) : (
           <>
-            <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+            {/* Sans compte : l'écran de connexion d'abord (créer un compte,
+                rejoindre comme convoyeur et suivre un colis y sont proposés). */}
             <RootStack.Screen name="Login" component={LoginScreen} />
+            <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
             {/* Grille tarifaire : réservée aux comptes connectés (plus de lien public). */}
             <RootStack.Screen name="Register" component={RegisterScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

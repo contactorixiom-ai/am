@@ -55,19 +55,19 @@ export function SideNav({ navigationRef }: Props) {
   const office = hasBackOffice(user.role);
 
   const items: Item[] = [
-    { key: 'Home', label: 'Accueil', icon: 'home', screen: 'AppTabs', tab: 'Home' },
+    { key: 'Home', label: user.role === 'CLIENT' ? 'Mes envois' : 'Accueil', icon: 'home', screen: 'AppTabs', tab: 'Home' },
     { key: 'Trips', label: 'Suivi', icon: 'pin', screen: 'AppTabs', tab: 'Trips' },
     ...(driver
       ? [{ key: 'Missions', label: 'Mes missions', icon: 'truck' as IconKey, screen: 'AppTabs', tab: 'Missions' }]
       : [
-          { key: 'ServicePicker', label: 'Nouvelle demande', icon: 'plus' as IconKey, screen: 'ServicePicker', accent: true },
+          { key: 'Commander', label: 'Commander', icon: 'plus' as IconKey, screen: 'AppTabs', tab: 'Commander', accent: true },
           { key: 'Documents', label: 'Documents', icon: 'doc' as IconKey, screen: 'AppTabs', tab: 'Documents' },
         ]),
     { key: 'Notifications', label: 'Notifications', icon: 'bell', screen: 'Notifications' },
-    { key: 'Conversations', label: 'Messages', icon: 'chat', screen: 'Conversations' },
+    { key: 'Messages', label: 'Messages', icon: 'chat', screen: 'AppTabs', tab: 'Messages' },
     ...(hasPersonnelSpace(user.role) ? [{ key: 'MySpace', label: 'Mon espace', icon: 'doc' as IconKey, screen: 'MySpace' }] : []),
     ...(office ? [{ key: 'Admin', label: backOfficeTitle(user.role), icon: 'sliders' as IconKey, screen: 'Admin' }] : []),
-    { key: 'Profile', label: 'Profil', icon: 'user', screen: 'AppTabs', tab: 'Profile' },
+    { key: 'Profile', label: 'Compte', icon: 'user', screen: 'AppTabs', tab: 'Profile' },
   ];
 
   const go = (it: Item) => {
@@ -137,7 +137,7 @@ export function SideNav({ navigationRef }: Props) {
             <Text style={{ flex: 1, fontSize: 13.5, color: on ? theme.ink : theme.inkSoft, fontFamily: on ? TYPO.weights.semibold : TYPO.weights.medium }}>
               {it.label}
             </Text>
-            <CountBadge count={it.key === 'Conversations' ? badges.messages : it.key === 'Notifications' ? badges.notifications : 0} />
+            <CountBadge count={it.key === 'Messages' ? badges.messages : it.key === 'Notifications' ? badges.notifications : 0} />
           </Pressable>
         );
       })}

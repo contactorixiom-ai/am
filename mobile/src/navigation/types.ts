@@ -63,7 +63,8 @@ export type RootStackParamList = {
 export type AppTabParamList = {
   Home: undefined;
   Trips: undefined;
-  NewCenter: undefined;
+  Commander: undefined;
+  Messages: undefined;
   Documents: undefined;
   /** Onglet convoyeur : ses missions affectées et le suivi GPS. */
   Missions: undefined;

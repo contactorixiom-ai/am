@@ -109,9 +109,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, meta?: { userAgent?: string; ipAddress?: string }): Promise<AuthResult> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase().trim() },
-    });
+    const user = await this.findByLogin(dto.email);
     if (!user) throw new UnauthorizedException('E-mail ou mot de passe incorrect.');
     if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.DELETED) {
       throw new UnauthorizedException('Ce compte n\'est pas actif. Contactez Axis Import.');
@@ -355,6 +353,24 @@ export class AuthService {
     });
     const base = this.config.get<string>('appUrl', 'https://app-axisimport.com/app/');
     return { url: `${base}?reinitialisation=${token}`, expiresAt };
+  }
+
+  /**
+   * Connexion par e-mail ou par téléphone. Le téléphone est comparé sous ses
+   * écritures courantes (06 12 34 56 78, 0612345678, +33612345678).
+   */
+  private async findByLogin(identifier: string) {
+    const id = identifier.trim();
+    if (id.includes('@')) return this.prisma.user.findUnique({ where: { email: id.toLowerCase() } });
+    const digits = id.replace(/[\s.\-()]/g, '');
+    if (!/^\+?\d{6,15}$/.test(digits)) return null;
+    const variants = new Set<string>([id, digits]);
+    if (/^0\d{9}$/.test(digits)) variants.add(`+33${digits.slice(1)}`);
+    if (/^\+33\d{9}$/.test(digits)) variants.add(`0${digits.slice(3)}`);
+    if (/^0033\d{9}$/.test(digits)) { variants.add(`+33${digits.slice(4)}`); variants.add(`0${digits.slice(4)}`); }
+    const users = await this.prisma.user.findMany({ where: { phone: { in: [...variants] }, deletedAt: null }, take: 2 });
+    // Un même numéro sur deux comptes : on ne devine pas, l'e-mail est requis.
+    return users.length === 1 ? users[0] : null;
   }
 
   private async buildAuthResult(

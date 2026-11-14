@@ -1,4 +1,4 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 'react-native';
@@ -54,6 +54,7 @@ export function ConversationsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const loadingRef = useRef(false);
+  const isTab = useRoute().name === 'Messages';
   const [newMsg, setNewMsg] = useState(false);
   const [newGroup, setNewGroup] = useState(false);
   const internal = isInternal(user?.role);
@@ -105,6 +106,8 @@ export function ConversationsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppBar
+        // Onglet de la barre du bas : pas de flèche retour.
+        leading={isTab ? <View /> : undefined}
         title="Messages"
         subtitle={
           convs === null
